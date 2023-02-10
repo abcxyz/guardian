@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       workspace:
-        description: 'WORKSPACE - The Terraform workspace directory to execute the command in. If left blank, the command will run for all paths in .wardenrc'
+        description: 'WORKSPACE - The Terraform workspace directory to execute the command in. If left blank, the command will run for all paths in .warden'
         type: string
       number:
         description: 'PR NUMBER - The Pull Request number to run the actions for (if blank, this runs for main).'
