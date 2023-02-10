@@ -1,7 +1,7 @@
 locals {
   project_id               = "verbanicm-dev"
   name                     = "app-a"
-  ci_service_account_email = "autotf-ci-sa@verbanicm-dev.iam.gserviceaccount.com"
+  ci_service_account_email = "warden-ci-sa@verbanicm-dev.iam.gserviceaccount.com"
 }
 
 resource "google_service_account" "test_service_account" {

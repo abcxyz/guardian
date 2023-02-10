@@ -48,8 +48,6 @@ jobs:
     steps:
       - name: 'Checkout'
         uses: 'actions/checkout@v3'
-        with:
-          ref: '${{ github.event.pull_request.head.ref }}'
 
       - id: 'set-matrix'
         name: 'Set Matrix'
@@ -71,8 +69,6 @@ jobs:
     steps:
       - name: 'Checkout'
         uses: 'actions/checkout@v3'
-        with:
-          ref: '${{ github.event.pull_request.head.ref }}'
 
       - id: 'auth'
         name: 'Authenticate to Google Cloud'
@@ -183,8 +179,6 @@ jobs:
 
       - name: 'Checkout'
         uses: 'actions/checkout@v3'
-        with:
-          ref: '${{ github.event.pull_request.head.ref }}'
 
       - id: 'auth'
         name: 'Authenticate to Google Cloud'
