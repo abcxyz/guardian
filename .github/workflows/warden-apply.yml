@@ -41,7 +41,7 @@ env:
 
 jobs:
   apply_init:
-    if: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.merged }}
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.merged }}
     runs-on: 'ubuntu-latest'
     permissions:
       contents: 'read'
