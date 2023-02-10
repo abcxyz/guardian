@@ -79,7 +79,7 @@ jobs:
       paths: ${{ steps.set-matrix.outputs.paths }}
     steps:
       - name: 'Checkout'
-        uses: 'actions/checkout@v3'
+        uses: 'actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c' # ratchet:actions/checkout@v3
 
       - name: 'Checkout PR'
         if: ${{ inputs.number != '' }}
@@ -115,7 +115,7 @@ jobs:
 
     steps:
       - name: 'Checkout'
-        uses: 'actions/checkout@v3'
+        uses: 'actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c' # ratchet:actions/checkout@v3
 
       - name: 'Checkout PR'
         if: ${{ inputs.number != '' }}
@@ -125,14 +125,14 @@ jobs:
 
       - id: 'auth'
         name: 'Authenticate to Google Cloud'
-        uses: 'google-github-actions/auth@v1'
+        uses: 'google-github-actions/auth@ef5d53e30bbcd8d0836f4288f5e50ff3e086997d' # ratchet:google-github-actions/auth@v1
         with:
           workload_identity_provider: '${{ env.WIF_PROVIDER }}'
           service_account: '${{ env.WIF_SERVICE_ACCOUNT }}'
           token_format: 'access_token'
 
       - name: 'Setup Terraform'
-        uses: abcxyz/secure-setup-terraform@v0.2.4
+        uses: abcxyz/secure-setup-terraform@b5991db039fb759d12bc5de45c2258cc79eb1ada # ratchet:abcxyz/secure-setup-terraform@v0.2.4
         with:
           terraform_version: '${{ env.WARDEN_TF_VERSION }}'
           terraform_module_location: './${{ env.WARDEN_PATH }}'

@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   admin:
-    uses: 'abcxyz/warden/.github/workflows/warden-admin.yml@main'
+    uses: 'abcxyz/warden/.github/workflows/warden-admin.yml@main' # ratchet:exclude
     with:
       command: '${{ inputs.command }}'
       workspace: '${{ inputs.workspace }}'

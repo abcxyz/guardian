@@ -12,7 +12,7 @@ on:
 
 jobs:
   apply:
-    uses: 'abcxyz/warden/.github/workflows/warden-apply.yml@main'
+    uses: 'abcxyz/warden/.github/workflows/warden-apply.yml@main' # ratchet:exclude
     with:
       wif_provider: 'projects/200062081032/locations/global/workloadIdentityPools/github-pool/providers/github-provider-abcxyz-warden'
       wif_service_account: 'warden-ci-sa@verbanicm-dev.iam.gserviceaccount.com'
