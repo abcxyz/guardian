@@ -216,11 +216,11 @@ jobs:
         name: 'Apply'
         continue-on-error: true
         run: |-
-          terraform apply -no-color -input=false ${{ env.WARDEN_PLAN_FILENAME }} > out.txt
+          terraform apply -no-color -input=false ${{ env.WARDEN_PLAN_FILENAME }} 2>&1 > out.txt
 
       - name: 'GitHub Apply Format'
         run: |-
-          cat out.txt | sed -E 's/^([[:space:]]+)([-+])/\2\1/g' > apply.txt
+          cat out.txt | sed -E 's/^([[:space:]]+)([-+])/\2\1/g' 2>&1 > apply.txt
 
           APPLY=$(cat apply.txt)
           echo "APPLY<<EOF" >> $GITHUB_ENV
@@ -273,6 +273,8 @@ jobs:
               \`\`\`
               `,
             });
+
+            process.exit(1);
 
   apply_unlock:
     needs: ['apply_init', 'apply']

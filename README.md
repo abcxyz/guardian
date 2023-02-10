@@ -1,4 +1,4 @@
-# warden
+# 🚔 Warden 🚔
 
 Warden is a Terraform actuation and enforcement tool using GitHub actions.
 

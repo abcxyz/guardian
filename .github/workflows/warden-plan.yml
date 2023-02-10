@@ -226,7 +226,7 @@ jobs:
       - name: 'GitHub Plan Format'
         id: 'format'
         run: |-
-          cat out.txt | sed -E 's/^([[:space:]]+)([-+])/\2\1/g' > plan.txt
+          cat out.txt | sed -E 's/^([[:space:]]+)([-+])/\2\1/g' 2>&1 > plan.txt
 
           PLAN=$(cat plan.txt)
           echo "PLAN<<EOF" >> $GITHUB_ENV
