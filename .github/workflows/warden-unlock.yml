@@ -1,5 +1,4 @@
 name: 'Warden Unlock'
-
 on:
   workflow_call:
     inputs:
@@ -31,7 +30,6 @@ on:
       warden_plan_job_name:
         type: string
         default: 'plan'
-
 env:
   MAX_RETRIES: ${{ inputs.max_retries }}
   BASE_RETRY_DELAY: ${{ inputs.base_retry_delay }}
@@ -41,7 +39,6 @@ env:
   WARDEN_BUCKET_NAME: ${{ inputs.warden_bucket_name }}
   WARDEN_TF_VERSION: ${{ inputs.warden_tf_version }}
   WARDEN_LOCK_FILENAME: 'warden-locks/${{ github.repository }}/${{ github.repository_id }}.tflock'
-
 jobs:
   unlock_access:
     if: ${{ github.event_name == 'issue_comment' && github.event.issue.pull_request && github.event.comment.body == 'warden unlock' }}
@@ -58,7 +55,6 @@ jobs:
             echo "::error ::Actor @${{ github.triggering_actor }} does not have maintain or higher permissions to perform these operations."
             exit 1
           fi
-
   unlock:
     needs: ['unlock_access']
     runs-on: 'ubuntu-latest'
@@ -67,7 +63,6 @@ jobs:
       id-token: 'write'
       pull-requests: 'write'
       checks: 'write'
-
     steps:
       - id: 'comment'
         name: 'Start Comment'
@@ -90,7 +85,6 @@ jobs:
 
       - name: 'Checkout'
         uses: 'actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c' # ratchet:actions/checkout@v3
-
       - id: 'auth'
         name: 'Authenticate to Google Cloud'
         uses: 'google-github-actions/auth@ef5d53e30bbcd8d0836f4288f5e50ff3e086997d' # ratchet:google-github-actions/auth@v1
@@ -98,18 +92,15 @@ jobs:
           workload_identity_provider: '${{ env.WIF_PROVIDER }}'
           service_account: '${{ env.WIF_SERVICE_ACCOUNT }}'
           token_format: 'access_token'
-
       - name: 'Set up Cloud SDK'
         uses: 'google-github-actions/setup-gcloud@62d4898025f6041e16b1068643bfc5a696863587' # ratchet:google-github-actions/setup-gcloud@v1
         with:
           skip_install: true
-
       - name: 'Cloud SDK Config'
         run: |-
           gcloud config set storage/max_retries ${{ env.MAX_RETRIES }}
           gcloud config set storage/base_retry_delay ${{ env.BASE_RETRY_DELAY }}
           gcloud config set storage/max_retry_delay ${{ env.MAX_RETRY_DELAY }}
-
       - id: 'validate'
         name: 'Validate'
         continue-on-error: true
@@ -213,14 +204,12 @@ jobs:
                 });
               })
             );
-
       - id: 'unlock'
         name: 'Unlock'
         if: ${{ steps.checks.outcome == 'success' }}
         continue-on-error: true
         run: |-
           gcloud storage rm gs://${{ env.WARDEN_BUCKET_NAME }}/${{ env.WARDEN_LOCK_FILENAME }}
-
       - name: 'Unlock Success Comment'
         if: ${{ steps.checks.outcome == 'success' && steps.unlock.outcome == 'success' }}
         uses: actions/github-script@d556feaca394842dc55e4734bf3bb9f685482fa0 # ratchet:actions/github-script@v6
