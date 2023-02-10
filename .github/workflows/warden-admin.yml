@@ -1,0 +1,162 @@
+name: 'Warden Admin'
+
+on:
+  workflow_call:
+    inputs:
+      command:
+        description: 'COMMAND - The Terraform command to run including any arguments (this value is appended to the terraform command).'
+        required: true
+        type: string
+      workspace:
+        description: 'WORKSPACE - The Terraform workspace directory to execute the command in. If left blank, the command will run for all paths in .wardenrc'
+        type: string
+      number:
+        description: 'PR NUMBER - The Pull Request number to run the actions for (if blank, this runs for main).'
+        type: string
+      wif_provider:
+        required: true
+        type: string
+      wif_service_account:
+        required: true
+        type: string
+      max_retries:
+        required: false
+        default: 5
+        type: number
+      base_retry_delay:
+        required: false
+        default: 2
+        type: number
+      max_retry_delay:
+        required: false
+        default: 60
+        type: number
+      warden_bucket_name:
+        required: true
+        type: string
+      warden_tf_version:
+        required: false
+        default: '1.1.8'
+        type: string
+env:
+  MAX_RETRIES: ${{ inputs.max_retries }}
+  BASE_RETRY_DELAY: ${{ inputs.base_retry_delay }}
+  MAX_RETRY_DELAY: ${{ inputs.max_retry_delay }}
+  WIF_PROVIDER: ${{ inputs.wif_provider }}
+  WIF_SERVICE_ACCOUNT: ${{ inputs.wif_service_account }}
+  WARDEN_BUCKET_NAME: ${{ inputs.warden_bucket_name }}
+  WARDEN_TF_VERSION: ${{ inputs.warden_tf_version }}
+  WARDEN_LOCK_FILENAME: 'warden-locks/${{ github.repository }}/${{ github.repository_id }}.tflock'
+
+concurrency:
+  group: '${{ github.workflow }}-${{ github.head_ref || github.ref }}'
+
+jobs:
+  admin_access:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: 'ubuntu-latest'
+    permissions:
+      contents: 'read'
+    steps:
+      - name: 'Permission'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |-
+          ROLE=$(gh api -H "Accept: application/vnd.github+json" /repos/${{ github.repository }}/collaborators/${{ github.triggering_actor }}/permission | jq .role_name -r)
+          if [ "$ROLE" != "admin" ]; then
+            echo "::error ::Actor @${{ github.triggering_actor }} does not have admin permission to perform these operations."
+            exit 1
+          fi
+
+  admin_init:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    needs: 'admin_access'
+    runs-on: 'ubuntu-latest'
+    permissions:
+      contents: 'read'
+      pull-requests: 'read'
+    outputs:
+      paths: ${{ steps.set-matrix.outputs.paths }}
+    steps:
+      - name: 'Checkout'
+        uses: 'actions/checkout@v3'
+
+      - name: 'Checkout PR'
+        if: ${{ inputs.number != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh pr checkout ${{ inputs.number }}
+
+      - id: 'set-matrix'
+        name: 'Set Matrix'
+        run: |-
+          if [ "${{ inputs.workspace }}" != "" ]; then
+            PATHS=$(echo "${{ inputs.workspace }}" | jq --raw-input 'split(",")' | jq -r tostring)
+            echo "paths=${PATHS}" >> $GITHUB_OUTPUT
+          else
+            PATHS=$(touch .warden | cat .warden | jq --raw-input . | jq --slurp . -c | jq -r tostring)
+            echo "paths=${PATHS}" >> $GITHUB_OUTPUT
+          fi
+
+  admin:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    needs: ['admin_access', 'admin_init']
+    runs-on: 'ubuntu-latest'
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+      pull-requests: 'read'
+    strategy:
+      fail-fast: false
+      matrix:
+        path: ${{ fromJSON(needs.admin_init.outputs.paths) }}
+    env:
+      WARDEN_PATH: '${{ matrix.path }}'
+
+    steps:
+      - name: 'Checkout'
+        uses: 'actions/checkout@v3'
+
+      - name: 'Checkout PR'
+        if: ${{ inputs.number != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh pr checkout ${{ inputs.number }}
+
+      - id: 'auth'
+        name: 'Authenticate to Google Cloud'
+        uses: 'google-github-actions/auth@v1'
+        with:
+          workload_identity_provider: '${{ env.WIF_PROVIDER }}'
+          service_account: '${{ env.WIF_SERVICE_ACCOUNT }}'
+          token_format: 'access_token'
+
+      - name: 'Setup Terraform'
+        uses: abcxyz/secure-setup-terraform@v0.2.4
+        with:
+          terraform_version: '${{ env.WARDEN_TF_VERSION }}'
+          terraform_module_location: './${{ env.WARDEN_PATH }}'
+          protect_lockfile: false
+          terraform_wrapper: false
+
+      - name: 'Init'
+        working-directory: '${{ env.WARDEN_PATH }}'
+        run: terraform init -input=false
+
+      - name: 'Run Command'
+        working-directory: '${{ env.WARDEN_PATH }}'
+        run: |-
+          terraform ${{ inputs.command }} ${{ inputs.args }}
+
+  admin_success:
+    needs: ['admin_access', 'admin_init', 'admin']
+    runs-on: 'ubuntu-latest'
+    steps:
+      - name: 'Invalid'
+        if: ${{ github.ref != 'refs/heads/main' }}
+        run: |-
+          echo "Warden Admin can only be run from the main branch."
+          exit 1
+
+      - name: 'Success'
+        run: exit 0
