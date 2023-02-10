@@ -1,0 +1,301 @@
+name: 'Warden Plan'
+
+on:
+  workflow_call:
+    inputs:
+      wif_provider:
+        required: true
+        type: string
+      wif_service_account:
+        required: true
+        type: string
+      max_retries:
+        required: false
+        default: 5
+        type: number
+      base_retry_delay:
+        required: false
+        default: 2
+        type: number
+      max_retry_delay:
+        required: false
+        default: 60
+        type: number
+      warden_bucket_name:
+        required: true
+        type: string
+      warden_tf_version:
+        required: false
+        default: '1.1.8'
+        type: string
+
+env:
+  MAX_RETRIES: ${{ inputs.max_retries }}
+  BASE_RETRY_DELAY: ${{ inputs.base_retry_delay }}
+  MAX_RETRY_DELAY: ${{ inputs.max_retry_delay }}
+  WIF_PROVIDER: ${{ inputs.wif_provider }}
+  WIF_SERVICE_ACCOUNT: ${{ inputs.wif_service_account }}
+  WARDEN_BUCKET_NAME: ${{ inputs.warden_bucket_name }}
+  WARDEN_TF_VERSION: ${{ inputs.warden_tf_version }}
+
+jobs:
+  plan_init:
+    runs-on: 'ubuntu-latest'
+    permissions:
+      contents: 'read'
+    outputs:
+      paths: ${{ steps.set-matrix.outputs.paths }}
+    steps:
+      - name: 'Checkout'
+        uses: 'actions/checkout@v3'
+        with:
+          ref: '${{ github.event.pull_request.head.ref }}'
+
+      - id: 'set-matrix'
+        name: 'Set Matrix'
+        run: |-
+          PATHS=$(touch .warden | cat .warden | jq --raw-input . | jq --slurp . -c | jq -r tostring)
+          echo "paths=${PATHS}" >> $GITHUB_OUTPUT
+
+  plan_lock:
+    needs: 'plan_init'
+    runs-on: 'ubuntu-latest'
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+      pull-requests: 'write'
+    env:
+      WARDEN_LOCK_PREFIX: 'warden-locks/${{ github.repository }}'
+      WARDEN_LOCK_FILENAME: '${{ github.repository_id }}.tflock'
+
+    steps:
+      - name: 'Checkout'
+        uses: 'actions/checkout@v3'
+        with:
+          ref: '${{ github.event.pull_request.head.ref }}'
+
+      - id: 'auth'
+        name: 'Authenticate to Google Cloud'
+        uses: 'google-github-actions/auth@v1'
+        with:
+          workload_identity_provider: '${{ env.WIF_PROVIDER }}'
+          service_account: '${{ env.WIF_SERVICE_ACCOUNT }}'
+          token_format: 'access_token'
+
+      - name: 'Set up Cloud SDK'
+        uses: 'google-github-actions/setup-gcloud@v1'
+        with:
+          version: '>= 416.0.0'
+
+      - name: 'Cloud SDK Config'
+        run: |-
+          gcloud config set storage/max_retries ${{ env.MAX_RETRIES }}
+          gcloud config set storage/base_retry_delay ${{ env.BASE_RETRY_DELAY }}
+          gcloud config set storage/max_retry_delay ${{ env.MAX_RETRY_DELAY }}
+
+      - id: 'lock'
+        name: 'Lock'
+        continue-on-error: true
+        run: |-
+          RESPONSE=$(gcloud storage objects list gs://${{ env.WARDEN_BUCKET_NAME }}/${{ env.WARDEN_LOCK_PREFIX }}/${{ env.WARDEN_LOCK_FILENAME }} --format="json(name,metadata)")
+          NAME="${{ github.event.pull_request.number }}"
+          REPO_URL="${{ github.event.pull_request.html_url }}"
+
+          LENGTH=$(echo -n ${RESPONSE} | jq -r '. | length')
+
+          if [ "$LENGTH" = "0" ]; then
+              touch ${{ env.WARDEN_LOCK_FILENAME }}
+              gcloud storage cp \
+                ${{ env.WARDEN_LOCK_FILENAME }} \
+                gs://${{ env.WARDEN_BUCKET_NAME }}/${{ env.WARDEN_LOCK_PREFIX }}/${{ env.WARDEN_LOCK_FILENAME }} \
+                --if-generation-match="0" \
+                --custom-metadata="lock_id=$NAME,lock_repo_url=$REPO_URL"
+          else 
+              LOCK_ID=$(echo -n ${RESPONSE} | jq -r '.[0].metadata.lock_id')
+              LOCK_REPO_URL=$(echo -n ${RESPONSE} | jq -r '.[0].metadata.lock_repo_url')
+
+              if [ "$LOCK_ID" != "$NAME" ]; then
+                  MSG="Plan is locked by another process: ${LOCK_REPO_URL}"
+                  echo "::error ::${MSG}"
+                  echo "error=${MSG}" >> $GITHUB_OUTPUT
+                  exit 1
+              fi
+          fi
+
+      - name: 'Invalid Comment'
+        if: ${{ steps.lock.outcome != 'success' }}
+        uses: actions/github-script@v6
+        with:
+          retries: ${{ env.MAX_RETRIES }}
+          script: |-
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `
+            ### 🚔 Warden Plan 🚔
+            **Status: 🟥 Failed**\n
+            ${{ steps.lock.outputs.error }}
+            `,
+            });
+
+            process.exit(1);
+
+  plan:
+    needs: ['plan_init', 'plan_lock']
+    runs-on: 'ubuntu-latest'
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+      pull-requests: 'write'
+    strategy:
+      fail-fast: false
+      matrix:
+        path: ${{ fromJSON(needs.plan_init.outputs.paths) }}
+    defaults:
+      run:
+        shell: 'bash'
+        working-directory: '${{ matrix.path }}'
+    env:
+      WARDEN_PLAN_PREFIX: 'warden-plans/${{ github.repository }}/${{ github.event.pull_request.number }}/${{ matrix.path }}'
+      WARDEN_PLAN_FILENAME: '${{ github.event.pull_request.head.sha }}.tfplan'
+
+    steps:
+      - id: 'comment'
+        name: 'Start Comment'
+        uses: actions/github-script@v6
+        with:
+          retries: ${{ env.MAX_RETRIES }}
+          script: |-
+            const { data: prComment } = await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `
+              ### 🚔 Warden Plan 🚔
+              **Status: 🟨 In Progress**
+              **Workspace: \`${{ matrix.path }}\`**\n
+              Results will be posted here when completed...
+              `,
+              });
+
+            return prComment.id
+
+      - name: 'Checkout'
+        uses: 'actions/checkout@v3'
+        with:
+          ref: '${{ github.event.pull_request.head.ref }}'
+
+      - id: 'auth'
+        name: 'Authenticate to Google Cloud'
+        uses: 'google-github-actions/auth@v1'
+        with:
+          workload_identity_provider: '${{ env.WIF_PROVIDER }}'
+          service_account: '${{ env.WIF_SERVICE_ACCOUNT }}'
+          token_format: 'access_token'
+
+      - name: 'Setup Terraform'
+        uses: abcxyz/secure-setup-terraform@v0.2.4
+        with:
+          terraform_version: '${{ env.WARDEN_TF_VERSION }}'
+          terraform_module_location: './${{ matrix.path }}'
+          protect_lockfile: false
+          terraform_wrapper: false
+
+      - name: 'Set up Cloud SDK'
+        uses: 'google-github-actions/setup-gcloud@v1'
+        with:
+          version: '>= 416.0.0'
+
+      - name: 'Cloud SDK Config'
+        run: |-
+          gcloud config set storage/max_retries ${{ env.MAX_RETRIES }}
+          gcloud config set storage/base_retry_delay ${{ env.BASE_RETRY_DELAY }}
+          gcloud config set storage/max_retry_delay ${{ env.MAX_RETRY_DELAY }}
+
+      - name: 'Lint'
+        run: terraform fmt -check -diff -recursive
+
+      - name: 'Init'
+        run: terraform init -input=false
+
+      - name: 'Validate'
+        run: terraform validate
+
+      - name: 'Plan'
+        id: 'plan'
+        continue-on-error: true
+        run: |-
+          terraform plan -input=false -no-color -out=${{ env.WARDEN_PLAN_FILENAME }} \
+          && terraform show -no-color ${{ env.WARDEN_PLAN_FILENAME }} 2>&1 > out.txt
+
+      - name: 'GitHub Plan Format'
+        id: 'format'
+        run: |-
+          cat out.txt | sed -E 's/^([[:space:]]+)([-+])/\2\1/g' > plan.txt
+
+          PLAN=$(cat plan.txt)
+          echo "PLAN<<EOF" >> $GITHUB_ENV
+          echo "$PLAN" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: 'Upload Plan'
+        if: ${{ steps.plan.outcome == 'success' }}
+        run: |-
+          gcloud storage cp \
+            ${{ env.WARDEN_PLAN_FILENAME }} \
+            gs://${{ env.WARDEN_BUCKET_NAME }}/${{ env.WARDEN_PLAN_PREFIX }}/${{ env.WARDEN_PLAN_FILENAME }}
+
+      - name: 'Success Comment'
+        if: ${{ steps.plan.outcome == 'success' }}
+        uses: actions/github-script@v6
+        with:
+          retries: ${{ env.MAX_RETRIES }}
+          script: |-
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: '${{ steps.comment.outputs.result }}',
+              body: `
+            ### 🚔 Warden Plan 🚔
+            **Status: 🟩 Success**
+            **Workspace: \`${{ matrix.path }}\`**\n
+            <details>
+            <summary>Diff</summary>\n
+            \`\`\`diff\n
+            ${{ env.PLAN }}
+            \`\`\`
+            </details>
+
+            - To apply, merge this pull request
+            - To unlock, comment \`warden unlock\`
+            - To plan, re-run this workflow or push new changes
+            `,
+            });
+
+      - name: 'Failure Comment'
+        if: ${{ steps.plan.outcome != 'success' }}
+        uses: actions/github-script@v6
+        with:
+          retries: ${{ env.MAX_RETRIES }}
+          script: |-
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: '${{ steps.comment.outputs.result }}',
+              body: `
+            ### 🚔 Warden Plan 🚔
+            **Status: 🟥 Failed**
+            **Workspace: \`${{ matrix.path }}\`**\n
+            \`\`\`\n
+            ${{ env.PLAN }}
+            \`\`\`
+            `,
+            });
+
+  plan_success:
+    needs: ['plan_init', 'plan_lock', 'plan']
+    runs-on: 'ubuntu-latest'
+    steps:
+      - name: 'Success'
+        run: exit 0

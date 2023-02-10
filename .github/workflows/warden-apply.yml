@@ -1,0 +1,358 @@
+name: 'Warden Apply'
+
+on:
+  workflow_call:
+    inputs:
+      wif_provider:
+        required: true
+        type: string
+      wif_service_account:
+        required: true
+        type: string
+      max_retries:
+        required: false
+        default: 5
+        type: number
+      base_retry_delay:
+        required: false
+        default: 2
+        type: number
+      max_retry_delay:
+        required: false
+        default: 60
+        type: number
+      warden_bucket_name:
+        required: true
+        type: string
+      warden_tf_version:
+        required: false
+        default: '1.1.8'
+        type: string
+
+env:
+  MAX_RETRIES: ${{ inputs.max_retries }}
+  BASE_RETRY_DELAY: ${{ inputs.base_retry_delay }}
+  MAX_RETRY_DELAY: ${{ inputs.max_retry_delay }}
+  WIF_PROVIDER: ${{ inputs.wif_provider }}
+  WIF_SERVICE_ACCOUNT: ${{ inputs.wif_service_account }}
+  WARDEN_BUCKET_NAME: ${{ inputs.warden_bucket_name }}
+  WARDEN_TF_VERSION: ${{ inputs.warden_tf_version }}
+  WARDEN_LOCK_FILENAME: 'warden-locks/${{ github.repository }}/${{ github.repository_id }}.tflock'
+
+jobs:
+  apply_init:
+    if: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.merged }}
+    runs-on: 'ubuntu-latest'
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+      pull-requests: 'write'
+    outputs:
+      paths: ${{ steps.set-matrix.outputs.paths }}
+
+    steps:
+      - name: 'Checkout'
+        uses: 'actions/checkout@v3'
+
+      - id: 'auth'
+        name: 'Authenticate to Google Cloud'
+        uses: 'google-github-actions/auth@v1'
+        with:
+          workload_identity_provider: '${{ env.WIF_PROVIDER }}'
+          service_account: '${{ env.WIF_SERVICE_ACCOUNT }}'
+          token_format: 'access_token'
+
+      - name: 'Setup Terraform'
+        uses: abcxyz/secure-setup-terraform@v0.2.4
+        with:
+          terraform_version: '${{ env.WARDEN_TF_VERSION }}'
+          terraform_module_location: './${{ matrix.path }}'
+          protect_lockfile: false
+          terraform_wrapper: false
+
+      - name: 'Set up Cloud SDK'
+        uses: 'google-github-actions/setup-gcloud@v1'
+        with:
+          skip_install: true
+
+      - name: 'Cloud SDK Config'
+        run: |-
+          gcloud config set storage/max_retries ${{ env.MAX_RETRIES }}
+          gcloud config set storage/base_retry_delay ${{ env.BASE_RETRY_DELAY }}
+          gcloud config set storage/max_retry_delay ${{ env.MAX_RETRY_DELAY }}
+
+      - id: 'validate'
+        name: 'Validate'
+        run: |-
+          NAME="${{ github.event.pull_request.number }}"
+
+          RESPONSE=$(gcloud storage objects list gs://${{ env.WARDEN_BUCKET_NAME }}/${{ env.WARDEN_LOCK_FILENAME }} --format="json(name,metadata)")
+
+          LENGTH=$(echo -n ${RESPONSE} | jq -r '. | length')
+
+          # if no lock file, process should exit
+          if [ "$LENGTH" = "0" ]; then
+              MSG="No lock file found, a plans need to be run before applying."
+              echo "::error ::${MSG}"
+              echo "error=${MSG}" >> $GITHUB_OUTPUT
+              exit 1
+          fi
+
+          LOCK_ID=$(echo -n ${RESPONSE} | jq -r '.[0].metadata.lock_id')
+          LOCK_REPO_URL=$(echo -n ${RESPONSE} | jq -r '.[0].metadata.lock_repo_url')
+
+          if [ "$LOCK_ID" != "$NAME" ]; then
+              MSG="Plan is locked by another process: ${LOCK_REPO_URL}"
+              echo "::error ::${MSG}"
+              echo "error=${MSG}" >> $GITHUB_OUTPUT
+              exit 1
+          fi
+
+      - name: 'Invalid Comment'
+        if: ${{ steps.validate.outcome != 'success' }}
+        uses: actions/github-script@v6
+        with:
+          retries: ${{ env.MAX_RETRIES }}
+          script: |-
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `
+            ### 🚔 Warden Apply 🚔
+            **Status: 🟥 Failed**\n
+            ${{ steps.validate.outputs.error }}
+            `,
+            });
+
+            process.exit(1);
+
+      - id: 'set-matrix'
+        name: 'Set Matrix'
+        run: |-
+          PATHS=$(touch .warden | cat .warden | jq --raw-input . | jq --slurp . -c | jq -r tostring)
+          echo "paths=${PATHS}" >> $GITHUB_OUTPUT
+
+  apply:
+    needs: 'apply_init'
+    runs-on: 'ubuntu-latest'
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+      pull-requests: 'write'
+    strategy:
+      fail-fast: false
+      matrix:
+        path: ${{ fromJSON(needs.apply_init.outputs.paths) }}
+    defaults:
+      run:
+        shell: 'bash'
+        working-directory: '${{ matrix.path }}'
+    env:
+      WARDEN_PLAN_PREFIX: 'warden-plans/${{ github.repository }}/${{ github.event.pull_request.number }}/${{ matrix.path }}'
+      WARDEN_PLAN_FILENAME: '${{ github.event.pull_request.head.sha }}.tfplan'
+
+    steps:
+      - id: 'comment'
+        name: 'Start Comment'
+        uses: actions/github-script@v6
+        with:
+          retries: ${{ env.MAX_RETRIES }}
+          script: |-
+            const { data: prComment } = await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `
+              ### 🚔 Warden Apply 🚔
+              **Status: 🟨 In Progress**
+              **Workspace: \`${{matrix.path}}\`**\n
+              Results will be posted here when completed...
+              `,
+              });
+
+            return prComment.id
+
+      - name: 'Checkout'
+        uses: 'actions/checkout@v3'
+
+      - id: 'auth'
+        name: 'Authenticate to Google Cloud'
+        uses: 'google-github-actions/auth@v1'
+        with:
+          workload_identity_provider: '${{ env.WIF_PROVIDER }}'
+          service_account: '${{ env.WIF_SERVICE_ACCOUNT }}'
+          token_format: 'access_token'
+
+      - name: 'Setup Terraform'
+        uses: abcxyz/secure-setup-terraform@v0.2.4
+        with:
+          terraform_version: '${{ env.WARDEN_TF_VERSION }}'
+          terraform_module_location: './${{ matrix.path }}'
+          protect_lockfile: false
+          terraform_wrapper: false
+
+      - name: 'Set up Cloud SDK'
+        uses: 'google-github-actions/setup-gcloud@v1'
+        with:
+          skip_install: true
+
+      - name: 'Cloud SDK Config'
+        run: |-
+          gcloud config set storage/max_retries ${{ env.MAX_RETRIES }}
+          gcloud config set storage/base_retry_delay ${{ env.BASE_RETRY_DELAY }}
+          gcloud config set storage/max_retry_delay ${{ env.MAX_RETRY_DELAY }}
+
+      - name: 'Init'
+        run: terraform init -input=false
+
+      - name: 'Download Plan'
+        run: |-
+          gcloud storage cp \
+            gs://${{ env.WARDEN_BUCKET_NAME }}/${{ env.WARDEN_PLAN_PREFIX }}/${{ env.WARDEN_PLAN_FILENAME }} \
+            ${{ env.WARDEN_PLAN_FILENAME }}
+
+      - id: 'apply'
+        name: 'Apply'
+        continue-on-error: true
+        run: |-
+          terraform apply -no-color -input=false ${{ env.WARDEN_PLAN_FILENAME }} > out.txt
+
+      - name: 'GitHub Apply Format'
+        run: |-
+          cat out.txt | sed -E 's/^([[:space:]]+)([-+])/\2\1/g' > apply.txt
+
+          APPLY=$(cat apply.txt)
+          echo "APPLY<<EOF" >> $GITHUB_ENV
+          echo "$APPLY" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: 'Delete Plan'
+        run: |-
+          gcloud storage rm gs://${{ env.WARDEN_BUCKET_NAME }}/${{ env.WARDEN_PLAN_PREFIX }}/*
+
+      - name: 'Success Comment'
+        if: ${{ steps.apply.outcome == 'success' }}
+        uses: actions/github-script@v6
+        with:
+          retries: ${{ env.MAX_RETRIES }}
+          script: |-
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: "${{ steps.comment.outputs.result }}",
+              body: `
+            ### 🚔 Warden Apply 🚔
+            **Status: 🟩 Success**
+            **Workspace: \`${{matrix.path}}\`**\n
+            <details>
+            <summary>Diff</summary>\n
+            \`\`\`diff\n
+            ${{env.APPLY}}
+            \`\`\`
+            </details>
+            `,
+            });
+
+      - name: 'Failure Comment'
+        if: ${{ steps.apply.outcome != 'success' }}
+        uses: actions/github-script@v6
+        with:
+          retries: ${{ env.MAX_RETRIES }}
+          script: |-
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: "${{ steps.comment.outputs.result }}",
+              body: `
+              ### 🚔 Warden Apply 🚔
+              **Status: 🟥 Failed**
+              **Workspace: \`${{matrix.path}}\`**\n
+              \`\`\`\n
+              ${{env.APPLY}}
+              \`\`\`
+              `,
+            });
+
+  apply_unlock:
+    needs: ['apply_init', 'apply']
+    runs-on: 'ubuntu-latest'
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+      pull-requests: 'write'
+
+    steps:
+      - name: 'Checkout'
+        uses: 'actions/checkout@v3'
+
+      - id: 'auth'
+        continue-on-error: true
+        name: 'Authenticate to Google Cloud'
+        uses: 'google-github-actions/auth@v1'
+        with:
+          workload_identity_provider: '${{ env.WIF_PROVIDER }}'
+          service_account: '${{ env.WIF_SERVICE_ACCOUNT }}'
+          token_format: 'access_token'
+
+      - name: 'Set up Cloud SDK'
+        continue-on-error: true
+        uses: 'google-github-actions/setup-gcloud@v1'
+        with:
+          skip_install: true
+
+      - name: 'Cloud SDK Config'
+        continue-on-error: true
+        run: |-
+          gcloud config set storage/max_retries ${{ env.MAX_RETRIES }}
+          gcloud config set storage/base_retry_delay ${{ env.BASE_RETRY_DELAY }}
+          gcloud config set storage/max_retry_delay ${{ env.MAX_RETRY_DELAY }}
+
+      - id: 'unlock'
+        name: 'Unlock'
+        continue-on-error: true
+        run: |-
+          gcloud storage rm gs://${{ env.WARDEN_BUCKET_NAME }}/${{ env.WARDEN_LOCK_FILENAME }}
+
+      - name: 'Failed Comment'
+        if: ${{ steps.unlock.outcome != 'success' }}
+        uses: actions/github-script@v6
+        with:
+          retries: ${{ env.MAX_RETRIES }}
+          script: |-
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `
+            ### 🚔 Warden Apply - Unlock 🚔
+            **Status: 🟥 Failed**\n
+            Failed to remove lockfile, this will need to be completed manually with the \`warden unlock\` comment.
+            `,
+            });
+
+            process.exit(1);
+
+      - name: 'Success Comment'
+        if: ${{ steps.unlock.outcome == 'success' }}
+        uses: actions/github-script@v6
+        with:
+          retries: ${{ env.MAX_RETRIES }}
+          script: |-
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `
+            ### 🚔 Warden Apply - Unlock 🚔
+            **Status: 🟩 Success**\n
+            Repository is now unlocked.
+            `,
+            });
+
+  apply_success:
+    needs: ['apply_init', 'apply', 'apply_unlock']
+    runs-on: 'ubuntu-latest'
+    steps:
+      - name: 'Success'
+        run: exit 0

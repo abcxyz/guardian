@@ -1,0 +1,31 @@
+### IDE related and tmp files ###
+bazel-*
+*~
+.idea/
+.vscode/
+.DS_Store
+*.swp
+.history
+tmp/
+
+### Terraform related ###
+# Local .terraform directories
+**/.terraform/*
+
+# Dont include lock files for automation
+**/.terraform.lock.hcl
+
+# .tfstate files
+*.tfstate
+*.tfstate.*
+
+# terraform plan files
+**/plan.out
+**/tfplan
+
+# Ignore override files as they are usually used to override resources locally and so
+# are not checked in
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
