@@ -52,26 +52,24 @@ jobs:
 
     steps:
       - name: 'Checkout'
-        uses: 'actions/checkout@v3'
+        uses: 'actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c' # ratchet:actions/checkout@v3
 
       - id: 'auth'
         name: 'Authenticate to Google Cloud'
-        uses: 'google-github-actions/auth@v1'
+        uses: 'google-github-actions/auth@ef5d53e30bbcd8d0836f4288f5e50ff3e086997d' # ratchet:google-github-actions/auth@v1
         with:
           workload_identity_provider: '${{ env.WIF_PROVIDER }}'
           service_account: '${{ env.WIF_SERVICE_ACCOUNT }}'
           token_format: 'access_token'
-
       - name: 'Setup Terraform'
-        uses: abcxyz/secure-setup-terraform@v0.2.4
+        uses: abcxyz/secure-setup-terraform@b5991db039fb759d12bc5de45c2258cc79eb1ada # ratchet:abcxyz/secure-setup-terraform@v0.2.4
         with:
           terraform_version: '${{ env.WARDEN_TF_VERSION }}'
           terraform_module_location: './${{ matrix.path }}'
           protect_lockfile: false
           terraform_wrapper: false
-
       - name: 'Set up Cloud SDK'
-        uses: 'google-github-actions/setup-gcloud@v1'
+        uses: 'google-github-actions/setup-gcloud@62d4898025f6041e16b1068643bfc5a696863587' # ratchet:google-github-actions/setup-gcloud@v1
         with:
           skip_install: true
 
@@ -110,7 +108,7 @@ jobs:
 
       - name: 'Invalid Comment'
         if: ${{ steps.validate.outcome != 'success' }}
-        uses: actions/github-script@v6
+        uses: actions/github-script@d556feaca394842dc55e4734bf3bb9f685482fa0 # ratchet:actions/github-script@v6
         with:
           retries: ${{ env.MAX_RETRIES }}
           script: |-
@@ -155,7 +153,7 @@ jobs:
     steps:
       - id: 'comment'
         name: 'Start Comment'
-        uses: actions/github-script@v6
+        uses: actions/github-script@d556feaca394842dc55e4734bf3bb9f685482fa0 # ratchet:actions/github-script@v6
         with:
           retries: ${{ env.MAX_RETRIES }}
           script: |-
@@ -174,18 +172,18 @@ jobs:
             return prComment.id
 
       - name: 'Checkout'
-        uses: 'actions/checkout@v3'
+        uses: 'actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c' # ratchet:actions/checkout@v3
 
       - id: 'auth'
         name: 'Authenticate to Google Cloud'
-        uses: 'google-github-actions/auth@v1'
+        uses: 'google-github-actions/auth@ef5d53e30bbcd8d0836f4288f5e50ff3e086997d' # ratchet:google-github-actions/auth@v1
         with:
           workload_identity_provider: '${{ env.WIF_PROVIDER }}'
           service_account: '${{ env.WIF_SERVICE_ACCOUNT }}'
           token_format: 'access_token'
 
       - name: 'Setup Terraform'
-        uses: abcxyz/secure-setup-terraform@v0.2.4
+        uses: abcxyz/secure-setup-terraform@b5991db039fb759d12bc5de45c2258cc79eb1ada # ratchet:abcxyz/secure-setup-terraform@v0.2.4
         with:
           terraform_version: '${{ env.WARDEN_TF_VERSION }}'
           terraform_module_location: './${{ matrix.path }}'
@@ -193,7 +191,7 @@ jobs:
           terraform_wrapper: false
 
       - name: 'Set up Cloud SDK'
-        uses: 'google-github-actions/setup-gcloud@v1'
+        uses: 'google-github-actions/setup-gcloud@62d4898025f6041e16b1068643bfc5a696863587' # ratchet:google-github-actions/setup-gcloud@v1
         with:
           skip_install: true
 
@@ -233,7 +231,7 @@ jobs:
 
       - name: 'Success Comment'
         if: ${{ steps.apply.outcome == 'success' }}
-        uses: actions/github-script@v6
+        uses: actions/github-script@d556feaca394842dc55e4734bf3bb9f685482fa0 # ratchet:actions/github-script@v6
         with:
           retries: ${{ env.MAX_RETRIES }}
           script: |-
@@ -256,7 +254,7 @@ jobs:
 
       - name: 'Failure Comment'
         if: ${{ steps.apply.outcome != 'success' }}
-        uses: actions/github-script@v6
+        uses: actions/github-script@d556feaca394842dc55e4734bf3bb9f685482fa0 # ratchet:actions/github-script@v6
         with:
           retries: ${{ env.MAX_RETRIES }}
           script: |-
@@ -286,12 +284,12 @@ jobs:
 
     steps:
       - name: 'Checkout'
-        uses: 'actions/checkout@v3'
+        uses: 'actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c' # ratchet:actions/checkout@v3
 
       - id: 'auth'
         continue-on-error: true
         name: 'Authenticate to Google Cloud'
-        uses: 'google-github-actions/auth@v1'
+        uses: 'google-github-actions/auth@ef5d53e30bbcd8d0836f4288f5e50ff3e086997d' # ratchet:google-github-actions/auth@v1
         with:
           workload_identity_provider: '${{ env.WIF_PROVIDER }}'
           service_account: '${{ env.WIF_SERVICE_ACCOUNT }}'
@@ -299,7 +297,7 @@ jobs:
 
       - name: 'Set up Cloud SDK'
         continue-on-error: true
-        uses: 'google-github-actions/setup-gcloud@v1'
+        uses: 'google-github-actions/setup-gcloud@62d4898025f6041e16b1068643bfc5a696863587' # ratchet:google-github-actions/setup-gcloud@v1
         with:
           skip_install: true
 
@@ -318,7 +316,7 @@ jobs:
 
       - name: 'Failed Comment'
         if: ${{ steps.unlock.outcome != 'success' }}
-        uses: actions/github-script@v6
+        uses: actions/github-script@d556feaca394842dc55e4734bf3bb9f685482fa0 # ratchet:actions/github-script@v6
         with:
           retries: ${{ env.MAX_RETRIES }}
           script: |-
@@ -337,7 +335,7 @@ jobs:
 
       - name: 'Success Comment'
         if: ${{ steps.unlock.outcome == 'success' }}
-        uses: actions/github-script@v6
+        uses: actions/github-script@d556feaca394842dc55e4734bf3bb9f685482fa0 # ratchet:actions/github-script@v6
         with:
           retries: ${{ env.MAX_RETRIES }}
           script: |-
