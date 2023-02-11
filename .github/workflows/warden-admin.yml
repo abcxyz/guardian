@@ -50,8 +50,6 @@ env:
   WARDEN_BUCKET_NAME: ${{ inputs.warden_bucket_name }}
   WARDEN_TF_VERSION: ${{ inputs.warden_tf_version }}
   WARDEN_LOCK_FILENAME: 'warden-locks/${{ github.repository }}/${{ github.repository_id }}.tflock'
-concurrency:
-  group: '${{ github.workflow }}-${{ github.head_ref || github.ref }}'
 jobs:
   admin_access:
     if: ${{ github.ref == 'refs/heads/main' }}
