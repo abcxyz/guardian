@@ -27,6 +27,10 @@ on:
         required: false
         default: '1.1.8'
         type: string
+    secrets:
+      gh_token:
+        required: false
+
 env:
   MAX_RETRIES: ${{ inputs.max_retries }}
   BASE_RETRY_DELAY: ${{ inputs.base_retry_delay }}
@@ -140,6 +144,7 @@ jobs:
     env:
       WARDEN_PLAN_PREFIX: 'warden-plans/${{ github.repository }}/${{ github.event.pull_request.number }}/${{ matrix.path }}'
       WARDEN_PLAN_FILENAME: '${{ github.event.pull_request.head.sha }}.tfplan'
+      GITHUB_TOKEN: ${{ secrets.gh_token || github.token }}
     steps:
       - id: 'comment'
         name: 'Start Comment'

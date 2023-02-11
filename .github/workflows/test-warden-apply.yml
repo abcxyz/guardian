@@ -10,6 +10,11 @@ on:
     paths:
       - 'test/**'
 
+permissions:
+  contents: 'read'
+  id-token: 'write'
+  pull-requests: 'write'
+
 jobs:
   apply:
     uses: 'abcxyz/warden/.github/workflows/warden-apply.yml@main' # ratchet:exclude
