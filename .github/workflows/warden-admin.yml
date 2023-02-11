@@ -37,6 +37,10 @@ on:
         required: false
         default: '1.1.8'
         type: string
+    secrets:
+      gh_token:
+        required: false
+
 env:
   MAX_RETRIES: ${{ inputs.max_retries }}
   BASE_RETRY_DELAY: ${{ inputs.base_retry_delay }}
@@ -105,6 +109,7 @@ jobs:
         path: ${{ fromJSON(needs.admin_init.outputs.paths) }}
     env:
       WARDEN_PATH: '${{ matrix.path }}'
+      GITHUB_TOKEN: ${{ secrets.gh_token || github.token }}
     steps:
       - name: 'Checkout'
         uses: 'actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c' # ratchet:actions/checkout@v3
