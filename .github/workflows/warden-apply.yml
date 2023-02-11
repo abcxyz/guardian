@@ -42,7 +42,7 @@ env:
   WARDEN_LOCK_FILENAME: 'warden-locks/${{ github.repository }}/${{ github.repository_id }}.tflock'
 jobs:
   apply_init:
-    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.merged }}
+    if: ${{ github.event_name == 'pull_request' }}
     runs-on: 'ubuntu-latest'
     permissions:
       contents: 'read'
@@ -127,7 +127,8 @@ jobs:
           PATHS=$(touch .warden | cat .warden | jq --raw-input . | jq --slurp . -c | jq -r tostring)
           echo "paths=${PATHS}" >> $GITHUB_OUTPUT
   apply:
-    needs: 'apply_init'
+    needs: ['apply_init']
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.merged }}
     runs-on: 'ubuntu-latest'
     permissions:
       contents: 'read'
@@ -259,8 +260,9 @@ jobs:
 
             process.exit(1);
 
+  # we should always unlock when a PR is closed and we hold the lock, regardless of merge status
   apply_unlock:
-    needs: ['apply_init', 'apply']
+    needs: ['apply_init']
     runs-on: 'ubuntu-latest'
     permissions:
       contents: 'read'
