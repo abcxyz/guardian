@@ -24,7 +24,7 @@ on:
       guardian_bucket_name:
         required: true
         type: string
-      guardian_tf_version:
+      guardian_terraform_version:
         required: false
         default: '1.1.8'
         type: string
@@ -39,7 +39,7 @@ env:
   WIF_PROVIDER: ${{ inputs.wif_provider }}
   WIF_SERVICE_ACCOUNT: ${{ inputs.wif_service_account }}
   GUARDIAN_BUCKET_NAME: ${{ inputs.guardian_bucket_name }}
-  GUARDIAN_TF_VERSION: ${{ inputs.guardian_tf_version }}
+  GUARDIAN_TERRAFORM_VERSION: ${{ inputs.guardian_terraform_version }}
   GUARDIAN_LOCK_FILENAME: 'guardian-locks/${{ github.repository }}/${{ github.repository_id }}.tflock'
 
 jobs:
@@ -60,7 +60,8 @@ jobs:
           fi
 
   unlock:
-    needs: ['unlock_access']
+    needs:
+      - 'unlock_access'
     runs-on: 'ubuntu-latest'
     permissions:
       contents: 'read'
