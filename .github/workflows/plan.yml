@@ -76,6 +76,7 @@ jobs:
           gcloud config set storage/max_retry_delay ${{ env.MAX_RETRY_DELAY }}
 
       - name: 'Lock'
+        id: 'lock'
         run: |-
           RESPONSE=$(gcloud storage objects list gs://${{ env.GUARDIAN_BUCKET_NAME }}/${{ env.GUARDIAN_LOCK_PREFIX }}/${{ env.GUARDIAN_LOCK_FILENAME }} --format="json(name,metadata)")
           NAME="${{ github.event.pull_request.number }}"
@@ -116,12 +117,12 @@ jobs:
         with:
           retries: ${{ env.MAX_RETRIES }}
           script: |-
-            const msg = `${{ steps.validate.outputs.error }}` || `Failed to initialize and lock.`
+            const msg = `${{ steps.lock.outputs.error }}` || `Failed to initialize and lock.`
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: `**\`🔱 Guardian 🔱\`** - 🟥 ${msg} [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs/${{ github.job }})]`,
+              body: `**\`🔱 Guardian 🔱\`** - 🟥 ${msg} [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})]`,
             });
 
   plan:
@@ -242,7 +243,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               comment_id: '${{ steps.comment.outputs.result }}',
-              body: `**\`🔱 Guardian 🔱\`** - 🟥 Failed to run Plan in dir: \`${{matrix.dir}}\` [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs/${{ github.job }})]
+              body: `**\`🔱 Guardian 🔱\`** - 🟥 Failed to run Plan in dir: \`${{matrix.dir}}\` [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})]
 
               <details>
               <summary>Details</summary>\n
@@ -263,7 +264,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               comment_id: '${{ steps.comment.outputs.result }}',
-              body: `**\`🔱 Guardian 🔱\`** - 🟩 Ran Plan in dir: \`${{matrix.dir}}\` [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs/${{ github.job }})]
+              body: `**\`🔱 Guardian 🔱\`** - 🟩 Ran Plan in dir: \`${{matrix.dir}}\` [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})]
 
               <details>
               <summary>Diff</summary>\n
