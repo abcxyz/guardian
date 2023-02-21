@@ -12,20 +12,20 @@ When submitting a PR, Guardian will create a lockfile using Google Cloud Storage
 gs://<BUCKET_NAME>/guardian-locks/<OWNER>/<REPO>/<REPO_ID>.tflock
 ```
 
-Upon successful completion of a terraform plan, all plan files for each workspace will be stored in Google Cloud Storage for later apply. Each successful plan run will create a unique plan file per workspace, per PR git commit SHA.
+Upon successful completion of a terraform plan, all plan files for each directory will be stored in Google Cloud Storage for later apply. Each successful plan run will create a unique plan file per directory, per PR git commit SHA.
 
 ```bash
-gs://<BUCKET_NAME>/guardian-plans/<OWNER>/<REPO>/<REPO_ID>/<PR_NUMBER>/<PR_HEAD_SHA>_<BASE64_WORKSPACE_PATH>.tfplan
+gs://<BUCKET_NAME>/guardian-plans/<OWNER>/<REPO>/<PR_NUMBER>/<TERRAFORM_DIR_PATH>/<PR_HEAD_SHA>.tfplan
 ```
 
-Upon completeion of a terraform apply, regardless of success or failure, the lock file will be deleted and all files under the `gs://<BUCKET_NAME>/guardian-plans/<OWNER>/<REPO>/<REPO_ID>/<PR_NUMBER>` prefix will be deleted.
+Upon completeion of a terraform apply, regardless of success or failure, the lock file will be deleted and all files under the `gs://<BUCKET_NAME>/guardian-plans/<OWNER>/<REPO>/<PR_NUMBER>/<TERRAFORM_DIR_PATH>/*` prefix will be deleted.
 
 ## Developer workflow
 
 - Create a PR to propose changes
 - Guardian will attempt to lock the terraform state by adding a remote lockfile for that given repository
   - If a lockfile exists for another PR, the workflow will fail and create a comment mentioning who has the state lock
-  - If no lockfile exists or exists for current PR, Guardian will automatically run terraform plan and post the results as PR comments for the configured terraform workspaces
+  - If no lockfile exists or exists for current PR, Guardian will automatically run terraform plan and post the results as PR comments for the configured terraform directories
 - Have your PR reviewed and approved
 - When your PR is mergeable, merged the PR and Guardian will automatically run terraform apply for the proposed plan(s) and post the results as PR comments
 - Regardless of success or failure of apply, Guardian will delete all plan and lockfiles for the next PR
@@ -45,13 +45,13 @@ Upon completeion of a terraform apply, regardless of success or failure, the loc
   - Click the `Run workflow` drop down in the top right area
   - Fill out the inputs
     - BRANCH: Only works from `main`
-    - COMMAND: The terraform command to run e.g. `apply -auto-approve -input=false`
-    - WORKSPACE: The terraform workspace to run in, e.g. `projects`, blank will run for all configured workspaces
+    - COMMAND: The terraform command to run e.g. `apply -input=false -auto-approve`
+    - DIRECTORIES: The terraform directories to run in, e.g. `projects`, if blank it will run for all configured directories
     - PR NUMBER: Run this command for a specific PR
 
 ## Config
 
-A `.guardian` file should exist in the root of the repository listing the paths to all terraform workspaces
+A `.guardian` file should exist in the root of the repository listing all terraform directories
 
 Example
 
