@@ -1,6 +1,6 @@
 locals {
   project_id               = "verbanicm-dev"
-  name                     = "test-app-a"
+  name                     = "app-a"
   ci_service_account_email = "warden-ci-sa@verbanicm-dev.iam.gserviceaccount.com"
 }
 
