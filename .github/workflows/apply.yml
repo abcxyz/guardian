@@ -1,4 +1,5 @@
-name: 'Warden Apply'
+name: 'Guardian Apply'
+
 on:
   workflow_call:
     inputs:
@@ -20,10 +21,10 @@ on:
         required: false
         default: 60
         type: number
-      warden_bucket_name:
+      guardian_bucket_name:
         required: true
         type: string
-      warden_tf_version:
+      guardian_tf_version:
         required: false
         default: '1.1.8'
         type: string
@@ -37,12 +38,12 @@ env:
   MAX_RETRY_DELAY: ${{ inputs.max_retry_delay }}
   WIF_PROVIDER: ${{ inputs.wif_provider }}
   WIF_SERVICE_ACCOUNT: ${{ inputs.wif_service_account }}
-  WARDEN_BUCKET_NAME: ${{ inputs.warden_bucket_name }}
-  WARDEN_TF_VERSION: ${{ inputs.warden_tf_version }}
-  WARDEN_LOCK_FILENAME: 'warden-locks/${{ github.repository }}/${{ github.repository_id }}.tflock'
+  GUARDIAN_BUCKET_NAME: ${{ inputs.guardian_bucket_name }}
+  GUARDIAN_TF_VERSION: ${{ inputs.guardian_tf_version }}
+  GUARDIAN_LOCK_FILENAME: 'guardian-locks/${{ github.repository }}/${{ github.repository_id }}.tflock'
+
 jobs:
   apply_init:
-    if: ${{ github.event_name == 'pull_request' }}
     runs-on: 'ubuntu-latest'
     permissions:
       contents: 'read'
@@ -53,35 +54,39 @@ jobs:
     steps:
       - name: 'Checkout'
         uses: 'actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c' # ratchet:actions/checkout@v3
-      - id: 'auth'
-        name: 'Authenticate to Google Cloud'
+
+      - name: 'Authenticate to Google Cloud'
         uses: 'google-github-actions/auth@ef5d53e30bbcd8d0836f4288f5e50ff3e086997d' # ratchet:google-github-actions/auth@v1
         with:
           workload_identity_provider: '${{ env.WIF_PROVIDER }}'
           service_account: '${{ env.WIF_SERVICE_ACCOUNT }}'
           token_format: 'access_token'
+
       - name: 'Setup Terraform'
         uses: abcxyz/secure-setup-terraform@78e3f2fdfb7ebf59ce42141f6dd93bdd65bf04ed # ratchet:abcxyz/secure-setup-terraform@v0.2.5
         with:
-          terraform_version: '${{ env.WARDEN_TF_VERSION }}'
+          terraform_version: '${{ env.GUARDIAN_TF_VERSION }}'
           terraform_module_location: './${{ matrix.path }}'
           protect_lockfile: false
           terraform_wrapper: false
+
       - name: 'Set up Cloud SDK'
         uses: 'google-github-actions/setup-gcloud@62d4898025f6041e16b1068643bfc5a696863587' # ratchet:google-github-actions/setup-gcloud@v1
         with:
           skip_install: true
+
       - name: 'Cloud SDK Config'
         run: |-
           gcloud config set storage/max_retries ${{ env.MAX_RETRIES }}
           gcloud config set storage/base_retry_delay ${{ env.BASE_RETRY_DELAY }}
           gcloud config set storage/max_retry_delay ${{ env.MAX_RETRY_DELAY }}
-      - id: 'validate'
-        name: 'Validate'
+
+      - name: 'Validate'
+        id: 'validate'
         run: |-
           NAME="${{ github.event.pull_request.number }}"
 
-          RESPONSE=$(gcloud storage objects list gs://${{ env.WARDEN_BUCKET_NAME }}/${{ env.WARDEN_LOCK_FILENAME }} --format="json(name,metadata)")
+          RESPONSE=$(gcloud storage objects list gs://${{ env.GUARDIAN_BUCKET_NAME }}/${{ env.GUARDIAN_LOCK_FILENAME }} --format="json(name,metadata)")
 
           LENGTH=$(echo -n ${RESPONSE} | jq -r '. | length')
 
@@ -102,8 +107,15 @@ jobs:
               echo "error=${MSG}" >> $GITHUB_OUTPUT
               exit 1
           fi
+
+      - name: 'Set Matrix'
+        id: 'set-matrix'
+        run: |-
+          PATHS=$(touch .guardian | cat .guardian | jq --raw-input . | jq --slurp . -c | jq -r tostring)
+          echo "paths=${PATHS}" >> $GITHUB_OUTPUT
+
       - name: 'Invalid Comment'
-        if: ${{ steps.validate.outcome != 'success' }}
+        if: ${{ failed() }}
         uses: actions/github-script@d556feaca394842dc55e4734bf3bb9f685482fa0 # ratchet:actions/github-script@v6
         with:
           retries: ${{ env.MAX_RETRIES }}
@@ -112,23 +124,12 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: `
-            ### 🚔 Warden Apply 🚔
-            **Status: 🟥 Failed**\n
-            ${{ steps.validate.outputs.error }}
-            `,
+              body: `**\`🔱 Guardian 🔱\`** - 🟥 Failed to initialize and validate lock. [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs/${{ github.job }})]`,
             });
 
-            process.exit(1);
-
-      - id: 'set-matrix'
-        name: 'Set Matrix'
-        run: |-
-          PATHS=$(touch .warden | cat .warden | jq --raw-input . | jq --slurp . -c | jq -r tostring)
-          echo "paths=${PATHS}" >> $GITHUB_OUTPUT
   apply:
     needs: ['apply_init']
-    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.merged }}
+    if: ${{ github.event.pull_request.merged }}
     runs-on: 'ubuntu-latest'
     permissions:
       contents: 'read'
@@ -143,12 +144,12 @@ jobs:
         shell: 'bash'
         working-directory: '${{ matrix.path }}'
     env:
-      WARDEN_PLAN_PREFIX: 'warden-plans/${{ github.repository }}/${{ github.event.pull_request.number }}/${{ matrix.path }}'
-      WARDEN_PLAN_FILENAME: '${{ github.event.pull_request.head.sha }}.tfplan'
+      GUARDIAN_PLAN_PREFIX: 'guardian-plans/${{ github.repository }}/${{ github.event.pull_request.number }}/${{ matrix.path }}'
+      GUARDIAN_PLAN_FILENAME: '${{ github.event.pull_request.head.sha }}.tfplan'
       GITHUB_TOKEN: ${{ secrets.gh_token || github.token }}
     steps:
-      - id: 'comment'
-        name: 'Start Comment'
+      - name: 'Start Comment'
+        id: 'comment'
         uses: actions/github-script@d556feaca394842dc55e4734bf3bb9f685482fa0 # ratchet:actions/github-script@v6
         with:
           retries: ${{ env.MAX_RETRIES }}
@@ -157,89 +158,71 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: `
-              ### 🚔 Warden Apply 🚔
-              **Status: 🟨 In Progress**
-              **Workspace: \`${{matrix.path}}\`**\n
-              Results will be posted here when completed...
-              `,
-              });
+              body: `**\`🔱 Guardian 🔱\`** - 🟨 Running Apply in dir: \`${{matrix.path}}\``,
+            });
 
             return prComment.id
 
       - name: 'Checkout'
         uses: 'actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c' # ratchet:actions/checkout@v3
-      - id: 'auth'
-        name: 'Authenticate to Google Cloud'
+
+      - name: 'Authenticate to Google Cloud'
         uses: 'google-github-actions/auth@ef5d53e30bbcd8d0836f4288f5e50ff3e086997d' # ratchet:google-github-actions/auth@v1
         with:
           workload_identity_provider: '${{ env.WIF_PROVIDER }}'
           service_account: '${{ env.WIF_SERVICE_ACCOUNT }}'
           token_format: 'access_token'
+
       - name: 'Setup Terraform'
         uses: abcxyz/secure-setup-terraform@78e3f2fdfb7ebf59ce42141f6dd93bdd65bf04ed # ratchet:abcxyz/secure-setup-terraform@v0.2.5
         with:
-          terraform_version: '${{ env.WARDEN_TF_VERSION }}'
+          terraform_version: '${{ env.GUARDIAN_TF_VERSION }}'
           terraform_module_location: './${{ matrix.path }}'
           protect_lockfile: false
           terraform_wrapper: false
+
       - name: 'Set up Cloud SDK'
         uses: 'google-github-actions/setup-gcloud@62d4898025f6041e16b1068643bfc5a696863587' # ratchet:google-github-actions/setup-gcloud@v1
         with:
           skip_install: true
+
       - name: 'Cloud SDK Config'
         run: |-
           gcloud config set storage/max_retries ${{ env.MAX_RETRIES }}
           gcloud config set storage/base_retry_delay ${{ env.BASE_RETRY_DELAY }}
           gcloud config set storage/max_retry_delay ${{ env.MAX_RETRY_DELAY }}
+
       - name: 'Init'
         run: terraform init -input=false
+
       - name: 'Download Plan'
         run: |-
           gcloud storage cp \
-            gs://${{ env.WARDEN_BUCKET_NAME }}/${{ env.WARDEN_PLAN_PREFIX }}/${{ env.WARDEN_PLAN_FILENAME }} \
-            ${{ env.WARDEN_PLAN_FILENAME }}
-      - id: 'apply'
-        name: 'Apply'
-        continue-on-error: true
-        run: |-
-          terraform apply -no-color -input=false ${{ env.WARDEN_PLAN_FILENAME }} 2>&1 > out.txt
-      - name: 'GitHub Apply Format'
-        run: |-
-          cat out.txt | sed -E 's/^([[:space:]]+)([-+])/\2\1/g' 2>&1 > apply.txt
+            gs://${{ env.GUARDIAN_BUCKET_NAME }}/${{ env.GUARDIAN_PLAN_PREFIX }}/${{ env.GUARDIAN_PLAN_FILENAME }} \
+            ${{ env.GUARDIAN_PLAN_FILENAME }}
 
-          APPLY=$(cat apply.txt)
-          echo "APPLY<<EOF" >> $GITHUB_ENV
-          echo "$APPLY" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
-      - name: 'Delete Plan'
+      - name: 'Apply'
         run: |-
-          gcloud storage rm gs://${{ env.WARDEN_BUCKET_NAME }}/${{ env.WARDEN_PLAN_PREFIX }}/*
-      - name: 'Success Comment'
-        if: ${{ steps.apply.outcome == 'success' }}
-        uses: actions/github-script@d556feaca394842dc55e4734bf3bb9f685482fa0 # ratchet:actions/github-script@v6
-        with:
-          retries: ${{ env.MAX_RETRIES }}
-          script: |-
-            await github.rest.issues.updateComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              comment_id: "${{ steps.comment.outputs.result }}",
-              body: `
-            ### 🚔 Warden Apply 🚔
-            **Status: 🟩 Success**
-            **Workspace: \`${{matrix.path}}\`**\n
-            <details>
-            <summary>Diff</summary>\n
-            \`\`\`diff\n
-            ${{env.APPLY}}
-            \`\`\`
-            </details>
-            `,
-            });
+          terraform apply -no-color -input=false ${{ env.GUARDIAN_PLAN_FILENAME }} > out.txt 2>&1
+          cat out.txt
+
+      - name: 'GitHub Format'
+        run: |-
+          cat out.txt | sed -E 's/^([[:space:]]+)([-+])/\2\1/g' 2>&1 > out.txt
+          cat out.txt
+
+      - name: 'Set ENV'
+        run: |-
+          OUT=$(cat out.txt)
+          echo "OUT<<EOF" >> $GITHUB_ENV
+          echo "$OUT" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: 'Delete Plan'
+        run: gcloud storage rm gs://${{ env.GUARDIAN_BUCKET_NAME }}/${{ env.GUARDIAN_PLAN_PREFIX }}/*
 
       - name: 'Failure Comment'
-        if: ${{ steps.apply.outcome != 'success' }}
+        if: ${{ failure() }}
         uses: actions/github-script@d556feaca394842dc55e4734bf3bb9f685482fa0 # ratchet:actions/github-script@v6
         with:
           retries: ${{ env.MAX_RETRIES }}
@@ -248,21 +231,42 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               comment_id: "${{ steps.comment.outputs.result }}",
-              body: `
-              ### 🚔 Warden Apply 🚔
-              **Status: 🟥 Failed**
-              **Workspace: \`${{matrix.path}}\`**\n
-              \`\`\`\n
-              ${{env.APPLY}}
+              body: `**\`🔱 Guardian 🔱\`** - 🟥 Failed to run Apply in dir: \`${{matrix.path}}\` [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs/${{ github.job }})]
+
+              <details>
+              <summary>Details</summary>\n
+              \`\`\`diff\n
+              ${{env.OUT}}
               \`\`\`
+              </details>
               `,
             });
 
-            process.exit(1);
+      - name: 'Success Comment'
+        if: ${{ success() }}
+        uses: actions/github-script@d556feaca394842dc55e4734bf3bb9f685482fa0 # ratchet:actions/github-script@v6
+        with:
+          retries: ${{ env.MAX_RETRIES }}
+          script: |-
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: "${{ steps.comment.outputs.result }}",
+              body: `**\`🔱 Guardian 🔱\`** - 🟩 Ran Apply in dir: \`${{matrix.path}}\` [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs/${{ github.job }})]
+
+              <details>
+              <summary>Details</summary>\n
+              \`\`\`diff\n
+              ${{env.OUT}}
+              \`\`\`
+              </details>
+              `,
+            });
 
   # we should always unlock when a PR is closed and we hold the lock, regardless of merge status
   apply_unlock:
-    needs: ['apply_init']
+    needs: ['apply_init', 'apply']
+    if: ${{ always() && needs.apply_init.result == 'success' }}
     runs-on: 'ubuntu-latest'
     permissions:
       contents: 'read'
@@ -271,32 +275,31 @@ jobs:
     steps:
       - name: 'Checkout'
         uses: 'actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c' # ratchet:actions/checkout@v3
-      - id: 'auth'
-        continue-on-error: true
-        name: 'Authenticate to Google Cloud'
+
+      - name: 'Authenticate to Google Cloud'
         uses: 'google-github-actions/auth@ef5d53e30bbcd8d0836f4288f5e50ff3e086997d' # ratchet:google-github-actions/auth@v1
         with:
           workload_identity_provider: '${{ env.WIF_PROVIDER }}'
           service_account: '${{ env.WIF_SERVICE_ACCOUNT }}'
           token_format: 'access_token'
+
       - name: 'Set up Cloud SDK'
-        continue-on-error: true
         uses: 'google-github-actions/setup-gcloud@62d4898025f6041e16b1068643bfc5a696863587' # ratchet:google-github-actions/setup-gcloud@v1
         with:
           skip_install: true
+
       - name: 'Cloud SDK Config'
-        continue-on-error: true
         run: |-
           gcloud config set storage/max_retries ${{ env.MAX_RETRIES }}
           gcloud config set storage/base_retry_delay ${{ env.BASE_RETRY_DELAY }}
           gcloud config set storage/max_retry_delay ${{ env.MAX_RETRY_DELAY }}
-      - id: 'unlock'
-        name: 'Unlock'
-        continue-on-error: true
-        run: |-
-          gcloud storage rm gs://${{ env.WARDEN_BUCKET_NAME }}/${{ env.WARDEN_LOCK_FILENAME }}
-      - name: 'Failed Comment'
-        if: ${{ steps.unlock.outcome != 'success' }}
+
+      - name: 'Unlock'
+        id: 'unlock'
+        run: gcloud storage rm gs://${{ env.GUARDIAN_BUCKET_NAME }}/${{ env.GUARDIAN_LOCK_FILENAME }}
+
+      - name: 'Failure Comment'
+        if: ${{ failure() }}
         uses: actions/github-script@d556feaca394842dc55e4734bf3bb9f685482fa0 # ratchet:actions/github-script@v6
         with:
           retries: ${{ env.MAX_RETRIES }}
@@ -305,17 +308,11 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: `
-            ### 🚔 Warden Apply - Unlock 🚔
-            **Status: 🟥 Failed**\n
-            Failed to remove lockfile, this will need to be completed manually with the \`warden unlock\` comment.
-            `,
+              body: `#### `**🔱 Guardian 🔱`** - 🟥 Unlock failed [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs/${{ github.job }})]`,
             });
-
-            process.exit(1);
 
       - name: 'Success Comment'
-        if: ${{ steps.unlock.outcome == 'success' }}
+        if: ${{ success() }}
         uses: actions/github-script@d556feaca394842dc55e4734bf3bb9f685482fa0 # ratchet:actions/github-script@v6
         with:
           retries: ${{ env.MAX_RETRIES }}
@@ -324,16 +321,5 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: `
-            ### 🚔 Warden Apply - Unlock 🚔
-            **Status: 🟩 Success**\n
-            Repository is now unlocked.
-            `,
+              body: `**\`🔱 Guardian 🔱\`** - 🟩 Unlocked [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs/${{ github.job }})]`,
             });
-
-  apply_success:
-    needs: ['apply_init', 'apply', 'apply_unlock']
-    runs-on: 'ubuntu-latest'
-    steps:
-      - name: 'Success'
-        run: exit 0

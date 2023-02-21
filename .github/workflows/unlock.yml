@@ -1,4 +1,5 @@
-name: 'Warden Unlock'
+name: 'Guardian Unlock'
+
 on:
   workflow_call:
     inputs:
@@ -20,28 +21,30 @@ on:
         required: false
         default: 60
         type: number
-      warden_bucket_name:
+      guardian_bucket_name:
         required: true
         type: string
-      warden_tf_version:
+      guardian_tf_version:
         required: false
         default: '1.1.8'
         type: string
-      warden_plan_job_name:
+      guardian_plan_job_name:
         type: string
         default: 'plan'
+
 env:
   MAX_RETRIES: ${{ inputs.max_retries }}
   BASE_RETRY_DELAY: ${{ inputs.base_retry_delay }}
   MAX_RETRY_DELAY: ${{ inputs.max_retry_delay }}
   WIF_PROVIDER: ${{ inputs.wif_provider }}
   WIF_SERVICE_ACCOUNT: ${{ inputs.wif_service_account }}
-  WARDEN_BUCKET_NAME: ${{ inputs.warden_bucket_name }}
-  WARDEN_TF_VERSION: ${{ inputs.warden_tf_version }}
-  WARDEN_LOCK_FILENAME: 'warden-locks/${{ github.repository }}/${{ github.repository_id }}.tflock'
+  GUARDIAN_BUCKET_NAME: ${{ inputs.guardian_bucket_name }}
+  GUARDIAN_TF_VERSION: ${{ inputs.guardian_tf_version }}
+  GUARDIAN_LOCK_FILENAME: 'guardian-locks/${{ github.repository }}/${{ github.repository_id }}.tflock'
+
 jobs:
   unlock_access:
-    if: ${{ github.event_name == 'issue_comment' && github.event.issue.pull_request && github.event.comment.body == 'warden unlock' }}
+    if: ${{ github.event.issue.pull_request && github.event.comment.body == 'unlock' }}
     runs-on: 'ubuntu-latest'
     permissions:
       contents: 'read'
@@ -55,6 +58,7 @@ jobs:
             echo "::error ::Actor @${{ github.triggering_actor }} does not have maintain or higher permissions to perform these operations."
             exit 1
           fi
+
   unlock:
     needs: ['unlock_access']
     runs-on: 'ubuntu-latest'
@@ -74,15 +78,10 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: `
-            ### 🚔 Warden Unlock 🚔
-            **Status: 🟨 In Progress**\n
-            Results will be posted here when completed...
-            `,
+              body: `**\`🔱 Guardian 🔱\`** - 🟨 Unlocking...`,
             });
 
             return prComment.id;
-
       - name: 'Checkout'
         uses: 'actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c' # ratchet:actions/checkout@v3
       - id: 'auth'
@@ -101,13 +100,11 @@ jobs:
           gcloud config set storage/max_retries ${{ env.MAX_RETRIES }}
           gcloud config set storage/base_retry_delay ${{ env.BASE_RETRY_DELAY }}
           gcloud config set storage/max_retry_delay ${{ env.MAX_RETRY_DELAY }}
-      - id: 'validate'
-        name: 'Validate'
-        continue-on-error: true
+      - name: 'Validate'
         run: |-
           NAME="${{ github.event.issue.number }}"
 
-          RESPONSE=$(gcloud storage objects list gs://${{ env.WARDEN_BUCKET_NAME }}/${{ env.WARDEN_LOCK_FILENAME }} --format="json(name,metadata)")
+          RESPONSE=$(gcloud storage objects list gs://${{ env.GUARDIAN_BUCKET_NAME }}/${{ env.GUARDIAN_LOCK_FILENAME }} --format="json(name,metadata)")
 
           LENGTH=$(echo -n ${RESPONSE} | jq -r '. | length')
 
@@ -127,28 +124,7 @@ jobs:
               exit 1  
           fi
 
-      - name: 'Validate Comment'
-        if: ${{ steps.validate.outcome != 'success' }}
-        uses: actions/github-script@d556feaca394842dc55e4734bf3bb9f685482fa0 # ratchet:actions/github-script@v6
-        with:
-          retries: ${{ env.MAX_RETRIES }}
-          script: |-
-            await github.rest.issues.updateComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              comment_id: "${{ steps.comment.outputs.result }}",
-              body: `
-            ### 🚔 Warden Unlock 🚔
-            **Status: 🟥 Failed**\n
-            ${{ steps.validate.outputs.error }}
-            `,
-            });
-            core.setFailed(`${{ steps.validate.outputs.error }}`);
-            process.exit(1);
-
-      - id: 'checks'
-        name: 'Update Checks'
-        continue-on-error: true
+      - name: 'Update Checks'
         uses: actions/github-script@d556feaca394842dc55e4734bf3bb9f685482fa0 # ratchet:actions/github-script@v6
         with:
           retries: ${{ env.MAX_RETRIES }}
@@ -163,7 +139,7 @@ jobs:
               process.exit(0);
             }
 
-            const checkNamePrefix = "${{ inputs.warden_plan_job_name }} / ";
+            const checkNamePrefix = "${{ inputs.guardian_plan_job_name }} / ";
             const { data: completedCheckRuns } = await github.rest.checks.listForRef({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -204,14 +180,11 @@ jobs:
                 });
               })
             );
-      - id: 'unlock'
-        name: 'Unlock'
-        if: ${{ steps.checks.outcome == 'success' }}
-        continue-on-error: true
+      - name: 'Unlock'
         run: |-
-          gcloud storage rm gs://${{ env.WARDEN_BUCKET_NAME }}/${{ env.WARDEN_LOCK_FILENAME }}
-      - name: 'Unlock Success Comment'
-        if: ${{ steps.checks.outcome == 'success' && steps.unlock.outcome == 'success' }}
+          gcloud storage rm gs://${{ env.GUARDIAN_BUCKET_NAME }}/${{ env.GUARDIAN_LOCK_FILENAME }}
+      - name: 'Failure Comment'
+        if: ${{ failure() }}
         uses: actions/github-script@d556feaca394842dc55e4734bf3bb9f685482fa0 # ratchet:actions/github-script@v6
         with:
           retries: ${{ env.MAX_RETRIES }}
@@ -220,15 +193,11 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               comment_id: "${{ steps.comment.outputs.result }}",
-              body: `
-            ### 🚔 Warden Unlock 🚔
-            **Status: 🟩 Success**\n
-            Plan unlocked by @${{github.triggering_actor}}
+              body: `#### `**🔱 Guardian 🔱`** - 🟥 Unlock failed [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs/${{ github.job }})]`,
             `,
             });
-
-      - name: 'Unlock Failed Comment'
-        if: ${{ steps.checks.outcome != 'success' || steps.unlock.outcome != 'success' }}
+      - name: 'Success Comment'
+        if: ${{ success() }}
         uses: actions/github-script@d556feaca394842dc55e4734bf3bb9f685482fa0 # ratchet:actions/github-script@v6
         with:
           retries: ${{ env.MAX_RETRIES }}
@@ -237,9 +206,5 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               comment_id: "${{ steps.comment.outputs.result }}",
-              body: `
-            ### 🚔 Warden Unlock 🚔
-            **Status: 🟥 Failed**\n
-            Unlock failed, see logs for details.
-            `,
+              body: `**\`🔱 Guardian 🔱\`** - 🟩 Forced unlock by @${{github.triggering_actor}} [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs/${{ github.job }})]`,
             });
