@@ -270,7 +270,7 @@ jobs:
               <details>
               <summary>Details</summary>\n
               \`\`\`diff\n
-              ${{env.OUT}}
+              ${{env.SUCCESS}}
               \`\`\`
               </details>
               `,
