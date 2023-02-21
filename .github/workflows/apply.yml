@@ -127,7 +127,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: `**\`🔱 Guardian 🔱\`** - 🟥 ${msg} [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs/${{ github.job }})]`,
+              body: `**\`🔱 Guardian 🔱\`** - 🟥 ${msg} [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})]`,
             });
 
   apply:
@@ -244,7 +244,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               comment_id: "${{ steps.comment.outputs.result }}",
-              body: `**\`🔱 Guardian 🔱\`** - 🟥 Failed to run Apply in dir: \`${{matrix.dir}}\` [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs/${{ github.job }})]
+              body: `**\`🔱 Guardian 🔱\`** - 🟥 Failed to run Apply in dir: \`${{matrix.dir}}\` [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})]
 
               <details>
               <summary>Details</summary>\n
@@ -265,7 +265,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               comment_id: "${{ steps.comment.outputs.result }}",
-              body: `**\`🔱 Guardian 🔱\`** - 🟩 Ran Apply in dir: \`${{matrix.dir}}\` [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs/${{ github.job }})]
+              body: `**\`🔱 Guardian 🔱\`** - 🟩 Ran Apply in dir: \`${{matrix.dir}}\` [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})]
 
               <details>
               <summary>Details</summary>\n
@@ -324,7 +324,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: `#### `**🔱 Guardian 🔱`** - 🟥 Unlock failed [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs/${{ github.job }})]`,
+              body: `#### `**🔱 Guardian 🔱`** - 🟥 Unlock failed [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})]`,
             });
 
       - name: 'Success Comment'
@@ -337,5 +337,5 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: `**\`🔱 Guardian 🔱\`** - 🟩 Unlocked [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs/${{ github.job }})]`,
+              body: `**\`🔱 Guardian 🔱\`** - 🟩 Unlocked [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})]`,
             });
