@@ -198,22 +198,22 @@ jobs:
 
       - name: 'Init'
         run: |-
-          terraform init -input=false 2&>1 | tee ${{ env.OUT_FILENAME }}
+          terraform init -input=false 2>&1 | tee ${{ env.OUT_FILENAME }}
 
       - name: 'Download Plan'
         run: |-
           gcloud storage cp \
             gs://${{ env.GUARDIAN_BUCKET_NAME }}/${{ env.GUARDIAN_PLAN_PREFIX }}/${{ env.GUARDIAN_PLAN_FILENAME }} \
             ${{ env.GUARDIAN_PLAN_FILENAME }} \
-            2&>1 | tee ${{ env.OUT_FILENAME }}
+            2>&1 | tee ${{ env.OUT_FILENAME }}
 
       - name: 'Apply'
         run: |-
-          terraform apply -no-color -input=false ${{ env.GUARDIAN_PLAN_FILENAME }} 2&>1 | tee ${{ env.OUT_FILENAME }}
+          terraform apply -no-color -input=false ${{ env.GUARDIAN_PLAN_FILENAME }} 2>&1 | tee ${{ env.OUT_FILENAME }}
 
       - name: 'GitHub Format'
         run: |-
-          cat ${{ env.OUT_FILENAME }} | sed -E 's/^([[:space:]]+)([-+])/\2\1/g' 2&>1 | tee ${{ env.OUT_FILENAME }}
+          cat ${{ env.OUT_FILENAME }} | sed -E 's/^([[:space:]]+)([-+])/\2\1/g' 2>&1 | tee ${{ env.OUT_FILENAME }}
 
       - name: 'Set Success Env'
         run: |-
@@ -224,7 +224,7 @@ jobs:
 
       - name: 'Delete Plan'
         run: |-
-          gcloud storage rm gs://${{ env.GUARDIAN_BUCKET_NAME }}/${{ env.GUARDIAN_PLAN_PREFIX }}/* 2&>1 | tee ${{ env.OUT_FILENAME }}
+          gcloud storage rm gs://${{ env.GUARDIAN_BUCKET_NAME }}/${{ env.GUARDIAN_PLAN_PREFIX }}/* 2>&1 | tee ${{ env.OUT_FILENAME }}
 
       - name: 'Set Out Env'
         if: ${{ failure() }}
