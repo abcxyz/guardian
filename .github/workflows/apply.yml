@@ -117,7 +117,7 @@ jobs:
           echo "dirs=${DIRS}" >> $GITHUB_OUTPUT
 
       - name: 'Invalid Comment'
-        if: ${{ failed() }}
+        if: ${{ failure() }}
         uses: actions/github-script@d556feaca394842dc55e4734bf3bb9f685482fa0 # ratchet:actions/github-script@v6
         with:
           retries: ${{ env.MAX_RETRIES }}
