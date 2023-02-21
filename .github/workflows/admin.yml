@@ -7,11 +7,11 @@ on:
         description: 'COMMAND - The Terraform command to run including any arguments (this value is appended to the terraform command).'
         required: true
         type: string
-      workspace:
-        description: 'WORKSPACE - The Terraform workspace directory to execute the command in. If left blank, the command will run for all paths in .guardian'
+      directories:
+        description: 'DIRECTORIES - The Terraform directories to execute the command in. If left blank, the command will run for all directories in .guardian'
         type: string
       number:
-        description: 'PR NUMBER - The Pull Request number to run the actions for (if blank, this runs for main).'
+        description: 'PR NUMBER - The Pull Request number to run the actions for (if blank, this runs for the default branch).'
         type: string
       wif_provider:
         required: true
@@ -34,7 +34,7 @@ on:
       guardian_bucket_name:
         required: true
         type: string
-      guardian_tf_version:
+      guardian_terraform_version:
         required: false
         default: '1.1.8'
         type: string
@@ -49,8 +49,9 @@ env:
   WIF_PROVIDER: ${{ inputs.wif_provider }}
   WIF_SERVICE_ACCOUNT: ${{ inputs.wif_service_account }}
   GUARDIAN_BUCKET_NAME: ${{ inputs.guardian_bucket_name }}
-  GUARDIAN_TF_VERSION: ${{ inputs.guardian_tf_version }}
+  GUARDIAN_TERRAFORM_VERSION: ${{ inputs.guardian_terraform_version }}
   GUARDIAN_LOCK_FILENAME: 'guardian-locks/${{ github.repository }}/${{ github.repository_id }}.tflock'
+  TF_IN_AUTOMATION: true # tell terraform this is an automated workflow https://developer.hashicorp.com/terraform/tutorials/automation/automate-terraform#controlling-terraform-output-in-automation
 
 jobs:
   admin_access:
@@ -59,9 +60,9 @@ jobs:
       contents: 'read'
     steps:
       - name: 'Validate Branch'
-        if: ${{ github.ref != 'refs/heads/main' }}
+        if: ${{ github.ref != github.event.repository.default_branch }}
         run: |-
-          echo "::error ::Guardian Admin can only be run from the main branch."
+          echo "::error ::Guardian Admin can only be run from the default branch (${{ github.event.repository.default_branch }})."
           exit 1
 
       - name: 'Permission'
@@ -75,15 +76,21 @@ jobs:
           fi
 
   admin_init:
-    needs: ['admin_access']
-    if: ${{ github.ref == 'refs/heads/main' }}
+    needs:
+      - 'admin_access'
     runs-on: 'ubuntu-latest'
     permissions:
       contents: 'read'
       pull-requests: 'read'
     outputs:
-      paths: ${{ steps.set-matrix.outputs.paths }}
+      dirs: ${{ steps.set-matrix.outputs.dirs }}
     steps:
+      - name: 'Validate Branch'
+        if: ${{ github.ref != github.event.repository.default_branch }}
+        run: |-
+          echo "::error ::Guardian Admin can only be run from the default branch (${{ github.event.repository.default_branch }})."
+          exit 1
+
       - name: 'Checkout'
         uses: 'actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c' # ratchet:actions/checkout@v3
 
@@ -91,22 +98,24 @@ jobs:
         if: ${{ inputs.number != '' }}
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh pr checkout ${{ inputs.number }}
+        run: |-
+          gh pr checkout ${{ inputs.number }}
 
       - name: 'Set Matrix'
         id: 'set-matrix'
         run: |-
-          if [ "${{ inputs.workspace }}" != "" ]; then
-            PATHS=$(echo "${{ inputs.workspace }}" | jq --raw-input 'split(",")' | jq -r tostring)
-            echo "paths=${PATHS}" >> $GITHUB_OUTPUT
+          if [ "${{ inputs.directories }}" != "" ]; then
+            DIRS=$(echo "${{ inputs.directories }}" | jq -Rr 'split(",") | tostring')
+            echo "dirs=${DIRS}" >> $GITHUB_OUTPUT
           else
-            PATHS=$(touch .guardian | cat .guardian | jq --raw-input . | jq --slurp . -c | jq -r tostring)
-            echo "paths=${PATHS}" >> $GITHUB_OUTPUT
+            DIRS=$(touch .guardian | cat .guardian | jq -nRrc '[inputs|split("\n")] | flatten | tostring' )
+            echo "dirs=${DIRS}" >> $GITHUB_OUTPUT
           fi
 
   admin:
-    needs: ['admin_access', 'admin_init']
-    if: ${{ github.ref == 'refs/heads/main' }}
+    needs:
+      - 'admin_access'
+      - 'admin_init'
     runs-on: 'ubuntu-latest'
     permissions:
       contents: 'read'
@@ -115,11 +124,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        path: ${{ fromJSON(needs.admin_init.outputs.paths) }}
+        dir: ${{ fromJSON(needs.admin_init.outputs.dirs) }}
     env:
-      GUARDIAN_PATH: '${{ matrix.path }}'
+      GUARDIAN_WORKING_DIRECTORY: '${{ matrix.dir }}'
       GITHUB_TOKEN: ${{ secrets.gh_token || github.token }}
     steps:
+      - name: 'Validate Branch'
+        if: ${{ github.ref != github.event.repository.default_branch }}
+        run: |-
+          echo "::error ::Guardian Admin can only be run from the default branch (${{ github.event.repository.default_branch }})."
+          exit 1
+
       - name: 'Checkout'
         uses: 'actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c' # ratchet:actions/checkout@v3
 
@@ -127,7 +142,8 @@ jobs:
         if: ${{ inputs.number != '' }}
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh pr checkout ${{ inputs.number }}
+        run: |-
+          gh pr checkout ${{ inputs.number }}
 
       - name: 'Authenticate to Google Cloud'
         uses: 'google-github-actions/auth@ef5d53e30bbcd8d0836f4288f5e50ff3e086997d' # ratchet:google-github-actions/auth@v1
@@ -139,15 +155,17 @@ jobs:
       - name: 'Setup Terraform'
         uses: abcxyz/secure-setup-terraform@78e3f2fdfb7ebf59ce42141f6dd93bdd65bf04ed # ratchet:abcxyz/secure-setup-terraform@v0.2.5
         with:
-          terraform_version: '${{ env.GUARDIAN_TF_VERSION }}'
-          terraform_module_location: './${{ env.GUARDIAN_PATH }}'
+          terraform_version: '${{ env.GUARDIAN_TERRAFORM_VERSION }}'
+          terraform_module_location: './${{ env.GUARDIAN_WORKING_DIRECTORY }}'
           protect_lockfile: false
           terraform_wrapper: false
 
       - name: 'Init'
-        working-directory: '${{ env.GUARDIAN_PATH }}'
-        run: terraform init -input=false
+        working-directory: '${{ env.GUARDIAN_WORKING_DIRECTORY }}'
+        run: |-
+          terraform init -input=false
 
       - name: 'Run Command'
-        working-directory: '${{ env.GUARDIAN_PATH }}'
-        run: terraform ${{ inputs.command }} ${{ inputs.args }}
+        working-directory: '${{ env.GUARDIAN_WORKING_DIRECTORY }}'
+        run: |-
+          terraform ${{ inputs.command }}

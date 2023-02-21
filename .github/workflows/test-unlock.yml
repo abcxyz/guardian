@@ -22,4 +22,4 @@ jobs:
       wif_provider: 'projects/200062081032/locations/global/workloadIdentityPools/github-pool/providers/github-provider-abcxyz-warden'
       wif_service_account: 'warden-ci-sa@verbanicm-dev.iam.gserviceaccount.com'
       guardian_bucket_name: 'verbanicm-dev-terraform'
-      guardian_tf_version: '1.1.8'
+      guardian_terraform_version: '1.1.8'
