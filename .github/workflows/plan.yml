@@ -189,27 +189,27 @@ jobs:
 
       - name: 'Lint'
         run: |-
-          terraform fmt -check -diff -recursive 2&>1 | tee ${{ env.OUT_FILENAME }}
+          terraform fmt -check -diff -recursive 2>&1 | tee ${{ env.OUT_FILENAME }}
 
       - name: 'Init'
         run: |-
-          terraform init -input=false 2&>1 | tee ${{ env.OUT_FILENAME }}
+          terraform init -input=false 2>&1 | tee ${{ env.OUT_FILENAME }}
 
       - name: 'Validate'
         run: |-
-          terraform validate 2&>1 | tee ${{ env.OUT_FILENAME }}
+          terraform validate 2>&1 | tee ${{ env.OUT_FILENAME }}
 
       - name: 'Plan'
         run: |-
-          terraform plan -input=false -no-color -out=${{ env.GUARDIAN_PLAN_FILENAME }} 2&>1 | tee ${{ env.OUT_FILENAME }}
+          terraform plan -input=false -no-color -out=${{ env.GUARDIAN_PLAN_FILENAME }} 2>&1 | tee ${{ env.OUT_FILENAME }}
 
       - name: 'Show'
         run: |-
-          terraform show -no-color ${{ env.GUARDIAN_PLAN_FILENAME }} 2&>1 | tee ${{ env.OUT_FILENAME }}
+          terraform show -no-color ${{ env.GUARDIAN_PLAN_FILENAME }} 2>&1 | tee ${{ env.OUT_FILENAME }}
 
       - name: 'GitHub Format'
         run: |-
-          cat ${{ env.OUT_FILENAME }} | sed -E 's/^([[:space:]]+)([-+])/\2\1/g' 2&>1 | tee ${{ env.OUT_FILENAME }}
+          cat ${{ env.OUT_FILENAME }} | sed -E 's/^([[:space:]]+)([-+])/\2\1/g' 2>&1 | tee ${{ env.OUT_FILENAME }}
 
       - name: 'Set Success Env'
         run: |-
@@ -222,7 +222,7 @@ jobs:
         run: |-
           gcloud storage cp \
             ${{ env.GUARDIAN_PLAN_FILENAME }} \
-            gs://${{ env.GUARDIAN_BUCKET_NAME }}/${{ env.GUARDIAN_PLAN_PREFIX }}/${{ env.GUARDIAN_PLAN_FILENAME }} 2&>1 | tee ${{ env.OUT_FILENAME }}
+            gs://${{ env.GUARDIAN_BUCKET_NAME }}/${{ env.GUARDIAN_PLAN_PREFIX }}/${{ env.GUARDIAN_PLAN_FILENAME }} 2>&1 | tee ${{ env.OUT_FILENAME }}
 
       - name: 'Set Out Env'
         if: ${{ failure() }}
