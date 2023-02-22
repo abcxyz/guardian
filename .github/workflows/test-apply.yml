@@ -1,17 +1,9 @@
 name: 'Guardian Apply - Test'
-run-name: 'Guardian Apply - PR #${{ github.event.pull_request.number }}'
 
 on:
-  pull_request:
+  merge_group:
     types:
-      - 'closed'
-    branches:
-      - 'main'
-    paths:
-      - 'test/**'
-
-concurrency:
-  group: '${{ github.workflow }}-${{ github.head_ref || github.ref }}'
+      - 'checks_requested'
 
 permissions:
   contents: 'read'
@@ -20,7 +12,7 @@ permissions:
 
 jobs:
   apply:
-    uses: 'abcxyz/guardian/.github/workflows/apply.yml@main' # ratchet:exclude
+    uses: './.github/workflows/apply.yml' # ratchet:exclude
     with:
       wif_provider: '${{ vars.GUARDIAN_WIF_PROVIDER}}'
       wif_service_account: '${{ vars.GUARDIAN_WIF_SERVICE_ACCOUNT }}'

@@ -9,11 +9,6 @@ on:
       - 'reopened'
     branches:
       - 'main'
-    paths:
-      - 'test/**'
-
-concurrency:
-  group: '${{ github.workflow }}-${{ github.head_ref || github.ref }}'
 
 permissions:
   contents: 'read'
@@ -22,7 +17,7 @@ permissions:
 
 jobs:
   plan:
-    uses: 'abcxyz/guardian/.github/workflows/plan.yml@main' # ratchet:exclude
+    uses: './.github/workflows/plan.yml' # ratchet:exclude
     with:
       wif_provider: '${{ vars.GUARDIAN_WIF_PROVIDER}}'
       wif_service_account: '${{ vars.GUARDIAN_WIF_SERVICE_ACCOUNT }}'
