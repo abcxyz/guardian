@@ -15,11 +15,11 @@ terraform {
 
 locals {
   project_id = "verbanicm-dev"
-  name       = "warden"
+  name       = "guardian"
 
   repos = {
-    "abcxyz-warden" : {
-      repo_full_name : "abcxyz/warden"
+    "abcxyz-guardian" : {
+      repo_full_name : "abcxyz/guardian"
       repo_id : "599811719" # hard coding to avoid github provider and tokens
     }
   }

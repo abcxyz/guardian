@@ -1,4 +1,4 @@
-name: 'Guardian Admin - Test'
+name: 'guardian_admin'
 run-name: 'Guardian Admin ${{ inputs.directories }} ${{ inputs.number }}'
 
 on:
@@ -22,7 +22,7 @@ permissions:
 
 jobs:
   admin:
-    uses: 'abcxyz/guardian/.github/workflows/admin.yml@main' # ratchet:exclude
+    uses: 'abcxyz/guardian/.github/workflows/admin.yml@main' # TODO: pin this to the latest sha in the guardian repo
     with:
       command: '${{ inputs.command }}'
       directories: '${{ inputs.directories }}'
@@ -30,3 +30,10 @@ jobs:
       wif_provider: '${{ vars.GUARDIAN_WIF_PROVIDER}}'
       wif_service_account: '${{ vars.GUARDIAN_WIF_SERVICE_ACCOUNT }}'
       guardian_bucket_name: '${{ vars.GUARDIAN_BUCKET_NAME }}'
+
+      # Optional: only needed if a specific terraform version is required
+      # guardian_terraform_version: '1.3.8'
+
+    # Optional: GitHub token if needed using terraform github provider a custom PAT may be required depending on your use case
+    # secrets:
+    #   gh_token: '${{ secrets.GITHUB_TOKEN }}'
