@@ -49,6 +49,7 @@ env:
 
 jobs:
   apply_init:
+    if: ${{ github.event.merge_group }}
     runs-on: 'ubuntu-latest'
     permissions:
       contents: 'read'
