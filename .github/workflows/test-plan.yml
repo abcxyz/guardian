@@ -9,6 +9,8 @@ on:
       - 'reopened'
     branches:
       - 'main'
+    paths:
+      - 'test/**'
 
 permissions:
   contents: 'read'
