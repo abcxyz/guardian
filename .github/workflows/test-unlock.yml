@@ -1,23 +1,20 @@
-name: 'Guardian Apply - Test'
-run-name: 'Guardian Apply - PR #${{ github.event.pull_request.number }}'
+name: 'Guardian Unlock - Test'
+run-name: 'Guardian Unlock - PR #${{ github.event.issue.number }}'
 
 on:
-  pull_request:
+  issue_comment:
     types:
-      - 'closed'
-    branches:
-      - 'main'
-    paths:
-      - 'test/**'
+      - 'created'
 
 permissions:
   contents: 'read'
   id-token: 'write'
   pull-requests: 'write'
+  checks: 'write'
 
 jobs:
-  apply:
-    uses: './.github/workflows/apply.yml' # ratchet:exclude
+  unlock:
+    uses: './.github/workflows/unlock.yml' # ratchet:exclude
     with:
       wif_provider: '${{ vars.GUARDIAN_WIF_PROVIDER}}'
       wif_service_account: '${{ vars.GUARDIAN_WIF_SERVICE_ACCOUNT }}'
