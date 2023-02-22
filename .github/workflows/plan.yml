@@ -32,7 +32,7 @@ on:
       gh_token:
         required: false
 
-# only one workflow can be running at a time to allow for terraform state locking
+# only one workflow can run to allow for terraform state locking
 concurrency:
   group: '${{ github.workflow_ref }}'
 
@@ -52,17 +52,82 @@ jobs:
     runs-on: 'ubuntu-latest'
     permissions:
       contents: 'read'
+      id-token: 'write'
+      pull-requests: 'write'
+    env:
+      GUARDIAN_LOCK_PREFIX: 'guardian-locks/${{ github.repository }}'
+      GUARDIAN_LOCK_FILENAME: '${{ github.repository_id }}.tflock'
     outputs:
       dirs: ${{ steps.set-matrix.outputs.dirs }}
     steps:
       - name: 'Checkout'
         uses: 'actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c' # ratchet:actions/checkout@v3
 
+      - name: 'Authenticate to Google Cloud'
+        uses: 'google-github-actions/auth@ef5d53e30bbcd8d0836f4288f5e50ff3e086997d' # ratchet:google-github-actions/auth@v1
+        with:
+          workload_identity_provider: '${{ env.WIF_PROVIDER }}'
+          service_account: '${{ env.WIF_SERVICE_ACCOUNT }}'
+          token_format: 'access_token'
+
+      - name: 'Set up Cloud SDK'
+        uses: 'google-github-actions/setup-gcloud@62d4898025f6041e16b1068643bfc5a696863587' # ratchet:google-github-actions/setup-gcloud@v1
+
+      - name: 'Cloud SDK Config'
+        run: |-
+          gcloud config set storage/max_retries ${{ env.MAX_RETRIES }}
+          gcloud config set storage/base_retry_delay ${{ env.BASE_RETRY_DELAY }}
+          gcloud config set storage/max_retry_delay ${{ env.MAX_RETRY_DELAY }}
+
+      - name: 'Lock'
+        id: 'lock'
+        run: |-
+          RESPONSE=$(gcloud storage objects list gs://${{ env.GUARDIAN_BUCKET_NAME }}/${{ env.GUARDIAN_LOCK_PREFIX }}/${{ env.GUARDIAN_LOCK_FILENAME }} --format="json(name,metadata)")
+          NAME="${{ github.event.pull_request.number }}"
+          REPO_URL="${{ github.event.pull_request.html_url }}"
+
+          LENGTH=$(echo -n ${RESPONSE} | jq -r '. | length')
+
+          if [ "$LENGTH" = "0" ]; then
+              touch ${{ env.GUARDIAN_LOCK_FILENAME }}
+              gcloud storage cp \
+                ${{ env.GUARDIAN_LOCK_FILENAME }} \
+                gs://${{ env.GUARDIAN_BUCKET_NAME }}/${{ env.GUARDIAN_LOCK_PREFIX }}/${{ env.GUARDIAN_LOCK_FILENAME }} \
+                --if-generation-match="0" \
+                --custom-metadata="lock_id=$NAME,lock_repo_url=$REPO_URL"
+              
+              exit 0
+          fi
+
+          LOCK_ID=$(echo -n ${RESPONSE} | jq -r '.[0].metadata.lock_id')
+          LOCK_REPO_URL=$(echo -n ${RESPONSE} | jq -r '.[0].metadata.lock_repo_url')
+
+          if [ "$LOCK_ID" != "$NAME" ]; then
+              MSG="Plan is locked by another process: ${LOCK_REPO_URL}"
+              echo "::error ::${MSG}"
+              echo "error=${MSG}" >> $GITHUB_OUTPUT
+              exit 1
+          fi
+
       - name: 'Set Matrix'
         id: 'set-matrix'
         run: |-
           DIRS=$(touch .guardian | cat .guardian | jq -nRrc '[inputs|split("\n")] | flatten | tostring' )
           echo "dirs=${DIRS}" >> $GITHUB_OUTPUT
+
+      - name: 'Invalid Comment'
+        if: ${{ failure() }}
+        uses: actions/github-script@d556feaca394842dc55e4734bf3bb9f685482fa0 # ratchet:actions/github-script@v6
+        with:
+          retries: ${{ env.MAX_RETRIES }}
+          script: |-
+            const msg = `${{ steps.lock.outputs.error }}` || `Failed to initialize and lock.`
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `**\`🔱 Guardian 🔱\`** - 🟥 ${msg} [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }})]`,
+            });
 
   plan:
     needs:
@@ -81,8 +146,8 @@ jobs:
         shell: 'bash'
         working-directory: '${{ matrix.dir }}'
     env:
-      GUARDIAN_PLAN_PREFIX: 'guardian-plans/${{ github.repository }}/${{ github.event.pull_request.head.sha }}/${{ matrix.dir }}'
-      GUARDIAN_PLAN_FILENAME: 'tfplan.binary'
+      GUARDIAN_PLAN_PREFIX: 'guardian-plans/${{ github.repository }}/${{ github.event.pull_request.number }}/${{ matrix.dir }}'
+      GUARDIAN_PLAN_FILENAME: '${{ github.event.pull_request.head.sha }}.tfplan'
       GITHUB_TOKEN: ${{ secrets.gh_token || github.token }}
     steps:
       - name: 'Start Comment'
