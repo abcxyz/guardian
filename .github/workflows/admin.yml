@@ -60,7 +60,7 @@ jobs:
       contents: 'read'
     steps:
       - name: 'Validate Branch'
-        if: ${{ github.ref != github.event.repository.default_branch }}
+        if: ${{ github.ref_name != github.event.repository.default_branch }}
         run: |-
           echo "::error ::Guardian Admin can only be run from the default branch (${{ github.event.repository.default_branch }})."
           exit 1
@@ -86,7 +86,7 @@ jobs:
       dirs: ${{ steps.set-matrix.outputs.dirs }}
     steps:
       - name: 'Validate Branch'
-        if: ${{ github.ref != github.event.repository.default_branch }}
+        if: ${{ github.ref_name != github.event.repository.default_branch }}
         run: |-
           echo "::error ::Guardian Admin can only be run from the default branch (${{ github.event.repository.default_branch }})."
           exit 1
@@ -130,7 +130,7 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.gh_token || github.token }}
     steps:
       - name: 'Validate Branch'
-        if: ${{ github.ref != github.event.repository.default_branch }}
+        if: ${{ github.ref_name != github.event.repository.default_branch }}
         run: |-
           echo "::error ::Guardian Admin can only be run from the default branch (${{ github.event.repository.default_branch }})."
           exit 1
