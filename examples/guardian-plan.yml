@@ -22,7 +22,7 @@ permissions:
 
 jobs:
   plan:
-    uses: 'abcxyz/guardian/.github/workflows/plan.yml@main' # ratchet:exclude
+    uses: 'abcxyz/guardian/.github/workflows/plan.yml@main' # TODO: pin this to the latest sha in the guardian repo
     with:
       wif_provider: '${{ vars.GUARDIAN_WIF_PROVIDER}}'
       wif_service_account: '${{ vars.GUARDIAN_WIF_SERVICE_ACCOUNT }}'
