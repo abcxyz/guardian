@@ -7,11 +7,6 @@ on:
       - 'closed'
     branches:
       - 'main'
-    paths:
-      - 'test/**'
-
-concurrency:
-  group: '${{ github.workflow }}-${{ github.head_ref || github.ref }}'
 
 permissions:
   contents: 'read'
