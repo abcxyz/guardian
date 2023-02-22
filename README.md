@@ -6,7 +6,9 @@ Guardian is a Terraform actuation and enforcement tool using GitHub actions.
 
 ## Architecture
 
-When submitting a PR, Guardian will create a lockfile using Google Cloud Storage for the repository based on its ID. A lock_id metadata param will be used to identify the pull request by ID. If another PR is submitted and a lock file exists, a comment will be issued and the PR will have to wait for the unlock.
+When submitting a PR, Guardian will create a lockfile for the entire repository using Google Cloud Storage based on the repository ID. The PR number will be stored in a `lock_id` metadata param on the lockfile and will be used to identify the locking PR. If another PR is submitted and a lock file exists for a different PR, a comment will be issued and the PR will have to wait for the unlock. Unlocking can be done by getting your PR merged, or manually by a maintainer/admin with a comment `unlock` on the locking PR.
+
+**GS Lockfile Path**
 
 ```bash
 gs://<BUCKET_NAME>/guardian-locks/<OWNER>/<REPO>/<REPO_ID>.tflock
@@ -35,7 +37,7 @@ Upon completeion of a terraform apply, regardless of success or failure, the loc
 
 - If you need to re-run your plan, push new changes or re-run the workflow to generate new plan files
   - Use `git commit --allow-empty -m "sync" && git push origin BRANCH` to push an empty commit to re-trigger
-- If you need to unlock your plan, add a comment with the message body `unlock` to trigger the unlock process
+- If you need to unlock the repository, add a comment with the message body `unlock` to trigger the unlock process
   - This process can only be done by someone with Maintainer or Admin permissions
   - This process can only be with a comment on the PR who holds the lock
 - If an apply has errors after merge, a subsequent PR should be created to rectify the issues
@@ -44,7 +46,7 @@ Upon completeion of a terraform apply, regardless of success or failure, the loc
   - Navigate to the Actions tab and select `Guardian Admin`
   - Click the `Run workflow` drop down in the top right area
   - Fill out the inputs
-    - BRANCH: Only works from `main`
+    - BRANCH: Only works from the default branch e.g. `main`
     - COMMAND: The terraform command to run e.g. `apply -input=false -auto-approve`
     - DIRECTORIES: The terraform directories to run in, e.g. `projects`, if blank it will run for all configured directories
     - PR NUMBER: Run this command for a specific PR
@@ -56,7 +58,9 @@ A `.guardian` file should exist in the root of the repository listing all terraf
 Example
 
 ```shell
-['bootstrap', 'org','resources']
+org
+bootstrap
+resources
 ```
 
 ## Repository Setup
@@ -86,3 +90,17 @@ Branch protection is required to enable a safe and secure process.
 - [x] Require conversation resolution before merging
 - [x] Require signed commits (optional)
 - [x] Require linear history
+
+### Workflows
+
+To use Guardian in your repository, copy over the GitHub workflow YAMLs from the `examples` directory into your `.github/workflows` folder.
+
+The following variables should be setup at repository level or replaced in the workflow files:
+
+```yaml
+wif_provider: "${{ vars.GUARDIAN_WIF_PROVIDER}}"
+wif_service_account: "${{ vars.GUARDIAN_WIF_SERVICE_ACCOUNT }}"
+guardian_bucket_name: "${{ vars.GUARDIAN_BUCKET_NAME }}"
+```
+
+For more information see [Defining configuration variables for multiple workflows](https://docs.github.com/en/actions/learn-github-actions/variables#defining-configuration-variables-for-multiple-workflows)

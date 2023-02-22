@@ -122,7 +122,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: `**\`🔱 Guardian 🔱\`** - 🟥 ${msg} [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})]`,
+              body: `**\`🔱 Guardian 🔱\`** - 🟥 ${msg} [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }})]`,
             });
 
   plan:
@@ -243,7 +243,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               comment_id: '${{ steps.comment.outputs.result }}',
-              body: `**\`🔱 Guardian 🔱\`** - 🟥 Failed to run Plan in dir: \`${{matrix.dir}}\` [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})]
+              body: `**\`🔱 Guardian 🔱\`** - 🟥 Failed to run Plan in dir: \`${{matrix.dir}}\` [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }})]
 
               <details>
               <summary>Details</summary>\n
@@ -264,7 +264,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               comment_id: '${{ steps.comment.outputs.result }}',
-              body: `**\`🔱 Guardian 🔱\`** - 🟩 Ran Plan in dir: \`${{matrix.dir}}\` [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})]
+              body: `**\`🔱 Guardian 🔱\`** - 🟩 Ran Plan in dir: \`${{matrix.dir}}\` [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }})]
 
               <details>
               <summary>Diff</summary>\n

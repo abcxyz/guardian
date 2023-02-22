@@ -1,14 +1,10 @@
-name: 'Guardian Apply - Test'
-run-name: 'Guardian Apply - PR #${{ github.event.pull_request.number }}'
+name: 'guardian_unlock'
+run-name: 'Guardian Unlock - PR #${{ github.event.issue.number }}'
 
 on:
-  pull_request:
+  issue_comment:
     types:
-      - 'closed'
-    branches:
-      - 'main'
-    paths:
-      - 'test/**'
+      - 'created'
 
 concurrency:
   group: '${{ github.workflow }}-${{ github.head_ref || github.ref }}'
@@ -17,11 +13,15 @@ permissions:
   contents: 'read'
   id-token: 'write'
   pull-requests: 'write'
+  checks: 'write'
 
 jobs:
-  apply:
-    uses: 'abcxyz/guardian/.github/workflows/apply.yml@main' # ratchet:exclude
+  unlock:
+    uses: 'abcxyz/guardian/.github/workflows/unlock.yml@main' # ratchet:exclude
     with:
       wif_provider: '${{ vars.GUARDIAN_WIF_PROVIDER}}'
       wif_service_account: '${{ vars.GUARDIAN_WIF_SERVICE_ACCOUNT }}'
       guardian_bucket_name: '${{ vars.GUARDIAN_BUCKET_NAME }}'
+
+      # Optional: only needed if a specific terraform version is required
+      # guardian_terraform_version: '1.3.8'
