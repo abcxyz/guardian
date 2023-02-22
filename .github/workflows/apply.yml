@@ -198,7 +198,7 @@ jobs:
 
       - name: 'Init'
         run: |-
-          terraform init -input=false 2>&1 | tee ${{ env.OUT_FILENAME }}
+          terraform init -input=false -no-color 2>&1 | tee ${{ env.OUT_FILENAME }}
 
       - name: 'Download Plan'
         run: |-
@@ -209,7 +209,7 @@ jobs:
 
       - name: 'Apply'
         run: |-
-          terraform apply -no-color -input=false ${{ env.GUARDIAN_PLAN_FILENAME }} 2>&1 | tee ${{ env.OUT_FILENAME }}
+          terraform apply -input=false -no-color ${{ env.GUARDIAN_PLAN_FILENAME }} 2>&1 | tee ${{ env.OUT_FILENAME }}
 
       - name: 'GitHub Format'
         run: |-

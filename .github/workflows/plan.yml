@@ -190,15 +190,15 @@ jobs:
 
       - name: 'Lint'
         run: |-
-          terraform fmt -check -diff -recursive 2>&1 | tee ${{ env.OUT_FILENAME }}
+          terraform fmt -check -diff -recursive -no-color 2>&1 | tee ${{ env.OUT_FILENAME }}
 
       - name: 'Init'
         run: |-
-          terraform init -input=false 2>&1 | tee ${{ env.OUT_FILENAME }}
+          terraform init -input=false -no-color 2>&1 | tee ${{ env.OUT_FILENAME }}
 
       - name: 'Validate'
         run: |-
-          terraform validate 2>&1 | tee ${{ env.OUT_FILENAME }}
+          terraform validate -no-color 2>&1 | tee ${{ env.OUT_FILENAME }}
 
       - name: 'Plan'
         run: |-
