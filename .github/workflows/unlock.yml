@@ -194,7 +194,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               comment_id: "${{ steps.comment.outputs.result }}",
-              body: `#### `**🔱 Guardian 🔱`** - 🟥 Unlock failed [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})]`,
+              body: `#### `**🔱 Guardian 🔱`** - 🟥 Unlock failed [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }})]`,
             `,
             });
       - name: 'Success Comment'
@@ -207,5 +207,5 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               comment_id: "${{ steps.comment.outputs.result }}",
-              body: `**\`🔱 Guardian 🔱\`** - 🟩 Forced unlock by @${{github.triggering_actor}} [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})]`,
+              body: `**\`🔱 Guardian 🔱\`** - 🟩 Forced unlock by @${{github.triggering_actor}} [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }})]`,
             });

@@ -17,9 +17,8 @@ permissions:
 
 jobs:
   unlock:
-    uses: 'abcxyz/warden/.github/workflows/unlock.yml@main' # ratchet:exclude
+    uses: 'abcxyz/guardian/.github/workflows/unlock.yml@main' # ratchet:exclude
     with:
-      wif_provider: 'projects/200062081032/locations/global/workloadIdentityPools/github-pool/providers/github-provider-abcxyz-warden'
-      wif_service_account: 'warden-ci-sa@verbanicm-dev.iam.gserviceaccount.com'
-      guardian_bucket_name: 'verbanicm-dev-terraform'
-      guardian_terraform_version: '1.1.8'
+      wif_provider: '${{ vars.GUARDIAN_WIF_PROVIDER}}'
+      wif_service_account: '${{ vars.GUARDIAN_WIF_SERVICE_ACCOUNT }}'
+      guardian_bucket_name: '${{ vars.GUARDIAN_BUCKET_NAME }}'
