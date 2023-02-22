@@ -42,6 +42,10 @@ on:
       gh_token:
         required: false
 
+# only one workflow can be running at a time to allow for terraform state locking
+concurrency:
+  group: '${{ github.workflow_ref }}'
+
 env:
   MAX_RETRIES: ${{ inputs.max_retries }}
   BASE_RETRY_DELAY: ${{ inputs.base_retry_delay }}

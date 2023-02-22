@@ -12,9 +12,6 @@ on:
       number:
         description: 'PR NUMBER - The Pull Request number to run the actions for (if blank, this runs for main).'
 
-concurrency:
-  group: '${{ github.workflow }}-${{ github.head_ref || github.ref }}'
-
 permissions:
   contents: 'read'
   id-token: 'write'
@@ -22,7 +19,7 @@ permissions:
 
 jobs:
   admin:
-    uses: 'abcxyz/guardian/.github/workflows/admin.yml@main' # ratchet:exclude
+    uses: './.github/workflows/admin.yml' # ratchet:exclude
     with:
       command: '${{ inputs.command }}'
       directories: '${{ inputs.directories }}'
