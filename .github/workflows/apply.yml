@@ -217,7 +217,7 @@ jobs:
 
       - name: 'GitHub Format'
         run: |-
-          cat ${{ env.OUT_FILENAME }} | sed -E 's/^([[:space:]]+)([-+])/\2\1/g' 2>&1 | tee ${{ env.OUT_FILENAME }}
+          sed -i -E 's/^([[:space:]]+)([-+])/\2\1/g' ${{ env.OUT_FILENAME }}
 
       - name: 'Set Success Env'
         run: |-
