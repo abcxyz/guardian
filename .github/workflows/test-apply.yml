@@ -17,10 +17,12 @@ run-name: 'Guardian Apply - PR #${{ github.event.pull_request.number }}'
 
 on:
   pull_request:
-    types:
-      - 'closed'
     branches:
       - 'main'
+  merge_group:
+    types:
+      - 'checks_requested'
+  workflow_dispatch:
 
 permissions:
   contents: 'read'
@@ -29,6 +31,7 @@ permissions:
 
 jobs:
   apply:
+    if: ${{ github.event_name == 'merge_group' }}
     uses: './.github/workflows/apply.yml' # ratchet:exclude
     with:
       wif_provider: '${{ vars.GUARDIAN_WIF_PROVIDER}}'
