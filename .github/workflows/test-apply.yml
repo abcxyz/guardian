@@ -21,8 +21,6 @@ on:
       - 'closed'
     branches:
       - 'main'
-    paths:
-      - 'test/**'
 
 permissions:
   contents: 'read'
