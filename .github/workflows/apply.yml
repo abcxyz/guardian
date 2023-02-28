@@ -242,7 +242,7 @@ jobs:
 
       - name: 'Delete Plan'
         run: |-
-          gcloud storage rm gs://${{ env.GUARDIAN_BUCKET_NAME }}/${{ env.GUARDIAN_PLAN_PREFIX }}/* 2>&1 | tee ${{ env.OUT_FILENAME }}
+          gcloud storage rm --all-versions gs://${{ env.GUARDIAN_BUCKET_NAME }}/${{ env.GUARDIAN_PLAN_PREFIX }}/** 2>&1 | tee ${{ env.OUT_FILENAME }}
 
       - name: 'Set Out Env'
         if: ${{ failure() }}
@@ -330,7 +330,7 @@ jobs:
       - name: 'Unlock'
         id: 'unlock'
         run: |-
-          gcloud storage rm gs://${{ env.GUARDIAN_BUCKET_NAME }}/${{ env.GUARDIAN_LOCK_FILENAME }}
+          gcloud storage rm --all-versions gs://${{ env.GUARDIAN_BUCKET_NAME }}/${{ env.GUARDIAN_LOCK_FILENAME }}
 
       - name: 'Failure Comment'
         if: ${{ failure() }}
