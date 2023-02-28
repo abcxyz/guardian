@@ -23,6 +23,7 @@ on:
       - 'reopened'
     branches:
       - 'main'
+  workflow_dispatch:
 
 permissions:
   contents: 'read'
@@ -31,6 +32,7 @@ permissions:
 
 jobs:
   plan:
+    if: ${{ github.event_name == 'pull_request' }}
     uses: './.github/workflows/plan.yml' # ratchet:exclude
     with:
       wif_provider: '${{ vars.GUARDIAN_WIF_PROVIDER}}'
