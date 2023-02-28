@@ -68,6 +68,7 @@ env:
   WIF_SERVICE_ACCOUNT: ${{ inputs.wif_service_account }}
   GUARDIAN_BUCKET_NAME: ${{ inputs.guardian_bucket_name }}
   GUARDIAN_TERRAFORM_VERSION: ${{ inputs.guardian_terraform_version }}
+  GUARDIAN_LOCK_FILENAME: 'guardian-locks/${{ github.repository }}/${{ github.repository_id }}.tflock'
   TF_IN_AUTOMATION: true # tell terraform this is an automated workflow https://developer.hashicorp.com/terraform/tutorials/automation/automate-terraform#controlling-terraform-output-in-automation
 
 jobs:
