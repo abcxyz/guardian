@@ -206,7 +206,7 @@ jobs:
 
       - name: 'Unlock'
         run: |-
-          gcloud storage rm gs://${{ env.GUARDIAN_BUCKET_NAME }}/${{ env.GUARDIAN_LOCK_FILENAME }}
+          gcloud storage rm --all-versions gs://${{ env.GUARDIAN_BUCKET_NAME }}/${{ env.GUARDIAN_LOCK_FILENAME }}
 
       - name: 'Failure Comment'
         if: ${{ failure() }}
