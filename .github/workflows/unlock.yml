@@ -69,7 +69,7 @@ jobs:
     steps:
       - name: 'Permission'
         env:
-          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |-
           ROLE=$(gh api -H "Accept: application/vnd.github+json" /repos/${{ github.repository }}/collaborators/${{ github.triggering_actor }}/permission | jq .role_name -r)
           if [[ "$ROLE" != "admin"  && "$ROLE" != "maintain" ]]; then

@@ -31,8 +31,39 @@ permissions:
 
 jobs:
   plan:
-    uses: './.github/workflows/plan.yml' # ratchet:exclude
-    with:
-      wif_provider: '${{ vars.GUARDIAN_WIF_PROVIDER}}'
-      wif_service_account: '${{ vars.GUARDIAN_WIF_SERVICE_ACCOUNT }}'
-      guardian_bucket_name: '${{ vars.GUARDIAN_BUCKET_NAME }}'
+    runs-on: 'ubuntu-latest'
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+      pull-requests: 'write'
+    strategy:
+      fail-fast: false
+      matrix:
+        path:
+          - 'terraform/ci'
+          - 'terraform/projects'
+    steps:
+      - name: 'Checkout'
+        uses: 'actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c' # ratchet:actions/checkout@v3
+
+      - name: 'Authenticate to Google Cloud'
+        uses: 'google-github-actions/auth@ef5d53e30bbcd8d0836f4288f5e50ff3e086997d' # ratchet:google-github-actions/auth@v1
+        with:
+          workload_identity_provider: '${{ vars.GUARDIAN_WIF_PROVIDER}}'
+          service_account: '${{ vars.GUARDIAN_WIF_SERVICE_ACCOUNT }}'
+
+      - name: 'Setup Terraform'
+        uses: abcxyz/secure-setup-terraform@78e3f2fdfb7ebf59ce42141f6dd93bdd65bf04ed # ratchet:abcxyz/secure-setup-terraform@v0.2.5
+        with:
+          terraform_version: '1.3.6'
+          terraform_module_location: './${{ matrix.path }}'
+          protect_lockfile: false
+          terraform_wrapper: false
+
+      - name: 'Guardian Plan'
+        uses: './.github/actions/guardian-plan'
+        env:
+          GITHUB_TOKEN: '${{ secrets.github_token }}'
+        with:
+          working_directory: '${{ matrix.path }}'
+          bucket_name: '${{ vars.GUARDIAN_BUCKET_NAME }}'

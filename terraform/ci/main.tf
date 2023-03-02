@@ -85,9 +85,19 @@ resource "google_iam_workload_identity_pool_provider" "github_provider" {
     "attribute.repository" : "assertion.repository"
     "attribute.repository_id" : "assertion.repository_id"
     "attribute.workflow" : "assertion.workflow"
+    "attribute.job_workflow_ref" : "assertion.job_workflow_ref"
   }
 
   attribute_condition = "attribute.repository == \"${each.value.repo_full_name}\" && attribute.repository_id == \"${each.value.repo_id}\""
+
+  # attribute_condition = format("attribute.repository == \"%s\" && attribute.repository_id == \"%s\" && (attribute.job_workflow_ref == \"%s\" || attribute.job_workflow_ref == \"%s\" || attribute.job_workflow_ref == \"%s\" || attribute.job_workflow_ref == \"%s\")",
+  #   each.value.repo_full_name,
+  #   each.value.repo_id,
+  #   "abcxyz/guardian/.github/workflows/admin.yml",
+  #   "abcxyz/guardian/.github/workflows/apply.yml",
+  #   "abcxyz/guardian/.github/workflows/plan.yml",
+  #   "abcxyz/guardian/.github/workflows/unlock.yml"
+  # )
 
   oidc {
     issuer_uri = "https://token.actions.githubusercontent.com"

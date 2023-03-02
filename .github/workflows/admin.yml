@@ -69,6 +69,7 @@ env:
   GUARDIAN_BUCKET_NAME: ${{ inputs.guardian_bucket_name }}
   GUARDIAN_TERRAFORM_VERSION: ${{ inputs.guardian_terraform_version }}
   GUARDIAN_LOCK_FILENAME: 'guardian-locks/${{ github.repository }}/${{ github.repository_id }}.tflock'
+  OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
   TF_IN_AUTOMATION: true # tell terraform this is an automated workflow https://developer.hashicorp.com/terraform/tutorials/automation/automate-terraform#controlling-terraform-output-in-automation
 
 jobs:
@@ -85,7 +86,7 @@ jobs:
 
       - name: 'Permission'
         env:
-          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |-
           ROLE=$(gh api -H "Accept: application/vnd.github+json" /repos/${{ github.repository }}/collaborators/${{ github.triggering_actor }}/permission | jq .role_name -r)
           if [ "$ROLE" != "admin" ]; then
@@ -115,7 +116,7 @@ jobs:
       - name: 'Checkout PR'
         if: ${{ inputs.number != '' }}
         env:
-          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |-
           gh pr checkout ${{ inputs.number }}
 
@@ -159,7 +160,7 @@ jobs:
       - name: 'Checkout PR'
         if: ${{ inputs.number != '' }}
         env:
-          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |-
           gh pr checkout ${{ inputs.number }}
 
@@ -186,4 +187,9 @@ jobs:
       - name: 'Run Command'
         working-directory: '${{ env.GUARDIAN_WORKING_DIRECTORY }}'
         run: |-
-          terraform ${{ inputs.command }}
+          terraform ${{ inputs.command }} 2>&1 | tee ${{ env.OUT_FILENAME }}
+
+      - name: 'Output Summary'
+        working-directory: '${{ env.GUARDIAN_WORKING_DIRECTORY }}'
+        run: |-
+          cat ${{ env.OUT_FILENAME }} >> $GITHUB_STEP_SUMMARY
