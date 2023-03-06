@@ -17,10 +17,18 @@ name: 'Guardian Apply'
 on:
   workflow_call:
     inputs:
+      working_directory:
+        type: string
       wif_provider:
         required: true
         type: string
       wif_service_account:
+        required: true
+        type: string
+      guardian_bucket_name:
+        required: true
+        type: string
+      guardian_terraform_version:
         required: true
         type: string
       max_retries:
@@ -35,184 +43,59 @@ on:
         required: false
         default: 60
         type: number
-      guardian_bucket_name:
-        required: true
-        type: string
-      guardian_terraform_version:
-        required: false
-        default: '1.1.8'
-        type: string
     secrets:
-      gh_token:
+      workflow_github_token:
         required: false
 
-# only one workflow can run to allow for terraform state locking
+# only apply should run at a time
 concurrency:
   group: '${{ github.workflow_ref }}'
 
 env:
-  MAX_RETRIES: ${{ inputs.max_retries }}
-  BASE_RETRY_DELAY: ${{ inputs.base_retry_delay }}
-  MAX_RETRY_DELAY: ${{ inputs.max_retry_delay }}
-  WIF_PROVIDER: ${{ inputs.wif_provider }}
-  WIF_SERVICE_ACCOUNT: ${{ inputs.wif_service_account }}
   GUARDIAN_BUCKET_NAME: ${{ inputs.guardian_bucket_name }}
   GUARDIAN_TERRAFORM_VERSION: ${{ inputs.guardian_terraform_version }}
-  GUARDIAN_LOCK_FILENAME: 'guardian-locks/${{ github.repository }}/${{ github.repository_id }}.tflock'
+  GUARDIAN_LOCK_PREFIX: 'guardian-locks/${{ github.repository }}'
+  GUARDIAN_LOCK_FILENAME: '${{ github.repository_id }}.tflock'
+  GUARDIAN_PLAN_PREFIX: 'guardian-plans/${{ github.repository }}/${{ github.event.pull_request.number }}/${{ inputs.working_directory }}'
+  GUARDIAN_PLAN_FILENAME: '.tfplan.binary'
+  GITHUB_TOKEN: ${{ secrets.workflow_github_token || github.token }}
   OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
   TF_IN_AUTOMATION: true # tell terraform this is an automated workflow https://developer.hashicorp.com/terraform/tutorials/automation/automate-terraform#controlling-terraform-output-in-automation
 
 jobs:
-  apply_init:
-    runs-on: 'ubuntu-latest'
-    permissions:
-      contents: 'read'
-      id-token: 'write'
-      pull-requests: 'write'
-    outputs:
-      dirs: ${{ steps.set-matrix.outputs.dirs }}
-    steps:
-      - name: 'Checkout'
-        uses: 'actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c' # ratchet:actions/checkout@v3
-
-      - name: 'Authenticate to Google Cloud'
-        uses: 'google-github-actions/auth@ef5d53e30bbcd8d0836f4288f5e50ff3e086997d' # ratchet:google-github-actions/auth@v1
-        with:
-          workload_identity_provider: '${{ env.WIF_PROVIDER }}'
-          service_account: '${{ env.WIF_SERVICE_ACCOUNT }}'
-          token_format: 'access_token'
-
-      - name: 'Setup Terraform'
-        uses: abcxyz/secure-setup-terraform@78e3f2fdfb7ebf59ce42141f6dd93bdd65bf04ed # ratchet:abcxyz/secure-setup-terraform@v0.2.5
-        with:
-          terraform_version: '${{ env.GUARDIAN_TERRAFORM_VERSION }}'
-          terraform_module_location: './${{ matrix.dir }}'
-          protect_lockfile: false
-          terraform_wrapper: false
-
-      - name: 'Set up Cloud SDK'
-        uses: 'google-github-actions/setup-gcloud@62d4898025f6041e16b1068643bfc5a696863587' # ratchet:google-github-actions/setup-gcloud@v1
-        with:
-          skip_install: true
-
-      - name: 'Cloud SDK Config'
-        run: |-
-          gcloud config set storage/max_retries ${{ env.MAX_RETRIES }}
-          gcloud config set storage/base_retry_delay ${{ env.BASE_RETRY_DELAY }}
-          gcloud config set storage/max_retry_delay ${{ env.MAX_RETRY_DELAY }}
-
-      - name: 'Validate'
-        id: 'validate'
-        run: |-
-          NAME="${{ github.event.pull_request.number }}"
-
-          RESPONSE=$(gcloud storage objects list gs://${{ env.GUARDIAN_BUCKET_NAME }}/${{ env.GUARDIAN_LOCK_FILENAME }} --format="json(name,metadata)")
-
-          LENGTH=$(echo -n ${RESPONSE} | jq -r '. | length')
-
-          # if no lock file, process should exit
-          if [ "$LENGTH" = "0" ]; then
-              MSG="No lock file found, a plans need to be run before applying."
-              echo "::error ::${MSG}"
-              echo "error=${MSG}" >> $GITHUB_OUTPUT
-              exit 1
-          fi
-
-          LOCK_ID=$(echo -n ${RESPONSE} | jq -r '.[0].metadata.lock_id')
-          LOCK_REPO_URL=$(echo -n ${RESPONSE} | jq -r '.[0].metadata.lock_repo_url')
-
-          if [ "$LOCK_ID" != "$NAME" ]; then
-              MSG="Plan is locked by another process: ${LOCK_REPO_URL}"
-              echo "::error ::${MSG}"
-              echo "error=${MSG}" >> $GITHUB_OUTPUT
-              exit 1
-          fi
-
-      - name: 'Set Matrix'
-        id: 'set-matrix'
-        run: |-
-          DIRS=$(touch .guardian | cat .guardian | jq -nRrc '[inputs|split("\n")] | flatten | tostring' )
-          echo "dirs=${DIRS}" >> $GITHUB_OUTPUT
-
-      - name: 'Invalid Comment'
-        if: ${{ failure() }}
-        uses: actions/github-script@d556feaca394842dc55e4734bf3bb9f685482fa0 # ratchet:actions/github-script@v6
-        with:
-          retries: ${{ env.MAX_RETRIES }}
-          script: |-
-            const msg = `${{ steps.validate.outputs.error }}` || `Failed to initialize and validate lock.`
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: `**\`🔱 Guardian 🔱\`** - 🟥 ${msg} [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }})]`,
-            });
-
   apply:
-    needs:
-      - 'apply_init'
-    if: ${{ always() && github.event.pull_request.merged }}
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.merged }}
     runs-on: 'ubuntu-latest'
     permissions:
       contents: 'read'
       id-token: 'write'
       pull-requests: 'write'
-    strategy:
-      fail-fast: false
-      matrix:
-        dir: ${{ fromJSON(needs.apply_init.outputs.dirs) }}
-    defaults:
-      run:
-        shell: 'bash'
-        working-directory: '${{ matrix.dir }}'
-    env:
-      GUARDIAN_PLAN_PREFIX: 'guardian-plans/${{ github.repository }}/${{ github.event.pull_request.number }}/${{ matrix.dir }}'
-      GUARDIAN_PLAN_FILENAME: '${{ github.event.pull_request.head.sha }}.tfplan'
-      GITHUB_TOKEN: ${{ secrets.gh_token || github.token }}
     steps:
-      - name: 'Start Comment'
-        id: 'comment'
-        uses: actions/github-script@d556feaca394842dc55e4734bf3bb9f685482fa0 # ratchet:actions/github-script@v6
-        with:
-          retries: ${{ env.MAX_RETRIES }}
-          script: |-
-            const { data: prComment } = await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: `**\`🔱 Guardian 🔱\`** - 🟨 Running Apply in dir: \`${{matrix.dir}}\``,
-            });
-
-            return prComment.id
-
       - name: 'Checkout'
         uses: 'actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c' # ratchet:actions/checkout@v3
 
       - name: 'Authenticate to Google Cloud'
         uses: 'google-github-actions/auth@ef5d53e30bbcd8d0836f4288f5e50ff3e086997d' # ratchet:google-github-actions/auth@v1
         with:
-          workload_identity_provider: '${{ env.WIF_PROVIDER }}'
-          service_account: '${{ env.WIF_SERVICE_ACCOUNT }}'
-          token_format: 'access_token'
+          workload_identity_provider: '${{ inputs.wif_provider }}'
+          service_account: '${{ inputs.wif_service_account }}'
 
       - name: 'Setup Terraform'
         uses: abcxyz/secure-setup-terraform@78e3f2fdfb7ebf59ce42141f6dd93bdd65bf04ed # ratchet:abcxyz/secure-setup-terraform@v0.2.5
         with:
           terraform_version: '${{ env.GUARDIAN_TERRAFORM_VERSION }}'
-          terraform_module_location: './${{ matrix.dir }}'
+          terraform_module_location: './${{ inputs.working_directory }}'
           protect_lockfile: false
           terraform_wrapper: false
 
       - name: 'Set up Cloud SDK'
         uses: 'google-github-actions/setup-gcloud@62d4898025f6041e16b1068643bfc5a696863587' # ratchet:google-github-actions/setup-gcloud@v1
-        with:
-          skip_install: true
 
       - name: 'Cloud SDK Config'
         run: |-
-          gcloud config set storage/max_retries ${{ env.MAX_RETRIES }}
-          gcloud config set storage/base_retry_delay ${{ env.BASE_RETRY_DELAY }}
-          gcloud config set storage/max_retry_delay ${{ env.MAX_RETRY_DELAY }}
+          gcloud config set storage/max_retries ${{ inputs.max_retries }}
+          gcloud config set storage/base_retry_delay ${{ inputs.base_retry_delay }}
+          gcloud config set storage/max_retry_delay ${{ inputs.max_retry_delay }}
 
       - name: 'Init'
         run: |-
@@ -227,26 +110,23 @@ jobs:
 
       - name: 'Apply'
         run: |-
-          terraform apply -input=false -no-color ${{ env.GUARDIAN_PLAN_FILENAME }} 2>&1 | tee ${{ env.OUT_FILENAME }}
-
-      - name: 'GitHub Format'
-        run: |-
-          sed -i -E 's/^([[:space:]]+)([-+])/\2\1/g' ${{ env.OUT_FILENAME }}
-
-      - name: 'Set Success Env'
-        run: |-
-          SUCCESS=$(cat ${{ env.OUT_FILENAME }})
-          echo "SUCCESS<<EOF" >> $GITHUB_ENV
-          echo "$SUCCESS" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
+          terraform apply -lock-timeout=10m -input=false -no-color ${{ env.GUARDIAN_PLAN_FILENAME }} 2>&1 | tee ${{ env.OUT_FILENAME }}
 
       - name: 'Delete Plan'
         run: |-
-          gcloud storage rm --all-versions gs://${{ env.GUARDIAN_BUCKET_NAME }}/${{ env.GUARDIAN_PLAN_PREFIX }}/** 2>&1 | tee ${{ env.OUT_FILENAME }}
+          gcloud storage rm --all-versions gs://${{ env.GUARDIAN_BUCKET_NAME }}/${{ env.GUARDIAN_PLAN_PREFIX }}/${{ env.GUARDIAN_PLAN_FILENAME }} 2>&1 | tee ${{ env.OUT_FILENAME }}
+
+      - name: 'GitHub Format'
+        run: |-
+          sed -i -E 's|^([[:space:]]*)([~])|\1\!|g' ${{ env.OUT_FILENAME }}
+          sed -i -E 's|^([[:space:]]*)([-+\!])|\2\1|g' ${{ env.OUT_FILENAME }}
 
       - name: 'Set Out Env'
-        if: ${{ failure() }}
+        if: ${{ always() }}
         run: |-
+          # ensure outfile exists
+          touch ${{ env.OUT_FILENAME }}
+
           OUT=$(cat ${{ env.OUT_FILENAME }})
           echo "OUT<<EOF" >> $GITHUB_ENV
           echo "$OUT" >> $GITHUB_ENV
@@ -256,13 +136,13 @@ jobs:
         if: ${{ failure() }}
         uses: actions/github-script@d556feaca394842dc55e4734bf3bb9f685482fa0 # ratchet:actions/github-script@v6
         with:
-          retries: ${{ env.MAX_RETRIES }}
+          retries: ${{ inputs.max_retries }}
           script: |-
-            await github.rest.issues.updateComment({
+            await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              comment_id: "${{ steps.comment.outputs.result }}",
-              body: `**\`🔱 Guardian 🔱\`** - 🟥 Failed to run Apply in dir: \`${{matrix.dir}}\` [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }})]
+              issue_number: '${{ github.event.pull_request.number }}',
+              body: `**\`🔱 Guardian 🔱\`** - 🟥 Failed to run Apply in dir: \`${{inputs.working_directory}}\` [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }})]
 
               <details>
               <summary>Details</summary>\n
@@ -277,83 +157,19 @@ jobs:
         if: ${{ success() }}
         uses: actions/github-script@d556feaca394842dc55e4734bf3bb9f685482fa0 # ratchet:actions/github-script@v6
         with:
-          retries: ${{ env.MAX_RETRIES }}
+          retries: ${{ inputs.max_retries }}
           script: |-
-            await github.rest.issues.updateComment({
+            await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              comment_id: "${{ steps.comment.outputs.result }}",
-              body: `**\`🔱 Guardian 🔱\`** - 🟩 Ran Apply in dir: \`${{matrix.dir}}\` [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }})]
+              issue_number: '${{ github.event.pull_request.number }}',
+              body: `**\`🔱 Guardian 🔱\`** - 🟩 Ran Apply in dir: \`${{inputs.working_directory}}\` [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }})]
 
               <details>
               <summary>Details</summary>\n
               \`\`\`diff\n
-              ${{env.SUCCESS}}
+              ${{env.OUT}}
               \`\`\`
               </details>
               `,
-            });
-
-  # we should always unlock when a PR is closed and we hold the lock, regardless of merge status
-  apply_unlock:
-    needs:
-      - 'apply_init'
-      - 'apply'
-    if: ${{ always() && needs.apply_init.result == 'success' }}
-    runs-on: 'ubuntu-latest'
-    permissions:
-      contents: 'read'
-      id-token: 'write'
-      pull-requests: 'write'
-    steps:
-      - name: 'Checkout'
-        uses: 'actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c' # ratchet:actions/checkout@v3
-
-      - name: 'Authenticate to Google Cloud'
-        uses: 'google-github-actions/auth@ef5d53e30bbcd8d0836f4288f5e50ff3e086997d' # ratchet:google-github-actions/auth@v1
-        with:
-          workload_identity_provider: '${{ env.WIF_PROVIDER }}'
-          service_account: '${{ env.WIF_SERVICE_ACCOUNT }}'
-          token_format: 'access_token'
-
-      - name: 'Set up Cloud SDK'
-        uses: 'google-github-actions/setup-gcloud@62d4898025f6041e16b1068643bfc5a696863587' # ratchet:google-github-actions/setup-gcloud@v1
-        with:
-          skip_install: true
-
-      - name: 'Cloud SDK Config'
-        run: |-
-          gcloud config set storage/max_retries ${{ env.MAX_RETRIES }}
-          gcloud config set storage/base_retry_delay ${{ env.BASE_RETRY_DELAY }}
-          gcloud config set storage/max_retry_delay ${{ env.MAX_RETRY_DELAY }}
-
-      - name: 'Unlock'
-        id: 'unlock'
-        run: |-
-          gcloud storage rm --all-versions gs://${{ env.GUARDIAN_BUCKET_NAME }}/${{ env.GUARDIAN_LOCK_FILENAME }}
-
-      - name: 'Failure Comment'
-        if: ${{ failure() }}
-        uses: actions/github-script@d556feaca394842dc55e4734bf3bb9f685482fa0 # ratchet:actions/github-script@v6
-        with:
-          retries: ${{ env.MAX_RETRIES }}
-          script: |-
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: `#### `**🔱 Guardian 🔱`** - 🟥 Unlock failed [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }})]`,
-            });
-
-      - name: 'Success Comment'
-        if: ${{ success() }}
-        uses: actions/github-script@d556feaca394842dc55e4734bf3bb9f685482fa0 # ratchet:actions/github-script@v6
-        with:
-          retries: ${{ env.MAX_RETRIES }}
-          script: |-
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: `**\`🔱 Guardian 🔱\`** - 🟩 Unlocked [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }})]`,
             });

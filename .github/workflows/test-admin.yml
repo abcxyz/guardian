@@ -13,7 +13,7 @@
 # limitations under the License.
 
 name: 'Guardian Admin - Test'
-run-name: 'Guardian Admin ${{ inputs.directories }} ${{ inputs.number }}'
+run-name: 'Guardian Admin ${{ inputs.working_directory }} ${{ inputs.number }}'
 
 on:
   workflow_dispatch:
@@ -21,8 +21,8 @@ on:
       command:
         description: 'COMMAND - The Terraform command to run including any arguments (this value is appended to the terraform command).'
         required: true
-      directories:
-        description: 'DIRECTORIES - The Terraform directories to execute the command in. If left blank, the command will run for all directories in .guardian'
+      working_directory:
+        description: 'WORKING DIRECTORY - The Terraform directory to execute the command in. (defaults to repository root).'
       number:
         description: 'PR NUMBER - The Pull Request number to run the actions for (if blank, this runs for main).'
 
@@ -36,8 +36,9 @@ jobs:
     uses: './.github/workflows/admin.yml' # ratchet:exclude
     with:
       command: '${{ inputs.command }}'
-      directories: '${{ inputs.directories }}'
+      working_directory: '${{ inputs.working_directory }}'
       number: '${{ inputs.number }}'
       wif_provider: '${{ vars.GUARDIAN_WIF_PROVIDER}}'
       wif_service_account: '${{ vars.GUARDIAN_WIF_SERVICE_ACCOUNT }}'
       guardian_bucket_name: '${{ vars.GUARDIAN_BUCKET_NAME }}'
+      guardian_terraform_version: '1.3.6'
