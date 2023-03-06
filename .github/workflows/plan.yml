@@ -112,6 +112,21 @@ jobs:
         run: |-
           terraform plan -lock-timeout=10m -input=false -no-color -out=${{ env.GUARDIAN_PLAN_FILENAME }} 2>&1 | tee ${{ env.OUT_FILENAME }}
 
+      - name: 'GitHub Format'
+        run: |-
+          sed -i -E 's|^([[:space:]]*)([~])|\1\!|g' ${{ env.OUT_FILENAME }}
+          sed -i -E 's|^([[:space:]]*)([-+\!])|\2\1|g' ${{ env.OUT_FILENAME }}
+
+      - name: 'Set Success Env'
+        run: |-
+          # ensure outfile exists
+          touch ${{ env.OUT_FILENAME }}
+
+          SUCCESS=$(cat ${{ env.OUT_FILENAME }})
+          echo "SUCCESS<<EOF" >> $GITHUB_ENV
+          echo "$SUCCESS" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
       - name: 'Upload Plan'
         run: |-
           gcloud storage cp \
@@ -122,13 +137,8 @@ jobs:
         run: |-
           terraform show -no-color ${{ env.GUARDIAN_PLAN_FILENAME }} 2>&1 | tee ${{ env.OUT_FILENAME }}
 
-      - name: 'GitHub Format'
-        run: |-
-          sed -i -E 's|^([[:space:]]*)([~])|\1\!|g' ${{ env.OUT_FILENAME }}
-          sed -i -E 's|^([[:space:]]*)([-+\!])|\2\1|g' ${{ env.OUT_FILENAME }}
-
       - name: 'Set Out Env'
-        if: ${{ always() }}
+        if: ${{ failure() }}
         run: |-
           # ensure outfile exists
           touch ${{ env.OUT_FILENAME }}
@@ -174,7 +184,7 @@ jobs:
               <details>
               <summary>Diff</summary>\n
               \`\`\`diff\n
-              ${{env.OUT}}
+              ${{env.SUCCESS}}
               \`\`\`
               </details>
               `,

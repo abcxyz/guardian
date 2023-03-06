@@ -26,3 +26,5 @@ terraform {
     prefix = "state/ci"
   }
 }
+
+provider "google" {}
