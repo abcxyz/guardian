@@ -33,6 +33,12 @@ on:
       wif_service_account:
         required: true
         type: string
+      guardian_bucket_name:
+        required: true
+        type: string
+      guardian_terraform_version:
+        required: true
+        type: string
       max_retries:
         required: false
         default: 5
@@ -48,10 +54,6 @@ on:
     secrets:
       workflow_github_token:
         required: false
-
-# only one admin script should run at a time
-concurrency:
-  group: '${{ github.workflow_ref }}'
 
 env:
   MAX_RETRIES: ${{ inputs.max_retries }}

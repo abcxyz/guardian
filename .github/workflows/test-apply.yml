@@ -27,6 +27,10 @@ permissions:
   id-token: 'write'
   pull-requests: 'write'
 
+# only apply should run at a time
+concurrency:
+  group: '${{ github.workflow_ref }}'
+
 jobs:
   apply_ci:
     uses: './.github/workflows/apply.yml' # ratchet:exclude

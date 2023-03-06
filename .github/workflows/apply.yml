@@ -47,10 +47,6 @@ on:
       workflow_github_token:
         required: false
 
-# only apply should run at a time
-concurrency:
-  group: '${{ github.workflow_ref }}'
-
 env:
   GUARDIAN_BUCKET_NAME: ${{ inputs.guardian_bucket_name }}
   GUARDIAN_TERRAFORM_VERSION: ${{ inputs.guardian_terraform_version }}
