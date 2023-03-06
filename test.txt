@@ -1,0 +1,20 @@
+Terraform used the selected providers to generate the following execution
+plan. Resource actions are indicated with the following symbols:
+! update in-place
+
+Terraform will perform the following actions:
+
+# google_iam_workload_identity_pool_provider.github_provider["abcxyz-guardian"] will be updated in-place
+! resource "google_iam_workload_identity_pool_provider" "github_provider" {
+!     attribute_mapping                  = {
+-         "attribute.job_workflow_ref"    = "assertion.job_workflow_ref" -> null
+          # (8 unchanged elements hidden)
+      }
+      id                                 = "projects/verbanicm-dev/locations/global/workloadIdentityPools/github-pool/providers/github-provider-abcxyz-guardian"
+      name                               = "projects/200062081032/locations/global/workloadIdentityPools/github-pool/providers/github-provider-abcxyz-guardian"
+      # (8 unchanged attributes hidden)
+
+      # (1 unchanged block hidden)
+  }
+
+Plan: 0 to add, 1 to change, 0 to destroy.

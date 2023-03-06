@@ -21,10 +21,10 @@ on:
       command:
         description: 'COMMAND - The Terraform command to run including any arguments (this value is appended to the terraform command).'
         required: true
-      directories:
-        description: 'DIRECTORIES - The Terraform directories to execute the command in. If left blank, the command will run for all directories in .guardian'
+      working_directory:
+        description: 'WORKING DIRECTORY - The Terraform directory to execute the command in. (defaults to repository root).'
       number:
-        description: 'PR NUMBER - The Pull Request number to run the actions for (if blank, this runs for main).'
+        description: 'PR NUMBER - The Pull Request number to run the actions for (if blank, runs for the repository default branch).'
 
 permissions:
   contents: 'read'
@@ -36,15 +36,13 @@ jobs:
     uses: 'abcxyz/guardian/.github/workflows/admin.yml@main' # TODO: pin this to the latest sha in the guardian repo
     with:
       command: '${{ inputs.command }}'
-      directories: '${{ inputs.directories }}'
       number: '${{ inputs.number }}'
+      working_directory: '${{ inputs.working_directory }}'
       wif_provider: '${{ vars.GUARDIAN_WIF_PROVIDER}}'
       wif_service_account: '${{ vars.GUARDIAN_WIF_SERVICE_ACCOUNT }}'
       guardian_bucket_name: '${{ vars.GUARDIAN_BUCKET_NAME }}'
-
-      # Optional: only needed if a specific terraform version is required
-      # guardian_terraform_version: '1.3.8'
+      guardian_terraform_version: '1.3.6'
 
     # Optional: GitHub token if needed using terraform github provider a custom PAT may be required depending on your use case
     # secrets:
-    #   gh_token: '${{ secrets.GITHUB_TOKEN }}'
+    #   workflow_github_token: '${{ secrets.GITHUB_TOKEN }}'
