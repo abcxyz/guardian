@@ -31,6 +31,10 @@ permissions:
   id-token: 'write'
   pull-requests: 'read'
 
+# only admin should run at a time
+concurrency:
+  group: '${{ github.workflow_ref }}'
+
 jobs:
   admin:
     uses: './.github/workflows/admin.yml' # ratchet:exclude
