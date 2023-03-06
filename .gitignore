@@ -12,9 +12,6 @@ tmp/
 # Local .terraform directories
 **/.terraform/*
 
-# Dont include lock files for automation
-**/.terraform.lock.hcl
-
 # .tfstate files
 *.tfstate
 *.tfstate.*
