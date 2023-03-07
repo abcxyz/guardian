@@ -24,6 +24,10 @@ on:
     branches:
       - 'main'
 
+# only one plan should run at a time
+concurrency:
+  group: '${{ github.workflow_ref }}'
+
 permissions:
   contents: 'read'
   id-token: 'write'
