@@ -26,3 +26,5 @@ terraform {
     prefix = "state/projects"
   }
 }
+
+provider "google" {}
