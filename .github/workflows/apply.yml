@@ -31,6 +31,9 @@ on:
       guardian_terraform_version:
         required: true
         type: string
+      guardian_protect_lockfile:
+        type: boolean
+        default: true
       max_retries:
         required: false
         default: 5
@@ -99,7 +102,8 @@ jobs:
         with:
           terraform_version: '${{ inputs.guardian_terraform_version }}'
           terraform_module_location: './${{ inputs.working_directory }}'
-          protect_lockfile: false
+          terraform_lockfile_location: './${{ inputs.working_directory }}'
+          protect_lockfile: ${{ inputs.guardian_protect_lockfile }}
           terraform_wrapper: false
 
       - name: 'Set up Cloud SDK'
