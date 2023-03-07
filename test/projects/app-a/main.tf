@@ -14,7 +14,7 @@
 
 locals {
   project_id = "verbanicm-dev"
-  name       = "first-app-a"
+  name       = "second-app-a"
 }
 
 resource "google_service_account" "test_service_account" {
