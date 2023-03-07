@@ -33,37 +33,14 @@ on:
       wif_service_account:
         required: true
         type: string
-      guardian_bucket_name:
-        required: true
-        type: string
       guardian_terraform_version:
         required: true
         type: string
-      max_retries:
-        required: false
-        default: 5
-        type: number
-      base_retry_delay:
-        required: false
-        default: 2
-        type: number
-      max_retry_delay:
-        required: false
-        default: 60
-        type: number
     secrets:
       workflow_github_token:
         required: false
 
 env:
-  MAX_RETRIES: ${{ inputs.max_retries }}
-  BASE_RETRY_DELAY: ${{ inputs.base_retry_delay }}
-  MAX_RETRY_DELAY: ${{ inputs.max_retry_delay }}
-  WIF_PROVIDER: ${{ inputs.wif_provider }}
-  WIF_SERVICE_ACCOUNT: ${{ inputs.wif_service_account }}
-  GUARDIAN_BUCKET_NAME: ${{ inputs.guardian_bucket_name }}
-  GUARDIAN_TERRAFORM_VERSION: ${{ inputs.guardian_terraform_version }}
-  GUARDIAN_LOCK_FILENAME: 'guardian-locks/${{ github.repository }}/${{ github.repository_id }}.tflock'
   GITHUB_TOKEN: ${{ secrets.workflow_github_token || github.token }}
   TF_IN_AUTOMATION: true # tell terraform this is an automated workflow https://developer.hashicorp.com/terraform/tutorials/automation/automate-terraform#controlling-terraform-output-in-automation
 
@@ -107,24 +84,23 @@ jobs:
       - name: 'Authenticate to Google Cloud'
         uses: 'google-github-actions/auth@ef5d53e30bbcd8d0836f4288f5e50ff3e086997d' # ratchet:google-github-actions/auth@v1
         with:
-          workload_identity_provider: '${{ env.WIF_PROVIDER }}'
-          service_account: '${{ env.WIF_SERVICE_ACCOUNT }}'
-          token_format: 'access_token'
+          workload_identity_provider: '${{ inputs.wif_provider }}'
+          service_account: '${{ inputs.wif_service_account }}'
 
       - name: 'Setup Terraform'
         uses: abcxyz/secure-setup-terraform@78e3f2fdfb7ebf59ce42141f6dd93bdd65bf04ed # ratchet:abcxyz/secure-setup-terraform@v0.2.5
         with:
-          terraform_version: '${{ env.GUARDIAN_TERRAFORM_VERSION }}'
-          terraform_module_location: './${{ env.GUARDIAN_WORKING_DIRECTORY }}'
+          terraform_version: '${{ inputs.guardian_terraform_version }}'
+          terraform_module_location: './${{ inputs.working_directory }}'
           protect_lockfile: false
           terraform_wrapper: false
 
       - name: 'Init'
-        working-directory: '${{ env.GUARDIAN_WORKING_DIRECTORY }}'
+        working-directory: '${{ inputs.working_directory }}'
         run: |-
           terraform init -input=false
 
       - name: 'Run Command'
-        working-directory: '${{ env.GUARDIAN_WORKING_DIRECTORY }}'
+        working-directory: '${{ inputs.working_directory }}'
         run: |-
           terraform ${{ inputs.command }}
