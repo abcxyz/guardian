@@ -123,7 +123,7 @@ jobs:
 
       - name: 'Terraform Validate'
         run: |-
-          echo "# Terrafomr Validate" > ${{ env.OUT_FILENAME }}
+          echo "# Terraform Validate" > ${{ env.OUT_FILENAME }}
           terraform validate -no-color 2>&1 | tee -a ${{ env.OUT_FILENAME }}
 
       - name: 'Terraform Plan'
@@ -131,19 +131,18 @@ jobs:
           echo "# Terraform Plan" > ${{ env.OUT_FILENAME }}
           terraform plan -lock-timeout=10m -input=false -no-color -out=${{ env.GUARDIAN_PLAN_FILENAME }} 2>&1 | tee -a ${{ env.OUT_FILENAME }}
 
+      - name: 'Terraform Show'
+        run: |-
+          echo "# Terraform Show" > ${{ env.OUT_FILENAME }}
+          terraform show -no-color ${{ env.GUARDIAN_PLAN_FILENAME }} 2>&1 | tee -a ${{ env.OUT_FILENAME }}
+
       - name: 'GitHub Format'
         run: |-
-          # ensure outfile exists
-          touch ${{ env.OUT_FILENAME }}
-
           sed -i -E 's|^([[:space:]]*)([~])|\1\!|g' ${{ env.OUT_FILENAME }}
           sed -i -E 's|^([[:space:]]*)([-+\!])|\2\1|g' ${{ env.OUT_FILENAME }}
 
       - name: 'Set Success Variable'
         run: |-
-          # ensure outfile exists
-          touch ${{ env.OUT_FILENAME }}
-
           SUCCESS=$(cat ${{ env.OUT_FILENAME }})
           echo "SUCCESS<<EOF" >> $GITHUB_ENV
           echo "$SUCCESS" >> $GITHUB_ENV
@@ -156,15 +155,10 @@ jobs:
             ${{ env.GUARDIAN_PLAN_FILENAME }} \
             gs://${{ env.GUARDIAN_BUCKET_NAME }}/${{ env.GUARDIAN_PLAN_PREFIX }}/${{ env.GUARDIAN_PLAN_FILENAME }} 2>&1 | tee -a ${{ env.OUT_FILENAME }}
 
-      - name: 'Terraform Show'
-        run: |-
-          echo "# Terraform Show" > ${{ env.OUT_FILENAME }}
-          terraform show -no-color ${{ env.GUARDIAN_PLAN_FILENAME }} 2>&1 | tee -a ${{ env.OUT_FILENAME }}
-
       - name: 'Set Failure Variable'
         if: ${{ failure() }}
         run: |-
-          # ensure outfile exists
+          # ensure outfile exists, initial steps could fail without ever writing to out file
           touch ${{ env.OUT_FILENAME }}
 
           FAILURE=$(cat ${{ env.OUT_FILENAME }})
