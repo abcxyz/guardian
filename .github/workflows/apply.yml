@@ -63,6 +63,13 @@ jobs:
       contents: 'read'
       id-token: 'write'
       pull-requests: 'write'
+
+    # ensure these defaults exist to run command in the specified working_directory
+    defaults:
+      run:
+        shell: 'bash'
+        working-directory: '${{ inputs.working_directory }}'
+
     steps:
       - name: 'Start Comment'
         id: 'comment'
@@ -74,7 +81,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: `**\`🔱 Guardian 🔱\`** - 🟨 Running Apply in dir: \`${{inputs.workding_directory}}\``,
+              body: `**\`🔱 Guardian 🔱\`** - 🟨 Running Apply in dir: \`${{inputs.working_directory}}\``,
             });
             return prComment.id
 
@@ -98,76 +105,53 @@ jobs:
       - name: 'Set up Cloud SDK'
         uses: 'google-github-actions/setup-gcloud@62d4898025f6041e16b1068643bfc5a696863587' # ratchet:google-github-actions/setup-gcloud@v1
 
-      - name: 'Guardian Apply'
+      - name: 'Cloud SDK Config'
         run: |-
-          # Guardian Apply
-          set -o pipefail
-
-          NAME="Cloud SDK Config"
-          echo "::group::${NAME}"
-          echo "# ${NAME}" > ${{ env.OUT_FILENAME }}
-
+          echo "# Cloud SDK Config" > ${{ env.OUT_FILENAME }}
           gcloud config set storage/max_retries ${{ inputs.max_retries }} 2>&1 | tee -a ${{ env.OUT_FILENAME }}
           gcloud config set storage/base_retry_delay ${{ inputs.base_retry_delay }} 2>&1 | tee -a ${{ env.OUT_FILENAME }}
           gcloud config set storage/max_retry_delay ${{ inputs.max_retry_delay }} 2>&1 | tee -a ${{ env.OUT_FILENAME }}
 
-          echo "::endgroup::"
-
-          NAME="Terraform Init"
-          echo "::group::${NAME}"
-          echo "# ${NAME}" > ${{ env.OUT_FILENAME }}
-
+      - name: 'Terraform Init'
+        run: |-
+          echo "# Terraform Init" > ${{ env.OUT_FILENAME }}
           terraform init -input=false -no-color 2>&1 | tee -a ${{ env.OUT_FILENAME }}
 
-          echo "::endgroup::"
-
-          NAME="Download Plan File"
-          echo "::group::${NAME}"
-          echo "# ${NAME}" > ${{ env.OUT_FILENAME }}
-
+      - name: 'Download Plan File'
+        run: |-
+          echo "# Download Plan File" > ${{ env.OUT_FILENAME }}
           gcloud storage cp \
             gs://${{ env.GUARDIAN_BUCKET_NAME }}/${{ env.GUARDIAN_PLAN_PREFIX }}/${{ env.GUARDIAN_PLAN_FILENAME }} \
             ${{ env.GUARDIAN_PLAN_FILENAME }} \
             2>&1 | tee -a ${{ env.OUT_FILENAME }}
 
-          echo "::endgroup::"
-
-          NAME="Terraform Apply"
-          echo "::group::${NAME}"
-          echo "# ${NAME}" > ${{ env.OUT_FILENAME }}
-
+      - name: 'Terraform Apply'
+        run: |-
+          echo "# Terraform Apply" > ${{ env.OUT_FILENAME }}
           terraform apply -lock-timeout=10m -input=false -no-color ${{ env.GUARDIAN_PLAN_FILENAME }} 2>&1 | tee -a ${{ env.OUT_FILENAME }}
 
-          echo "::endgroup::"
-
-          NAME="GitHub Format"
-          echo "::group::${NAME}"
-
+      - name: 'GitHub Format'
+        run: |-
           # ensure outfile exists
           touch ${{ env.OUT_FILENAME }}
 
           sed -i -E 's|^([[:space:]]*)([~])|\1\!|g' ${{ env.OUT_FILENAME }}
           sed -i -E 's|^([[:space:]]*)([-+\!])|\2\1|g' ${{ env.OUT_FILENAME }}
 
-          echo "::endgroup::"
-
-          NAME="Set Success Variable"
-          echo "::group::${NAME}"
+      - name: 'Set Success Variable'
+        run: |-
+          # ensure outfile exists
+          touch ${{ env.OUT_FILENAME }}
 
           SUCCESS=$(cat ${{ env.OUT_FILENAME }})
           echo "SUCCESS<<EOF" >> $GITHUB_ENV
           echo "$SUCCESS" >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
 
-          echo "::endgroup::"
-
-          NAME="Delete Plan File"
-          echo "::group::${NAME}"
-          echo "# ${NAME}" > ${{ env.OUT_FILENAME }}
-
+      - name: 'Delete Plan File'
+        run: |-
+          echo "# Delete Plan File" > ${{ env.OUT_FILENAME }}
           gcloud storage rm --all-versions gs://${{ env.GUARDIAN_BUCKET_NAME }}/${{ env.GUARDIAN_PLAN_PREFIX }}/${{ env.GUARDIAN_PLAN_FILENAME }} 2>&1 | tee -a ${{ env.OUT_FILENAME }}
-
-          echo "::endgroup::"
 
       - name: 'Set Failure Variable'
         if: ${{ failure() }}
