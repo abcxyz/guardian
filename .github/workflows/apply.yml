@@ -49,11 +49,8 @@ on:
 
 env:
   GUARDIAN_BUCKET_NAME: ${{ inputs.guardian_bucket_name }}
-  GUARDIAN_TERRAFORM_VERSION: ${{ inputs.guardian_terraform_version }}
-  GUARDIAN_LOCK_PREFIX: 'guardian-locks/${{ github.repository }}'
-  GUARDIAN_LOCK_FILENAME: '${{ github.repository_id }}.tflock'
   GUARDIAN_PLAN_PREFIX: 'guardian-plans/${{ github.repository }}/${{ github.event.pull_request.number }}/${{ inputs.working_directory }}'
-  GUARDIAN_PLAN_FILENAME: '.tfplan.binary'
+  GUARDIAN_PLAN_FILENAME: 'tfplan.binary'
   GITHUB_TOKEN: ${{ secrets.workflow_github_token || github.token }}
   OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
   TF_IN_AUTOMATION: true # tell terraform this is an automated workflow https://developer.hashicorp.com/terraform/tutorials/automation/automate-terraform#controlling-terraform-output-in-automation
@@ -67,6 +64,20 @@ jobs:
       id-token: 'write'
       pull-requests: 'write'
     steps:
+      - name: 'Start Comment'
+        id: 'comment'
+        uses: actions/github-script@d556feaca394842dc55e4734bf3bb9f685482fa0 # ratchet:actions/github-script@v6
+        with:
+          retries: ${{ inputs.max_retries }}
+          script: |-
+            const { data: prComment } = await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `**\`🔱 Guardian 🔱\`** - 🟨 Running Apply in dir: \`${{inputs.workding_directory}}\``,
+            });
+            return prComment.id
+
       - name: 'Checkout'
         uses: 'actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c' # ratchet:actions/checkout@v3
 
@@ -79,7 +90,7 @@ jobs:
       - name: 'Setup Terraform'
         uses: abcxyz/secure-setup-terraform@78e3f2fdfb7ebf59ce42141f6dd93bdd65bf04ed # ratchet:abcxyz/secure-setup-terraform@v0.2.5
         with:
-          terraform_version: '${{ env.GUARDIAN_TERRAFORM_VERSION }}'
+          terraform_version: '${{ inputs.guardian_terraform_version }}'
           terraform_module_location: './${{ inputs.working_directory }}'
           protect_lockfile: false
           terraform_wrapper: false
@@ -87,45 +98,86 @@ jobs:
       - name: 'Set up Cloud SDK'
         uses: 'google-github-actions/setup-gcloud@62d4898025f6041e16b1068643bfc5a696863587' # ratchet:google-github-actions/setup-gcloud@v1
 
-      - name: 'Cloud SDK Config'
+      - name: 'Guardian Apply'
         run: |-
-          gcloud config set storage/max_retries ${{ inputs.max_retries }}
-          gcloud config set storage/base_retry_delay ${{ inputs.base_retry_delay }}
-          gcloud config set storage/max_retry_delay ${{ inputs.max_retry_delay }}
+          # Guardian Apply
+          set -o pipefail
 
-      - name: 'Init'
-        run: |-
-          terraform init -input=false -no-color 2>&1 | tee ${{ env.OUT_FILENAME }}
+          NAME="Cloud SDK Config"
+          echo "::group::${NAME}"
+          echo "# ${NAME}" > ${{ env.OUT_FILENAME }}
 
-      - name: 'Download Plan'
-        run: |-
+          gcloud config set storage/max_retries ${{ inputs.max_retries }} 2>&1 | tee -a ${{ env.OUT_FILENAME }}
+          gcloud config set storage/base_retry_delay ${{ inputs.base_retry_delay }} 2>&1 | tee -a ${{ env.OUT_FILENAME }}
+          gcloud config set storage/max_retry_delay ${{ inputs.max_retry_delay }} 2>&1 | tee -a ${{ env.OUT_FILENAME }}
+
+          echo "::endgroup::"
+
+          NAME="Terraform Init"
+          echo "::group::${NAME}"
+          echo "# ${NAME}" > ${{ env.OUT_FILENAME }}
+
+          terraform init -input=false -no-color 2>&1 | tee -a ${{ env.OUT_FILENAME }}
+
+          echo "::endgroup::"
+
+          NAME="Download Plan File"
+          echo "::group::${NAME}"
+          echo "# ${NAME}" > ${{ env.OUT_FILENAME }}
+
           gcloud storage cp \
             gs://${{ env.GUARDIAN_BUCKET_NAME }}/${{ env.GUARDIAN_PLAN_PREFIX }}/${{ env.GUARDIAN_PLAN_FILENAME }} \
             ${{ env.GUARDIAN_PLAN_FILENAME }} \
-            2>&1 | tee ${{ env.OUT_FILENAME }}
+            2>&1 | tee -a ${{ env.OUT_FILENAME }}
 
-      - name: 'Apply'
-        run: |-
-          terraform apply -lock-timeout=10m -input=false -no-color ${{ env.GUARDIAN_PLAN_FILENAME }} 2>&1 | tee ${{ env.OUT_FILENAME }}
+          echo "::endgroup::"
 
-      - name: 'Delete Plan'
-        run: |-
-          gcloud storage rm --all-versions gs://${{ env.GUARDIAN_BUCKET_NAME }}/${{ env.GUARDIAN_PLAN_PREFIX }}/${{ env.GUARDIAN_PLAN_FILENAME }} 2>&1 | tee ${{ env.OUT_FILENAME }}
+          NAME="Terraform Apply"
+          echo "::group::${NAME}"
+          echo "# ${NAME}" > ${{ env.OUT_FILENAME }}
 
-      - name: 'GitHub Format'
-        run: |-
+          terraform apply -lock-timeout=10m -input=false -no-color ${{ env.GUARDIAN_PLAN_FILENAME }} 2>&1 | tee -a ${{ env.OUT_FILENAME }}
+
+          echo "::endgroup::"
+
+          NAME="GitHub Format"
+          echo "::group::${NAME}"
+
+          # ensure outfile exists
+          touch ${{ env.OUT_FILENAME }}
+
           sed -i -E 's|^([[:space:]]*)([~])|\1\!|g' ${{ env.OUT_FILENAME }}
           sed -i -E 's|^([[:space:]]*)([-+\!])|\2\1|g' ${{ env.OUT_FILENAME }}
 
-      - name: 'Set Out Env'
-        if: ${{ always() }}
+          echo "::endgroup::"
+
+          NAME="Set Success Variable"
+          echo "::group::${NAME}"
+
+          SUCCESS=$(cat ${{ env.OUT_FILENAME }})
+          echo "SUCCESS<<EOF" >> $GITHUB_ENV
+          echo "$SUCCESS" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+          echo "::endgroup::"
+
+          NAME="Delete Plan File"
+          echo "::group::${NAME}"
+          echo "# ${NAME}" > ${{ env.OUT_FILENAME }}
+
+          gcloud storage rm --all-versions gs://${{ env.GUARDIAN_BUCKET_NAME }}/${{ env.GUARDIAN_PLAN_PREFIX }}/${{ env.GUARDIAN_PLAN_FILENAME }} 2>&1 | tee -a ${{ env.OUT_FILENAME }}
+
+          echo "::endgroup::"
+
+      - name: 'Set Failure Variable'
+        if: ${{ failure() }}
         run: |-
           # ensure outfile exists
           touch ${{ env.OUT_FILENAME }}
 
-          OUT=$(cat ${{ env.OUT_FILENAME }})
-          echo "OUT<<EOF" >> $GITHUB_ENV
-          echo "$OUT" >> $GITHUB_ENV
+          FAILURE=$(cat ${{ env.OUT_FILENAME }})
+          echo "FAILURE<<EOF" >> $GITHUB_ENV
+          echo "$FAILURE" >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
 
       - name: 'Failure Comment'
@@ -134,19 +186,17 @@ jobs:
         with:
           retries: ${{ inputs.max_retries }}
           script: |-
-            await github.rest.issues.createComment({
+            await github.rest.issues.updateComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: '${{ github.event.pull_request.number }}',
-              body: `**\`🔱 Guardian 🔱\`** - 🟥 Failed to run Apply in dir: \`${{inputs.working_directory}}\` [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }})]
-
-              <details>
-              <summary>Details</summary>\n
-              \`\`\`diff\n
-              ${{env.OUT}}
-              \`\`\`
-              </details>
-              `,
+              comment_id: '${{ steps.comment.outputs.result }}',
+              body: `**\`🔱 Guardian 🔱\`** - 🟥 Failed to run Apply in dir: \`${{inputs.working_directory}}\` [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }})]\n
+            <details>
+            <summary>Details</summary>\n
+            \`\`\`diff\n
+            ${{env.FAILURE}}
+            \`\`\`
+            </details>`,
             });
 
       - name: 'Success Comment'
@@ -155,17 +205,15 @@ jobs:
         with:
           retries: ${{ inputs.max_retries }}
           script: |-
-            await github.rest.issues.createComment({
+            await github.rest.issues.updateComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: '${{ github.event.pull_request.number }}',
-              body: `**\`🔱 Guardian 🔱\`** - 🟩 Ran Apply in dir: \`${{inputs.working_directory}}\` [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }})]
-
-              <details>
-              <summary>Details</summary>\n
-              \`\`\`diff\n
-              ${{env.OUT}}
-              \`\`\`
-              </details>
-              `,
+              comment_id: '${{ steps.comment.outputs.result }}',
+              body: `**\`🔱 Guardian 🔱\`** - 🟩 Ran Apply in dir: \`${{inputs.working_directory}}\` [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }})]\n
+            <details>
+            <summary>Details</summary>\n
+            \`\`\`diff\n
+            ${{env.SUCCESS}}
+            \`\`\`
+            </details>`,
             });

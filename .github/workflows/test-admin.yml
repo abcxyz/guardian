@@ -44,5 +44,4 @@ jobs:
       number: '${{ inputs.number }}'
       wif_provider: '${{ vars.GUARDIAN_WIF_PROVIDER}}'
       wif_service_account: '${{ vars.GUARDIAN_WIF_SERVICE_ACCOUNT }}'
-      guardian_bucket_name: '${{ vars.GUARDIAN_BUCKET_NAME }}'
       guardian_terraform_version: '1.3.6'
