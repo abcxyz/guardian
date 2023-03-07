@@ -132,17 +132,11 @@ jobs:
 
       - name: 'GitHub Format'
         run: |-
-          # ensure outfile exists
-          touch ${{ env.OUT_FILENAME }}
-
           sed -i -E 's|^([[:space:]]*)([~])|\1\!|g' ${{ env.OUT_FILENAME }}
           sed -i -E 's|^([[:space:]]*)([-+\!])|\2\1|g' ${{ env.OUT_FILENAME }}
 
       - name: 'Set Success Variable'
         run: |-
-          # ensure outfile exists
-          touch ${{ env.OUT_FILENAME }}
-
           SUCCESS=$(cat ${{ env.OUT_FILENAME }})
           echo "SUCCESS<<EOF" >> $GITHUB_ENV
           echo "$SUCCESS" >> $GITHUB_ENV
@@ -156,7 +150,7 @@ jobs:
       - name: 'Set Failure Variable'
         if: ${{ failure() }}
         run: |-
-          # ensure outfile exists
+          # ensure outfile exists, initial steps could fail without ever writing to out file
           touch ${{ env.OUT_FILENAME }}
 
           FAILURE=$(cat ${{ env.OUT_FILENAME }})
