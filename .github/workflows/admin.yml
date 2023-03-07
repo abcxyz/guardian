@@ -36,6 +36,9 @@ on:
       guardian_terraform_version:
         required: true
         type: string
+      guardian_protect_lockfile:
+        type: boolean
+        default: true
     secrets:
       workflow_github_token:
         required: false
@@ -51,10 +54,13 @@ jobs:
       contents: 'read'
       id-token: 'write'
       pull-requests: 'read'
+
+    # ensure these defaults exist to run command in the specified working_directory
     defaults:
       run:
         shell: 'bash'
         working-directory: '${{ inputs.working_directory }}'
+
     steps:
       - name: 'Checkout'
         uses: 'actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c' # ratchet:actions/checkout@v3
@@ -92,15 +98,14 @@ jobs:
         with:
           terraform_version: '${{ inputs.guardian_terraform_version }}'
           terraform_module_location: './${{ inputs.working_directory }}'
-          protect_lockfile: false
+          terraform_lockfile_location: './${{ inputs.working_directory }}'
+          protect_lockfile: ${{ inputs.guardian_protect_lockfile }}
           terraform_wrapper: false
 
       - name: 'Init'
-        working-directory: '${{ inputs.working_directory }}'
         run: |-
           terraform init -input=false
 
       - name: 'Run Command'
-        working-directory: '${{ inputs.working_directory }}'
         run: |-
           terraform ${{ inputs.command }}

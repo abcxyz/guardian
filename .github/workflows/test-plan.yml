@@ -38,6 +38,7 @@ jobs:
       wif_service_account: '${{ vars.GUARDIAN_WIF_SERVICE_ACCOUNT }}'
       guardian_bucket_name: '${{ vars.GUARDIAN_BUCKET_NAME }}'
       guardian_terraform_version: '1.3.6'
+      guardian_protect_lockfile: true
 
   plan_projects:
     uses: './.github/workflows/plan.yml' # ratchet:exclude
@@ -47,3 +48,4 @@ jobs:
       wif_service_account: '${{ vars.GUARDIAN_WIF_SERVICE_ACCOUNT }}'
       guardian_bucket_name: '${{ vars.GUARDIAN_BUCKET_NAME }}'
       guardian_terraform_version: '1.3.6'
+      guardian_protect_lockfile: true

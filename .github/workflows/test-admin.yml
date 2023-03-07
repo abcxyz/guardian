@@ -45,3 +45,4 @@ jobs:
       wif_provider: '${{ vars.GUARDIAN_WIF_PROVIDER}}'
       wif_service_account: '${{ vars.GUARDIAN_WIF_SERVICE_ACCOUNT }}'
       guardian_terraform_version: '1.3.6'
+      guardian_protect_lockfile: true
