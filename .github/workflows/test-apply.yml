@@ -27,7 +27,7 @@ permissions:
   id-token: 'write'
   pull-requests: 'write'
 
-# only apply should run at a time
+# only one apply should run at a time
 concurrency:
   group: '${{ github.workflow_ref }}'
 
