@@ -22,15 +22,22 @@ inputs:
     required: true
   number:
     description: 'PR NUMBER - The Pull Request number to run the actions for (if blank, this runs for the default branch).'
+    required: false
   working_directory:
     description: 'The working directory for Guardian to execute commands in.'
+    required: false
     default: '.'
-  guardian_terraform_version:
+  terraform_version:
     description: 'The Terraform version for Guardian to use.'
     required: true
-  guardian_protect_lockfile:
+  protect_lockfile:
     description: 'Prevent modification of the Terraform lockfile.'
+    required: false
     default: 'true'
+  lock_timeout:
+    description: 'The duration Terraform should wait to obtain a lock when running commands that modify state.'
+    required: false
+    default: '10m'
 
 runs:
   using: composite
@@ -56,17 +63,16 @@ runs:
     - name: 'Checkout PR'
       if: ${{ inputs.number != '' }}
       shell: 'bash'
-      working-directory: '${{ inputs.working_directory }}'
       run: |-
         gh pr checkout ${{ inputs.number }}
 
     - name: 'Setup Terraform'
       uses: abcxyz/secure-setup-terraform@78e3f2fdfb7ebf59ce42141f6dd93bdd65bf04ed # ratchet:abcxyz/secure-setup-terraform@v0.2.5
       with:
-        terraform_version: '${{ inputs.guardian_terraform_version }}'
+        terraform_version: '${{ inputs.terraform_version }}'
         terraform_module_location: './${{ inputs.working_directory }}'
         terraform_lockfile_location: './${{ inputs.working_directory }}'
-        protect_lockfile: ${{ inputs.guardian_protect_lockfile }}
+        protect_lockfile: '${{ inputs.protect_lockfile }}'
         terraform_wrapper: false
 
     - name: 'Init'

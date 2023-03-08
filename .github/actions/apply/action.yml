@@ -21,24 +21,33 @@ description: |-
 inputs:
   working_directory:
     description: 'The working directory for Guardian to execute commands in.'
+    required: false
     default: '.'
-  guardian_bucket_name:
+  bucket_name:
     description: 'The Google Cloud Storage bucket to store Guardian state.'
     required: true
-  guardian_terraform_version:
+  terraform_version:
     description: 'The Terraform version for Guardian to use.'
     required: true
-  guardian_protect_lockfile:
+  protect_lockfile:
     description: 'Prevent modification of the Terraform lockfile.'
+    required: false
     default: 'true'
+  lock_timeout:
+    description: 'The duration Terraform should wait to obtain a lock when running commands that modify state.'
+    required: false
+    default: '10m'
   max_retries:
     description: 'The maxiumum number of retries when handling failures.'
+    required: false
     default: '5'
   base_retry_delay:
     description: 'The base retry delay in seconds when handling failures.'
+    required: false
     default: '2'
   max_retry_delay:
     description: 'The max retry delay in seconds when handling failures.'
+    required: false
     default: '60'
 
 runs:
@@ -54,7 +63,7 @@ runs:
 
     - name: 'Start Comment'
       id: 'comment'
-      uses: actions/github-script@d556feaca394842dc55e4734bf3bb9f685482fa0 # ratchet:actions/github-script@v6
+      uses: actions/github-script@98814c53be79b1d30f795b907e553d8679345975 # ratchet:actions/github-script@v6
       with:
         retries: ${{ inputs.max_retries }}
         script: |-
@@ -62,17 +71,17 @@ runs:
             owner: context.repo.owner,
             repo: context.repo.repo,
             issue_number: context.issue.number,
-            body: `**\`🔱 Guardian 🔱\`** - 🟨 Running Apply in dir: \`${{inputs.working_directory}}\``,
+            body: `**\`🔱 Guardian 🔱\`** - 🟨 Running Apply in dir: \`${{inputs.working_directory}}\` [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }})]`,
           });
           return prComment.id
 
     - name: 'Setup Terraform'
       uses: abcxyz/secure-setup-terraform@78e3f2fdfb7ebf59ce42141f6dd93bdd65bf04ed # ratchet:abcxyz/secure-setup-terraform@v0.2.5
       with:
-        terraform_version: '${{ inputs.guardian_terraform_version }}'
+        terraform_version: '${{ inputs.terraform_version }}'
         terraform_module_location: './${{ inputs.working_directory }}'
         terraform_lockfile_location: './${{ inputs.working_directory }}'
-        protect_lockfile: ${{ inputs.guardian_protect_lockfile }}
+        protect_lockfile: '${{ inputs.protect_lockfile }}'
         terraform_wrapper: false
 
     - name: 'Set up Cloud SDK'
@@ -108,7 +117,7 @@ runs:
       run: |-
         echo "# Download Plan File" > ${{ env.OUT_FILENAME }}
         gcloud storage cp \
-          gs://${{ inputs.guardian_bucket_name }}/${{ env.GUARDIAN_PLAN_PREFIX }}/tfplan.binary \
+          gs://${{ inputs.bucket_name }}/${{ env.GUARDIAN_PLAN_PREFIX }}/tfplan.binary \
           tfplan.binary \
           2>&1 | tee -a ${{ env.OUT_FILENAME }}
 
@@ -120,7 +129,7 @@ runs:
         TF_IN_AUTOMATION: 'true' # tell terraform this is an automated workflow https://developer.hashicorp.com/terraform/tutorials/automation/automate-terraform#controlling-terraform-output-in-automation
       run: |-
         echo "# Terraform Apply" > ${{ env.OUT_FILENAME }}
-        terraform apply -lock-timeout=10m -input=false -no-color tfplan.binary 2>&1 | tee -a ${{ env.OUT_FILENAME }}
+        terraform apply -lock-timeout=${{ inputs.lock_timeout }} -input=false -no-color tfplan.binary 2>&1 | tee -a ${{ env.OUT_FILENAME }}
 
     - name: 'GitHub Format'
       shell: 'bash'
@@ -131,16 +140,14 @@ runs:
         sed -i -E 's|^([[:space:]]*)([~])|\1\!|g' ${{ env.OUT_FILENAME }}
         sed -i -E 's|^([[:space:]]*)([-+\!])|\2\1|g' ${{ env.OUT_FILENAME }}
 
-    - name: 'Set Success Variable'
+    - name: 'Create Success File'
       shell: 'bash'
       working-directory: '${{ inputs.working_directory }}'
       env:
         OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
+        SUCCESS_FILENAME: 'success_${{ github.run_id }}_${{ github.run_attempt }}.txt'
       run: |-
-        SUCCESS=$(cat ${{ env.OUT_FILENAME }})
-        echo "SUCCESS<<EOF" >> $GITHUB_ENV
-        echo "$SUCCESS" >> $GITHUB_ENV
-        echo "EOF" >> $GITHUB_ENV
+        cp ${{ env.OUT_FILENAME }} ${{ env.SUCCESS_FILENAME }}
 
     - name: 'Delete Plan File'
       shell: 'bash'
@@ -150,29 +157,28 @@ runs:
         GUARDIAN_PLAN_PREFIX: 'guardian-plans/${{ github.repository }}/${{ github.event.pull_request.number }}/${{ inputs.working_directory }}'
       run: |-
         echo "# Delete Plan File" > ${{ env.OUT_FILENAME }}
-        gcloud storage rm --all-versions gs://${{ inputs.guardian_bucket_name }}/${{ env.GUARDIAN_PLAN_PREFIX }}/tfplan.binary 2>&1 | tee -a ${{ env.OUT_FILENAME }}
+        gcloud storage rm --all-versions gs://${{ inputs.bucket_name }}/${{ env.GUARDIAN_PLAN_PREFIX }}/tfplan.binary 2>&1 | tee -a ${{ env.OUT_FILENAME }}
 
-    - name: 'Set Failure Variable'
+    - name: 'Ensure Outfile'
       if: ${{ failure() }}
       shell: 'bash'
       working-directory: '${{ inputs.working_directory }}'
       env:
         OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
       run: |-
-        # ensure outfile exists, initial steps could fail without ever writing to out file
         touch ${{ env.OUT_FILENAME }}
-
-        FAILURE=$(cat ${{ env.OUT_FILENAME }})
-        echo "FAILURE<<EOF" >> $GITHUB_ENV
-        echo "$FAILURE" >> $GITHUB_ENV
-        echo "EOF" >> $GITHUB_ENV
 
     - name: 'Failure Comment'
       if: ${{ failure() }}
-      uses: actions/github-script@d556feaca394842dc55e4734bf3bb9f685482fa0 # ratchet:actions/github-script@v6
+      uses: actions/github-script@98814c53be79b1d30f795b907e553d8679345975 # ratchet:actions/github-script@v6
+      env:
+        OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
       with:
         retries: ${{ inputs.max_retries }}
         script: |-
+          const fs = require('fs')
+          const msg = fs.readFileSync('${{ inputs.working_directory }}/${{ env.OUT_FILENAME }}', { encoding: 'utf8' });
+
           await github.rest.issues.updateComment({
             owner: context.repo.owner,
             repo: context.repo.repo,
@@ -181,17 +187,22 @@ runs:
           <details>
           <summary>Details</summary>\n
           \`\`\`diff\n
-          ${{env.FAILURE}}
+          ${msg}
           \`\`\`
           </details>`,
           });
 
     - name: 'Success Comment'
       if: ${{ success() }}
-      uses: actions/github-script@d556feaca394842dc55e4734bf3bb9f685482fa0 # ratchet:actions/github-script@v6
+      uses: actions/github-script@98814c53be79b1d30f795b907e553d8679345975 # ratchet:actions/github-script@v6
+      env:
+        SUCCESS_FILENAME: 'success_${{ github.run_id }}_${{ github.run_attempt }}.txt'
       with:
         retries: ${{ inputs.max_retries }}
         script: |-
+          const fs = require('fs')
+          const msg = fs.readFileSync('${{ inputs.working_directory }}/${{ env.SUCCESS_FILENAME }}', { encoding: 'utf8' })
+
           await github.rest.issues.updateComment({
             owner: context.repo.owner,
             repo: context.repo.repo,
@@ -200,7 +211,7 @@ runs:
           <details>
           <summary>Details</summary>\n
           \`\`\`diff\n
-          ${{env.SUCCESS}}
+          ${msg}
           \`\`\`
           </details>`,
           });

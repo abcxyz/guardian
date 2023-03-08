@@ -40,11 +40,21 @@ jobs:
       fail-fast: false
       matrix:
         working_directory:
-          - 'test/ci'
-          - 'test/projects'
+          - 'terraform/ci'
+          - 'terraform/projects'
     steps:
       - name: 'Checkout'
         uses: 'actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c' # ratchet:actions/checkout@v3
+
+      - name: 'Mint Token'
+        id: 'mint-token'
+        uses: 'abcxyz/github-token-minter/.github/actions/mint-token@c6ea9b91e3e1df75a6e86dad8e5b0a0a45b42fec'
+        with:
+          wif_provider: '${{ vars.TOKEN_MINTER_WIF_PROVIDER }}'
+          wif_service_account: '${{ vars.TOKEN_MINTER_WIF_SERVICE_ACCOUNT }}'
+          service_audience: '${{ vars.TOKEN_MINTER_SERVICE_AUDIENCE }}'
+          service_url: '${{ vars.TOKEN_MINTER_SERVICE_URL }}'
+          requested_permissions: '{"repositories":["*"],"permissions":{"contents":"read"}}'
 
       - name: 'Authenticate to Google Cloud'
         uses: 'google-github-actions/auth@ef5d53e30bbcd8d0836f4288f5e50ff3e086997d' # ratchet:google-github-actions/auth@v1
@@ -52,11 +62,17 @@ jobs:
           workload_identity_provider: '${{ vars.GUARDIAN_WIF_PROVIDER}}'
           service_account: '${{ vars.GUARDIAN_WIF_SERVICE_ACCOUNT }}'
 
+      - name: 'Git Config'
+        run: |-
+          git config --global url."https://guardian-bot:${{ steps.mint-token.outputs.token }}@github.com".insteadOf "https://github.com"
+
       - name: 'Guardian Admin'
         uses: './.github/actions/admin'
+        env:
+          GITHUB_TOKEN: '${{ steps.mint-token.outputs.token }}'
         with:
           command: '${{ inputs.command }}'
           working_directory: '${{ matrix.working_directory }}'
           number: '${{ inputs.number }}'
-          guardian_terraform_version: '1.3.6'
-          guardian_protect_lockfile: true
+          terraform_version: '1.3.6'
+          protect_lockfile: true
