@@ -1,0 +1,206 @@
+# Copyright 2023 The Authors (see AUTHORS file)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: 'Guardian Apply'
+description: |-
+  Use this action to run a Terraform Apply process for merged pull requests.
+  To ensure this action only runs for merged pull requests, use the following conditional:
+    `if: ${{ github.event_name == 'pull_request' && github.event.pull_request.merged }}``
+
+inputs:
+  working_directory:
+    description: 'The working directory for Guardian to execute commands in.'
+    default: '.'
+  guardian_bucket_name:
+    description: 'The Google Cloud Storage bucket to store Guardian state.'
+    required: true
+  guardian_terraform_version:
+    description: 'The Terraform version for Guardian to use.'
+    required: true
+  guardian_protect_lockfile:
+    description: 'Prevent modification of the Terraform lockfile.'
+    default: 'true'
+  max_retries:
+    description: 'The maxiumum number of retries when handling failures.'
+    default: '5'
+  base_retry_delay:
+    description: 'The base retry delay in seconds when handling failures.'
+    default: '2'
+  max_retry_delay:
+    description: 'The max retry delay in seconds when handling failures.'
+    default: '60'
+
+runs:
+  using: composite
+  steps:
+    - name: 'Validate Event'
+      if: ${{ github.event_name != 'pull_request' || (github.event_name == 'pull_request' && !github.event.pull_request.merged) }}
+      shell: 'bash'
+      working-directory: '${{ inputs.working_directory }}'
+      run: |-
+        echo "::error ::Guardian Apply can only be run for merged 'pull_request' events. Add the following conditional to your workflow job or step definition: `if: ${{ github.event_name == 'pull_request' && github.event.pull_request.merged }}`"
+        exit 1
+
+    - name: 'Start Comment'
+      id: 'comment'
+      uses: actions/github-script@d556feaca394842dc55e4734bf3bb9f685482fa0 # ratchet:actions/github-script@v6
+      with:
+        retries: ${{ inputs.max_retries }}
+        script: |-
+          const { data: prComment } = await github.rest.issues.createComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+            body: `**\`🔱 Guardian 🔱\`** - 🟨 Running Apply in dir: \`${{inputs.working_directory}}\``,
+          });
+          return prComment.id
+
+    - name: 'Setup Terraform'
+      uses: abcxyz/secure-setup-terraform@78e3f2fdfb7ebf59ce42141f6dd93bdd65bf04ed # ratchet:abcxyz/secure-setup-terraform@v0.2.5
+      with:
+        terraform_version: '${{ inputs.guardian_terraform_version }}'
+        terraform_module_location: './${{ inputs.working_directory }}'
+        terraform_lockfile_location: './${{ inputs.working_directory }}'
+        protect_lockfile: ${{ inputs.guardian_protect_lockfile }}
+        terraform_wrapper: false
+
+    - name: 'Set up Cloud SDK'
+      uses: 'google-github-actions/setup-gcloud@62d4898025f6041e16b1068643bfc5a696863587' # ratchet:google-github-actions/setup-gcloud@v1
+
+    - name: 'Cloud SDK Config'
+      shell: 'bash'
+      working-directory: '${{ inputs.working_directory }}'
+      env:
+        OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
+      run: |-
+        echo "# Cloud SDK Config" > ${{ env.OUT_FILENAME }}
+        gcloud config set storage/max_retries ${{ inputs.max_retries }} 2>&1 | tee -a ${{ env.OUT_FILENAME }}
+        gcloud config set storage/base_retry_delay ${{ inputs.base_retry_delay }} 2>&1 | tee -a ${{ env.OUT_FILENAME }}
+        gcloud config set storage/max_retry_delay ${{ inputs.max_retry_delay }} 2>&1 | tee -a ${{ env.OUT_FILENAME }}
+
+    - name: 'Terraform Init'
+      shell: 'bash'
+      working-directory: '${{ inputs.working_directory }}'
+      env:
+        OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
+        TF_IN_AUTOMATION: 'true' # tell terraform this is an automated workflow https://developer.hashicorp.com/terraform/tutorials/automation/automate-terraform#controlling-terraform-output-in-automation
+      run: |-
+        echo "# Terraform Init" > ${{ env.OUT_FILENAME }}
+        terraform init -input=false -no-color 2>&1 | tee -a ${{ env.OUT_FILENAME }}
+
+    - name: 'Download Plan File'
+      shell: 'bash'
+      working-directory: '${{ inputs.working_directory }}'
+      env:
+        OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
+        GUARDIAN_PLAN_PREFIX: 'guardian-plans/${{ github.repository }}/${{ github.event.pull_request.number }}/${{ inputs.working_directory }}'
+      run: |-
+        echo "# Download Plan File" > ${{ env.OUT_FILENAME }}
+        gcloud storage cp \
+          gs://${{ inputs.guardian_bucket_name }}/${{ env.GUARDIAN_PLAN_PREFIX }}/tfplan.binary \
+          tfplan.binary \
+          2>&1 | tee -a ${{ env.OUT_FILENAME }}
+
+    - name: 'Terraform Apply'
+      shell: 'bash'
+      working-directory: '${{ inputs.working_directory }}'
+      env:
+        OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
+        TF_IN_AUTOMATION: 'true' # tell terraform this is an automated workflow https://developer.hashicorp.com/terraform/tutorials/automation/automate-terraform#controlling-terraform-output-in-automation
+      run: |-
+        echo "# Terraform Apply" > ${{ env.OUT_FILENAME }}
+        terraform apply -lock-timeout=10m -input=false -no-color tfplan.binary 2>&1 | tee -a ${{ env.OUT_FILENAME }}
+
+    - name: 'GitHub Format'
+      shell: 'bash'
+      working-directory: '${{ inputs.working_directory }}'
+      env:
+        OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
+      run: |-
+        sed -i -E 's|^([[:space:]]*)([~])|\1\!|g' ${{ env.OUT_FILENAME }}
+        sed -i -E 's|^([[:space:]]*)([-+\!])|\2\1|g' ${{ env.OUT_FILENAME }}
+
+    - name: 'Set Success Variable'
+      shell: 'bash'
+      working-directory: '${{ inputs.working_directory }}'
+      env:
+        OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
+      run: |-
+        SUCCESS=$(cat ${{ env.OUT_FILENAME }})
+        echo "SUCCESS<<EOF" >> $GITHUB_ENV
+        echo "$SUCCESS" >> $GITHUB_ENV
+        echo "EOF" >> $GITHUB_ENV
+
+    - name: 'Delete Plan File'
+      shell: 'bash'
+      working-directory: '${{ inputs.working_directory }}'
+      env:
+        OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
+        GUARDIAN_PLAN_PREFIX: 'guardian-plans/${{ github.repository }}/${{ github.event.pull_request.number }}/${{ inputs.working_directory }}'
+      run: |-
+        echo "# Delete Plan File" > ${{ env.OUT_FILENAME }}
+        gcloud storage rm --all-versions gs://${{ inputs.guardian_bucket_name }}/${{ env.GUARDIAN_PLAN_PREFIX }}/tfplan.binary 2>&1 | tee -a ${{ env.OUT_FILENAME }}
+
+    - name: 'Set Failure Variable'
+      if: ${{ failure() }}
+      shell: 'bash'
+      working-directory: '${{ inputs.working_directory }}'
+      env:
+        OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
+      run: |-
+        # ensure outfile exists, initial steps could fail without ever writing to out file
+        touch ${{ env.OUT_FILENAME }}
+
+        FAILURE=$(cat ${{ env.OUT_FILENAME }})
+        echo "FAILURE<<EOF" >> $GITHUB_ENV
+        echo "$FAILURE" >> $GITHUB_ENV
+        echo "EOF" >> $GITHUB_ENV
+
+    - name: 'Failure Comment'
+      if: ${{ failure() }}
+      uses: actions/github-script@d556feaca394842dc55e4734bf3bb9f685482fa0 # ratchet:actions/github-script@v6
+      with:
+        retries: ${{ inputs.max_retries }}
+        script: |-
+          await github.rest.issues.updateComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            comment_id: '${{ steps.comment.outputs.result }}',
+            body: `**\`🔱 Guardian 🔱\`** - 🟥 Failed to run Apply in dir: \`${{inputs.working_directory}}\` [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }})]\n
+          <details>
+          <summary>Details</summary>\n
+          \`\`\`diff\n
+          ${{env.FAILURE}}
+          \`\`\`
+          </details>`,
+          });
+
+    - name: 'Success Comment'
+      if: ${{ success() }}
+      uses: actions/github-script@d556feaca394842dc55e4734bf3bb9f685482fa0 # ratchet:actions/github-script@v6
+      with:
+        retries: ${{ inputs.max_retries }}
+        script: |-
+          await github.rest.issues.updateComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            comment_id: '${{ steps.comment.outputs.result }}',
+            body: `**\`🔱 Guardian 🔱\`** - 🟩 Ran Apply in dir: \`${{inputs.working_directory}}\` [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }})]\n
+          <details>
+          <summary>Details</summary>\n
+          \`\`\`diff\n
+          ${{env.SUCCESS}}
+          \`\`\`
+          </details>`,
+          });

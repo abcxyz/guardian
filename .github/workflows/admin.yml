@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: 'Guardian Admin'
+name: 'guardian_admin'
 
 on:
   workflow_call:
@@ -45,7 +45,6 @@ on:
 
 env:
   GITHUB_TOKEN: ${{ secrets.workflow_github_token || github.token }}
-  TF_IN_AUTOMATION: true # tell terraform this is an automated workflow https://developer.hashicorp.com/terraform/tutorials/automation/automate-terraform#controlling-terraform-output-in-automation
 
 jobs:
   admin:
@@ -55,37 +54,9 @@ jobs:
       id-token: 'write'
       pull-requests: 'read'
 
-    # ensure these defaults exist to run command in the specified working_directory
-    defaults:
-      run:
-        shell: 'bash'
-        working-directory: '${{ inputs.working_directory }}'
-
     steps:
       - name: 'Checkout'
         uses: 'actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c' # ratchet:actions/checkout@v3
-
-      - name: 'Validate Branch'
-        if: ${{ github.ref_name != github.event.repository.default_branch }}
-        run: |-
-          echo "::error ::Guardian Admin can only be run from the default branch (${{ github.event.repository.default_branch }})."
-          exit 1
-
-      - name: 'Permission'
-        run: |-
-          ROLE=$(gh api -H "Accept: application/vnd.github+json" /repos/${{ github.repository }}/collaborators/${{ github.triggering_actor }}/permission | jq .role_name -r)
-          if [ "$ROLE" != "admin" ]; then
-            echo "::error ::Actor @${{ github.triggering_actor }} does not have admin permission to perform these operations."
-            exit 1
-          fi
-
-      - name: 'Checkout'
-        uses: 'actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c' # ratchet:actions/checkout@v3
-
-      - name: 'Checkout PR'
-        if: ${{ inputs.number != '' }}
-        run: |-
-          gh pr checkout ${{ inputs.number }}
 
       - name: 'Authenticate to Google Cloud'
         uses: 'google-github-actions/auth@ef5d53e30bbcd8d0836f4288f5e50ff3e086997d' # ratchet:google-github-actions/auth@v1
@@ -93,19 +64,11 @@ jobs:
           workload_identity_provider: '${{ inputs.wif_provider }}'
           service_account: '${{ inputs.wif_service_account }}'
 
-      - name: 'Setup Terraform'
-        uses: abcxyz/secure-setup-terraform@78e3f2fdfb7ebf59ce42141f6dd93bdd65bf04ed # ratchet:abcxyz/secure-setup-terraform@v0.2.5
+      - name: 'Guardian Admin'
+        uses: 'abcxyz/guardian/.github/actions/admin@${{ github.job_workflow_sha }}' # match the sha for the reusable workflow
         with:
-          terraform_version: '${{ inputs.guardian_terraform_version }}'
-          terraform_module_location: './${{ inputs.working_directory }}'
-          terraform_lockfile_location: './${{ inputs.working_directory }}'
-          protect_lockfile: ${{ inputs.guardian_protect_lockfile }}
-          terraform_wrapper: false
-
-      - name: 'Init'
-        run: |-
-          terraform init -input=false
-
-      - name: 'Run Command'
-        run: |-
-          terraform ${{ inputs.command }}
+          command: '${{ inputs.command }}'
+          working_directory: '${{ inputs.working_directory }}'
+          number: '${{ inputs.number }}'
+          guardian_terraform_version: '${{ inputs.guardian_terraform_version }}'
+          guardian_protect_lockfile: '${{ inputs.guardian_protect_lockfile }}'
