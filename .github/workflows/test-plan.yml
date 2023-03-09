@@ -23,9 +23,9 @@ on:
     branches:
       - 'main'
 
-# only one plan should run at a time
+# only one plan, per pr should run at a time
 concurrency:
-  group: '${{ github.workflow_ref }}'
+  group: '${{ github.workflow }}-${{ github.head_ref || github.ref }}'
 
 permissions:
   contents: 'read'
