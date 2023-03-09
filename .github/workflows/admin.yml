@@ -69,8 +69,8 @@ jobs:
         env:
           GITHUB_TOKEN: '${{ secrets.workflow_github_token || github.token }}'
         with:
-          command: '${{ inputs.command }}'
           working_directory: '${{ inputs.working_directory }}'
+          command: '${{ inputs.command }}'
           number: '${{ inputs.number }}'
           terraform_version: '${{ inputs.terraform_version }}'
           protect_lockfile: '${{ inputs.protect_lockfile }}'

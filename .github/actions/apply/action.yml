@@ -16,7 +16,7 @@ name: 'Guardian Apply'
 description: |-
   Use this action to run a Terraform Apply process for merged pull requests.
   To ensure this action only runs for merged pull requests, use the following conditional:
-    `if: ${{ github.event_name == 'pull_request' && github.event.pull_request.merged }}``
+    `github.event_name == 'pull_request' && github.event.pull_request.merged`
 
 inputs:
   working_directory:
@@ -58,7 +58,7 @@ runs:
       shell: 'bash'
       working-directory: '${{ inputs.working_directory }}'
       run: |-
-        echo "::error ::Guardian Apply can only be run for merged 'pull_request' events. Add the following conditional to your workflow job or step definition: `if: ${{ github.event_name == 'pull_request' && github.event.pull_request.merged }}`"
+        echo "::error ::Guardian Apply can only be run for merged 'pull_request' events. Add the following conditional to your workflow job or step definition: `github.event_name == 'pull_request' && github.event.pull_request.merged`"
         exit 1
 
     - name: 'Start Comment'
