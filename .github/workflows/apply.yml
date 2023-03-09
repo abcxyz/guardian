@@ -77,7 +77,7 @@ jobs:
         env:
           GITHUB_TOKEN: '${{ secrets.workflow_github_token || github.token }}'
         with:
-          working_directory: '${{ matrix.working_directory }}'
+          working_directory: '${{ inputs.working_directory }}'
           bucket_name: '${{ inputs.bucket_name }}'
           terraform_version: '${{ inputs.terraform_version }}'
           protect_lockfile: '${{ inputs.protect_lockfile }}'
