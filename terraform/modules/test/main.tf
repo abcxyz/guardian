@@ -12,19 +12,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-terraform {
-  required_version = ">= 1.0.0"
-
-  required_providers {
-    google = {
-      version = ">= 4.45"
-    }
-  }
-
-  backend "gcs" {
-    bucket = "verbanicm-dev-terraform"
-    prefix = "state/projects"
-  }
+variable "project_id" {
+  description = "The Google Cloud project for these resources."
+  type        = string
 }
 
-provider "google" {}
+variable "name" {
+  description = "The name for this test."
+  type        = string
+}
+
+data "github_repository" "infra" {
+  full_name = "abcxyz/guardian"
+}
+
+resource "google_service_account" "default" {
+  project      = var.project_id
+  account_id   = "${var.name}-${data.github_repository.infra.visibility}"
+  display_name = "${var.name} Service Account"
+}
+
+output "service_account_name" {
+  description = "The service account name."
+  value       = google_service_account.default.name
+}
+
