@@ -31,7 +31,7 @@ permissions:
 
 jobs:
   admin:
-    uses: './.github/workflows/guardian-admin.yml'
+    uses: 'abcxyz/guardian/.github/workflows/guardian-admin.yml@5de614235f880fd1c798671b87a6f5c693bd3107'
     strategy:
       fail-fast: false
       matrix:
