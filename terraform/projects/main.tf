@@ -14,7 +14,7 @@
 
 module "test" {
   source     = "../modules/test"
-  project_id = "verbanicm-dev"
+  project_id = "guardian-ci-4cab"
   name       = "test-app"
 }
 
