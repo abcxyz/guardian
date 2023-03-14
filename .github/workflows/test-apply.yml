@@ -38,7 +38,6 @@ jobs:
       fail-fast: false
       matrix:
         working_directory:
-          - 'terraform/ci'
           - 'terraform/projects'
     steps:
       - name: 'Checkout'
