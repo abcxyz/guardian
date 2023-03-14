@@ -20,8 +20,6 @@ on:
       - 'closed'
     branches:
       - 'main'
-    paths:
-      - 'terraform/**'
 
 permissions:
   contents: 'read'
