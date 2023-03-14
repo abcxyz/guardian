@@ -22,7 +22,7 @@ terraform {
   }
 
   backend "gcs" {
-    bucket = "verbanicm-dev-terraform"
+    bucket = "guardian-terraform-state-4cab"
     prefix = "state/ci"
   }
 }

@@ -12,25 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: 'guardian_admin'
+name: 'guardian_plan'
 
 on:
   workflow_call:
     inputs:
-      command:
-        description: 'COMMAND - The Terraform command to run including any arguments (this value is appended to the terraform command).'
-        required: true
-        type: string
-      number:
-        description: 'PR NUMBER - The Pull Request number to run the actions for (if blank, this runs for the default branch).'
-        type: string
       working_directory:
         type: string
-        default: '.'
       wif_provider:
         required: true
         type: string
       wif_service_account:
+        required: true
+        type: string
+      bucket_name:
         required: true
         type: string
       terraform_version:
@@ -42,21 +37,35 @@ on:
       lock_timeout:
         type: string
         default: '10m'
-    secrets:
-      workflow_github_token:
+      max_retries:
         required: false
+        default: 5
+        type: number
+      base_retry_delay:
+        required: false
+        default: 2
+        type: number
+      max_retry_delay:
+        required: false
+        default: 60
+        type: number
 
 jobs:
-  admin:
+  plan:
     runs-on: 'ubuntu-latest'
-    permissions:
-      contents: 'read'
-      id-token: 'write'
-      pull-requests: 'read'
-
     steps:
       - name: 'Checkout'
         uses: 'actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c' # ratchet:actions/checkout@v3
+
+      - name: 'Mint Token'
+        id: 'mint-token'
+        uses: 'abcxyz/github-token-minter/.github/actions/mint-token@c6ea9b91e3e1df75a6e86dad8e5b0a0a45b42fec'
+        with:
+          wif_provider: '${{ vars.TOKEN_MINTER_WIF_PROVIDER }}'
+          wif_service_account: '${{ vars.TOKEN_MINTER_WIF_SERVICE_ACCOUNT }}'
+          service_audience: '${{ vars.TOKEN_MINTER_SERVICE_AUDIENCE }}'
+          service_url: '${{ vars.TOKEN_MINTER_SERVICE_URL }}'
+          requested_permissions: '{"repositories":["*"],"permissions":{"contents":"read"}}'
 
       - name: 'Authenticate to Google Cloud'
         uses: 'google-github-actions/auth@ef5d53e30bbcd8d0836f4288f5e50ff3e086997d' # ratchet:google-github-actions/auth@v1
@@ -64,14 +73,20 @@ jobs:
           workload_identity_provider: '${{ inputs.wif_provider }}'
           service_account: '${{ inputs.wif_service_account }}'
 
-      - name: 'Guardian Admin'
-        uses: 'abcxyz/guardian/.github/actions/admin@${{ github.job_workflow_sha }}' # match the sha for the reusable workflow
+      - name: 'Git Config'
+        run: |-
+          git config --global url."https://guardian-bot:${{ steps.mint-token.outputs.token }}@github.com".insteadOf "https://github.com"
+
+      - name: 'Guardian Plan'
+        uses: './.github/actions/plan'
         env:
-          GITHUB_TOKEN: '${{ secrets.workflow_github_token || github.token }}'
+          GITHUB_TOKEN: '${{ steps.mint-token.outputs.token }}'
         with:
           working_directory: '${{ inputs.working_directory }}'
-          command: '${{ inputs.command }}'
-          number: '${{ inputs.number }}'
+          bucket_name: '${{ inputs.bucket_name }}'
           terraform_version: '${{ inputs.terraform_version }}'
           protect_lockfile: '${{ inputs.protect_lockfile }}'
           lock_timeout: '${{ inputs.lock_timeout }}'
+          max_retries: '${{ inputs.max_retries }}'
+          base_retry_delay: '${{ inputs.base_retry_delay }}'
+          max_retry_delay: '${{ inputs.max_retry_delay }}'
