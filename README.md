@@ -35,7 +35,23 @@ The `Guardian Admin` workflow can be used to run commands manually as the servic
   - COMMAND: The terraform command to run e.g. `apply -input=false -auto-approve`
   - PR NUMBER: Run this command for a specific PR, the PR branch will be checked out before running the command
 
+## Security
+
+Guardian recommends the use of `pull_request_target` for the Guardian Plan action. This is for two reasons:
+
+1. `pull_request_target` is run in the context head commit on the default branch (usually `main`), this ensures that only the approved and merged workflow is run for any given pull request.
+2. This enables the ability to restrict access to the Google Cloud Workload Identity Federation provider using the `@refs/heads/main` for the workflows, additionally ensuring only approved and merged workflows can impersonate the highly privileged service account. This prevents someone from copying the workflows with the `pull_request` trigger and using the service account however they want.
+
+Because `pull_request_target` runs in the context of the head commit on the repository default branch, we need to checkout the pull request branch for Guardian to run `terraform plan` on the proposed changes. This has been [documented as a security issue](https://securitylab.github.com/research/github-actions-preventing-pwn-requests/).
+
+To make this process secure, Guardian should only be run in `internal` or `private` repositories and should disable the use of forks. This makes the `pull_request_target` operate with the same default behavior as `pull_request` but still ensures only the approved and merged workflow is being executed for the pull request.
+
 ## Repository Setup
+
+### General
+
+- Ensure repository visibility is set to `internal` or `private`
+- Ensure that `Allow forking` is disabled, Guardian recommends the use of `pull_request_target`, see [above](#security)
 
 ### Branch protection
 

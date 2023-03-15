@@ -63,6 +63,7 @@ runs:
       id: 'comment'
       uses: actions/github-script@98814c53be79b1d30f795b907e553d8679345975 # ratchet:actions/github-script@v6
       with:
+        github-token: '${{ github.token }}'
         retries: '${{ inputs.max_retries }}'
         script: |-
           const { data: prComment } = await github.rest.issues.createComment({
@@ -191,6 +192,7 @@ runs:
       env:
         OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
       with:
+        github-token: '${{ github.token }}'
         retries: '${{ inputs.max_retries }}'
         script: |-
           const fs = require('fs')
@@ -215,6 +217,7 @@ runs:
       env:
         SUCCESS_FILENAME: 'success_${{ github.run_id }}_${{ github.run_attempt }}.txt'
       with:
+        github-token: '${{ github.token }}'
         retries: '${{ inputs.max_retries }}'
         script: |-
           const fs = require('fs')
