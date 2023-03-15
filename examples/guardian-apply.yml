@@ -13,12 +13,9 @@
 # limitations under the License.
 
 name: 'guardian_apply'
-run-name: 'Guardian Apply - PR #${{ github.event.pull_request.number }}'
 
 on:
-  pull_request:
-    types:
-      - 'closed'
+  push:
     branches:
       - 'main'
 
@@ -27,12 +24,12 @@ permissions:
   id-token: 'write'
   pull-requests: 'write'
 
+# only one apply should run at a time
+concurrency:
+  group: '${{ github.workflow_ref }}'
+
 jobs:
   apply:
-    # guardian apply should only be run for merged pull requests
-    # pull_requests is required as the pull request number is a unique id for
-    # generating cloud storage directory paths for storing plan files
-    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.merged }}
     runs-on: 'ubuntu-latest'
     strategy:
       fail-fast: false
@@ -49,8 +46,8 @@ jobs:
       - name: 'Authenticate to Google Cloud'
         uses: 'google-github-actions/auth@ef5d53e30bbcd8d0836f4288f5e50ff3e086997d' # ratchet:google-github-actions/auth@v1
         with:
-          workload_identity_provider: 'YOUR_GUARDIAN_WIF_PROVIDER' # this can be provided via repository variables
-          service_account: 'YOUR_GUARDIAN_WIF_SERVICE_ACCOUNT' # this can be provided via repository variables
+          workload_identity_provider: '${{ vars.GUARDIAN_WIF_PROVIDER }}'
+          service_account: '${{ vars.GUARDIAN_WIF_SERVICE_ACCOUNT }}'
 
       # Optional: set git config auth credentials for private modules if needed
       # - name: 'Git Config'
@@ -58,16 +55,16 @@ jobs:
       #     git config --global url."https://guardian-bot:${{ secrets.PAT_TOKEN }}@github.com".insteadOf "https://github.com"
 
       - name: 'Guardian Apply'
-        uses: 'abcxyz/guardian/.github/actions/apply@SHA' # TODO: pin this to the latest sha in the guardian repo
+        uses: 'abcxyz/guardian/.github/actions/apply@main' # TODO: pin this to the latest sha in the guardian repo
 
         # Optional: provide environment secrets for terraform providers
         # env:
         #   GITHUB_TOKEN: '${{ secrets.PAT_TOKEN }}'
-        #   GITHUB_OWNER: 'YOUR_ORG'
+        #   GITHUB_OWNER: 'YOUR_GITHUB_ORG'
 
         with:
           working_directory: '${{ matrix.working_directory }}'
-          bucket_name: 'YOUR_GUARDIAN_BUCKET_NAME' # this can be provided via repository variables
+          bucket_name: '${{ vars.GUARDIAN_BUCKET_NAME }}'
           terraform_version: '1.3.6'
 
           # Optional:

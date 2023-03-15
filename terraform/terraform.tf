@@ -24,4 +24,15 @@ terraform {
       version = ">= 4.45"
     }
   }
+
+  backend "gcs" {
+    bucket = "guardian-terraform-state-4cab"
+    prefix = "state/test"
+  }
+}
+
+provider "google" {}
+
+provider "github" {
+  owner = "abcxyz"
 }
