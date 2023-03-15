@@ -22,7 +22,7 @@ inputs:
     required: false
     default: '.'
   bucket_name:
-    description: 'The Google Cloud Storage bucket to store Guardian state.'
+    description: 'The Google Cloud Storage bucket name to store Guardian plan files (e.g. my-guardian-state-bucket).'
     required: true
   terraform_version:
     description: 'The Terraform version for Guardian to use.'
