@@ -63,6 +63,8 @@ runs:
     - name: 'Checkout PR'
       if: ${{ inputs.number != '' }}
       shell: 'bash'
+      env:
+        GITHUB_TOKEN: '${{ github.token }}'
       run: |-
         gh pr checkout ${{ inputs.number }}
 
