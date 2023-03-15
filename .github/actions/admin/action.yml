@@ -53,6 +53,8 @@ runs:
     - name: 'Validate Permission'
       shell: 'bash'
       working-directory: '${{ inputs.working_directory }}'
+      env:
+        GITHUB_TOKEN: '${{ github.token }}'
       run: |-
         ROLE=$(gh api -H "Accept: application/vnd.github+json" /repos/${{ github.repository }}/collaborators/${{ github.triggering_actor }}/permission | jq .role_name -r)
         if [ "$ROLE" != "admin" ]; then
