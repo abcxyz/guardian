@@ -22,13 +22,13 @@ inputs:
     required: false
     default: '.'
   bucket_name:
-    description: 'The Google Cloud Storage bucket to store Guardian state.'
+    description: 'The Google Cloud Storage bucket name to retrieve Guardian plan files (e.g. my-guardian-state-bucket).'
     required: true
   terraform_version:
     description: 'The Terraform version for Guardian to use.'
     required: true
   protect_lockfile:
-    description: 'Prevent modification of the Terraform lockfile.'
+    description: 'Enable lockfile protection to prevent modification of the Terraform lockfile.'
     required: false
     default: 'true'
   lock_timeout:
