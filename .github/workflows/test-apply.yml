@@ -60,6 +60,6 @@ jobs:
         env:
           GITHUB_TOKEN: '${{ steps.mint-token.outputs.token }}'
         with:
-          working_directory: '${{ matrix.working_directory }}'
+          working_directory: 'terraform'
           bucket_name: '${{ vars.GUARDIAN_BUCKET_NAME }}'
           terraform_version: '1.3.6'
