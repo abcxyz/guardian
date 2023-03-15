@@ -12,6 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-resource "random_id" "default" {
-  byte_length = 2
+locals {
+  project_id = "guardian-ci-4cab"
+  name       = "test"
+}
+
+data "github_repository" "infra" {
+  full_name = "abcxyz/guardian"
+}
+
+resource "google_service_account" "default" {
+  project      = local.project_id
+  account_id   = "${local.name}-${data.github_repository.infra.visibility}"
+  display_name = "${local.name} Service Account"
+  disabled     = true
+}
+
+output "service_account_name" {
+  description = "The service account name."
+  value       = google_service_account.default.name
 }

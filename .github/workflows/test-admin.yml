@@ -13,7 +13,7 @@
 # limitations under the License.
 
 name: 'test_guardian_admin'
-run-name: 'test_guardian_admin - ${{ inputs.working_directory }} ${{ inputs.number }}'
+run-name: 'test_guardian_admin - ${{ inputs.command }} ${{ inputs.number }}'
 
 on:
   workflow_dispatch:
@@ -36,8 +36,7 @@ jobs:
       fail-fast: false
       matrix:
         working_directory:
-          - 'terraform/ci'
-          - 'terraform/projects'
+          - 'terraform'
     with:
       command: '${{ inputs.command }}'
       working_directory: '${{ matrix.working_directory }}'
