@@ -35,8 +35,7 @@ jobs:
       fail-fast: false
       matrix:
         working_directory:
-          - 'terraform/ci'
-          - 'terraform/projects'
+          - 'terraform'
     with:
       working_directory: '${{ matrix.working_directory }}'
       wif_provider: '${{ vars.GUARDIAN_WIF_PROVIDER }}'

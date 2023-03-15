@@ -15,8 +15,6 @@
 name: 'Guardian Apply'
 description: |-
   Use this action to run a Terraform Apply process for merged pull requests.
-  To ensure this action only runs for merged pull requests, use the following conditional:
-    `github.event_name == 'pull_request' && github.event.pull_request.merged`
 
 inputs:
   working_directory:
@@ -53,27 +51,60 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: 'Validate Event'
-      if: ${{ github.event_name != 'pull_request' || (github.event_name == 'pull_request' && !github.event.pull_request.merged) }}
+    - name: 'Bootstrap Out File'
       shell: 'bash'
       working-directory: '${{ inputs.working_directory }}'
+      env:
+        OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
       run: |-
-        echo "::error ::Guardian Apply can only be run for merged 'pull_request' events. Add the following conditional to your workflow job or step definition: `github.event_name == 'pull_request' && github.event.pull_request.merged`"
+        echo "Unknown error, see logs for details." > "${{ env.OUT_FILENAME }}"
+
+    - name: 'Validate Event'
+      if: ${{ github.event_name != 'push' }}
+      shell: 'bash'
+      working-directory: '${{ inputs.working_directory }}'
+      env:
+        OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
+      run: |-
+        MSG="Configuration error, Guardian Apply can only be run for 'push' events."
+        echo "$MSG" > "${{ env.OUT_FILENAME }}"
+        echo "::error ::$MSG"
         exit 1
+
+    - name: 'Get PR Number'
+      id: 'get-pr'
+      uses: actions/github-script@98814c53be79b1d30f795b907e553d8679345975 # ratchet:actions/github-script@v6
+      with:
+        retries: '${{ inputs.max_retries }}'
+        script: |-
+          const { data: pullRequests } =
+            await github.rest.repos.listPullRequestsAssociatedWithCommit({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: '${{ github.sha }}',
+            });
+
+          const pullRequest = pullRequests.find((pr) => pr.state === "closed");
+          if (!pullRequest) {
+            setFailed("Failed to get pull request for merged SHA: ${{ github.sha }}");
+            process.exit(1);
+          }
+
+          return pullRequest.number;
 
     - name: 'Start Comment'
       id: 'comment'
       uses: actions/github-script@98814c53be79b1d30f795b907e553d8679345975 # ratchet:actions/github-script@v6
       with:
-        retries: ${{ inputs.max_retries }}
+        retries: '${{ inputs.max_retries }}'
         script: |-
           const { data: prComment } = await github.rest.issues.createComment({
             owner: context.repo.owner,
             repo: context.repo.repo,
-            issue_number: context.issue.number,
+            issue_number: '${{ steps.get-pr.outputs.result }}',
             body: `**\`🔱 Guardian 🔱\`** - 🟨 Running Apply in dir: \`${{inputs.working_directory}}\` [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }})]`,
           });
-          return prComment.id
+          return prComment.id;
 
     - name: 'Setup Terraform'
       uses: abcxyz/secure-setup-terraform@78e3f2fdfb7ebf59ce42141f6dd93bdd65bf04ed # ratchet:abcxyz/secure-setup-terraform@v0.2.5
@@ -113,7 +144,7 @@ runs:
       working-directory: '${{ inputs.working_directory }}'
       env:
         OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
-        GUARDIAN_PLAN_PREFIX: 'guardian-plans/${{ github.repository }}/${{ github.event.pull_request.number }}/${{ inputs.working_directory }}'
+        GUARDIAN_PLAN_PREFIX: 'guardian-plans/${{ github.repository }}/${{ steps.get-pr.outputs.result }}/${{ inputs.working_directory }}'
       run: |-
         echo "# Download Plan File" > ${{ env.OUT_FILENAME }}
         gcloud storage cp \
@@ -154,7 +185,7 @@ runs:
       working-directory: '${{ inputs.working_directory }}'
       env:
         OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
-        GUARDIAN_PLAN_PREFIX: 'guardian-plans/${{ github.repository }}/${{ github.event.pull_request.number }}/${{ inputs.working_directory }}'
+        GUARDIAN_PLAN_PREFIX: 'guardian-plans/${{ github.repository }}/${{ steps.get-pr.outputs.result }}/${{ inputs.working_directory }}'
       run: |-
         echo "# Delete Plan File" > ${{ env.OUT_FILENAME }}
         gcloud storage rm --all-versions gs://${{ inputs.bucket_name }}/${{ env.GUARDIAN_PLAN_PREFIX }}/tfplan.binary 2>&1 | tee -a ${{ env.OUT_FILENAME }}
@@ -174,7 +205,7 @@ runs:
       env:
         OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
       with:
-        retries: ${{ inputs.max_retries }}
+        retries: '${{ inputs.max_retries }}'
         script: |-
           const fs = require('fs')
           const msg = fs.readFileSync('${{ inputs.working_directory }}/${{ env.OUT_FILENAME }}', { encoding: 'utf8' });
@@ -198,7 +229,7 @@ runs:
       env:
         SUCCESS_FILENAME: 'success_${{ github.run_id }}_${{ github.run_attempt }}.txt'
       with:
-        retries: ${{ inputs.max_retries }}
+        retries: '${{ inputs.max_retries }}'
         script: |-
           const fs = require('fs')
           const msg = fs.readFileSync('${{ inputs.working_directory }}/${{ env.SUCCESS_FILENAME }}', { encoding: 'utf8' })

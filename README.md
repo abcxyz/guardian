@@ -59,7 +59,6 @@ To run for multiple working directories, you can create a matrix strategy or use
 
 ```yaml
 apply_prod:
-  if: ${{ github.event_name == 'pull_request' && github.event.pull_request.merged }}
   runs-on: "ubuntu-latest"
   steps:
     - name: "Checkout"
@@ -79,7 +78,6 @@ apply_prod:
         terraform_version: "1.3.6"
 
 apply_nonprod:
-  if: ${{ github.event_name == 'pull_request' && github.event.pull_request.merged }}
   runs-on: "ubuntu-latest"
   steps:
     - name: "Checkout"

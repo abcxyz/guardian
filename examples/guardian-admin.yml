@@ -13,7 +13,7 @@
 # limitations under the License.
 
 name: 'guardian_admin'
-run-name: 'Guardian Admin ${{ inputs.directories }} ${{ inputs.number }}'
+run-name: 'Guardian Admin - ${{ inputs.command }} ${{ inputs.number }}'
 
 on:
   workflow_dispatch:
@@ -28,6 +28,10 @@ permissions:
   contents: 'read'
   id-token: 'write'
   pull-requests: 'read'
+
+# only one admin should run at a time
+concurrency:
+  group: '${{ github.workflow_ref }}'
 
 jobs:
   admin:
@@ -47,8 +51,8 @@ jobs:
       # - name: 'Authenticate to Google Cloud'
       #   uses: 'google-github-actions/auth@ef5d53e30bbcd8d0836f4288f5e50ff3e086997d' # ratchet:google-github-actions/auth@v1
       #   with:
-      #     workload_identity_provider: 'YOUR_GUARDIAN_WIF_PROVIDER' # this can be provided via repository variables
-      #     service_account: 'YOUR_GUARDIAN_WIF_SERVICE_ACCOUNT' # this can be provided via repository variables
+      #     workload_identity_provider: '${{ vars.GUARDIAN_WIF_PROVIDER }}'
+      #     service_account: '${{ vars.GUARDIAN_WIF_SERVICE_ACCOUNT }}'
 
       # Optional: set git config auth credentials for private modules if needed
       # - name: 'Git Config'
@@ -56,12 +60,12 @@ jobs:
       #     git config --global url."https://guardian-bot:${{ secrets.PAT_TOKEN }}@github.com".insteadOf "https://github.com"
 
       - name: 'Guardian Admin'
-        uses: 'abcxyz/guardian/.github/actions/admin@SHA' # TODO: pin this to the latest sha in the guardian repo
+        uses: 'abcxyz/guardian/.github/actions/admin@main' # TODO: pin this to the latest sha in the guardian repo
 
         # Optional: provide environment secrets for terraform providers
         # env:
         #   GITHUB_TOKEN: '${{ secrets.PAT_TOKEN }}'
-        #   GITHUB_OWNER: 'YOUR_ORG'
+        #   GITHUB_OWNER: 'YOUR_GITHUB_ORG'
 
         with:
           command: '${{ inputs.command }}'

@@ -51,11 +51,19 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: 'Bootstrap Out File'
+      shell: 'bash'
+      working-directory: '${{ inputs.working_directory }}'
+      env:
+        OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
+      run: |-
+        echo "Unknown error, see logs for details." > "${{ env.OUT_FILENAME }}"
+
     - name: 'Start Comment'
       id: 'comment'
       uses: actions/github-script@98814c53be79b1d30f795b907e553d8679345975 # ratchet:actions/github-script@v6
       with:
-        retries: ${{ inputs.max_retries }}
+        retries: '${{ inputs.max_retries }}'
         script: |-
           const { data: prComment } = await github.rest.issues.createComment({
             owner: context.repo.owner,
@@ -63,7 +71,7 @@ runs:
             issue_number: context.issue.number,
             body: `**\`🔱 Guardian 🔱\`** - 🟨 Running Plan in dir: \`${{inputs.working_directory}}\` [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }})]`,
           });
-          return prComment.id
+          return prComment.id;
 
     - name: 'Setup Terraform'
       uses: abcxyz/secure-setup-terraform@78e3f2fdfb7ebf59ce42141f6dd93bdd65bf04ed # ratchet:abcxyz/secure-setup-terraform@v0.2.5
@@ -183,7 +191,7 @@ runs:
       env:
         OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
       with:
-        retries: ${{ inputs.max_retries }}
+        retries: '${{ inputs.max_retries }}'
         script: |-
           const fs = require('fs')
           const msg = fs.readFileSync('${{ inputs.working_directory }}/${{ env.OUT_FILENAME }}', { encoding: 'utf8' });
@@ -207,7 +215,7 @@ runs:
       env:
         SUCCESS_FILENAME: 'success_${{ github.run_id }}_${{ github.run_attempt }}.txt'
       with:
-        retries: ${{ inputs.max_retries }}
+        retries: '${{ inputs.max_retries }}'
         script: |-
           const fs = require('fs')
           const msg = fs.readFileSync('${{ inputs.working_directory }}/${{ env.SUCCESS_FILENAME }}', { encoding: 'utf8' })
