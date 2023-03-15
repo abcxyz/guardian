@@ -15,7 +15,8 @@
 name: 'test_guardian_plan'
 
 on:
-  pull_request_target:
+  # pull_request_target: # removed pull_request_target to allow for testing of guardian within the guardian repository
+  pull_request:
     types:
       - 'opened'
       - 'synchronize'
