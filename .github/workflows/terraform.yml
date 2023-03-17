@@ -1,0 +1,21 @@
+name: 'terraform'
+
+on:
+  push:
+    branches:
+      - 'main'
+  pull_request:
+    branches:
+      - 'main'
+  workflow_dispatch:
+
+concurrency:
+  group: '${{ github.workflow }}-${{ github.head_ref || github.ref }}-terraform'
+  cancel-in-progress: true
+
+jobs:
+  terraform_lint:
+    uses: 'abcxyz/pkg/.github/workflows/terraform-lint.yml@main'
+    with:
+      directory: 'terraform'
+      terraform_version: '1.2'
