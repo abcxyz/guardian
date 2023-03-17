@@ -22,7 +22,8 @@ data "github_repository" "infra" {
 }
 
 resource "google_service_account" "default" {
-  project      = local.project_id
+  project = local.project_id
+
   account_id   = "${local.name}-${data.github_repository.infra.visibility}"
   display_name = "${local.name} Service Account"
   disabled     = true
