@@ -183,6 +183,7 @@ runs:
         cp ${{ env.OUT_FILENAME }} ${{ env.SUCCESS_FILENAME }}
 
     - name: 'Delete Plan File'
+      if: ${{ always() }}
       shell: 'bash'
       working-directory: '${{ inputs.working_directory }}'
       env:
