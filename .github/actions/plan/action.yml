@@ -39,10 +39,6 @@ inputs:
     description: 'The maxiumum number of retries when handling failures.'
     required: false
     default: '5'
-  base_retry_delay:
-    description: 'The base retry delay in seconds when handling failures.'
-    required: false
-    default: '2'
   max_retry_delay:
     description: 'The max retry delay in seconds when handling failures.'
     required: false
@@ -83,20 +79,6 @@ runs:
         protect_lockfile: '${{ inputs.protect_lockfile }}'
         terraform_wrapper: false
 
-    - name: 'Set up Cloud SDK'
-      uses: 'google-github-actions/setup-gcloud@62d4898025f6041e16b1068643bfc5a696863587' # ratchet:google-github-actions/setup-gcloud@v1
-
-    - name: 'Cloud SDK Config'
-      shell: 'bash'
-      working-directory: '${{ inputs.working_directory }}'
-      env:
-        OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
-      run: |-
-        echo "# Cloud SDK Config" > ${{ env.OUT_FILENAME }}
-        gcloud config set storage/max_retries ${{ inputs.max_retries }} 2>&1 | tee -a ${{ env.OUT_FILENAME }}
-        gcloud config set storage/base_retry_delay ${{ inputs.base_retry_delay }} 2>&1 | tee -a ${{ env.OUT_FILENAME }}
-        gcloud config set storage/max_retry_delay ${{ inputs.max_retry_delay }} 2>&1 | tee -a ${{ env.OUT_FILENAME }}
-
     - name: 'Terraform Format'
       shell: 'bash'
       working-directory: '${{ inputs.working_directory }}'
@@ -105,7 +87,7 @@ runs:
         TF_IN_AUTOMATION: 'true' # tell terraform this is an automated workflow https://developer.hashicorp.com/terraform/tutorials/automation/automate-terraform#controlling-terraform-output-in-automation
       run: |-
         echo "# Terraform Format" > ${{ env.OUT_FILENAME }}
-        terraform fmt -check -diff -recursive -no-color 2>&1 | tee -a ${{ env.OUT_FILENAME }}
+        terraform fmt -check -diff -recursive 2>&1 | tee -a ${{ env.OUT_FILENAME }}
 
     - name: 'Terraform Init'
       shell: 'bash'
@@ -166,16 +148,32 @@ runs:
         cp ${{ env.OUT_FILENAME }} ${{ env.SUCCESS_FILENAME }}
 
     - name: 'Upload Plan File'
-      shell: 'bash'
-      working-directory: '${{ inputs.working_directory }}'
+      uses: actions/github-script@98814c53be79b1d30f795b907e553d8679345975 # ratchet:actions/github-script@v6
       env:
         OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
         GUARDIAN_PLAN_PREFIX: 'guardian-plans/${{ github.repository }}/${{ github.event.pull_request.number }}/${{ inputs.working_directory }}'
-      run: |-
-        echo "# Upload Plan File" > ${{ env.OUT_FILENAME }}
-        gcloud storage cp \
-          tfplan.binary \
-          gs://${{ inputs.bucket_name }}/${{ env.GUARDIAN_PLAN_PREFIX }}/tfplan.binary 2>&1 | tee -a ${{ env.OUT_FILENAME }}
+      with:
+        github-token: '${{ github.token }}'
+        retries: '${{ inputs.max_retries }}'
+        script: |-
+          try {
+            const { Storage, IdempotencyStrategy } = require("@google-cloud/storage");
+            const storage = new Storage({
+              retryOptions: {
+                autoRetry: true,
+                retryDelayMultiplier: 3,
+                totalTimeout: 500,
+                maxRetryDelay: `${{ inputs.max_retries }}`,
+                maxRetries: `${{ inputs.max_retry_delay }}`,
+                idempotencyStrategy: IdempotencyStrategy.RetryAlways,
+              },
+            });
+            await storage.bucket(bucketName).upload(`${{ inputs.working_directory }}/tfplan.binary`, {
+              destination: `${{ env.GUARDIAN_PLAN_PREFIX }}/tfplan.binary`,
+            });
+          } catch (err) {
+            core.setFailed("Failed to delete ");
+          }
 
     - name: 'Ensure Outfile'
       if: ${{ failure() }}
