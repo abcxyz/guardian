@@ -39,10 +39,6 @@ inputs:
     description: 'The maxiumum number of retries when handling failures.'
     required: false
     default: '5'
-  base_retry_delay:
-    description: 'The base retry delay in seconds when handling failures.'
-    required: false
-    default: '2'
   max_retry_delay:
     description: 'The max retry delay in seconds when handling failures.'
     required: false
@@ -117,19 +113,15 @@ runs:
         protect_lockfile: '${{ inputs.protect_lockfile }}'
         terraform_wrapper: false
 
-    - name: 'Set up Cloud SDK'
-      uses: 'google-github-actions/setup-gcloud@62d4898025f6041e16b1068643bfc5a696863587' # ratchet:google-github-actions/setup-gcloud@v1
+    - name: 'Setup Node'
+      uses: 'actions/setup-node@64ed1c7eab4cce3362f8c340dee64e5eaeef8f7c' # ratchet:actions/setup-node@v3
+      with:
+        node-version: '16'
 
-    - name: 'Cloud SDK Config'
+    - name: 'Install Google Cloud Storage SDK'
       shell: 'bash'
-      working-directory: '${{ inputs.working_directory }}'
-      env:
-        OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
       run: |-
-        echo "# Cloud SDK Config" > ${{ env.OUT_FILENAME }}
-        gcloud config set storage/max_retries ${{ inputs.max_retries }} 2>&1 | tee -a ${{ env.OUT_FILENAME }}
-        gcloud config set storage/base_retry_delay ${{ inputs.base_retry_delay }} 2>&1 | tee -a ${{ env.OUT_FILENAME }}
-        gcloud config set storage/max_retry_delay ${{ inputs.max_retry_delay }} 2>&1 | tee -a ${{ env.OUT_FILENAME }}
+        npm install @google-cloud/storage@~6.9.5
 
     - name: 'Terraform Init'
       shell: 'bash'
@@ -142,17 +134,47 @@ runs:
         terraform init -input=false -no-color 2>&1 | tee -a ${{ env.OUT_FILENAME }}
 
     - name: 'Download Plan File'
-      shell: 'bash'
-      working-directory: '${{ inputs.working_directory }}'
+      uses: actions/github-script@98814c53be79b1d30f795b907e553d8679345975 # ratchet:actions/github-script@v6
       env:
-        OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
+        OUT_FILEPATH: '${{ inputs.working_directory }}/out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
         GUARDIAN_PLAN_PREFIX: 'guardian-plans/${{ github.repository }}/${{ steps.get-pr.outputs.result }}/${{ inputs.working_directory }}'
-      run: |-
-        echo "# Download Plan File" > ${{ env.OUT_FILENAME }}
-        gcloud storage cp \
-          gs://${{ inputs.bucket_name }}/${{ env.GUARDIAN_PLAN_PREFIX }}/tfplan.binary \
-          tfplan.binary \
-          2>&1 | tee -a ${{ env.OUT_FILENAME }}
+      with:
+        script: |-
+          const fs = require("fs");
+          const { EOL } = require("os");
+
+          try {
+            const { Storage, IdempotencyStrategy } = require("@google-cloud/storage");
+            const bucketName = "${{ inputs.bucket_name }}";
+            const fileName = "${{ env.GUARDIAN_PLAN_PREFIX }}/tfplan.binary";
+            const destFileName = "${{ inputs.working_directory }}/tfplan.binary";
+
+            const storage = new Storage({
+              retryOptions: {
+                autoRetry: true,
+                retryDelayMultiplier: 3,
+                totalTimeout: 500,
+                maxRetryDelay: "${{ inputs.max_retry_delay }}",
+                maxRetries: "${{ inputs.max_retries }}",
+                idempotencyStrategy: IdempotencyStrategy.RetryAlways,
+              },
+            });
+
+            // TODO(verbanicm): does this delete all versions?
+            await storage
+              .bucket(bucketName)
+              .file(fileName)
+              .download({ destination: destFileName });
+          } catch (err) {
+            const errString = JSON.stringify(err, undefined, 2);
+            const errorData = `# Download Plan File${EOL}Error: ${errString}`;
+
+            fs.writeFileSync("${{ env.OUT_FILEPATH }}", errorData, { encoding: "utf8" });
+
+            core.error("Failed to download plan file");
+            core.error(errString);
+            core.setFailed("Failed to download plan file.");
+          }
 
     - name: 'Terraform Apply'
       shell: 'bash'
@@ -182,17 +204,54 @@ runs:
       run: |-
         cp ${{ env.OUT_FILENAME }} ${{ env.SUCCESS_FILENAME }}
 
+        # Since the delete plan action always runs, we should clear the outfile.
+        # If the delete plan action fails, it can append to empty file and not to successful output.
+        rm ${{ env.OUT_FILENAME }}
+
     - name: 'Delete Plan File'
       if: ${{ always() }}
-      shell: 'bash'
-      working-directory: '${{ inputs.working_directory }}'
+      uses: actions/github-script@98814c53be79b1d30f795b907e553d8679345975 # ratchet:actions/github-script@v6
       env:
-        OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
+        OUT_FILEPATH: '${{ inputs.working_directory }}/out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
         GUARDIAN_PLAN_PREFIX: 'guardian-plans/${{ github.repository }}/${{ steps.get-pr.outputs.result }}/${{ inputs.working_directory }}'
-      run: |-
-        echo "# Delete Plan File" > ${{ env.OUT_FILENAME }}
-        gcloud storage rm --all-versions gs://${{ inputs.bucket_name }}/${{ env.GUARDIAN_PLAN_PREFIX }}/tfplan.binary 2>&1 | tee -a ${{ env.OUT_FILENAME }}
+      with:
+        script: |-
+          const fs = require("fs");
+          const { EOL } = require("os");
 
+          try {
+            const { Storage, IdempotencyStrategy } = require("@google-cloud/storage");
+            const bucketName = "${{ inputs.bucket_name }}";
+            const fileName = "${{ env.GUARDIAN_PLAN_PREFIX }}/tfplan.binary";
+
+            const storage = new Storage({
+              retryOptions: {
+                autoRetry: true,
+                retryDelayMultiplier: 3,
+                totalTimeout: 500,
+                maxRetryDelay: "${{ inputs.max_retry_delay }}",
+                maxRetries: "${{ inputs.max_retries }}",
+                idempotencyStrategy: IdempotencyStrategy.RetryAlways,
+              },
+            });
+
+            await storage
+              .bucket(bucketName)
+              .file(fileName)
+              .delete({ ignoreNotFound: true });
+          } catch (err) {
+            const errString = JSON.stringify(err, undefined, 2);
+            const errorData = `${EOL}${EOL}# Delete Plan File${EOL}Error: ${errString}`;
+
+            // Append here since this always runs, regardless of previous failures
+            fs.appendFileSync("${{ env.OUT_FILEPATH }}", errorData, { encoding: "utf8" });
+
+            core.error("Failed to delete plan file");
+            core.error(errString);
+            core.setFailed("Failed to delete plan file.");
+          }
+
+    # Precaution to ensure outfile exists to prevent unneccessary i/o errors
     - name: 'Ensure Outfile'
       if: ${{ failure() }}
       shell: 'bash'
