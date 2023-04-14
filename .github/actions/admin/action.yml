@@ -92,6 +92,5 @@ runs:
       working-directory: '${{ inputs.working_directory }}'
       env:
         TF_IN_AUTOMATION: 'true'
-        TF_CLI_ARGS: '-input=false'
       run: |-
         terraform ${{ inputs.command }}
