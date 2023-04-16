@@ -33,7 +33,6 @@ The `Guardian Admin` workflow can be used to run commands manually as the servic
 - Fill out the inputs
   - BRANCH: Only works from the default branch e.g. `main`
   - COMMAND: The terraform command to run e.g. `apply -input=false -auto-approve`
-  - PR NUMBER: Run this command for a specific PR, the PR branch will be checked out before running the command
 
 ## Security
 
@@ -70,45 +69,3 @@ Branch protection is required to enable a safe and secure process. Ensuring thes
 ### Creating Workflows
 
 To use Guardian in your repository, copy over the GitHub workflow YAMLs from the `examples` directory into your `.github/workflows` folder.
-
-To run for multiple working directories, you can create a matrix strategy or use multiple jobs. The example workflows provided make use of a matrix strategy. If you need to use separate service accounts to different credentials, prefer using multiple jobs and provide separate inputs.
-
-```yaml
-apply_prod:
-  runs-on: "ubuntu-latest"
-  steps:
-    - name: "Checkout"
-      uses: "actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c" # ratchet:actions/checkout@v3
-
-    - name: "Authenticate to Google Cloud"
-      uses: "google-github-actions/auth@ef5d53e30bbcd8d0836f4288f5e50ff3e086997d" # ratchet:google-github-actions/auth@v1
-      with:
-        workload_identity_provider: "${{ vars.PROD_WIF_PROVIDER }}"
-        service_account: "${{ vars.PROD_WIF_SERVICE_ACCOUNT }}"
-
-    - name: "Guardian Apply"
-      uses: "abcxyz/guardian/.github/actions/apply@SHA" # TODO: pin this to the latest sha in the guardian repo
-      with:
-        working_directory: "${{ matrix.working_directory }}"
-        bucket_name: "${{ vars.GUARDIAN_BUCKET_NAME }}"
-        terraform_version: "1.3.6"
-
-apply_nonprod:
-  runs-on: "ubuntu-latest"
-  steps:
-    - name: "Checkout"
-      uses: "actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c" # ratchet:actions/checkout@v3
-
-    - name: "Authenticate to Google Cloud"
-      uses: "google-github-actions/auth@ef5d53e30bbcd8d0836f4288f5e50ff3e086997d" # ratchet:google-github-actions/auth@v1
-      with:
-        workload_identity_provider: "${{ vars.NON_PROD_WIF_PROVIDER }}"
-        service_account: "${{ vars.NON_PROD_WIF_SERVICE_ACCOUNT }}"
-
-    - name: "Guardian Apply"
-      uses: "abcxyz/guardian/.github/actions/apply@SHA" # TODO: pin this to the latest sha in the guardian repo
-      with:
-        working_directory: "${{ matrix.working_directory }}"
-        bucket_name: "${{ vars.GUARDIAN_BUCKET_NAME }}"
-        terraform_version: "1.3.6"
-```
