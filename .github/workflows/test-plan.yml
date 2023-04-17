@@ -34,8 +34,32 @@ concurrency:
   group: '${{ github.workflow }}-${{ github.head_ref || github.ref }}'
 
 jobs:
-  plan:
+  init:
     runs-on: 'ubuntu-latest'
+    outputs:
+      directories: ${{ steps.dirs.outputs.directories }}
+    steps:
+      - name: 'Checkout'
+        uses: 'actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c' # ratchet:actions/checkout@v3
+        with:
+          fetch-depth: 0
+          ref: '${{ github.event.pull_request.head.ref }}'
+
+      - name: 'Guardian Directories'
+        id: 'dirs'
+        uses: './.github/actions/directories'
+        with:
+          detect_plan_changes: 'true'
+
+  plan:
+    if: ${{ needs.init.outputs.directories != '[]' }}
+    needs:
+      - 'init'
+    runs-on: 'ubuntu-latest'
+    strategy:
+      fail-fast: false
+      matrix:
+        working_directory: ${{ fromJSON(needs.init.outputs.directories) }}
     steps:
       - name: 'Checkout'
         uses: 'actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c' # ratchet:actions/checkout@v3
@@ -67,6 +91,31 @@ jobs:
         env:
           GITHUB_TOKEN: '${{ steps.mint-token.outputs.token }}'
         with:
-          working_directory: 'terraform'
+          working_directory: '${{ matrix.working_directory }}'
           bucket_name: '${{ vars.GUARDIAN_BUCKET_NAME }}'
           terraform_version: '1.3.6'
+
+  plan_success:
+    if: ${{ always() }}
+    needs:
+      - 'init'
+      - 'plan'
+    runs-on: 'ubuntu-latest'
+    steps:
+      - name: 'Success'
+        if: ${{ needs.init.result == 'success' && needs.plan.result == 'success' }}
+        run: |-
+          echo "All plans successful!"
+          exit 0
+
+      - name: 'Failure'
+        if: ${{ needs.init.result == 'failure' || needs.plan.result == 'failure' }}
+        run: |-
+          echo "::error ::Plan has one or more failures."
+          exit 1
+
+      - name: 'Indeterminate'
+        if: ${{ contains(fromJSON('["skipped", "cancelled"]'), needs.init.result) || contains(fromJSON('["skipped", "cancelled"]'), needs.plan.result) }}
+        run: |-
+          echo "::warning ::Init or Plan was skipped or cancelled."
+          exit 0
