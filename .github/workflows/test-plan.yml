@@ -42,7 +42,7 @@ jobs:
       - name: 'Checkout'
         uses: 'actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c' # ratchet:actions/checkout@v3
         with:
-          fetch-depth: 0
+          fetch-depth: 0 # get everything so we can use git diff
           ref: '${{ github.event.pull_request.head.ref }}'
 
       - name: 'Guardian Directories'
