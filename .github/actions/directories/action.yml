@@ -14,13 +14,17 @@
 
 name: 'Guardian Directories'
 description: |-
-  Use this action to get a list of the Terraform directories to use with Guardian for your repository. Allowed directories are identified by containing a .guardian file.
+  Use this action to get a list of the Terraform directories to use with Guardian for your repository. Guardian will find and use all directories that contain a Terraform backend as an allowlist.
 
 inputs:
   detect_changes:
     description: 'Uses the list of changed files to determine the directories run Guardian commands for.'
     required: false
     default: 'false'
+  terraform_directory:
+    description: 'A subfolder to use as the root of all Terraform configuration for this repository.'
+    required: false
+    default: '.'
   directories:
     description: 'A CSV list of directories to run Guardian commands for.'
     required: false
@@ -36,17 +40,21 @@ runs:
   steps:
     - name: 'Get Directories'
       id: 'get_dirs'
-      if: ${{ inputs.detect_changes == 'true' }}
       shell: 'bash'
       run: |-
+        TERRAFORM_GLOB=$(echo "./${{ inputs.terraform_directory }}/**/*.tf" | sed 's|././|./|g' | sed 's|//|/|g')
+        DIRS_WITH_BACKENDS=$(grep -E 'backend\s?".*"\s?{' $TERRAFORM_GLOB -l | xargs dirname | sed 's|^[\.?][/?]*||g' | sort | uniq)
+
+        echo "DIRS_WITH_BACKENDS=$DIRS_WITH_BACKENDS"
+
         DETECT_CHANGES="${{ inputs.detect_changes }}"
 
         if [ "$DETECT_CHANGES" == "true" ]; then        
-          ALLOWED=$(find . -name '.guardian' | xargs dirname | cut -c 3- | sort | uniq)
           MODIFIED=$(git diff HEAD~1 --name-only | xargs dirname | sort | uniq)
+          echo "MODIFIED=$MODIFIED"
 
-          # Get the intersection of allowed and modified as an array
-          DIRS=$(comm -12 <(echo "$ALLOWED") <(echo "$MODIFIED") | jq -nRrc '[inputs|split("\n")] | flatten | tostring')
+          # Get the intersection of directories with backends and modified as an array
+          DIRS=$(comm -12 <(echo "$DIRS_WITH_BACKENDS") <(echo "$MODIFIED") | jq -nRrc '[inputs|split("\n")] | flatten | tostring')
 
           echo "dirs=${DIRS}"
           echo "dirs=${DIRS}" >> $GITHUB_OUTPUT
@@ -56,19 +64,18 @@ runs:
         INPUT_DIRS="${{ inputs.directories }}"
 
         if [ "$INPUT_DIRS" != "" ]; then
-          ALLOWED=$(find . -name '.guardian' | xargs dirname | cut -c 3- | sort | uniq)
           REQUESTED=$(echo "$INPUT_DIRS" | sed 's/,[[:space:]]*/\n/g' | sort | uniq)
 
-          # Get the intersection of allowed and requested as an array
-          DIRS=$(comm -12 <(echo "$ALLOWED") <(echo "$REQUESTED") | jq -nRrc '[inputs|split("\n")] | flatten | tostring')
+          # Get the intersection of directories with backends and requested as an array
+          DIRS=$(comm -12 <(echo "$DIRS_WITH_BACKENDS") <(echo "$REQUESTED") | jq -nRrc '[inputs|split("\n")] | flatten | tostring')
 
           echo "dirs=${DIRS}"
           echo "dirs=${DIRS}" >> $GITHUB_OUTPUT
           exit
         fi
 
-        # Default to returning all directories with a .guardian file as an array
-        DIRS=$(find . -name '.guardian' | xargs dirname | cut -c 3- | sort | uniq | jq -nRrc '[inputs|split("\n")] | flatten | tostring')
+        # Default to returning all directories with backends as an array
+        DIRS=$(echo "$DIRS_WITH_BACKENDS" | jq -nRrc '[inputs|split("\n")] | flatten | tostring')
 
         echo "dirs=${DIRS}"
         echo "dirs=${DIRS}" >> $GITHUB_OUTPUT

@@ -66,6 +66,10 @@ Branch protection is required to enable a safe and secure process. Ensuring thes
 - [x] Require signed commits (optional)
 - [x] Require linear history
 
+### Directories
+
+Guardian will only run Terraform commands for directories that have a Terraform [backend configuration](https://developer.hashicorp.com/terraform/language/settings/backends/configuration). This means if you add a new folder and you want Guardian to run the `terraform plan` and `terraform apply` commands from that directory as the root of the module, you should include a backend configuration within that directory.
+
 ### Creating Workflows
 
 To use Guardian in your repository, copy over the GitHub workflow YAMLs from the `examples` directory into your `.github/workflows` folder.
