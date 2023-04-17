@@ -37,31 +37,34 @@ jobs:
   init:
     runs-on: 'ubuntu-latest'
     outputs:
-      dirs: ${{ steps.dirs.outputs.dirs }}
+      directories: ${{ steps.dirs.outputs.directories }}
     steps:
       - name: 'Checkout'
-        uses: 'actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3' # ratchet:actions/checkout@v3
+        uses: 'actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c' # ratchet:actions/checkout@v3
         with:
-          fetch-depth: 2 # required to get diff between HEAD and HEAD-1
+          fetch-depth: 0
+          ref: '${{ github.event.pull_request.head.ref }}'
 
       - name: 'Guardian Directories'
         id: 'dirs'
         uses: './.github/actions/directories'
         with:
-          detect_changes: 'true'
+          detect_plan_changes: 'true'
 
   plan:
-    if: ${{ needs.init.outputs.dirs != '[]' }}
+    if: ${{ needs.init.outputs.directories != '[]' }}
     needs:
       - 'init'
     runs-on: 'ubuntu-latest'
     strategy:
       fail-fast: false
       matrix:
-        working_directory: ${{ fromJSON(needs.init.outputs.dirs) }}
+        working_directory: ${{ fromJSON(needs.init.outputs.directories) }}
     steps:
       - name: 'Checkout'
         uses: 'actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c' # ratchet:actions/checkout@v3
+        with:
+          ref: '${{ github.event.pull_request.head.ref }}'
 
       - name: 'Mint Token'
         id: 'mint-token'
@@ -95,23 +98,24 @@ jobs:
   plan_success:
     if: ${{ always() }}
     needs:
+      - 'init'
       - 'plan'
     runs-on: 'ubuntu-latest'
     steps:
       - name: 'Success'
-        if: ${{ needs.plan.result == 'success' }}
+        if: ${{ needs.init.result == 'success' && needs.plan.result == 'success' }}
         run: |-
           echo "All plans successful!"
           exit 0
 
-      - name: 'Indeterminate'
-        if: ${{ contains(fromJSON('["skipped", "cancelled"]'), needs.plan.result) }}
-        run: |-
-          echo "::warning Plans were skipped or cancelled."
-          exit 0
-
       - name: 'Failure'
-        if: ${{ needs.plan.result == 'failure' }}
+        if: ${{ needs.init.result == 'failure' || needs.plan.result == 'failure' }}
         run: |-
-          echo "::error Plan has one or more failures."
+          echo "::error ::Plan has one or more failures."
           exit 1
+
+      - name: 'Indeterminate'
+        if: ${{ contains(fromJSON('["skipped", "cancelled"]'), needs.init.result) || contains(fromJSON('["skipped", "cancelled"]'), needs.plan.result) }}
+        run: |-
+          echo "::warning ::Init or Plan was skipped or cancelled."
+          exit 0
