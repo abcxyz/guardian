@@ -13,7 +13,7 @@
 # limitations under the License.
 
 name: 'test_guardian_admin'
-run-name: 'test_guardian_admin - ${{ inputs.command }}'
+run-name: 'test_guardian_admin - [${{ inputs.command }}] [${{ inputs.directories }}]'
 
 on:
   workflow_dispatch:

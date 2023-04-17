@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: 'test_guardian_admin'
-run-name: 'test_guardian_admin - ${{ inputs.command }}'
+name: 'guardian_admin'
+run-name: 'guardian_admin - [${{ inputs.command }}] [${{ inputs.directories }}]'
 
 on:
   workflow_dispatch:
