@@ -33,13 +33,32 @@ concurrency:
   group: '${{ github.workflow }}-${{ github.head_ref || github.ref }}'
 
 jobs:
+  init:
+    runs-on: 'ubuntu-latest'
+    outputs:
+      directories: ${{ steps.dirs.outputs.directories }}
+    steps:
+      - name: 'Checkout'
+        uses: 'actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3' # ratchet:actions/checkout@v3
+        with:
+          fetch-depth: 0
+          ref: '${{ github.event.pull_request.head.ref }}'
+
+      - name: 'Guardian Directories'
+        id: 'dirs'
+        uses: 'abcxyz/guardian/.github/actions/directories@main' # TODO: pin this to the latest sha in the guardian repo
+        with:
+          detect_plan_changes: 'true'
+
   plan:
+    if: ${{ needs.init.outputs.directories != '[]' }}
+    needs:
+      - 'init'
     runs-on: 'ubuntu-latest'
     strategy:
       fail-fast: false
       matrix:
-        working_directory:
-          - 'terraform' # TODO: update with repository working directories
+        working_directory: ${{ fromJSON(needs.init.outputs.directories) }}
     steps:
       - name: 'Checkout'
         uses: 'actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c' # ratchet:actions/checkout@v3
@@ -71,10 +90,34 @@ jobs:
           bucket_name: '${{ vars.GUARDIAN_BUCKET_NAME }}'
           terraform_version: '1.3.6' # TODO: update with required terraform version
 
-
           # Optional:
           # protect_lockfile: true # default true
           # lock_timeout: '10m'    # default 10m
           # max_retries: '5'       # default 5
           # base_retry_delay: '2'  # default 2s
           # max_retry_delay: '60'  # default 60s
+
+  plan_success:
+    if: ${{ always() }}
+    needs:
+      - 'init'
+      - 'plan'
+    runs-on: 'ubuntu-latest'
+    steps:
+      - name: 'Success'
+        if: ${{ needs.init.result == 'success' && needs.plan.result == 'success' }}
+        run: |-
+          echo "All plans successful!"
+          exit 0
+
+      - name: 'Failure'
+        if: ${{ needs.init.result == 'failure' || needs.plan.result == 'failure' }}
+        run: |-
+          echo "::error ::Plan has one or more failures."
+          exit 1
+
+      - name: 'Indeterminate'
+        if: ${{ contains(fromJSON('["skipped", "cancelled"]'), needs.init.result) || contains(fromJSON('["skipped", "cancelled"]'), needs.plan.result) }}
+        run: |-
+          echo "::warning ::Init or Plan was skipped or cancelled."
+          exit 0

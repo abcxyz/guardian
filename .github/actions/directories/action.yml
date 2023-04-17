@@ -1,0 +1,109 @@
+# Copyright 2023 The Authors (see AUTHORS file)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: 'Guardian Directories'
+description: |-
+  Use this action to get a list of the Terraform directories to use with Guardian for your repository. Guardian will find and use all directories that contain a Terraform backend as an allowlist.
+
+inputs:
+  directories:
+    description: 'A CSV list of directories to run Guardian commands for.'
+    required: false
+    default: ''
+  detect_plan_changes:
+    description: 'Use the pull request base and head refs to get all file changes to determine the directories run Guardian Plan commands for.'
+    required: false
+    default: 'false'
+  detect_apply_changes:
+    description: 'Use the respository default branch HEAD and HEAD~1 to get all file changes to determine the directories run Guardian Apply commands for.'
+    required: false
+    default: 'false'
+
+outputs:
+  directories:
+    description: 'The directories with Terraform changes as configured by the action input.'
+    value: ${{ steps.plan_dirs.outputs.dirs || steps.apply_dirs.outputs.dirs || steps.dirs.outputs.dirs }}
+
+runs:
+  using: composite
+  steps:
+    - name: 'Get Directories'
+      id: 'dirs'
+      shell: 'bash'
+      run: |-
+        # Get Directories
+
+        # Get all terraform file directores that contain a backend config
+        BACKEND_DIRS=$(find . -name "*.tf" | xargs grep -l 'backend ".*" {' | xargs dirname | sed 's|[\.?][/]*||g' | sort | uniq)
+
+        INPUT_DIRS="${{ inputs.directories }}"
+
+        if [ "$INPUT_DIRS" != "" ]; then
+          # Convert CSV string to newline delimited string for sorting (replace `, ` to `\n`)
+          REQUESTED=$(echo "$INPUT_DIRS" | sed 's/,[[:space:]]*/\n/g' | sort | uniq)
+
+          # Get the intersection of directories with backends and requested as an array
+          DIRS=$(comm -12 <(echo "$BACKEND_DIRS") <(echo "$REQUESTED") | jq -nRrc '[inputs|split("\n")] | flatten | tostring')
+
+          echo "dirs=$DIRS"
+          echo "dirs=$DIRS" >> $GITHUB_OUTPUT
+          exit
+        fi
+
+        # Default to returning all directories with backends as an array
+        DIRS=$(echo "$BACKEND_DIRS" | jq -nRrc '[inputs|split("\n")] | flatten | tostring')
+
+        echo "dirs=$DIRS"
+        echo "dirs=$DIRS" >> $GITHUB_OUTPUT
+
+    - name: 'Get Plan Directories'
+      if: ${{ inputs.detect_plan_changes == 'true' }}
+      id: 'plan_dirs'
+      shell: 'bash'
+      run: |-
+        # Get Plan Directories
+
+        # Get all terraform file directores that contain a backend config
+        BACKEND_DIRS=$(find . -name "*.tf" | xargs grep -l 'backend ".*" {' | xargs dirname | sed 's|[\.?][/]*||g' | sort | uniq)
+
+        HEAD_REF="origin/${{ github.event.pull_request.head.ref }}"
+        BASE_REF="origin/${{ github.event.pull_request.base.ref }}"
+
+        MODIFIED=$(git diff "$BASE_REF..$HEAD_REF" --name-only | xargs dirname | sort | uniq)
+        echo "MODIFIED=$MODIFIED"
+
+        # Get the intersection of directories with backends and modified as an array
+        DIRS=$(comm -12 <(echo "$BACKEND_DIRS") <(echo "$MODIFIED") | jq -nRrc '[inputs|split("\n")] | flatten | tostring')
+
+        echo "dirs=$DIRS"
+        echo "dirs=$DIRS" >> $GITHUB_OUTPUT
+
+    - name: 'Get Apply Directories'
+      if: ${{ inputs.detect_apply_changes == 'true' }}
+      id: 'apply_dirs'
+      shell: 'bash'
+      run: |-
+        # Get Apply Directories
+
+        # Get all terraform file directores that contain a backend config
+        BACKEND_DIRS=$(find . -name "*.tf" | xargs grep -l 'backend ".*" {' | xargs dirname | sed 's|[\.?][/]*||g' | sort | uniq)
+
+        MODIFIED=$(git diff HEAD~1 --name-only | xargs dirname | sort | uniq)
+        echo "MODIFIED=$MODIFIED"
+
+        # Get the intersection of directories with backends and modified as an array
+        DIRS=$(comm -12 <(echo "$BACKEND_DIRS") <(echo "$MODIFIED") | jq -nRrc '[inputs|split("\n")] | flatten | tostring')
+
+        echo "dirs=$DIRS"
+        echo "dirs=$DIRS" >> $GITHUB_OUTPUT
