@@ -1,0 +1,63 @@
+# Copyright 2023 The Authors (see AUTHORS file)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: 'Guardian Post Plan'
+description: |-
+  Use this action post Guardian Plan to ensure a sucessful plan.
+
+inputs:
+  init_result:
+    description: 'The result status for the Guardian Plan Init GitHub workflow.'
+    required: true
+  plan_result:
+    description: 'The result status for the Guardian Plan GitHub workflow.'
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: 'Success'
+      if: ${{ inputs.init_result == 'success' && inputs.plan_result == 'success' }}
+      shell: 'bash'
+      run: |-
+        echo "All plans successful!"
+        exit 0
+
+    - name: 'Failure'
+      if: ${{ inputs.init_result == 'failure' || inputs.plan_result == 'failure' }}
+      shell: 'bash'
+      run: |-
+        echo "::error ::Init or Plan has one or more failures."
+        exit 1
+
+    - name: 'Skipped Plan Comment'
+      if: ${{ inputs.plan_result == 'skipped' }}
+      uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
+      with:
+        github-token: '${{ github.token }}'
+        retries: '${{ inputs.max_retries }}'
+        script: |-
+          await github.rest.issues.createComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+            body: `**\`🔱 Guardian 🔱\`** - 🟦 **\`PLAN\`** No Terraform changes, planning skipped.[[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }})]`
+          });
+
+    - name: 'Indeterminate'
+      if: ${{ contains(fromJSON('["skipped", "cancelled"]'), inputs.init_result) || contains(fromJSON('["skipped", "cancelled"]'), inputs.plan_result) }}
+      shell: 'bash'
+      run: |-
+        echo "::warning ::Init or Plan was skipped or cancelled."
+        exit 0
