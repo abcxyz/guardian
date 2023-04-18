@@ -50,6 +50,9 @@ jobs:
         with:
           detect_plan_changes: 'true'
 
+      - name: 'Guardian Hide Previous Plan Comments'
+        uses: 'abcxyz/guardian/.github/actions/hide-plan-comments@main' # TODO: pin this to the latest sha in the guardian repo
+
   plan:
     if: ${{ needs.init.outputs.directories != '[]' }}
     needs:
