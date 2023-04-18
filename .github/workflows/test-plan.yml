@@ -31,7 +31,7 @@ permissions:
 
 # only one plan, per pr should run at a time
 concurrency:
-  group: '${{ github.workflow }}-${{ github.head_ref || github.ref }}'
+  group: '${{ github.workflow }}-${{ github.event.pull_request.number }}-${{ github.head_ref || github.ref }}'
 
 jobs:
   init:
@@ -101,25 +101,16 @@ jobs:
 
   plan_success:
     if: ${{ always() }}
+    runs-on: 'ubuntu-latest'
     needs:
       - 'init'
       - 'plan'
-    runs-on: 'ubuntu-latest'
     steps:
-      - name: 'Success'
-        if: ${{ needs.init.result == 'success' && needs.plan.result == 'success' }}
-        run: |-
-          echo "All plans successful!"
-          exit 0
+      - name: 'Checkout'
+        uses: 'actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c' # ratchet:actions/checkout@v3
 
-      - name: 'Failure'
-        if: ${{ needs.init.result == 'failure' || needs.plan.result == 'failure' }}
-        run: |-
-          echo "::error ::Plan has one or more failures."
-          exit 1
-
-      - name: 'Indeterminate'
-        if: ${{ contains(fromJSON('["skipped", "cancelled"]'), needs.init.result) || contains(fromJSON('["skipped", "cancelled"]'), needs.plan.result) }}
-        run: |-
-          echo "::warning ::Init or Plan was skipped or cancelled."
-          exit 0
+      - name: 'Guardian Post Plan Status'
+        uses: './.github/actions/plan-status'
+        with:
+          init_result: '${{ needs.init.result }}'
+          plan_result: '${{ needs.plan.result }}'

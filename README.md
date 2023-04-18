@@ -1,5 +1,7 @@
 # 🔱 Guardian 🔱
 
+[![Guardian Apply](https://github.com/abcxyz/guardian/actions/workflows/test-apply.yml/badge.svg?event=push)](https://github.com/abcxyz/guardian/actions/workflows/test-apply.yml)
+
 Guardian is a Terraform actuation and enforcement tool using GitHub actions.
 
 **This is not an official Google product.**
