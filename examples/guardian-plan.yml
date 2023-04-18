@@ -50,6 +50,9 @@ jobs:
         with:
           detect_plan_changes: 'true'
 
+          # Optional:
+          # terraform_directory: './terraform' # specify a terraform folder to search for backend configurations
+
       - name: 'Guardian Hide Previous Plan Comments'
         uses: 'abcxyz/guardian/.github/actions/hide-plan-comments@main' # TODO: pin this to the latest sha in the guardian repo
 

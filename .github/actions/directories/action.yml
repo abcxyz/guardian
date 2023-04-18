@@ -17,6 +17,10 @@ description: |-
   Use this action to get a list of the Terraform directories to use with Guardian for your repository. Guardian will find and use all directories that contain a Terraform backend as an allowlist.
 
 inputs:
+  terraform_directory:
+    description: 'A sub-directory for all Terraform files. This value defaults to the root of the repository.'
+    required: false
+    default: '.'
   directories:
     description: 'A CSV list of directories to run Guardian commands for.'
     required: false
@@ -44,8 +48,10 @@ runs:
       run: |-
         # Get Directories
 
+        TERRAFORM_DIRECTORY="${{ inputs.terraform_directory }}"
+
         # Get all terraform file directores that contain a backend config
-        BACKEND_DIRS=$(find . -name "*.tf" | xargs grep -l 'backend ".*" {' | xargs dirname | sed 's|[\.?][/]*||g' | sort | uniq)
+        BACKEND_DIRS=$(find $TERRAFORM_DIRECTORY -name "*.tf" | xargs grep -l 'backend ".*" {' | xargs dirname | sed 's|[\.?][/]*||g' | sort | uniq)
 
         INPUT_DIRS="${{ inputs.directories }}"
 
@@ -74,8 +80,10 @@ runs:
       run: |-
         # Get Plan Directories
 
+        TERRAFORM_DIRECTORY="${{ inputs.terraform_directory }}"
+
         # Get all terraform file directores that contain a backend config
-        BACKEND_DIRS=$(find . -name "*.tf" | xargs grep -l 'backend ".*" {' | xargs dirname | sed 's|[\.?][/]*||g' | sort | uniq)
+        BACKEND_DIRS=$(find $TERRAFORM_DIRECTORY -name "*.tf" | xargs grep -l 'backend ".*" {' | xargs dirname | sed 's|[\.?][/]*||g' | sort | uniq)
 
         HEAD_REF="origin/${{ github.event.pull_request.head.ref }}"
         BASE_REF="origin/${{ github.event.pull_request.base.ref }}"
@@ -96,8 +104,10 @@ runs:
       run: |-
         # Get Apply Directories
 
+        TERRAFORM_DIRECTORY="${{ inputs.terraform_directory }}"
+
         # Get all terraform file directores that contain a backend config
-        BACKEND_DIRS=$(find . -name "*.tf" | xargs grep -l 'backend ".*" {' | xargs dirname | sed 's|[\.?][/]*||g' | sort | uniq)
+        BACKEND_DIRS=$(find $TERRAFORM_DIRECTORY -name "*.tf" | xargs grep -l 'backend ".*" {' | xargs dirname | sed 's|[\.?][/]*||g' | sort | uniq)
 
         MODIFIED=$(git diff HEAD~1 --name-only | xargs dirname | sort | uniq)
         echo "MODIFIED=$MODIFIED"

@@ -49,6 +49,7 @@ jobs:
         id: 'dirs'
         uses: './.github/actions/directories'
         with:
+          terraform_directory: './terraform'
           detect_plan_changes: 'true'
 
       - name: 'Guardian Hide Previous Plan Comments'
