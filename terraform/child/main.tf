@@ -14,7 +14,7 @@
 
 locals {
   project_id = "guardian-ci-4cab"
-  name       = "test-child-app"
+  name       = "test-child-app-change"
 }
 
 data "github_repository" "infra" {
