@@ -45,6 +45,9 @@ jobs:
         with:
           detect_apply_changes: 'true'
 
+          # Optional:
+          # terraform_directory: './terraform' # specify a terraform folder to search for backend configurations
+
   apply:
     if: ${{ needs.init.outputs.directories != '[]' }}
     needs:

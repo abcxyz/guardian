@@ -49,6 +49,9 @@ jobs:
         with:
           directories: '${{ inputs.directories }}'
 
+          # Optional:
+          # terraform_directory: './terraform' # specify a terraform folder to search for backend configurations
+
   admin:
     if: ${{ needs.init.outputs.directories != '[]' }}
     needs:
