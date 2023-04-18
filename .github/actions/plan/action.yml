@@ -66,7 +66,7 @@ runs:
             owner: context.repo.owner,
             repo: context.repo.repo,
             issue_number: context.issue.number,
-            body: `**\`🔱 Guardian 🔱\`** - 🟨 Running Plan in dir: \`${{inputs.working_directory}}\` [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }})]`,
+            body: `**\`🔱 Guardian 🔱\`** - 🟨 **\`PLAN\`** Running for dir: \`${{inputs.working_directory}}\` [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }})]`,
           });
           return prComment.id;
 
@@ -223,7 +223,7 @@ runs:
             owner: context.repo.owner,
             repo: context.repo.repo,
             comment_id: '${{ steps.comment.outputs.result }}',
-            body: `**\`🔱 Guardian 🔱\`** - 🟥 Failed to run Plan in dir: \`${{inputs.working_directory}}\` [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }})]\n
+            body: `**\`🔱 Guardian 🔱\`** - 🟥 **\`PLAN\`** Failed for dir: \`${{inputs.working_directory}}\` [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }})]\n
           <details>
           <summary>Details</summary>\n
           \`\`\`diff\n
@@ -248,7 +248,7 @@ runs:
             owner: context.repo.owner,
             repo: context.repo.repo,
             comment_id: '${{ steps.comment.outputs.result }}',
-            body: `**\`🔱 Guardian 🔱\`** - 🟩 Ran Plan in dir: \`${{inputs.working_directory}}\` [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }})]\n
+            body: `**\`🔱 Guardian 🔱\`** - 🟩 **\`PLAN\`** Successful for dir: \`${{inputs.working_directory}}\` [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }})]\n
           <details>
           <summary>Diff</summary>\n
           \`\`\`diff\n
