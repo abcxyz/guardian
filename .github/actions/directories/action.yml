@@ -40,7 +40,7 @@ outputs:
     value: ${{ steps.plan_dirs.outputs.dirs || steps.apply_dirs.outputs.dirs || steps.dirs.outputs.dirs }}
 
 runs:
-  using: composite
+  using: 'composite'
   steps:
     - name: 'Get Directories'
       id: 'dirs'
