@@ -45,7 +45,7 @@ inputs:
     default: '60'
 
 runs:
-  using: composite
+  using: 'composite'
   steps:
     - name: 'Bootstrap Out File'
       shell: 'bash'
@@ -69,7 +69,7 @@ runs:
 
     - name: 'Get PR Number'
       id: 'get-pr'
-      uses: actions/github-script@98814c53be79b1d30f795b907e553d8679345975 # ratchet:actions/github-script@v6
+      uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
       with:
         github-token: '${{ github.token }}'
         retries: '${{ inputs.max_retries }}'
@@ -91,7 +91,7 @@ runs:
 
     - name: 'Start Comment'
       id: 'comment'
-      uses: actions/github-script@98814c53be79b1d30f795b907e553d8679345975 # ratchet:actions/github-script@v6
+      uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
       with:
         github-token: '${{ github.token }}'
         retries: '${{ inputs.max_retries }}'
@@ -105,7 +105,7 @@ runs:
           return prComment.id;
 
     - name: 'Setup Terraform'
-      uses: abcxyz/secure-setup-terraform@78e3f2fdfb7ebf59ce42141f6dd93bdd65bf04ed # ratchet:abcxyz/secure-setup-terraform@v0.2.5
+      uses: 'abcxyz/secure-setup-terraform@78e3f2fdfb7ebf59ce42141f6dd93bdd65bf04ed' # ratchet:abcxyz/secure-setup-terraform@v0.2.5
       with:
         terraform_version: '${{ inputs.terraform_version }}'
         terraform_module_location: './${{ inputs.working_directory }}'
@@ -134,7 +134,7 @@ runs:
         terraform init -input=false -no-color 2>&1 | tee -a ${{ env.OUT_FILENAME }}
 
     - name: 'Download Plan File'
-      uses: actions/github-script@98814c53be79b1d30f795b907e553d8679345975 # ratchet:actions/github-script@v6
+      uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
       env:
         OUT_FILEPATH: '${{ inputs.working_directory }}/out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
         GUARDIAN_PLAN_PREFIX: 'guardian-plans/${{ github.repository }}/${{ steps.get-pr.outputs.result }}/${{ inputs.working_directory }}'
@@ -210,7 +210,7 @@ runs:
 
     - name: 'Delete Plan File'
       if: ${{ always() }}
-      uses: actions/github-script@98814c53be79b1d30f795b907e553d8679345975 # ratchet:actions/github-script@v6
+      uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
       env:
         OUT_FILEPATH: '${{ inputs.working_directory }}/out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
         GUARDIAN_PLAN_PREFIX: 'guardian-plans/${{ github.repository }}/${{ steps.get-pr.outputs.result }}/${{ inputs.working_directory }}'
@@ -263,7 +263,7 @@ runs:
 
     - name: 'Failure Comment'
       if: ${{ failure() }}
-      uses: actions/github-script@98814c53be79b1d30f795b907e553d8679345975 # ratchet:actions/github-script@v6
+      uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
       env:
         OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
       with:
@@ -288,7 +288,7 @@ runs:
 
     - name: 'Success Comment'
       if: ${{ success() }}
-      uses: actions/github-script@98814c53be79b1d30f795b907e553d8679345975 # ratchet:actions/github-script@v6
+      uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
       env:
         SUCCESS_FILENAME: 'success_${{ github.run_id }}_${{ github.run_attempt }}.txt'
       with:
