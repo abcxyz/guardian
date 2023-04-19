@@ -12,27 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-terraform {
-  required_version = ">= 1.0.0"
-
-  required_providers {
-    github = {
-      source  = "integrations/github"
-      version = ">= 5.0"
-    }
-    google = {
-      version = ">= 4.45"
-    }
-  }
-
-  backend "gcs" {
-    bucket = "guardian-terraform-state-4cab"
-    prefix = "state/test-child"
-  }
+locals {
+  project_id = "guardian-ci-4cab"
+  name       = "test-no-backend"
 }
 
-provider "google" {}
+resource "google_service_account" "default" {
+  project = local.project_id
 
-provider "github" {
-  owner = "abcxyz"
+  account_id   = local.name
+  display_name = "${local.name} Service Account"
+  disabled     = true
+}
+
+output "service_account_name" {
+  description = "The service account name."
+  value       = google_service_account.default.name
 }

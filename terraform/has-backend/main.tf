@@ -14,17 +14,13 @@
 
 locals {
   project_id = "guardian-ci-4cab"
-  name       = "test"
-}
-
-data "github_repository" "infra" {
-  full_name = "abcxyz/guardian"
+  name       = "test-no-backend"
 }
 
 resource "google_service_account" "default" {
   project = local.project_id
 
-  account_id   = "${local.name}-${data.github_repository.infra.visibility}"
+  account_id   = local.name
   display_name = "${local.name} Service Account"
   disabled     = true
 }
@@ -34,6 +30,3 @@ output "service_account_name" {
   value       = google_service_account.default.name
 }
 
-module "test_no_backend" {
-  source = "./no-backend"
-}
