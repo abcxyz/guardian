@@ -12,24 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-locals {
-  project_id = "guardian-ci-4cab"
-  name       = "test-child-app-change"
+terraform {
+  required_version = ">= 1.0.0"
+
+  required_providers {
+    google = {
+      version = ">= 4.45"
+    }
+  }
+
+  backend "gcs" {
+    bucket = "guardian-terraform-state-4cab"
+    prefix = "state/test-child"
+  }
 }
 
-data "github_repository" "infra" {
-  full_name = "abcxyz/guardian"
-}
-
-resource "google_service_account" "default" {
-  project = local.project_id
-
-  account_id   = "${local.name}-${data.github_repository.infra.visibility}"
-  display_name = "${local.name} Service Account"
-  disabled     = true
-}
-
-output "service_account_name" {
-  description = "The service account name."
-  value       = google_service_account.default.name
-}
+provider "google" {}
