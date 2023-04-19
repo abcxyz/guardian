@@ -14,7 +14,7 @@
 
 locals {
   project_id = "guardian-ci-4cab"
-  name       = "test-no-backend"
+  name       = "test-has-backend"
 }
 
 resource "google_service_account" "default" {
