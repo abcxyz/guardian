@@ -35,6 +35,7 @@ concurrency:
 
 jobs:
   init:
+    if: ${{ github.event_name != 'merge_group' }}
     runs-on: 'ubuntu-latest'
     outputs:
       directories: '${{ steps.dirs.outputs.directories }}'
@@ -56,7 +57,7 @@ jobs:
         uses: './.github/actions/hide-plan-comments'
 
   plan:
-    if: ${{ needs.init.outputs.directories != '[]' }}
+    if: ${{ github.event_name != 'merge_group' && needs.init.outputs.directories != '[]' }}
     needs:
       - 'init'
     runs-on: 'ubuntu-latest'
@@ -100,7 +101,7 @@ jobs:
           terraform_version: '1.3.6'
 
   plan_success:
-    if: ${{ always() }}
+    if: ${{ github.event_name != 'merge_group' && always() }}
     runs-on: 'ubuntu-latest'
     needs:
       - 'init'

@@ -47,6 +47,17 @@ inputs:
 runs:
   using: 'composite'
   steps:
+    # this needs to go first so plan file can always be deleted
+    - name: 'Setup Node'
+      uses: 'actions/setup-node@64ed1c7eab4cce3362f8c340dee64e5eaeef8f7c' # ratchet:actions/setup-node@v3
+      with:
+        node-version: '16'
+
+    - name: 'Install Google Cloud Storage SDK'
+      shell: 'bash'
+      run: |-
+        npm install @google-cloud/storage@~6.9.5
+
     - name: 'Bootstrap Out File'
       shell: 'bash'
       working-directory: '${{ inputs.working_directory }}'
@@ -56,7 +67,7 @@ runs:
         echo "Unknown error, see logs for details." > "${{ env.OUT_FILENAME }}"
 
     - name: 'Validate Event'
-      if: ${{ github.event_name != 'push' || github.event_name != 'merge_group' }}
+      if: ${{ github.event_name != 'push' && github.event_name != 'merge_group' }}
       shell: 'bash'
       working-directory: '${{ inputs.working_directory }}'
       env:
@@ -83,7 +94,7 @@ runs:
 
           const pullRequest = pullRequests.find((pr) => pr.state === "closed");
           if (!pullRequest) {
-            setFailed("Failed to get pull request for merged SHA: ${{ github.sha }}");
+            core.setFailed("Failed to get pull request for merged SHA: ${{ github.sha }}");
             process.exit(1);
           }
 
@@ -112,16 +123,6 @@ runs:
         terraform_lockfile_location: './${{ inputs.working_directory }}'
         protect_lockfile: '${{ inputs.protect_lockfile }}'
         terraform_wrapper: false
-
-    - name: 'Setup Node'
-      uses: 'actions/setup-node@64ed1c7eab4cce3362f8c340dee64e5eaeef8f7c' # ratchet:actions/setup-node@v3
-      with:
-        node-version: '16'
-
-    - name: 'Install Google Cloud Storage SDK'
-      shell: 'bash'
-      run: |-
-        npm install @google-cloud/storage@~6.9.5
 
     - name: 'Terraform Init'
       shell: 'bash'
