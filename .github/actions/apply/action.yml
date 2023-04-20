@@ -263,7 +263,7 @@ runs:
         touch ${{ env.OUT_FILENAME }}
 
     - name: 'Failure Comment'
-      if: ${{ failure() }}
+      if: ${{ steps.get-pr.outcome == 'success' && failure() }}
       uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
       env:
         OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
@@ -288,7 +288,7 @@ runs:
           });
 
     - name: 'Success Comment'
-      if: ${{ success() }}
+      if: ${{ steps.get-pr.outcome == 'success' && success() }}
       uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
       env:
         SUCCESS_FILENAME: 'success_${{ github.run_id }}_${{ github.run_attempt }}.txt'
