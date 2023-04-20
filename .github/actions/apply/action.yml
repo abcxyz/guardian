@@ -210,7 +210,7 @@ runs:
         rm ${{ env.OUT_FILENAME }}
 
     - name: 'Delete Plan File'
-      if: ${{ always() }}
+      if: ${{ steps.get-pr.outcome == 'success' && always() }}
       uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
       env:
         OUT_FILEPATH: '${{ inputs.working_directory }}/out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
