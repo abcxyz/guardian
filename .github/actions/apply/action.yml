@@ -56,13 +56,13 @@ runs:
         echo "Unknown error, see logs for details." > "${{ env.OUT_FILENAME }}"
 
     - name: 'Validate Event'
-      if: ${{ github.event_name != 'push' }}
+      if: ${{ github.event_name != 'push' || github.event_name != 'merge_group' }}
       shell: 'bash'
       working-directory: '${{ inputs.working_directory }}'
       env:
         OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
       run: |-
-        MSG="Configuration error, Guardian Apply can only be run for 'push' events."
+        MSG="Configuration error, Guardian Apply can only be run for ['push', 'merge_group']  events."
         echo "$MSG" > "${{ env.OUT_FILENAME }}"
         echo "::error ::$MSG"
         exit 1
