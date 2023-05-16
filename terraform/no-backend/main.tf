@@ -13,7 +13,7 @@
 # limitations under the License.
 
 locals {
-  project_id = "guardian-ci-4cab"
+  project_id = "guardian-i-42c69c"
   name       = "test-no-backend"
 }
 
