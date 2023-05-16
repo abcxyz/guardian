@@ -22,8 +22,8 @@ terraform {
   }
 
   backend "gcs" {
-    bucket = "guardian-terraform-state-4cab"
-    prefix = "state/test-child"
+    bucket = "guardian-i-terraform-state-576047"
+    prefix = "state/has-backend"
   }
 }
 
