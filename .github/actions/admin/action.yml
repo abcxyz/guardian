@@ -23,6 +23,9 @@ inputs:
   number:
     description: 'PR NUMBER - The Pull Request number to run the actions for (if blank, this runs for the default branch).'
     required: false
+  terraform_init:
+    description: 'TERRAFORM_INIT - Run the Terraform Init command prior to running the admin command.'
+    default: 'true'
   working_directory:
     description: 'The working directory for Guardian to execute commands in.'
     required: false
@@ -67,8 +70,9 @@ runs:
       shell: 'bash'
       env:
         GITHUB_TOKEN: '${{ github.token }}'
+        NUMBER: '${{ inputs.number }}'
       run: |-
-        gh pr checkout ${{ inputs.number }}
+        gh pr checkout $NUMBER
 
     - name: 'Setup Terraform'
       uses: 'abcxyz/secure-setup-terraform@78e3f2fdfb7ebf59ce42141f6dd93bdd65bf04ed' # ratchet:abcxyz/secure-setup-terraform@v0.2.5
@@ -79,7 +83,9 @@ runs:
         protect_lockfile: '${{ inputs.protect_lockfile }}'
         terraform_wrapper: false
 
-    - name: 'Init'
+    - name: 'Terraform Init'
+      # only if inputs.terraform_init is a truthy value
+      if: ${{ contains(fromJSON('["true", "True", "TRUE", "1", "T", "t"]'), inputs.terraform_init) }}
       shell: 'bash'
       working-directory: '${{ inputs.working_directory }}'
       env:
@@ -92,5 +98,6 @@ runs:
       working-directory: '${{ inputs.working_directory }}'
       env:
         TF_IN_AUTOMATION: 'true'
+        COMMAND: '${{ inputs.command }}'
       run: |-
-        terraform ${{ inputs.command }}
+        terraform $COMMAND
