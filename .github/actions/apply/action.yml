@@ -47,6 +47,14 @@ inputs:
 runs:
   using: 'composite'
   steps:
+    - name: 'Bootstrap Out File'
+      shell: 'bash'
+      working-directory: '${{ inputs.working_directory }}'
+      env:
+        OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
+      run: |-
+        echo "Unknown error, see logs for details." > "${{ env.OUT_FILENAME }}"
+
     - name: 'Validate Run Number'
       if: ${{ github.run_attempt > 1 }}
       shell: 'bash'
@@ -66,14 +74,6 @@ runs:
       shell: 'bash'
       run: |-
         npm install @google-cloud/storage@~6.9.5
-
-    - name: 'Bootstrap Out File'
-      shell: 'bash'
-      working-directory: '${{ inputs.working_directory }}'
-      env:
-        OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
-      run: |-
-        echo "Unknown error, see logs for details." > "${{ env.OUT_FILENAME }}"
 
     - name: 'Validate Event'
       if: ${{ github.event_name != 'push' }}
