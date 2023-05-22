@@ -13,7 +13,7 @@
 # limitations under the License.
 
 name: 'test_guardian_admin'
-run-name: 'test_guardian_admin - [${{ inputs.command }}] [${{ inputs.directories }}]'
+run-name: 'test_guardian_admin - [${{ inputs.command }}] [${{ inputs.directories }}] [${{ inputs.terraform_init }}]'
 
 on:
   workflow_dispatch:
