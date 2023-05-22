@@ -48,7 +48,7 @@ runs:
   using: 'composite'
   steps:
     - name: 'Validate Run Number'
-      if: ${{ github.run_number > 1 }}
+      if: ${{ github.run_attempt > 1 }}
       shell: 'bash'
       run: |-
         MSG="Guardian Apply workflow re-run attempted. Guardian Apply workflows cannot be re-run. To run apply again, create another Pull Request or contact a repo admin."
