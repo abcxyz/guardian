@@ -47,6 +47,15 @@ inputs:
 runs:
   using: 'composite'
   steps:
+    - name: 'Validate Run Number'
+      if: ${{ github.run_number > 1 }}
+      shell: 'bash'
+      run: |-
+        MSG="Guardian Apply workflow re-run attempted. Guardian Apply workflows cannot be re-run. To run apply again, create another Pull Request or contact a repo admin."
+        echo "$MSG" > "${{ env.OUT_FILENAME }}"
+        echo "::error ::$MSG"
+        exit 1
+
     # must come first to ensure these exist to delete plan file on errors
     - name: 'Setup Node'
       uses: 'actions/setup-node@64ed1c7eab4cce3362f8c340dee64e5eaeef8f7c' # ratchet:actions/setup-node@v3

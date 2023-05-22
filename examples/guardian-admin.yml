@@ -24,6 +24,13 @@ on:
       directories:
         description: 'DIRECTORIES - A CSV list of directories execute the Terraform command in. If left blank, the Terraform command will run for all configured directories.'
         type: string
+      terraform_init:
+        description: 'TERRAFORM_INIT - Run the Terraform Init command prior to running the admin command.'
+        type: 'choice'
+        options:
+          - 'true'
+          - 'false'
+        default: 'true'
 
 permissions:
   contents: 'read'
@@ -88,6 +95,7 @@ jobs:
         with:
           command: '${{ inputs.command }}'
           number: '${{ inputs.number }}'
+          terraform_init: '${{ inputs.terraform_init }}'
           working_directory: '${{ matrix.working_directory }}'
           terraform_version: '1.3.6' # TODO: update with required terraform version
 
