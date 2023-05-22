@@ -58,6 +58,9 @@ runs:
     - name: 'Validate Run Number'
       if: ${{ github.run_attempt > 1 }}
       shell: 'bash'
+      working-directory: '${{ inputs.working_directory }}'
+      env:
+        OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
       run: |-
         MSG="Guardian Apply workflow re-run attempted. Guardian Apply workflows cannot be re-run. To run apply again, create another Pull Request or contact a repo admin."
         echo "$MSG" > "${{ env.OUT_FILENAME }}"
