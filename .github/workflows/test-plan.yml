@@ -50,10 +50,12 @@ jobs:
         uses: './.github/actions/directories'
         with:
           terraform_directory: './terraform'
-          detect_plan_changes: 'true'
+          # detect_plan_changes: 'true'
 
-      - name: 'Guardian Hide Previous Plan Comments'
+      - name: 'Guardian Remove Previous Plan Comments'
         uses: './.github/actions/hide-plan-comments'
+        with:
+          strategy: 'delete'
 
   plan:
     if: ${{ needs.init.outputs.directories != '[]' }}

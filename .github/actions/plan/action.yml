@@ -53,7 +53,7 @@ runs:
       env:
         OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
       run: |-
-        echo "Unknown error, see logs for details." > "${{ env.OUT_FILENAME }}"
+        echo "Unknown error, see logs for details." > $OUT_FILENAME
 
     - name: 'Start Comment'
       id: 'comment'
@@ -86,8 +86,8 @@ runs:
         OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
         TF_IN_AUTOMATION: 'true' # tell terraform this is an automated workflow https://developer.hashicorp.com/terraform/tutorials/automation/automate-terraform#controlling-terraform-output-in-automation
       run: |-
-        echo "# Terraform Format" > ${{ env.OUT_FILENAME }}
-        terraform fmt -check -diff -recursive 2>&1 | tee -a ${{ env.OUT_FILENAME }}
+        echo "# Terraform Format" > $OUT_FILENAME
+        terraform fmt -check -diff -recursive 2>&1 | tee -a $OUT_FILENAME
 
     - name: 'Terraform Init'
       shell: 'bash'
@@ -96,8 +96,8 @@ runs:
         OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
         TF_IN_AUTOMATION: 'true' # tell terraform this is an automated workflow https://developer.hashicorp.com/terraform/tutorials/automation/automate-terraform#controlling-terraform-output-in-automation
       run: |-
-        echo "# Terraform Init" > ${{ env.OUT_FILENAME }}
-        terraform init -input=false -no-color 2>&1 | tee -a ${{ env.OUT_FILENAME }}
+        echo "# Terraform Init" > $OUT_FILENAME
+        terraform init -input=false -no-color 2>&1 | tee -a $OUT_FILENAME
 
     - name: 'Terraform Validate'
       shell: 'bash'
@@ -106,8 +106,8 @@ runs:
         OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
         TF_IN_AUTOMATION: 'true' # tell terraform this is an automated workflow https://developer.hashicorp.com/terraform/tutorials/automation/automate-terraform#controlling-terraform-output-in-automation
       run: |-
-        echo "# Terraform Validate" > ${{ env.OUT_FILENAME }}
-        terraform validate -no-color 2>&1 | tee -a ${{ env.OUT_FILENAME }}
+        echo "# Terraform Validate" > $OUT_FILENAME
+        terraform validate -no-color 2>&1 | tee -a $OUT_FILENAME
 
     - name: 'Terraform Plan'
       shell: 'bash'
@@ -115,9 +115,23 @@ runs:
       env:
         OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
         TF_IN_AUTOMATION: 'true' # tell terraform this is an automated workflow https://developer.hashicorp.com/terraform/tutorials/automation/automate-terraform#controlling-terraform-output-in-automation
+        LOCK_TIMEOUT: '${{ inputs.lock_timeout }}'
       run: |-
-        echo "# Terraform Plan" > ${{ env.OUT_FILENAME }}
-        terraform plan -lock-timeout=${{ inputs.lock_timeout }} -input=false -no-color -out=tfplan.binary 2>&1 | tee -a ${{ env.OUT_FILENAME }}
+        echo "# Terraform Plan" > $OUT_FILENAME
+
+        # we want to capture the status code so dont fail after
+        set +e +o pipefail
+
+        terraform plan -lock-timeout=$LOCK_TIMEOUT -input=false -no-color -out=tfplan.binary -detailed-exitcode 2>&1 | tee -a $OUT_FILENAME
+
+        PLAN_EXIT_CODE="${PIPESTATUS[0]}"
+        echo "PLAN_EXIT_CODE=$PLAN_EXIT_CODE" >> $GITHUB_ENV
+
+        if [ "$PLAN_EXIT_CODE" == "1" ]; then
+          exit 1
+        fi
+
+        exit 0
 
     - name: 'Terraform Show'
       shell: 'bash'
@@ -126,8 +140,8 @@ runs:
         OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
         TF_IN_AUTOMATION: 'true' # tell terraform this is an automated workflow https://developer.hashicorp.com/terraform/tutorials/automation/automate-terraform#controlling-terraform-output-in-automation
       run: |-
-        echo "# Terraform Show" > ${{ env.OUT_FILENAME }}
-        terraform show -no-color tfplan.binary 2>&1 | tee -a ${{ env.OUT_FILENAME }}
+        echo "# Terraform Show" > $OUT_FILENAME
+        terraform show -no-color tfplan.binary 2>&1 | tee -a $OUT_FILENAME
 
     - name: 'GitHub Format'
       shell: 'bash'
@@ -135,8 +149,8 @@ runs:
       env:
         OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
       run: |-
-        sed -i -E 's|^([[:space:]]*)([~])|\1\!|g' ${{ env.OUT_FILENAME }}
-        sed -i -E 's|^([[:space:]]*)([-+\!])|\2\1|g' ${{ env.OUT_FILENAME }}
+        sed -i -E 's|^([[:space:]]*)([~])|\1\!|g' $OUT_FILENAME
+        sed -i -E 's|^([[:space:]]*)([-+\!])|\2\1|g' $OUT_FILENAME
 
     - name: 'Create Success File'
       shell: 'bash'
@@ -145,7 +159,7 @@ runs:
         OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
         SUCCESS_FILENAME: 'success_${{ github.run_id }}_${{ github.run_attempt }}.txt'
       run: |-
-        cp ${{ env.OUT_FILENAME }} ${{ env.SUCCESS_FILENAME }}
+        cp $OUT_FILENAME ${{ env.SUCCESS_FILENAME }}
 
     - name: 'Setup Node'
       uses: 'actions/setup-node@64ed1c7eab4cce3362f8c340dee64e5eaeef8f7c' # ratchet:actions/setup-node@v3
@@ -162,6 +176,10 @@ runs:
       env:
         OUT_FILEPATH: '${{ inputs.working_directory }}/out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
         GUARDIAN_PLAN_PREFIX: 'guardian-plans/${{ github.repository }}/${{ github.event.pull_request.number }}/${{ inputs.working_directory }}'
+        BUCKET_NAME: '${{ inputs.bucket_name }}'
+        WORKING_DIRECTORY: '${{ inputs.working_directory }}'
+        MAX_RETRIES: '${{ inputs.max_retries }}'
+        MAX_RETRY_DELAY: '${{ inputs.max_retry_delay }}'
       with:
         script: |-
           const fs = require("fs");
@@ -169,29 +187,34 @@ runs:
 
           try {
             const { Storage, IdempotencyStrategy } = require("@google-cloud/storage");
-            const bucketName = "${{inputs.bucket_name}}";
-            const fileName = "${{inputs.working_directory }}/tfplan.binary";
-            const destFileName = "${{env.GUARDIAN_PLAN_PREFIX }}/tfplan.binary";
+            const bucketName = process.env.BUCKET_NAME;
+            const fileName = `${process.env.WORKING_DIRECTORY}/tfplan.binary`;
+            const destFileName = `${process.env.GUARDIAN_PLAN_PREFIX}/tfplan.binary`;
 
             const storage = new Storage({
               retryOptions: {
                 autoRetry: true,
                 retryDelayMultiplier: 3,
                 totalTimeout: 500,
-                maxRetryDelay: "${{inputs.max_retry_delay}}",
-                maxRetries: "${{inputs.max_retries}}",
+                maxRetryDelay: process.env.MAX_RETRY_DELAY,
+                maxRetries: process.env.MAX_RETRIES,
                 idempotencyStrategy: IdempotencyStrategy.RetryAlways,
               },
             });
 
-            await storage
-              .bucket(bucketName)
-              .upload(fileName, { destination: destFileName });
+            await storage.bucket(bucketName).upload(fileName, {
+              destination: destFileName,
+              metadata: {
+                metadata: {
+                  plan_exit_code: process.env.PLAN_EXIT_CODE,
+                },
+              },
+            });
           } catch (err) {
             const errString = JSON.stringify(err, undefined, 2);
             const errorData = `# Upload Plan File${EOL}Error: ${errString}`;
 
-            fs.writeFileSync("${{ env.OUT_FILEPATH }}", errorData, { encoding: "utf8" });
+            fs.writeFileSync(process.env.OUT_FILEPATH, errorData, { encoding: "utf8" });
 
             core.error("Failed to upload plan file");
             core.error(errString);
@@ -205,25 +228,30 @@ runs:
       env:
         OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
       run: |-
-        touch ${{ env.OUT_FILENAME }}
+        touch $OUT_FILENAME
 
     - name: 'Failure Comment'
       if: ${{ failure() }}
       uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
       env:
+        COMMENT_ID: '${{ steps.comment.outputs.result }}'
         OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
+        WORKING_DIRECTORY: '${{ inputs.working_directory }}'
       with:
         github-token: '${{ github.token }}'
         retries: '${{ inputs.max_retries }}'
         script: |-
-          const fs = require('fs')
-          const msg = fs.readFileSync('${{ inputs.working_directory }}/${{ env.OUT_FILENAME }}', { encoding: 'utf8' });
+          const fs = require("fs");
+          const msg = fs.readFileSync(
+            `${process.env.WORKING_DIRECTORY}/${process.env.OUT_FILENAME}`,
+            { encoding: "utf8" }
+          );
 
           await github.rest.issues.updateComment({
             owner: context.repo.owner,
             repo: context.repo.repo,
-            comment_id: '${{ steps.comment.outputs.result }}',
-            body: `**\`🔱 Guardian 🔱\`** - 🟥 **\`PLAN\`** Failed for dir: \`${{inputs.working_directory}}\` [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }})]\n
+            comment_id: process.env.COMMENT_ID,
+            body: `**\`🔱 Guardian 🔱\`** - 🟥 **\`PLAN\`** Failed for dir: \`${process.env.WORKING_DIRECTORY}\` [[logs](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}/attempts/${process.env.GITHUB_RUN_ATTEMPT})]
           <details>
           <summary>Details</summary>\n
           \`\`\`diff\n
@@ -236,19 +264,37 @@ runs:
       if: ${{ success() }}
       uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
       env:
+        COMMENT_ID: '${{ steps.comment.outputs.result }}'
+        PLAN_EXIT_CODE: '${{ env.PLAN_EXIT_CODE }}'
         SUCCESS_FILENAME: 'success_${{ github.run_id }}_${{ github.run_attempt }}.txt'
+        WORKING_DIRECTORY: '${{ inputs.working_directory }}'
       with:
         github-token: '${{ github.token }}'
         retries: '${{ inputs.max_retries }}'
         script: |-
-          const fs = require('fs')
-          const msg = fs.readFileSync('${{ inputs.working_directory }}/${{ env.SUCCESS_FILENAME }}', { encoding: 'utf8' })
+          const fs = require("fs");
+          const msg = fs.readFileSync(
+            `${process.env.WORKING_DIRECTORY}/${process.env.SUCCESS_FILENAME}`,
+            { encoding: "utf8" }
+          );
+
+          // delete the starting comment when there is no diff
+          if (process.env.PLAN_EXIT_CODE === "0") {
+            await github.rest.issues.deleteComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: process.env.COMMENT_ID,
+            });
+
+            return;
+          }
 
           await github.rest.issues.updateComment({
             owner: context.repo.owner,
             repo: context.repo.repo,
-            comment_id: '${{ steps.comment.outputs.result }}',
-            body: `**\`🔱 Guardian 🔱\`** - 🟩 **\`PLAN\`** Successful for dir: \`${{inputs.working_directory}}\` [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }})]\n
+            comment_id: process.env.COMMENT_ID,
+            body: `**\`🔱 Guardian 🔱\`** - 🟩 **\`PLAN\`** Successful for dir: \`${process.env.WORKING_DIRECTORY}\` [[logs](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}/attempts/${process.env.GITHUB_RUN_ATTEMPT})]
+            
           <details>
           <summary>Diff</summary>\n
           \`\`\`diff\n
