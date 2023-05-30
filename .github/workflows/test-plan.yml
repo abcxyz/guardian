@@ -114,5 +114,6 @@ jobs:
       - name: 'Guardian Post Plan Status'
         uses: './.github/actions/plan-status'
         with:
+          context: 'test'
           init_result: '${{ needs.init.result }}'
           plan_result: '${{ needs.plan.result }}'
