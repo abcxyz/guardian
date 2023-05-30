@@ -29,20 +29,6 @@ runs:
   steps:
     - name: 'Success'
       if: ${{ inputs.init_result == 'success' && inputs.plan_result == 'success' }}
-      shell: 'bash'
-      run: |-
-        echo "All plans successful!"
-        exit 0
-
-    - name: 'Failure'
-      if: ${{ inputs.init_result == 'failure' || inputs.plan_result == 'failure' }}
-      shell: 'bash'
-      run: |-
-        echo "::error ::Init or Plan has one or more failures."
-        exit 1
-
-    - name: 'Skipped Plan Comment'
-      if: ${{ inputs.plan_result == 'skipped' }}
       uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
       with:
         github-token: '${{ github.token }}'
@@ -52,7 +38,28 @@ runs:
             owner: context.repo.owner,
             repo: context.repo.repo,
             issue_number: context.issue.number,
-            body: `**\`🔱 Guardian 🔱\`** - 🟦 **\`PLAN\`** No Terraform changes, planning skipped.[[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }})]`
+            body: `**\`🔱 Guardian 🔱\`** - 🟩 **\`PLAN\`** Plan completed successfully. [[logs](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}/attempts/${process.env.GITHUB_RUN_ATTEMPT})]`,
+          });
+
+    - name: 'Failure'
+      if: ${{ inputs.init_result == 'failure' || inputs.plan_result == 'failure' }}
+      shell: 'bash'
+      run: |-
+        echo "::error ::Init or Plan has one or more failures."
+        exit 1
+
+    - name: 'Skipped Plan Comment'
+      if: ${{ inputs.init_result == 'success' && inputs.plan_result == 'skipped' }}
+      uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
+      with:
+        github-token: '${{ github.token }}'
+        retries: '${{ inputs.max_retries }}'
+        script: |-
+          await github.rest.issues.createComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+            body: `**\`🔱 Guardian 🔱\`** - 🟦 **\`PLAN\`** No Terraform changes, planning skipped. [[logs](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}/attempts/${process.env.GITHUB_RUN_ATTEMPT})]`,
           });
 
     - name: 'Indeterminate'

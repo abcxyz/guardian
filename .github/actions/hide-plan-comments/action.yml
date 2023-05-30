@@ -12,40 +12,77 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: 'Guardian Hide Previous Plan Comments'
+name: 'Guardian Remove Previous Plan Comments'
 description: |-
-  Use this action to hide Guardian Plan comments from previous runs.
+  Use this action to remove Guardian Plan comments from previous runs.
+
+inputs:
+  strategy:
+    description: 'Strategy to remove previous comments (default: `delete`).'
+    required: false
+    default: 'hide'
 
 runs:
   using: 'composite'
   steps:
+    - name: 'Delete Previous Plan Comments'
+      if: ${{ contains(fromJSON('["delete", "DELETE", "Delete"]'), inputs.strategy) }}
+      uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
+      with:
+        github-token: '${{ github.token }}'
+        retries: '${{ inputs.max_retries }}'
+        script: |-
+          const comments = await github.paginate(github.rest.issues.listComments, {
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+            per_page: 100,
+          });
+
+          await Promise.all(
+            comments
+              .filter(
+                (comment) =>
+                  comment.user.login == "github-actions[bot]" &&
+                  comment.body.match(/^\*\*\`🔱 Guardian 🔱\`\*\*(.*)\*\*\`PLAN\`\*\* /g)
+              )
+              .map(async (comment) => {
+                await github.rest.issues.deleteComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: comment.id,
+                });
+              })
+          );
+
     - name: 'Hide Previous Plan Comments'
+      if: ${{ contains(fromJSON('["hide", "HIDE", "Hide"]'), inputs.strategy) }}
       uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
       with:
         github-token: '${{ github.token }}'
         retries: '${{ inputs.max_retries }}'
         script: |-
           const commentsQuery = `query paginate($cursor: String, $owner: String!, $repo: String!, $number: Int!) {
-            repository(owner: $owner, name: $repo) {
-              pullRequest(number: $number) {
-                comments(first: 100, after: $cursor) {
-                  nodes {
-                    id
-                    author {
-                      login
+              repository(owner: $owner, name: $repo) {
+                pullRequest(number: $number) {
+                  comments(first: 100, after: $cursor) {
+                    nodes {
+                      id
+                      author {
+                        login
+                      }
+                      body
+                      bodyText
+                      isMinimized
                     }
-                    body
-                    bodyText
-                    isMinimized
-                  }
-                  pageInfo {
-                    hasNextPage
-                    endCursor
+                    pageInfo {
+                      hasNextPage
+                      endCursor
+                    }
                   }
                 }
               }
-            }
-          }`;
+            }`;
 
           let hasNextPage = false;
           const commentQueryOpts = {
@@ -57,10 +94,15 @@ runs:
           const allComments = [];
 
           do {
-            const commentsResponse = await github.graphql(commentsQuery, commentQueryOpts);
-            allComments.push(...commentsResponse.repository.pullRequest.comments.nodes)
-            hasNextPage = commentsResponse.repository.pullRequest.comments.pageInfo.hasNextPage;
-            commentQueryOpts.cursor = commentsResponse.repository.pullRequest.comments.pageInfo.endCursor;
+            const commentsResponse = await github.graphql(
+              commentsQuery,
+              commentQueryOpts
+            );
+            allComments.push(...commentsResponse.repository.pullRequest.comments.nodes);
+            hasNextPage =
+              commentsResponse.repository.pullRequest.comments.pageInfo.hasNextPage;
+            commentQueryOpts.cursor =
+              commentsResponse.repository.pullRequest.comments.pageInfo.endCursor;
           } while (hasNextPage);
 
           await Promise.all(
@@ -73,10 +115,10 @@ runs:
               )
               .map(async (comment) => {
                 const minimizeCommentQuery = `mutation minimizeComment($id: ID!) {
-                  minimizeComment(input: { classifier: OUTDATED, subjectId: $id }) {
-                    clientMutationId
-                  }
-                }`;
+                    minimizeComment(input: { classifier: OUTDATED, subjectId: $id }) {
+                      clientMutationId
+                    }
+                  }`;
 
                 await github.graphql(minimizeCommentQuery, { id: comment.id });
               })
