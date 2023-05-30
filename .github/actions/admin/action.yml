@@ -102,4 +102,4 @@ runs:
         TF_IN_AUTOMATION: 'true'
         COMMAND: '${{ inputs.command }}'
       run: |-
-        terraform "$COMMAND"
+        terraform "${COMMAND}"
