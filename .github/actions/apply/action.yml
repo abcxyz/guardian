@@ -125,6 +125,7 @@ runs:
         MAX_RETRIES: '${{ inputs.max_retries }}'
         MAX_RETRY_DELAY: '${{ inputs.max_retry_delay }}'
       with:
+        result-encoding: 'string'
         script: |-
           const fs = require("fs");
           const { EOL } = require("os");
@@ -152,10 +153,11 @@ runs:
               .getMetadata();
 
             if(metadata && metadata.metadata && metadata.metadata["plan_exit_code"] === "0"){
-              return false
+              core.info("Plan has no diff. Skipping...")
+              return "false"
             }
 
-            return true
+            return "true"
           } catch (err) {
             const errString = JSON.stringify(err, undefined, 2);
             const errorData = `# Determine Plan Diff${EOL}Error: ${errString}`;
@@ -169,7 +171,7 @@ runs:
 
     - name: 'Start Comment'
       id: 'comment'
-      if: ${{ steps.has-diff.outputs.result }}
+      if: ${{ steps.has-diff.outputs.result == 'true' }}
       uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
       env:
         WORKING_DIRECTORY: '${{ inputs.working_directory }}'
@@ -188,7 +190,7 @@ runs:
           return prComment.id;
 
     - name: 'Setup Terraform'
-      if: ${{ steps.has-diff.outputs.result }}
+      if: ${{ steps.has-diff.outputs.result == 'true' }}
       uses: 'abcxyz/secure-setup-terraform@78e3f2fdfb7ebf59ce42141f6dd93bdd65bf04ed' # ratchet:abcxyz/secure-setup-terraform@v0.2.5
       with:
         terraform_version: '${{ inputs.terraform_version }}'
@@ -198,7 +200,7 @@ runs:
         terraform_wrapper: false
 
     - name: 'Terraform Init'
-      if: ${{ steps.has-diff.outputs.result }}
+      if: ${{ steps.has-diff.outputs.result == 'true' }}
       shell: 'bash'
       working-directory: '${{ inputs.working_directory }}'
       env:
@@ -209,7 +211,7 @@ runs:
         terraform init -input=false -no-color 2>&1 | tee -a $OUT_FILENAME
 
     - name: 'Download Plan File'
-      if: ${{ steps.has-diff.outputs.result }}
+      if: ${{ steps.has-diff.outputs.result == 'true' }}
       uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
       env:
         OUT_FILEPATH: '${{ inputs.working_directory }}/out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
@@ -256,7 +258,7 @@ runs:
           }
 
     - name: 'Terraform Apply'
-      if: ${{ steps.has-diff.outputs.result }}
+      if: ${{ steps.has-diff.outputs.result == 'true' }}
       shell: 'bash'
       working-directory: '${{ inputs.working_directory }}'
       env:
@@ -268,7 +270,7 @@ runs:
         terraform apply -lock-timeout=$LOCK_TIMEOUT -input=false -no-color tfplan.binary 2>&1 | tee -a $OUT_FILENAME
 
     - name: 'GitHub Format'
-      if: ${{ steps.has-diff.outputs.result }}
+      if: ${{ steps.has-diff.outputs.result == 'true' }}
       shell: 'bash'
       working-directory: '${{ inputs.working_directory }}'
       env:
@@ -278,7 +280,7 @@ runs:
         sed -i -E 's|^([[:space:]]*)([-+\!])|\2\1|g' $OUT_FILENAME
 
     - name: 'Create Success File'
-      if: ${{ steps.has-diff.outputs.result }}
+      if: ${{ steps.has-diff.outputs.result == 'true' }}
       shell: 'bash'
       working-directory: '${{ inputs.working_directory }}'
       env:
@@ -378,7 +380,7 @@ runs:
           });
 
     - name: 'Success Comment'
-      if: ${{ steps.get-pr.outcome == 'success' && steps.has-diff.outputs.result && success() }}
+      if: ${{ steps.get-pr.outcome == 'success' && steps.has-diff.outputs.result == 'true' && success() }}
       uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
       env:
         COMMENT_ID: '${{ steps.comment.outputs.result }}'
