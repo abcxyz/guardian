@@ -17,6 +17,9 @@ description: |-
   Use this action post Guardian Plan to ensure a sucessful plan.
 
 inputs:
+  context:
+    description: 'A context string to append to the end of the summary message.'
+    required: false
   init_result:
     description: 'The result status for the Guardian Plan Init GitHub workflow.'
     required: true
@@ -30,15 +33,22 @@ runs:
     - name: 'Success'
       if: ${{ inputs.init_result == 'success' && inputs.plan_result == 'success' }}
       uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
+      env:
+        CONTEXT: '${{ inputs.context }}'
       with:
         github-token: '${{ github.token }}'
         retries: '${{ inputs.max_retries }}'
         script: |-
+          let commentContext = "";
+          if (process.env.CONTEXT) {
+            commentContext = " \`" + process.env.CONTEXT + "\`";
+          }
+
           await github.rest.issues.createComment({
             owner: context.repo.owner,
             repo: context.repo.repo,
             issue_number: context.issue.number,
-            body: `**\`🔱 Guardian 🔱\`** - 🟩 **\`PLAN\`** Plan completed successfully. [[logs](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}/attempts/${process.env.GITHUB_RUN_ATTEMPT})]`,
+            body: `**\`🔱 Guardian 🔱\`** - 🟩 **\`PLAN\`** Plan completed successfully.${commentContext} [[logs](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}/attempts/${process.env.GITHUB_RUN_ATTEMPT})]`,
           });
 
     - name: 'Failure'
@@ -51,15 +61,22 @@ runs:
     - name: 'Skipped Plan Comment'
       if: ${{ inputs.init_result == 'success' && inputs.plan_result == 'skipped' }}
       uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
+      env:
+        CONTEXT: '${{ inputs.context }}'
       with:
         github-token: '${{ github.token }}'
         retries: '${{ inputs.max_retries }}'
         script: |-
+          let commentContext = "";
+          if (process.env.CONTEXT) {
+            commentContext = " \`" + process.env.CONTEXT + "\`";
+          }
+
           await github.rest.issues.createComment({
             owner: context.repo.owner,
             repo: context.repo.repo,
             issue_number: context.issue.number,
-            body: `**\`🔱 Guardian 🔱\`** - 🟦 **\`PLAN\`** No Terraform changes, planning skipped. [[logs](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}/attempts/${process.env.GITHUB_RUN_ATTEMPT})]`,
+            body: `**\`🔱 Guardian 🔱\`** - 🟦 **\`PLAN\`** No Terraform changes, planning skipped.${commentContext} [[logs](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}/attempts/${process.env.GITHUB_RUN_ATTEMPT})]`,
           });
 
     - name: 'Indeterminate'
