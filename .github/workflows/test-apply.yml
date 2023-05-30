@@ -42,8 +42,8 @@ jobs:
       - name: 'Guardian Directories'
         id: 'dirs'
         uses: './.github/actions/directories'
-        with:
-          detect_apply_changes: 'true'
+        # with:
+        # detect_apply_changes: 'true'
 
   apply:
     if: ${{ needs.init.outputs.directories != '[]' }}

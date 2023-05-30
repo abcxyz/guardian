@@ -45,16 +45,13 @@ runs:
     - name: 'Get Directories'
       id: 'dirs'
       shell: 'bash'
+      env:
+        TERRAFORM_DIRECTORY: '${{ inputs.terraform_directory }}'
+        INPUT_DIRS: '${{ inputs.directories }}'
       run: |-
-        # Get Directories
-
-        TERRAFORM_DIRECTORY="${{ inputs.terraform_directory }}"
-
         # Get all terraform file directores that contain a backend config
         BACKEND_DIRS=$(find $TERRAFORM_DIRECTORY -name "*.tf" | xargs grep -l 'backend ".*" {' | xargs dirname | sed 's|[\.?][/]*||g' | sort | uniq)
         echo "BACKEND_DIRS=$BACKEND_DIRS"
-
-        INPUT_DIRS="${{ inputs.directories }}"
 
         if [ "$INPUT_DIRS" != "" ]; then
           # Convert CSV string to newline delimited string for sorting (replace `, ` to `\n`)
@@ -78,17 +75,14 @@ runs:
       if: ${{ inputs.detect_plan_changes == 'true' }}
       id: 'plan_dirs'
       shell: 'bash'
+      env:
+        TERRAFORM_DIRECTORY: '${{ inputs.terraform_directory }}'
+        HEAD_REF: 'origin/${{ github.event.pull_request.head.ref }}'
+        BASE_REF: 'origin/${{ github.event.pull_request.base.ref }}'
       run: |-
-        # Get Plan Directories
-
-        TERRAFORM_DIRECTORY="${{ inputs.terraform_directory }}"
-
         # Get all terraform file directores that contain a backend config
         BACKEND_DIRS=$(find $TERRAFORM_DIRECTORY -name "*.tf" | xargs grep -l 'backend ".*" {' | xargs dirname | sed 's|[\.?][/]*||g' | sort | uniq)
         echo "BACKEND_DIRS=$BACKEND_DIRS"
-
-        HEAD_REF="origin/${{ github.event.pull_request.head.ref }}"
-        BASE_REF="origin/${{ github.event.pull_request.base.ref }}"
 
         MODIFIED=$(git diff "$BASE_REF..$HEAD_REF" --name-only | xargs dirname | sort | uniq)
         echo "MODIFIED=$MODIFIED"
@@ -139,11 +133,9 @@ runs:
       if: ${{ inputs.detect_apply_changes == 'true' }}
       id: 'apply_dirs'
       shell: 'bash'
+      env:
+        TERRAFORM_DIRECTORY: '${{ inputs.terraform_directory }}'
       run: |-
-        # Get Apply Directories
-
-        TERRAFORM_DIRECTORY="${{ inputs.terraform_directory }}"
-
         # Get all terraform file directores that contain a backend config
         BACKEND_DIRS=$(find $TERRAFORM_DIRECTORY -name "*.tf" | xargs grep -l 'backend ".*" {' | xargs dirname | sed 's|[\.?][/]*||g' | sort | uniq)
         echo "BACKEND_DIRS=$BACKEND_DIRS"
