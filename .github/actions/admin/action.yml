@@ -26,6 +26,10 @@ inputs:
   terraform_init:
     description: 'TERRAFORM_INIT - Run the Terraform Init command prior to running the admin command.'
     default: 'true'
+  require_admin:
+    description: 'Require users to be repository administrators to be able to execute admin commands.'
+    required: false
+    default: 'true'
   working_directory:
     description: 'The working directory for Guardian to execute commands in.'
     required: false
@@ -55,7 +59,8 @@ runs:
         echo "::error ::Guardian Admin can only be run from the default branch ($DEFAULT_BRANCH)."
         exit 1
 
-    - name: 'Validate Permission'
+    - name: 'Validate Admin Permission'
+      if: ${{ contains(fromJSON('["true", "True", "TRUE", "1", "T", "t"]'), inputs.require_admin) }}
       shell: 'bash'
       working-directory: '${{ inputs.working_directory }}'
       env:
