@@ -1,0 +1,69 @@
+# Workflow for IAM drift detection
+# Approach:
+#   Run on schedule or manual
+#   Execute drift script
+#   If drift, create issue
+
+name: 'IAM drift detection'
+on:
+  workflow_call:
+    inputs:
+      organization-id:
+        required: true
+        type: string
+    secrets:
+      token:
+        required: true
+
+permissions:
+  issues: 'write'   # For creating issues.
+
+jobs:
+  # add detect drift job
+  create_issue:
+    name: 'IAM drift detection'
+    runs-on: 'ubuntu-latest'
+    steps:
+      - name: Checkout Guardian repo
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # ratchet:actions/checkout@v3
+        with:
+          repository: abcxyz/guardian
+          path: guardian
+
+      - name: 'Run diff'
+        id: 'run_diff'
+        shell: 'bash'
+        run: |
+          diff_snippet="$(.guardian/iam-drift-detection/detect_drift.sh ${{ inputs.organization-id }})"
+          if [[ $diff_snippet != "" ]]; then; diff_detected="TRUE"; else; diff_detected="FALSE"; fi
+
+          echo "diff_detected=${diff_detected}" >> "$GITHUB_OUTPUT"
+          echo "diff_snippet<<EOF" >> $GITHUB_ENV
+          echo "$diff_snippet" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: 'Create bug'
+        if: ${{steps.run_diff.outputs.diff_detected == 'TRUE'}}
+        uses: 'imjohnbo/issue-bot@3d96848fb5e9a4a473bb81ae62b4b4866a56e93a'
+        with:
+          assignees: ''
+          labels: 'IAM drift'
+          title: 'IAM drift detected'
+          body: |
+            We've detected a drift between your submitted IAM policies and actual
+            IAM policies.
+            
+            ${{env.diff_snippet}}
+            
+            Please determine which parts are correct, and submit updated
+            terraform config and/or remove the extra policies.
+            
+            Re-run this manually once complete to verify all diffs are properly resolved.
+            
+          pinned: false
+          # Given this is based on head, prior issues are obsolete or duplicates.
+          close-previous: true
+
+        env:
+          GITHUB_TOKEN: ${{ secrets.token }}
+
