@@ -1,7 +1,6 @@
 #!/bin/sh
 ORGANIZATION_ID="$1"
 TERRAFORM_GCS_BUCKET_LABEL="$2"
-BUCKET_QUERY="labels:terraform"
 
 TMPFILE_TF=$(mktemp /tmp/XXXXX.txt)
 TMPFILE_TF_NOIGNORE=$(mktemp /tmp/XXXXX.txt)
@@ -12,7 +11,7 @@ TMPFILE_DRIFTIGNORE=$(mktemp /tmp/XXXXX.txt)
 
 ALL_TFSTATE_GCS_URIS=()
 BUCKETS=($(gcloud asset search-all-resources \
-    --asset-types=storage.googleapis.com/Bucket --query="$BUCKET_QUERY" --read-mask=name \
+    --asset-types=storage.googleapis.com/Bucket --query="$TERRAFORM_GCS_BUCKET_LABEL" --read-mask=name \
     "--scope=organizations/$ORGANIZATION_ID" --format=json | jq -r '.[] | (.name|= gsub("//storage.googleapis.com/"; "")) | .name'))
 for bucket in "${BUCKETS[@]}"; do
     gcs_uris=($(gcloud storage ls -e "gs://${bucket}/**/default.tfstate"))
