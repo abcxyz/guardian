@@ -1,5 +1,6 @@
-#!/bin/bash
-ORGANIZATION_ID=$1
+#!/bin/sh
+ORGANIZATION_ID="$1"
+TERRAFORM_GCS_BUCKET_LABEL="$2"
 BUCKET_QUERY="labels:terraform"
 
 TMPFILE_TF=$(mktemp /tmp/XXXXX.txt)

@@ -1,3 +1,4 @@
+#!/bin/sh
 # retrieves org and project iam policy and turns them into the format of
 # ORG_ID/role:members or ORG_ID/organizations/PROJECT_ID/role:members
 

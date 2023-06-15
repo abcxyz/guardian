@@ -4,13 +4,17 @@
 #   Execute drift script
 #   If drift, create issue
 
-name: 'IAM drift detection'
+name: 'guardian_detect_iam_drift'
 on:
   workflow_call:
     inputs:
-      organization-id:
+      organization_id:
+        description: 'The ID of the GCP organization to detect IAM drift on.'
         required: true
-        type: string
+      gcs_bucket_label:
+        description: 'The label to use to discover GCS buckets used as terraform backends in your organization. Format "labels:{label}={value}"'
+        default: 'labels:terraform'
+        required: false
     secrets:
       token:
         required: true
@@ -24,17 +28,25 @@ jobs:
     name: 'IAM drift detection'
     runs-on: 'ubuntu-latest'
     steps:
-      - name: Checkout Guardian repo
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # ratchet:actions/checkout@v3
+      - name: 'Checkout Guardian repo'
+        uses: 'actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9' # ratchet:actions/checkout@v3
         with:
-          repository: abcxyz/guardian
-          path: guardian
+          repository: 'abcxyz/guardian'
+          path: 'guardian'
+      
+      - uses: 'google-github-actions/setup-gcloud@e30db14379863a8c79331b04a9969f4c1e225e0b' # ratchet:google-github-actions/setup-gcloud@v1
+        with:
+          version: '>= 416.0.0'
+          install_components: 'beta'
 
       - name: 'Run diff'
         id: 'run_diff'
         shell: 'bash'
+        env:
+          ORGANIZATION_ID: '${{ inputs.organization_id }}'
+          GCS_BUCKET_LABEL: '${{ inputs.gcs_bucket_label }}'
         run: |
-          diff_snippet="$(.guardian/iam-drift-detection/detect_drift.sh ${{ inputs.organization-id }})"
+          diff_snippet="$(.guardian/iam-drift-detection/detect_drift.sh "$ORGANIZATION_ID" "$GCS_BUCKET_LABEL")"
           if [[ $diff_snippet != "" ]]; then; diff_detected="TRUE"; else; diff_detected="FALSE"; fi
 
           echo "diff_detected=${diff_detected}" >> "$GITHUB_OUTPUT"
@@ -44,7 +56,10 @@ jobs:
 
       - name: 'Create bug'
         if: ${{steps.run_diff.outputs.diff_detected == 'TRUE'}}
+        # TODO: Use actions/github-script to create this issue instead of a third-party library.
         uses: 'imjohnbo/issue-bot@3d96848fb5e9a4a473bb81ae62b4b4866a56e93a'
+        env:
+          GITHUB_TOKEN: ${{ secrets.token }}
         with:
           assignees: ''
           labels: 'IAM drift'
@@ -64,6 +79,4 @@ jobs:
           # Given this is based on head, prior issues are obsolete or duplicates.
           close-previous: true
 
-        env:
-          GITHUB_TOKEN: ${{ secrets.token }}
 
