@@ -28,6 +28,8 @@ on:
 
 permissions:
   issues: 'write'   # For creating issues.
+  id-token: 'write'
+  contents: 'read'
 
 # only one apply should run at a time
 concurrency:

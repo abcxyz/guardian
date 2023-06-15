@@ -23,6 +23,8 @@ TMPFILE_ACTUAL_NOIGNORE=$(mktemp /tmp/XXXXX.txt)
 TMPFILE_DIFF=$(mktemp /tmp/XXXXX.txt)
 TMPFILE_DRIFTIGNORE=$(mktemp /tmp/XXXXX.txt)
 
+SCRIPTS_DIR=$(dirname "${BASH_SOURCE[0]}")
+
 ALL_TFSTATE_GCS_URIS=()
 BUCKETS=($(gcloud asset search-all-resources \
     --asset-types=storage.googleapis.com/Bucket --query="$TERRAFORM_GCS_BUCKET_LABEL" --read-mask=name \
@@ -33,9 +35,9 @@ for bucket in "${BUCKETS[@]}"; do
 done
 
 for gcs_uri in "${ALL_TFSTATE_GCS_URIS[@]}"; do
-    ./parse_iam_from_tf_state_file.sh  "$ORGANIZATION_ID" "$gcs_uri" >> "$TMPFILE_TF"
+    $SCRIPTS_DIR/parse_iam_from_tf_state_file.sh  "$ORGANIZATION_ID" "$gcs_uri" >> "$TMPFILE_TF"
 done
-./get_iam.sh "$ORGANIZATION_ID" > "$TMPFILE_ACTUAL"
+$SCRIPTS_DIR/get_iam.sh "$ORGANIZATION_ID" > "$TMPFILE_ACTUAL"
 cat ".driftignore" > "$TMPFILE_DRIFTIGNORE"
 
 # `comm` requires sorted inputs and this also ensures the output is sorted.
