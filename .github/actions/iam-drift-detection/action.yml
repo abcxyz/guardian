@@ -1,0 +1,80 @@
+# Copyright 2023 The Authors (see AUTHORS file)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Workflow for IAM drift detection
+# Approach:
+#   Run on schedule or manual
+#   Execute drift script
+#   If drift, create issue
+
+name: 'guardian_detect_iam_drift'
+description: |-
+  Use this action to detect changes to your IAM settings in your GCP organization, folders, and projects.
+
+inputs:
+  organization_id:
+    description: 'The ID of the GCP organization to detect IAM drift on.'
+    required: true
+  gcs_bucket_label:
+    description: 'The label to use to discover GCS buckets used as terraform backends in your organization. Format "labels:{label}={value}"'
+    default: 'labels:terraform'
+    required: false
+
+runs:
+  using: 'composite'
+  steps:
+    - uses: 'google-github-actions/setup-gcloud@e30db14379863a8c79331b04a9969f4c1e225e0b' # ratchet:google-github-actions/setup-gcloud@v1
+      with:
+        version: '>= 416.0.0'
+        install_components: 'beta'
+
+    - name: 'Run diff'
+      id: 'run_diff'
+      shell: 'bash'
+      env:
+        ORGANIZATION_ID: '${{ inputs.organization_id }}'
+        GCS_BUCKET_LABEL: '${{ inputs.gcs_bucket_label }}'
+      run: |
+        diff_snippet="$(.guardian/iam-drift-detection/detect_drift.sh "$ORGANIZATION_ID" "$GCS_BUCKET_LABEL")"
+        if [[ $diff_snippet != "" ]]; then; diff_detected="TRUE"; else; diff_detected="FALSE"; fi
+
+        echo "diff_detected=${diff_detected}" >> "$GITHUB_OUTPUT"
+        echo "diff_snippet<<EOF" >> $GITHUB_ENV
+        echo "$diff_snippet" >> $GITHUB_ENV
+        echo "EOF" >> $GITHUB_ENV
+
+    - name: 'Create bug'
+      if: ${{steps.run_diff.outputs.diff_detected == 'TRUE'}}
+      # TODO: Use actions/github-script to create this issue instead of a third-party library.
+      uses: 'imjohnbo/issue-bot@3d96848fb5e9a4a473bb81ae62b4b4866a56e93a'
+      with:
+        assignees: ''
+        labels: 'IAM drift'
+        title: 'IAM drift detected'
+        body: |
+          We've detected a drift between your submitted IAM policies and actual
+          IAM policies.
+          
+          ${{env.diff_snippet}}
+          
+          Please determine which parts are correct, and submit updated
+          terraform config and/or remove the extra policies.
+          
+          Re-run this manually once complete to verify all diffs are properly resolved.
+          
+        pinned: false
+        # Given this is based on head, prior issues are obsolete or duplicates.
+        close-previous: true
+
+
