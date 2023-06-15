@@ -30,6 +30,10 @@ inputs:
     description: 'The label to use to discover GCS buckets used as terraform backends in your organization. Format "labels:{label}={value}"'
     default: 'labels:terraform'
     required: false
+  issue_label:
+    description: 'The label to use on the created github issue. This will be used to discover previously created issues and manage them.'
+    default: 'guardian-iam-drift'
+    required: false
 
 runs:
   using: 'composite'
@@ -54,15 +58,33 @@ runs:
         echo "$diff_snippet" >> $GITHUB_ENV
         echo "EOF" >> $GITHUB_ENV
 
-    - name: 'Create bug'
+    - uses: 'actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410' # ratchet:actions/github-script@v6
+      id: 'get_previous_issue'
       if: ${{steps.run_diff.outputs.diff_detected == 'TRUE'}}
-      # TODO: Use actions/github-script to create this issue instead of a third-party library.
-      uses: 'imjohnbo/issue-bot@3d96848fb5e9a4a473bb81ae62b4b4866a56e93a'
+      env:
+        ISSUE_LABEL: '${{ inputs.issue_label }}'
       with:
-        assignees: ''
-        labels: 'IAM drift'
-        title: 'IAM drift detected'
-        body: |
+        result-encoding: 'string'
+        retries: '3'
+        script: |
+          const { ISSUE_LABEL } = process.env
+          const data = github.rest.issues.listForRepo({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            labels: [ISSUE_LABEL],
+            state: 'all',
+          })
+          if (data) {
+            return previousIssueNumber;
+          }
+          return "";
+
+    - uses: 'actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410' # ratchet:actions/github-script@v6
+      id: 'create_issue'
+      if: ${{steps.run_diff.outputs.diff_detected == 'TRUE'}}
+      env:
+        ISSUE_LABEL: '${{ inputs.issue_label }}'
+        ISSUE_BODY: |
           We've detected a drift between your submitted IAM policies and actual
           IAM policies.
           
@@ -72,9 +94,30 @@ runs:
           terraform config and/or remove the extra policies.
           
           Re-run this manually once complete to verify all diffs are properly resolved.
-          
-        pinned: false
-        # Given this is based on head, prior issues are obsolete or duplicates.
-        close-previous: true
+      with:
+        retries: '3'
+        script: |
+          const { ISSUE_BODY, ISSUE_LABEL } = process.env
+          github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            labels: [ISSUE_LABEL],
+            title: 'IAM drift detected',
+            body: ISSUE_BODY,
+          })
 
-
+    - uses: 'actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410' # ratchet:actions/github-script@v6
+      id: 'maybe-close-previous-issue'
+      if: ${{ steps.get_previous_issue.outputs.result != '' && steps.run_diff.outputs.diff_detected == 'TRUE' }}
+      env:
+        PREVIOUS_ISSUE_NUMBER: '${{ steps.get_previous_issue.outputs.result }}'
+      with:
+        retries: '3'
+        script: |
+          const { PREVIOUS_ISSUE_NUMBER } = process.env
+          const data = github.rest.issues.update({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issueNumber: PREVIOUS_ISSUE_NUMBER,
+            state: 'closed',
+          })

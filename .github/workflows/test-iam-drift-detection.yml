@@ -29,6 +29,10 @@ on:
 permissions:
   issues: 'write'   # For creating issues.
 
+# only one apply should run at a time
+concurrency:
+  group: '${{ github.workflow }}'
+
 jobs:
   # add detect drift job
   create_issue:
