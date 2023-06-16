@@ -52,7 +52,11 @@ runs:
       run: |
         diff_snippet="$(.guardian/iam-drift-detection/detect_drift.sh "$ORGANIZATION_ID" "$GCS_BUCKET_LABEL")"
         echo "Got Diff: ${diff_snippet}"
-        if [[ "${diff_snippet}" != "" ]]; then; diff_detected="TRUE"; else; diff_detected="FALSE"; fi
+        if [[ "${diff_snippet}" != "" ]]; then
+          diff_detected="TRUE"
+        else
+          diff_detected="FALSE"
+        fi
 
         echo "diff_detected=${diff_detected}" >> "$GITHUB_OUTPUT"
         echo "diff_snippet<<EOF" >> $GITHUB_ENV
