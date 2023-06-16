@@ -57,8 +57,11 @@ runs:
           diff_detected="FALSE"
         fi
 
+        # We write to a file since the max character limit of the ENV variable is quite low.
         TMPFILE_DIFF=$(mktemp /tmp/XXXXX.txt)
         echo "$diff_snippet" >> $TMPFILE_DIFF
+        # We output it so we can link the user to the full diff in the logs.
+        echo "$diff_snippet"
 
         echo "diff_detected=${diff_detected}" >> "$GITHUB_OUTPUT"
         echo "diff_file=${TMPFILE_DIFF}" >> $GITHUB_OUTPUT
@@ -96,7 +99,7 @@ runs:
       env:
         ISSUE_LABEL: '${{ inputs.issue_label }}'
         DIFF_FILE: '${{ steps.run_diff.outputs.diff_file }}'
-        WORKFLOW_RUN_URL: '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}'
+        WORKFLOW_RUN_URL: '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs/${{ github.job }}'
       with:
         retries: '3'
         script: |
@@ -109,7 +112,7 @@ runs:
           const issue_body = `We've detected a drift between your submitted IAM policies and actual
           IAM policies.
 
-          The full logs have been uploaded to ${WORKFLOW_RUN_URL}
+          See the logs for the full details: ${WORKFLOW_RUN_URL}
           
           ${diff_100_lines}
           ${shortened_msg}
