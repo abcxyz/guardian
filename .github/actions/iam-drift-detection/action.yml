@@ -51,17 +51,17 @@ runs:
         GCS_BUCKET_LABEL: '${{ inputs.gcs_bucket_label }}'
       run: |
         diff_snippet="$(.guardian/iam-drift-detection/detect_drift.sh "$ORGANIZATION_ID" "$GCS_BUCKET_LABEL")"
-        echo "Got Diff: ${diff_snippet}"
         if [[ "${diff_snippet}" != "" ]]; then
           diff_detected="TRUE"
         else
           diff_detected="FALSE"
         fi
 
+        TMPFILE_DIFF=$(mktemp /tmp/XXXXX.txt)
+        echo "$diff_snippet" >> $TMPFILE_DIFF
+
         echo "diff_detected=${diff_detected}" >> "$GITHUB_OUTPUT"
-        echo "diff_snippet<<EOF" >> $GITHUB_ENV
-        echo "$diff_snippet" >> $GITHUB_ENV
-        echo "EOF" >> $GITHUB_ENV
+        echo "diff_file=${TMPFILE_DIFF}" >> $GITHUB_OUTPUT
 
     - uses: 'actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410' # ratchet:actions/github-script@v6
       id: 'get_previous_issue'
@@ -72,13 +72,13 @@ runs:
         result-encoding: 'string'
         retries: '3'
         script: |
-          const { ISSUE_LABEL } = process.env
+          const { ISSUE_LABEL } = process.env;
           const data = github.rest.issues.listForRepo({
             owner: context.repo.owner,
             repo: context.repo.repo,
             labels: [ISSUE_LABEL],
             state: 'all',
-          })
+          });
           if (data) {
             return previousIssueNumber;
           }
@@ -89,27 +89,30 @@ runs:
       if: ${{steps.run_diff.outputs.diff_detected == 'TRUE'}}
       env:
         ISSUE_LABEL: '${{ inputs.issue_label }}'
-        ISSUE_BODY: |
-          We've detected a drift between your submitted IAM policies and actual
+        DIFF_FILE: '${{ steps.run_diff.outputs.diff_file }}'
+      with:
+        retries: '3'
+        script: |
+          const { ISSUE_LABEL, DIFF_FILE } = process.env;
+          const fs = require('fs');
+          const diff_content = fs.readFileSync(DIFF_FILE, 'utf8');
+          const issue_body = `We've detected a drift between your submitted IAM policies and actual
           IAM policies.
           
-          ${{env.diff_snippet}}
+          ${diff_content}
           
           Please determine which parts are correct, and submit updated
           terraform config and/or remove the extra policies.
           
-          Re-run this manually once complete to verify all diffs are properly resolved.
-      with:
-        retries: '3'
-        script: |
-          const { ISSUE_BODY, ISSUE_LABEL } = process.env
+          Re-run this manually once complete to verify all diffs are properly resolved.`;
+
           github.rest.issues.create({
             owner: context.repo.owner,
             repo: context.repo.repo,
             labels: [ISSUE_LABEL],
             title: 'IAM drift detected',
-            body: ISSUE_BODY,
-          })
+            body: issue_body,
+          });
 
     - uses: 'actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410' # ratchet:actions/github-script@v6
       id: 'maybe-close-previous-issue'
@@ -119,10 +122,10 @@ runs:
       with:
         retries: '3'
         script: |
-          const { PREVIOUS_ISSUE_NUMBER } = process.env
+          const { PREVIOUS_ISSUE_NUMBER } = process.env;
           const data = github.rest.issues.update({
             owner: context.repo.owner,
             repo: context.repo.repo,
             issueNumber: PREVIOUS_ISSUE_NUMBER,
             state: 'closed',
-          })
+          });
