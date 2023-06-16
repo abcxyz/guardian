@@ -142,6 +142,6 @@ runs:
           await github.rest.issues.update({
             owner: context.repo.owner,
             repo: context.repo.repo,
-            issueNumber: PREVIOUS_ISSUE_NUMBER,
+            issue_number: PREVIOUS_ISSUE_NUMBER,
             state: 'closed',
           });
