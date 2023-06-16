@@ -73,14 +73,14 @@ runs:
         retries: '3'
         script: |
           const { ISSUE_LABEL } = process.env;
-          const data = github.rest.issues.listForRepo({
+          const data = (await github.rest.issues.listForRepo({
             owner: context.repo.owner,
             repo: context.repo.repo,
             labels: [ISSUE_LABEL],
             state: 'all',
-          });
+          })).data[0];
           if (data) {
-            return previousIssueNumber;
+            return data.number;
           }
           return "";
 
@@ -106,7 +106,7 @@ runs:
           
           Re-run this manually once complete to verify all diffs are properly resolved.`;
 
-          github.rest.issues.create({
+          await github.rest.issues.create({
             owner: context.repo.owner,
             repo: context.repo.repo,
             labels: [ISSUE_LABEL],
@@ -123,7 +123,7 @@ runs:
         retries: '3'
         script: |
           const { PREVIOUS_ISSUE_NUMBER } = process.env;
-          const data = github.rest.issues.update({
+          await github.rest.issues.update({
             owner: context.repo.owner,
             repo: context.repo.repo,
             issueNumber: PREVIOUS_ISSUE_NUMBER,
