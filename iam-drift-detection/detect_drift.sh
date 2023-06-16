@@ -38,7 +38,7 @@ for gcs_uri in "${ALL_TFSTATE_GCS_URIS[@]}"; do
     $SCRIPTS_DIR/parse_iam_from_tf_state_file.sh  "$ORGANIZATION_ID" "$gcs_uri" >> "$TMPFILE_TF"
 done
 $SCRIPTS_DIR/get_iam.sh "$ORGANIZATION_ID" > "$TMPFILE_ACTUAL"
-cat ".driftignore" > "$TMPFILE_DRIFTIGNORE"
+cat ".driftignore" > "$TMPFILE_DRIFTIGNORE" 2> /dev/null
 
 # `comm` requires sorted inputs and this also ensures the output is sorted.
 sort -o "$TMPFILE_TF" "$TMPFILE_TF"

@@ -13,6 +13,10 @@ resources are/aren't managed in terraform.
 * Checks for drift on all gcp projects in the org.
 * Allows ignoring resources by adding a `.driftignore` file containing a list of resource IDs.
 
+# Prerequisites
+
+* Must enable Cloud Asset API (cloudasset.googleapis.com) on your Service Account's project
+
 ## Future improvements
 
 * Parallelize checks.
