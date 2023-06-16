@@ -63,6 +63,12 @@ runs:
         echo "diff_detected=${diff_detected}" >> "$GITHUB_OUTPUT"
         echo "diff_file=${TMPFILE_DIFF}" >> $GITHUB_OUTPUT
 
+    - uses: 'actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce' # ratchet:actions/upload-artifact@v3
+      if: ${{steps.run_diff.outputs.diff_detected == 'TRUE'}}
+      with:
+        name: 'iam-drift'
+        path: '${{ steps.run_diff.outputs.diff_file }}'
+
     - uses: 'actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410' # ratchet:actions/github-script@v6
       id: 'get_previous_issue'
       if: ${{steps.run_diff.outputs.diff_detected == 'TRUE'}}
@@ -90,16 +96,23 @@ runs:
       env:
         ISSUE_LABEL: '${{ inputs.issue_label }}'
         DIFF_FILE: '${{ steps.run_diff.outputs.diff_file }}'
+        WORKFLOW_RUN_URL: '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}'
       with:
         retries: '3'
         script: |
-          const { ISSUE_LABEL, DIFF_FILE } = process.env;
+          const { ISSUE_LABEL, DIFF_FILE, WORKFLOW_RUN_URL } = process.env;
           const fs = require('fs');
           const diff_content = fs.readFileSync(DIFF_FILE, 'utf8');
+          const diff_100_lines = diff_content.split('\n').slice(0, 100).join("\n");
+          const was_shortened = diff_content !== diff_100_lines;
+          const shortened_msg = was_shortened ? '...' : '';
           const issue_body = `We've detected a drift between your submitted IAM policies and actual
           IAM policies.
+
+          The full logs have been uploaded to ${WORKFLOW_RUN_URL}
           
-          ${diff_content}
+          ${diff_100_lines}
+          ${shortened_msg}
           
           Please determine which parts are correct, and submit updated
           terraform config and/or remove the extra policies.
