@@ -99,7 +99,7 @@ runs:
       env:
         ISSUE_LABEL: '${{ inputs.issue_label }}'
         DIFF_FILE: '${{ steps.run_diff.outputs.diff_file }}'
-        WORKFLOW_RUN_URL: '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs/${{ github.job }}'
+        WORKFLOW_RUN_URL: '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}'
       with:
         retries: '3'
         script: |
