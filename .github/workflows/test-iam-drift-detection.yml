@@ -28,6 +28,12 @@ on:
 
 permissions:
   issues: 'write'   # For creating issues.
+  id-token: 'write'
+  contents: 'read'
+
+# only one apply should run at a time
+concurrency:
+  group: '${{ github.workflow }}'
 
 jobs:
   # add detect drift job
@@ -38,7 +44,7 @@ jobs:
       - name: 'Checkout Guardian repo'
         uses: 'actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9' # ratchet:actions/checkout@v3
         with:
-          path: 'guardian'
+          path: '.guardian'
 
       - name: 'Authenticate to Google Cloud'
         uses: 'google-github-actions/auth@ef5d53e30bbcd8d0836f4288f5e50ff3e086997d' # ratchet:google-github-actions/auth@v1
