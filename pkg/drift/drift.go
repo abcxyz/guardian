@@ -23,6 +23,7 @@ import (
 	"github.com/abcxyz/guardian/pkg/drift/terraform"
 )
 
+// Process compares the actual GCP IAM against the IAM in your Terraform state files.
 func Process(ctx context.Context, organizationID int64, bucketQuery string) error {
 	assetsClient, err := assets.NewClient(ctx)
 	if err != nil {

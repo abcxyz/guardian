@@ -41,6 +41,7 @@ type Client struct {
 	crmService *cloudresourcemanager.Service
 }
 
+// NewClient creates a new iam client.
 func NewClient(ctx context.Context) (*Client, error) {
 	crm, err := cloudresourcemanager.NewService(ctx)
 	if err != nil {
@@ -52,6 +53,7 @@ func NewClient(ctx context.Context) (*Client, error) {
 	}, nil
 }
 
+// GetIAMForProject returns all IAM memberships, bindings, and policies for the given project.
 func (c *Client) GetIAMForProject(ctx context.Context, node assets.HierarchyNode, api string) ([]AssetIAM, error) {
 	request := &cloudresourcemanager.GetIamPolicyRequest{
 		Options: &cloudresourcemanager.GetPolicyOptions{
@@ -79,6 +81,7 @@ func (c *Client) GetIAMForProject(ctx context.Context, node assets.HierarchyNode
 	return m, nil
 }
 
+// GetIAMForProject returns all IAM memberships, bindings, and policies for the given folder.
 func (c *Client) GetIAMForFolder(ctx context.Context, node assets.HierarchyNode, api string) ([]AssetIAM, error) {
 	request := &cloudresourcemanager.GetIamPolicyRequest{
 		Options: &cloudresourcemanager.GetPolicyOptions{
@@ -106,6 +109,7 @@ func (c *Client) GetIAMForFolder(ctx context.Context, node assets.HierarchyNode,
 	return m, nil
 }
 
+// CreateURI returns a conanical string identifier for the IAM entity.
 func CreateURI(i AssetIAM, organizationID int64) string {
 	role := strings.Replace(strings.Replace(i.Role, "organizations/", "", 1), fmt.Sprintf("%d/", organizationID), "", 1)
 	if i.ParentType == FOLDER {

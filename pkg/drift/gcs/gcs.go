@@ -29,6 +29,7 @@ type Client struct {
 	gcs *storage.Client
 }
 
+// NewClient creates a new gcs client.
 func NewClient(ctx context.Context) (*Client, error) {
 	gcs, err := storage.NewClient(ctx)
 	if err != nil {
@@ -40,6 +41,7 @@ func NewClient(ctx context.Context) (*Client, error) {
 	}, nil
 }
 
+// DownloadFileIntoMemory returns all files in a bucket with a given file name.
 func (c *Client) GetAllFilesWithName(ctx context.Context, bucket, filename string) ([]string, error) {
 	uris := []string{}
 	it := c.gcs.Bucket(bucket).Objects(ctx, nil)
@@ -58,6 +60,7 @@ func (c *Client) GetAllFilesWithName(ctx context.Context, bucket, filename strin
 	return uris, nil
 }
 
+// DownloadFileIntoMemory fetches the file from GCS and reads it into memory.
 func (c *Client) DownloadFileIntoMemory(ctx context.Context, uri string) ([]byte, error) {
 	bucketAndObject := strings.SplitN(strings.Replace(uri, "gs://", "", 1), "/", 2)
 

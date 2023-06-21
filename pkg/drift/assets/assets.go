@@ -25,6 +25,7 @@ import (
 	asset "cloud.google.com/go/asset/apiv1"
 	"cloud.google.com/go/asset/apiv1/assetpb"
 	"google.golang.org/api/iterator"
+	fmpb "google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
 const (
@@ -45,6 +46,7 @@ type Client struct {
 	assetClient *asset.Client
 }
 
+// NewClient creates a new asset client.
 func NewClient(ctx context.Context) (*Client, error) {
 	client, err := asset.NewClient(ctx)
 	if err != nil {
@@ -56,17 +58,18 @@ func NewClient(ctx context.Context) (*Client, error) {
 	}, nil
 }
 
+// GetBuckets returns all GCS Buckets in the organization that matches the given query.
 func (c *Client) GetBuckets(ctx context.Context, organizationID int64, query string) ([]string, error) {
 	// gcloud asset search-all-resources \
 	// --asset-types=storage.googleapis.com/Bucket --query="$TERRAFORM_GCS_BUCKET_LABEL" --read-mask=name \
 	// "--scope=organizations/$ORGANIZATION_ID"
-	// var readMask fmpb.FieldMask
-	// readMask.Paths = append(readMask.Paths, "name")
+	var readMask fmpb.FieldMask
+	readMask.Paths = append(readMask.Paths, "name")
 	req := &assetpb.SearchAllResourcesRequest{
 		Scope:      fmt.Sprintf("organizations/%d", organizationID),
 		AssetTypes: []string{"storage.googleapis.com/Bucket"},
 		Query:      query,
-		// ReadMask:   &readMask,
+		ReadMask:   &readMask,
 	}
 	it := c.assetClient.SearchAllResources(ctx, req)
 	results := []string{}
@@ -83,6 +86,7 @@ func (c *Client) GetBuckets(ctx context.Context, organizationID int64, query str
 	return results, nil
 }
 
+// GetBuckets returns all GCP Hierarchy Nodes (Folders or Projects) for the given organization.
 func (c *Client) GetHierarchyAssets(ctx context.Context, organizationID int64, assetType string) ([]HierarchyNode, error) {
 	f := []HierarchyNode{}
 	req := &assetpb.SearchAllResourcesRequest{

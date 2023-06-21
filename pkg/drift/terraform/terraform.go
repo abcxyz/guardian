@@ -47,6 +47,7 @@ type Parser struct {
 	organizationID  int64
 }
 
+// NewClient creates a new terraform parser.
 func NewParser(
 	ctx context.Context,
 	organizationID int64,
@@ -75,6 +76,7 @@ func NewParser(
 	}, nil
 }
 
+// GetAllTerraformStateFileURIs finds all terraform state files in the given buckets.
 func (p *Parser) GetAllTerraformStateFileURIs(ctx context.Context, gcsBuckets []string) ([]string, error) {
 	gcsURIs := []string{}
 	for _, bucket := range gcsBuckets {
@@ -87,6 +89,7 @@ func (p *Parser) GetAllTerraformStateFileURIs(ctx context.Context, gcsBuckets []
 	return gcsURIs, nil
 }
 
+// ProcessAllTerraformStates finds all IAM in memberships, bindings, or policies in the given terraform state files.
 func (p *Parser) ProcessAllTerraformStates(ctx context.Context, gcsUris []string) ([]iam.AssetIAM, error) {
 	iams := []iam.AssetIAM{}
 	for _, uri := range gcsUris {
