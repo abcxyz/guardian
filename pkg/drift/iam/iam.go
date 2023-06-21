@@ -17,7 +17,6 @@ package iam
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"google.golang.org/api/cloudresourcemanager/v3"
@@ -61,7 +60,7 @@ func (c *Client) GetIAMForProject(ctx context.Context, node assets.HierarchyNode
 			RequestedPolicyVersion: 3,
 		},
 	}
-	policy, err := c.crmService.Projects.GetIamPolicy(strconv.FormatInt(node.ID, 10), request).Context(ctx).Do()
+	policy, err := c.crmService.Projects.GetIamPolicy(fmt.Sprintf("projects/%d", node.ID), request).Context(ctx).Do()
 	if err != nil {
 		return nil, fmt.Errorf("unable to get iam policy: %w: %w", node.ID, err)
 	}
@@ -88,7 +87,7 @@ func (c *Client) GetIAMForFolder(ctx context.Context, node assets.HierarchyNode,
 			RequestedPolicyVersion: 3,
 		},
 	}
-	policy, err := c.crmService.Folders.GetIamPolicy(strconv.FormatInt(node.ID, 10), request).Context(ctx).Do()
+	policy, err := c.crmService.Folders.GetIamPolicy(fmt.Sprintf("folders/%d", node.ID), request).Context(ctx).Do()
 	if err != nil {
 		return nil, fmt.Errorf("unable to get iam policy: %w: %w", node.ID, err)
 	}

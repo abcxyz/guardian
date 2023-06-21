@@ -24,13 +24,12 @@ import (
 	asset "cloud.google.com/go/asset/apiv1"
 	"cloud.google.com/go/asset/apiv1/assetpb"
 	"google.golang.org/api/iterator"
-	fmpb "google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
 const (
-	ORGANIZATION = "organization"
-	FOLDER       = "folder"
-	PROJECT      = "project"
+	ORGANIZATION = "Organization"
+	FOLDER       = "Folder"
+	PROJECT      = "Project"
 )
 
 type HierarchyNode struct {
@@ -50,7 +49,6 @@ func NewClient(ctx context.Context) (*Client, error) {
 	if err != nil {
 		log.Fatalf("asset.NewClient: %w", err)
 	}
-	defer client.Close()
 
 	return &Client{
 		assetClient: client,
@@ -61,24 +59,26 @@ func (c *Client) GetBuckets(ctx context.Context, organizationID int64, query str
 	// gcloud asset search-all-resources \
 	// --asset-types=storage.googleapis.com/Bucket --query="$TERRAFORM_GCS_BUCKET_LABEL" --read-mask=name \
 	// "--scope=organizations/$ORGANIZATION_ID"
-	var readMask fmpb.FieldMask
-	readMask.Paths = append(readMask.Paths, "name")
+	// var readMask fmpb.FieldMask
+	// readMask.Paths = append(readMask.Paths, "name")
 	req := &assetpb.SearchAllResourcesRequest{
 		Scope:      fmt.Sprintf("organizations/%d", organizationID),
 		AssetTypes: []string{"storage.googleapis.com/Bucket"},
 		Query:      query,
-		ReadMask:   &readMask,
+		// ReadMask:   &readMask,
 	}
 	it := c.assetClient.SearchAllResources(ctx, req)
 	results := []string{}
 	for {
+		fmt.Println("Iterating over buckets")
 		resource, err := it.Next()
 		if err == iterator.Done {
 			break
 		}
 		if err != nil {
-			return nil, fmt.Errorf("Error while iterating over assets %w", err)
+			return nil, fmt.Errorf("error while iterating over assets %w", err)
 		}
+		fmt.Println("Founds buckets")
 		results = append(results, resource.Name)
 	}
 	return results, nil
@@ -97,24 +97,24 @@ func (c *Client) GetHierarchyAssets(ctx context.Context, organizationID int64, a
 			break
 		}
 		if err != nil {
-			return nil, fmt.Errorf("Error while iterating over assets %w", err)
+			return nil, fmt.Errorf("error while iterating over assets %w", err)
 		}
 		var id int64
 		assetType := strings.Replace(resource.AssetType, "cloudresourcemanager.googleapis.com/", "", 1)
 		if assetType == FOLDER {
 			id, err = strconv.ParseInt(strings.Replace(resource.Folders[0], "folders/", "", 1), 10, 64)
 			if err != nil {
-				return nil, fmt.Errorf("Unable to parse ID from folder %w: %w", resource, err)
+				return nil, fmt.Errorf("unable to parse ID from folder %w: %w", resource, err)
 			}
 		} else if assetType == PROJECT {
 			id, err = strconv.ParseInt(strings.Replace(resource.Project, "projects/", "", 1), 10, 64)
 			if err != nil {
-				return nil, fmt.Errorf("Unable to parse ID from folder %w: %w", resource, err)
+				return nil, fmt.Errorf("unable to parse ID from folder %w: %w", resource, err)
 			}
 		}
 		parentId, err := strconv.ParseInt(parseName(resource.ParentFullResourceName), 10, 64)
 		if err != nil {
-			return nil, fmt.Errorf("Unable to parse parent ID from folder %w: %w", resource, err)
+			return nil, fmt.Errorf("unable to parse parent ID from folder %w: %w", resource, err)
 		}
 		f = append(f, HierarchyNode{
 			ID:         id,

@@ -48,7 +48,7 @@ func (c *Client) GetAllFilesWithName(ctx context.Context, bucket, filename strin
 			break
 		}
 		if err != nil {
-			return nil, fmt.Errorf("Bucket(%q).Objects(): %w", bucket, err)
+			return nil, fmt.Errorf("error listing bucket contents: Bucket(%q).Objects(): %w", bucket, err)
 		}
 		uris = append(uris, attrs.Name)
 	}
@@ -60,13 +60,13 @@ func (c *Client) DownloadFileIntoMemory(ctx context.Context, uri string) ([]byte
 
 	rc, err := c.gcs.Bucket(bucketAndObject[0]).Object(bucketAndObject[1]).NewReader(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("Object(%q).NewReader: %w", bucketAndObject[1], err)
+		return nil, fmt.Errorf("error downloading into memory: Object(%q).NewReader: %w", bucketAndObject[1], err)
 	}
 	defer rc.Close()
 
 	data, err := ioutil.ReadAll(rc)
 	if err != nil {
-		return nil, fmt.Errorf("ioutil.ReadAll: %w", err)
+		return nil, fmt.Errorf("error downloading into memory: ioutil.ReadAll: %w", err)
 	}
 	return data, nil
 }

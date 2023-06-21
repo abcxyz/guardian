@@ -30,31 +30,35 @@ func Process(ctx context.Context, organizationID int64, bucketQuery string) erro
 	}
 	folders, err := assetsClient.GetHierarchyAssets(ctx, organizationID, "cloudresourcemanager.googleapis.com/Folder")
 	if err != nil {
-		return fmt.Errorf("Unable to get folders: %w", err)
+		return fmt.Errorf("unable to get folders: %w", err)
 	}
 	projects, err := assetsClient.GetHierarchyAssets(ctx, organizationID, "cloudresourcemanager.googleapis.com/Project")
 	if err != nil {
-		return fmt.Errorf("Unable to get folders: %w", err)
+		return fmt.Errorf("unable to get folders: %w", err)
 	}
 	buckets, err := assetsClient.GetBuckets(ctx, organizationID, bucketQuery)
 	if err != nil {
 		return fmt.Errorf("error fetching terraform state GCS buckets: %w", err)
 	}
+	fmt.Printf("Fetching IAM for %d Folders and %d Projects", len(folders), len(projects))
 
 	gcpIAM, err := getActualGCPIAM(ctx, organizationID, folders, projects)
 	if err != nil {
 		return fmt.Errorf("error determining GCP IAM: %w", err)
 	}
+	fmt.Printf("Fetching terraform state from %d Buckets", len(buckets))
 	tfIAM, err := getTerraformStateIAM(ctx, organizationID, folders, projects, buckets)
 	if err != nil {
 		return fmt.Errorf("error determining Terraform State: %w", err)
 	}
+	fmt.Printf("Found %d gcp IAM entries", len(gcpIAM))
+	fmt.Printf("Found %d terraform IAM entries", len(tfIAM))
 
-	clickOpsChanges := difference(gcpIAM, tfIAM)
-	missingTerraformChanges := difference(tfIAM, gcpIAM)
+	// clickOpsChanges := difference(gcpIAM, tfIAM)
+	// missingTerraformChanges := difference(tfIAM, gcpIAM)
 
-	fmt.Println("Found Click Ops Changes: %s", clickOpsChanges)
-	fmt.Println("Found Missing Terraform Changes: %s", missingTerraformChanges)
+	// fmt.Printf("Found Click Ops Changes: %s", clickOpsChanges)
+	// fmt.Printf("Found Missing Terraform Changes: %s", missingTerraformChanges)
 
 	return nil
 }
@@ -74,7 +78,7 @@ func getActualGCPIAM(
 	for _, f := range folders {
 		fIAM, err := client.GetIAMForFolder(ctx, f, "folders")
 		if err != nil {
-			return nil, fmt.Errorf("Unable to get folder IAM for folder with ID '%s' and name '%d': %w", f.Name, f.ID, err)
+			return nil, fmt.Errorf("unable to get folder IAM for folder with ID '%d' and name '%s': %w", f.ID, f.Name, err)
 		}
 		for _, i := range fIAM {
 			m[iam.CreateURI(i, organizationID)] = i
@@ -83,7 +87,7 @@ func getActualGCPIAM(
 	for _, p := range projects {
 		pIAM, err := client.GetIAMForProject(ctx, p, "projects")
 		if err != nil {
-			return nil, fmt.Errorf("Unable to get project IAM for project with ID '%s' and name '%d': %w", p.Name, p.ID, err)
+			return nil, fmt.Errorf("unable to get project IAM for project with ID '%d' and name '%s': %w", p.ID, p.Name, err)
 		}
 		for _, i := range pIAM {
 			m[iam.CreateURI(i, organizationID)] = i
@@ -111,7 +115,7 @@ func getTerraformStateIAM(
 
 	tIAM, err := parser.ProcessAllTerraformStates(ctx, gcsURIs)
 	if err != nil {
-		return nil, fmt.Errorf("Unable to parse terraform states: %w", err)
+		return nil, fmt.Errorf("unable to parse terraform states: %w", err)
 	}
 
 	m := make(map[string]iam.AssetIAM)

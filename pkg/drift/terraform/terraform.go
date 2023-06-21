@@ -80,7 +80,7 @@ func (p *Parser) GetAllTerraformStateFileURIs(ctx context.Context, gcsBuckets []
 	for _, bucket := range gcsBuckets {
 		allStateFiles, err := p.gcs.GetAllFilesWithName(ctx, bucket, "default.tfstate")
 		if err != nil {
-			return nil, fmt.Errorf("Could not determine state files in GCS bucket %s: %w", bucket, err)
+			return nil, fmt.Errorf("could not determine state files in GCS bucket %s: %w", bucket, err)
 		}
 		gcsURIs = append(gcsURIs, allStateFiles...)
 	}
@@ -93,10 +93,10 @@ func (p *Parser) ProcessAllTerraformStates(ctx context.Context, gcsUris []string
 		state := TerraformState{}
 		data, err := p.gcs.DownloadFileIntoMemory(ctx, uri)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to download gcs URI for terraform: %w", err)
+			return nil, fmt.Errorf("failed to download gcs URI for terraform: %w", err)
 		}
 		if err = json.Unmarshal(data, &state); err != nil {
-			return nil, fmt.Errorf("Failed to parse terraform state into json: %w", err)
+			return nil, fmt.Errorf("failed to parse terraform state into json: %w", err)
 		}
 		iams = append(iams, p.parseTerraformStateIAM(state)...)
 	}

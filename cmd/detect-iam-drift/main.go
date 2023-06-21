@@ -51,7 +51,7 @@ func realMain() error {
 		f.PrintDefaults()
 	}
 	organizationID := f.Int64("organization_id", 0, "GCP Organization to detect drift for")
-	bucketQuery := f.String("gcs_bucket_query", "label=terraform", "the label to use to find GCS buckets with terraform statefiles")
+	bucketQuery := f.String("gcs_bucket_query", "labels.terraform:*", "the label to use to find GCS buckets with terraform statefiles")
 
 	if err := f.Parse(os.Args[1:]); err != nil {
 		return fmt.Errorf("failed to parse flags: %w", err)
