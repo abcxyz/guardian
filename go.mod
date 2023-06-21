@@ -7,6 +7,7 @@ require (
 	cloud.google.com/go/storage v1.28.1
 	github.com/abcxyz/pkg v0.4.0
 	google.golang.org/api v0.128.0
+	google.golang.org/protobuf v1.30.0
 )
 
 require (
@@ -43,5 +44,4 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20230530153820-e85fd2cbaebc // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230530153820-e85fd2cbaebc // indirect
 	google.golang.org/grpc v1.55.0 // indirect
-	google.golang.org/protobuf v1.30.0 // indirect
 )
