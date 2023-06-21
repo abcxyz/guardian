@@ -37,7 +37,7 @@ inputs:
 outputs:
   directories:
     description: 'The directories with Terraform changes as configured by the action input.'
-    value: ${{ steps.plan_dirs.outputs.dirs || steps.apply_dirs.outputs.dirs || steps.dirs.outputs.dirs }}
+    value: '${{ steps.plan_dirs.outputs.dirs || steps.apply_dirs.outputs.dirs || steps.dirs.outputs.dirs }}'
 
 runs:
   using: 'composite'
@@ -72,7 +72,7 @@ runs:
         echo "dirs=$OUTPUT_DIRS" >> $GITHUB_OUTPUT
 
     - name: 'Get Plan Directories'
-      if: ${{ inputs.detect_plan_changes == 'true' }}
+      if: '${{ inputs.detect_plan_changes == ''true'' }}'
       id: 'plan_dirs'
       shell: 'bash'
       env:
@@ -130,7 +130,7 @@ runs:
         echo "dirs=$OUTPUT_DIRS" >> $GITHUB_OUTPUT
 
     - name: 'Get Apply Directories'
-      if: ${{ inputs.detect_apply_changes == 'true' }}
+      if: '${{ inputs.detect_apply_changes == ''true'' }}'
       id: 'apply_dirs'
       shell: 'bash'
       env:

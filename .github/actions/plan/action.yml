@@ -222,7 +222,7 @@ runs:
           }
 
     - name: 'Ensure Outfile'
-      if: ${{ failure() }}
+      if: '${{ failure() }}'
       shell: 'bash'
       working-directory: '${{ inputs.working_directory }}'
       env:
@@ -231,7 +231,7 @@ runs:
         touch $OUT_FILENAME
 
     - name: 'Failure Comment'
-      if: ${{ failure() }}
+      if: '${{ failure() }}'
       uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
       env:
         COMMENT_ID: '${{ steps.comment.outputs.result }}'
@@ -261,7 +261,7 @@ runs:
           });
 
     - name: 'Success Comment'
-      if: ${{ success() }}
+      if: '${{ success() }}'
       uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
       env:
         COMMENT_ID: '${{ steps.comment.outputs.result }}'
@@ -294,7 +294,7 @@ runs:
             repo: context.repo.repo,
             comment_id: process.env.COMMENT_ID,
             body: `**\`🔱 Guardian 🔱\`** - 🟩 **\`PLAN\`** Successful for dir: \`${process.env.WORKING_DIRECTORY}\` [[logs](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}/attempts/${process.env.GITHUB_RUN_ATTEMPT})]
-            
+
           <details>
           <summary>Diff</summary>\n
           \`\`\`diff\n

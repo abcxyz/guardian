@@ -1,0 +1,47 @@
+name: 'ci'
+
+on:
+  push:
+    branches:
+      - 'main'
+  pull_request:
+    branches:
+      - 'main'
+  workflow_dispatch:
+
+concurrency:
+  group: '${{ github.workflow }}-${{ github.head_ref || github.ref }}'
+  cancel-in-progress: true
+
+jobs:
+  # Linting jobs - go, terraform.
+  go_lint:
+    uses: 'abcxyz/pkg/.github/workflows/go-lint.yml@main' # ratchet:exclude
+    with:
+      go_version: '1.20'
+
+  terraform_lint:
+    uses: 'abcxyz/pkg/.github/workflows/terraform-lint.yml@main' # ratchet:exclude
+    with:
+      directory: 'terraform'
+      terraform_version: '1.3'
+
+  yaml_lint:
+    uses: 'abcxyz/pkg/.github/workflows/yaml-lint.yml@main' # ratchet:exclude
+
+  # Unit tests - go
+  go_test:
+    uses: 'abcxyz/pkg/.github/workflows/go-test.yml@main' # ratchet:exclude
+    with:
+      go_version: '1.20'
+
+  # lint_and_unit is a virtual job that is used as dependencies for later jobs.
+  lint_and_unit:
+    runs-on: 'ubuntu-latest'
+    needs:
+      - 'go_lint'
+      - 'terraform_lint'
+      - 'yaml_lint'
+      - 'go_test'
+    steps:
+      - run: 'echo prechecks complete'

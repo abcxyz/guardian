@@ -3,3 +3,6 @@
 
 # abcxyz/infrastructure owns all files
 *    @abcxyz/infrastructure-team
+
+# Go readability
+*.go    @abcxyz/go-readability

@@ -49,7 +49,7 @@ jobs:
           # terraform_directory: './terraform' # specify a terraform folder to search for backend configurations
 
   apply:
-    if: ${{ needs.init.outputs.directories != '[]' }}
+    if: '${{ needs.init.outputs.directories != ''[]'' }}'
     needs:
       - 'init'
     runs-on: 'ubuntu-latest'

@@ -50,7 +50,7 @@ runs:
   using: 'composite'
   steps:
     - name: 'Validate Branch'
-      if: ${{ github.ref_name != github.event.repository.default_branch }}
+      if: '${{ github.ref_name != github.event.repository.default_branch }}'
       shell: 'bash'
       working-directory: '${{ inputs.working_directory }}'
       env:
@@ -60,7 +60,7 @@ runs:
         exit 1
 
     - name: 'Validate Admin Permission'
-      if: ${{ contains(fromJSON('["true", "True", "TRUE", "1", "T", "t"]'), inputs.require_admin) }}
+      if: '${{ contains(fromJSON(''["true", "True", "TRUE", "1", "T", "t"]''), inputs.require_admin) }}'
       shell: 'bash'
       working-directory: '${{ inputs.working_directory }}'
       env:
@@ -73,7 +73,7 @@ runs:
         fi
 
     - name: 'Checkout PR'
-      if: ${{ inputs.number != '' }}
+      if: '${{ inputs.number != '''' }}'
       shell: 'bash'
       env:
         GITHUB_TOKEN: '${{ github.token }}'
@@ -92,7 +92,7 @@ runs:
 
     - name: 'Terraform Init'
       # only if inputs.terraform_init is a truthy value
-      if: ${{ contains(fromJSON('["true", "True", "TRUE", "1", "T", "t"]'), inputs.terraform_init) }}
+      if: '${{ contains(fromJSON(''["true", "True", "TRUE", "1", "T", "t"]''), inputs.terraform_init) }}'
       shell: 'bash'
       working-directory: '${{ inputs.working_directory }}'
       env:

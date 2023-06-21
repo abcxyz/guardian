@@ -46,7 +46,7 @@ jobs:
         # detect_apply_changes: 'true'
 
   apply:
-    if: ${{ needs.init.outputs.directories != '[]' }}
+    if: '${{ needs.init.outputs.directories != ''[]'' }}'
     needs:
       - 'init'
     runs-on: 'ubuntu-latest'
