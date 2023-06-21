@@ -109,7 +109,7 @@ func (c *Client) GetIAMForFolder(ctx context.Context, node assets.HierarchyNode,
 	return m, nil
 }
 
-// CreateURI returns a conanical string identifier for the IAM entity.
+// CreateURI returns a canonical string identifier for the IAM entity.
 func CreateURI(i AssetIAM, organizationID int64) string {
 	role := strings.Replace(strings.Replace(i.Role, "organizations/", "", 1), fmt.Sprintf("%d/", organizationID), "", 1)
 	if i.ParentType == FOLDER {
