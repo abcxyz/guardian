@@ -1,0 +1,41 @@
+# Copyright 2022 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: 'test'
+on:
+  push:
+    branches:
+      - 'main'
+  pull_request:
+    branches:
+      - 'main'
+  workflow_dispatch:
+concurrency:
+  group: '${{ github.workflow }}-${{ github.head_ref || github.ref }}'
+  cancel-in-progress: true
+jobs:
+
+  # Lint
+  go_lint:
+    uses: 'abcxyz/pkg/.github/workflows/go-lint.yml@main'
+    with:
+      go_version: '1.19'
+
+  # Unit tests
+  go_test:
+    uses: 'abcxyz/pkg/.github/workflows/go-test.yml@cc2b918b16df0f627b933ed8dddf0d846fa9108b' # ratchet:abcxyz/pkg/.github/workflows/go-test.yml@main
+    with:
+      go_version: '1.19'
+      go_packages: |-
+        $(go list ./...)

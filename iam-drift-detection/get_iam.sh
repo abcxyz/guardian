@@ -21,7 +21,7 @@ ORGANIZATION_ID="$1"
 gcloud organizations get-iam-policy $ORGANIZATION_ID --format=json | \
     jq -r --arg ORG_ID $ORGANIZATION_ID '.bindings[] | (.role |= gsub("organizations/"; "")) | (.role|= gsub($ORG_ID + "/"; "")) | ("/organizations/" + $ORG_ID + "/" + .role + "/" + .members[])'
 
-FOLDERS=$(gcloud beta asset search-all-resources \
+FOLDERS=$(gcloud asset search-all-resources \
     --asset-types=cloudresourcemanager.googleapis.com/Folder \
     "--scope=organizations/${ORGANIZATION_ID}" --format=json)
 
@@ -33,7 +33,7 @@ do
         jq -r --arg ORG_ID $ORGANIZATION_ID --arg FOLDER $FOLDER '.bindings[] | (.role |= gsub("organizations/"; "")) | (.role|= gsub($ORG_ID + "/"; "")) | ("/organizations/" + $ORG_ID + "/folders/" + $FOLDER + "/" + .role + "/" + .members[])'
 done
 
-PROJECTS=$(gcloud beta asset search-all-resources \
+PROJECTS=$(gcloud asset search-all-resources \
     --asset-types=cloudresourcemanager.googleapis.com/Project \
     "--scope=organizations/${ORGANIZATION_ID}" --format=json)
 
