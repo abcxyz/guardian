@@ -54,11 +54,11 @@ func Process(ctx context.Context, organizationID int64, bucketQuery string) erro
 	fmt.Printf("Found %d gcp IAM entries", len(gcpIAM))
 	fmt.Printf("Found %d terraform IAM entries", len(tfIAM))
 
-	// clickOpsChanges := difference(gcpIAM, tfIAM)
-	// missingTerraformChanges := difference(tfIAM, gcpIAM)
+	clickOpsChanges := difference(gcpIAM, tfIAM)
+	missingTerraformChanges := difference(tfIAM, gcpIAM)
 
-	// fmt.Printf("Found Click Ops Changes: %s", clickOpsChanges)
-	// fmt.Printf("Found Missing Terraform Changes: %s", missingTerraformChanges)
+	fmt.Printf("Found Click Ops Changes: %s", clickOpsChanges)
+	fmt.Printf("Found Missing Terraform Changes: %s", missingTerraformChanges)
 
 	return nil
 }

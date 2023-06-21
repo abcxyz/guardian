@@ -16,8 +16,9 @@ package gcs
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"strings"
 
 	"cloud.google.com/go/storage"
@@ -44,7 +45,7 @@ func (c *Client) GetAllFilesWithName(ctx context.Context, bucket, filename strin
 	it := c.gcs.Bucket(bucket).Objects(ctx, nil)
 	for {
 		attrs, err := it.Next()
-		if err == iterator.Done {
+		if errors.Is(err, iterator.Done) {
 			break
 		}
 		if err != nil {
@@ -64,7 +65,7 @@ func (c *Client) DownloadFileIntoMemory(ctx context.Context, uri string) ([]byte
 	}
 	defer rc.Close()
 
-	data, err := ioutil.ReadAll(rc)
+	data, err := io.ReadAll(rc)
 	if err != nil {
 		return nil, fmt.Errorf("error downloading into memory: ioutil.ReadAll: %w", err)
 	}
