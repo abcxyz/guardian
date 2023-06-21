@@ -48,7 +48,7 @@ type Client struct {
 func NewClient(ctx context.Context) (*Client, error) {
 	client, err := asset.NewClient(ctx)
 	if err != nil {
-		log.Fatalf("asset.NewClient: %v", err)
+		log.Fatalf("asset.NewClient: %w", err)
 	}
 	defer client.Close()
 
@@ -77,7 +77,7 @@ func (c *Client) GetBuckets(ctx context.Context, organizationID int64, query str
 			break
 		}
 		if err != nil {
-			return nil, fmt.Errorf("Error while iterating over assets %v", err)
+			return nil, fmt.Errorf("Error while iterating over assets %w", err)
 		}
 		results = append(results, resource.Name)
 	}
@@ -97,24 +97,24 @@ func (c *Client) GetHierarchyAssets(ctx context.Context, organizationID int64, a
 			break
 		}
 		if err != nil {
-			return nil, fmt.Errorf("Error while iterating over assets %v", err)
+			return nil, fmt.Errorf("Error while iterating over assets %w", err)
 		}
 		var id int64
 		assetType := strings.Replace(resource.AssetType, "cloudresourcemanager.googleapis.com/", "", 1)
 		if assetType == FOLDER {
 			id, err = strconv.ParseInt(strings.Replace(resource.Folders[0], "folders/", "", 1), 10, 64)
 			if err != nil {
-				return nil, fmt.Errorf("Unable to parse ID from folder %v: %v", resource, err)
+				return nil, fmt.Errorf("Unable to parse ID from folder %w: %w", resource, err)
 			}
 		} else if assetType == PROJECT {
 			id, err = strconv.ParseInt(strings.Replace(resource.Project, "projects/", "", 1), 10, 64)
 			if err != nil {
-				return nil, fmt.Errorf("Unable to parse ID from folder %v: %v", resource, err)
+				return nil, fmt.Errorf("Unable to parse ID from folder %w: %w", resource, err)
 			}
 		}
 		parentId, err := strconv.ParseInt(parseName(resource.ParentFullResourceName), 10, 64)
 		if err != nil {
-			return nil, fmt.Errorf("Unable to parse parent ID from folder %v: %v", resource, err)
+			return nil, fmt.Errorf("Unable to parse parent ID from folder %w: %w", resource, err)
 		}
 		f = append(f, HierarchyNode{
 			ID:         id,

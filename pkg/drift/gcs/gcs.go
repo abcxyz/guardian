@@ -39,7 +39,7 @@ func NewClient(ctx context.Context) (*Client, error) {
 	}, nil
 }
 
-func (c *Client) GetAllFilesWithName(ctx context.Context, bucket string, filename string) ([]string, error) {
+func (c *Client) GetAllFilesWithName(ctx context.Context, bucket, filename string) ([]string, error) {
 	uris := []string{}
 	it := c.gcs.Bucket(bucket).Objects(ctx, nil)
 	for {

@@ -59,7 +59,8 @@ func (c *Client) GetIAMForProject(ctx context.Context, node assets.HierarchyNode
 			// Any operation that affects conditional role bindings must specify
 			// version `3`
 			RequestedPolicyVersion: 3,
-		}}
+		},
+	}
 	policy, err := c.crmService.Projects.GetIamPolicy(strconv.FormatInt(node.ID, 10), request).Context(ctx).Do()
 	if err != nil {
 		return nil, fmt.Errorf("unable to get iam policy: %w: %w", node.ID, err)
@@ -85,7 +86,8 @@ func (c *Client) GetIAMForFolder(ctx context.Context, node assets.HierarchyNode,
 			// Any operation that affects conditional role bindings must specify
 			// version `3`
 			RequestedPolicyVersion: 3,
-		}}
+		},
+	}
 	policy, err := c.crmService.Folders.GetIamPolicy(strconv.FormatInt(node.ID, 10), request).Context(ctx).Do()
 	if err != nil {
 		return nil, fmt.Errorf("unable to get iam policy: %w: %w", node.ID, err)
