@@ -57,7 +57,7 @@ func realMain() error {
 		return fmt.Errorf("failed to parse flags: %w", err)
 	}
 	if *organizationID == 0 {
-		return fmt.Errorf("Invalid Argument: organization_id must be provided")
+		return fmt.Errorf("invalid Argument: organization_id must be provided")
 	}
 
 	if err := drift.Process(ctx, *organizationID, *bucketQuery); err != nil {

@@ -71,7 +71,6 @@ func (c *Client) GetBuckets(ctx context.Context, organizationID int64, query str
 	it := c.assetClient.SearchAllResources(ctx, req)
 	results := []string{}
 	for {
-		fmt.Println("Iterating over buckets")
 		resource, err := it.Next()
 		if errors.Is(err, iterator.Done) {
 			break
@@ -79,7 +78,6 @@ func (c *Client) GetBuckets(ctx context.Context, organizationID int64, query str
 		if err != nil {
 			return nil, fmt.Errorf("error while iterating over assets %w", err)
 		}
-		fmt.Println("Founds buckets")
 		results = append(results, resource.Name)
 	}
 	return results, nil
