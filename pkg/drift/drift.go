@@ -40,25 +40,25 @@ func Process(ctx context.Context, organizationID int64, bucketQuery string) erro
 	if err != nil {
 		return fmt.Errorf("error fetching terraform state GCS buckets: %w", err)
 	}
-	fmt.Printf("Fetching IAM for %d Folders and %d Projects", len(folders), len(projects))
+	fmt.Printf("Fetching IAM for %d Folders and %d Projects\n", len(folders), len(projects))
 
 	gcpIAM, err := getActualGCPIAM(ctx, organizationID, folders, projects)
 	if err != nil {
 		return fmt.Errorf("error determining GCP IAM: %w", err)
 	}
-	fmt.Printf("Fetching terraform state from %d Buckets", len(buckets))
+	fmt.Printf("Fetching terraform state from %d Buckets\n", len(buckets))
 	tfIAM, err := getTerraformStateIAM(ctx, organizationID, folders, projects, buckets)
 	if err != nil {
 		return fmt.Errorf("error determining Terraform State: %w", err)
 	}
-	fmt.Printf("Found %d gcp IAM entries", len(gcpIAM))
-	fmt.Printf("Found %d terraform IAM entries", len(tfIAM))
+	fmt.Printf("Found %d gcp IAM entries\n", len(gcpIAM))
+	fmt.Printf("Found %d terraform IAM entries\n", len(tfIAM))
 
 	clickOpsChanges := difference(gcpIAM, tfIAM)
 	missingTerraformChanges := difference(tfIAM, gcpIAM)
 
-	fmt.Printf("Found Click Ops Changes: %s", clickOpsChanges)
-	fmt.Printf("Found Missing Terraform Changes: %s", missingTerraformChanges)
+	fmt.Printf("Found %d Click Ops Changes\n", len(clickOpsChanges))
+	fmt.Printf("Found %d Missing Terraform Changes\n", len(missingTerraformChanges))
 
 	return nil
 }

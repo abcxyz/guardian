@@ -78,7 +78,7 @@ func (c *Client) GetBuckets(ctx context.Context, organizationID int64, query str
 		if err != nil {
 			return nil, fmt.Errorf("error while iterating over assets %w", err)
 		}
-		results = append(results, resource.Name)
+		results = append(results, strings.Replace(resource.Name, "//storage.googleapis.com/", "", 1))
 	}
 	return results, nil
 }

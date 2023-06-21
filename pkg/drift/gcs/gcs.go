@@ -51,13 +51,15 @@ func (c *Client) GetAllFilesWithName(ctx context.Context, bucket, filename strin
 		if err != nil {
 			return nil, fmt.Errorf("error listing bucket contents: Bucket(%q).Objects(): %w", bucket, err)
 		}
-		uris = append(uris, attrs.Name)
+		if strings.HasSuffix(attrs.Name, filename) {
+			uris = append(uris, fmt.Sprintf("gs://%s/%s", bucket, attrs.Name))
+		}
 	}
 	return uris, nil
 }
 
 func (c *Client) DownloadFileIntoMemory(ctx context.Context, uri string) ([]byte, error) {
-	bucketAndObject := strings.SplitN(strings.Replace(uri, "gs://", "", 1), "/", 1)
+	bucketAndObject := strings.SplitN(strings.Replace(uri, "gs://", "", 1), "/", 2)
 
 	rc, err := c.gcs.Bucket(bucketAndObject[0]).Object(bucketAndObject[1]).NewReader(ctx)
 	if err != nil {
