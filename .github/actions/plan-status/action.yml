@@ -31,7 +31,7 @@ runs:
   using: 'composite'
   steps:
     - name: 'Success'
-      if: ${{ inputs.init_result == 'success' && inputs.plan_result == 'success' }}
+      if: '${{ inputs.init_result == ''success'' && inputs.plan_result == ''success'' }}'
       uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
       env:
         CONTEXT: '${{ inputs.context }}'
@@ -52,14 +52,14 @@ runs:
           });
 
     - name: 'Failure'
-      if: ${{ inputs.init_result == 'failure' || inputs.plan_result == 'failure' }}
+      if: '${{ inputs.init_result == ''failure'' || inputs.plan_result == ''failure'' }}'
       shell: 'bash'
       run: |-
         echo "::error ::Init or Plan has one or more failures."
         exit 1
 
     - name: 'Skipped Plan Comment'
-      if: ${{ inputs.init_result == 'success' && inputs.plan_result == 'skipped' }}
+      if: '${{ inputs.init_result == ''success'' && inputs.plan_result == ''skipped'' }}'
       uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
       env:
         CONTEXT: '${{ inputs.context }}'
@@ -80,7 +80,7 @@ runs:
           });
 
     - name: 'Indeterminate'
-      if: ${{ contains(fromJSON('["skipped", "cancelled"]'), inputs.init_result) || contains(fromJSON('["skipped", "cancelled"]'), inputs.plan_result) }}
+      if: '${{ contains(fromJSON(''["skipped", "cancelled"]''), inputs.init_result) || contains(fromJSON(''["skipped", "cancelled"]''), inputs.plan_result) }}'
       shell: 'bash'
       run: |-
         echo "::warning ::Init or Plan was skipped or cancelled."

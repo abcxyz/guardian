@@ -27,7 +27,7 @@ on:
         required: true
 
 permissions:
-  issues: 'write'   # For creating issues.
+  issues: 'write' # For creating issues.
   id-token: 'write'
   contents: 'read'
 
@@ -58,5 +58,3 @@ jobs:
           GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
         with:
           organization_id: '${{ inputs.organization_id }}'
-
-
