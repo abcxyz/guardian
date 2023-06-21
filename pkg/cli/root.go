@@ -31,6 +31,9 @@ var rootCmd = func() cli.Command {
 			"plan": func() cli.Command {
 				return &PlanCommand{}
 			},
+			"detect-iam-drift": func() cli.Command {
+				return &DetectIamDriftCommand{}
+			},
 			// "apply": func() cli.Command {
 			// 	return &ApplyCommand{}
 			// },
