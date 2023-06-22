@@ -33,6 +33,8 @@ func Process(ctx context.Context, organizationID, bucketQuery string) error {
 	if err != nil {
 		return fmt.Errorf("failed to initialize assets client: %w", err)
 	}
+	// We differentiate between projects and folders here since we use them separately in
+	// downstream operations.
 	folders, err := assetsClient.HierarchyAssets(ctx, organizationID, assets.FolderAssetType)
 	if err != nil {
 		return fmt.Errorf("failed to get folders: %w", err)
