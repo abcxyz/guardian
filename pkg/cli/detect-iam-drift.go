@@ -33,8 +33,9 @@ type DetectIamDriftCommand struct {
 	// testFlagSetOpts is only used for testing.
 	testFlagSetOpts []cli.Option
 
-	flagOrganizationID string
-	flagGCSBucketQuery string
+	flagOrganizationID  string
+	flagGCSBucketQuery  string
+	flagDriftignoreFile string
 }
 
 func (c *DetectIamDriftCommand) Desc() string {
@@ -68,6 +69,13 @@ func (c *DetectIamDriftCommand) Flags() *cli.FlagSet {
 		Example: "labels.terraform:*",
 		Usage:   `The label to use to find GCS buckets with Terraform statefiles.`,
 	})
+	f.StringVar(&cli.StringVar{
+		Name:    "driftignore-file",
+		Target:  &c.flagDriftignoreFile,
+		Example: ".driftignore",
+		Usage:   `The driftignore file to use which contains values to ignore.`,
+		Default: ".driftignore",
+	})
 
 	return set
 }
@@ -95,7 +103,7 @@ func (c *DetectIamDriftCommand) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("missing -organization-id")
 	}
 
-	if err := drift.Process(ctx, c.flagOrganizationID, c.flagGCSBucketQuery); err != nil {
+	if err := drift.Process(ctx, c.flagOrganizationID, c.flagGCSBucketQuery, c.flagDriftignoreFile); err != nil {
 		return fmt.Errorf("failed to detect drift %w", err)
 	}
 

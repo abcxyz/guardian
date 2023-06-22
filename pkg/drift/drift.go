@@ -15,8 +15,11 @@
 package drift
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"os"
+	"sort"
 	"strings"
 
 	"github.com/abcxyz/pkg/logging"
@@ -27,7 +30,7 @@ import (
 )
 
 // Process compares the actual GCP IAM against the IAM in your Terraform state files.
-func Process(ctx context.Context, organizationID, bucketQuery string) error {
+func Process(ctx context.Context, organizationID, bucketQuery, driftignoreFile string) error {
 	assetsClient, err := assets.NewClient(ctx)
 	logger := logging.FromContext(ctx)
 	if err != nil {
@@ -61,18 +64,34 @@ func Process(ctx context.Context, organizationID, bucketQuery string) error {
 	logger.Debugw("GCP IAM entries", "number_of_entries", len(gcpIAM))
 	logger.Debugw("Terraform IAM entries", "number_of_entries", len(tfIAM))
 
-	clickOpsChanges := difference(gcpIAM, tfIAM)
-	missingTerraformChanges := difference(tfIAM, gcpIAM)
+	clickOpsChanges := differenceMap(gcpIAM, tfIAM)
+	missingTerraformChanges := differenceMap(tfIAM, gcpIAM)
 
-	logger.Debugw("Found Click Ops Changes", "number_of_changes", len(clickOpsChanges))
-	logger.Debugw("Found Missing Terraform Changes", "number_of_changes", len(missingTerraformChanges))
+	ignored, err := driftignore(ctx, driftignoreFile)
+	if err != nil {
+		return fmt.Errorf("failed to parse driftignore file: %w", err)
+	}
+
+	clickOpsNoIgnoredChanges := differenceSet(clickOpsChanges, ignored)
+	missingTerraformNoIgnoredChanges := differenceSet(clickOpsChanges, ignored)
+
+	logger.Debugw("Found Click Ops Changes",
+		"number_of_changes", len(clickOpsNoIgnoredChanges),
+		"number_of_ignored_changes", len(clickOpsChanges)-len(clickOpsNoIgnoredChanges))
+	logger.Debugw("Found Missing Terraform Changes",
+		"number_of_changes", len(missingTerraformNoIgnoredChanges),
+		"number_of_ignored_changes", len(missingTerraformChanges)-len(missingTerraformNoIgnoredChanges))
 
 	// Output to stdout to mimic bash script for now.
 	if len(clickOpsChanges) > 0 {
-		fmt.Println("Found Click Ops Changes \n>", strings.Join(clickOpsChanges, "\n> "))
+		uris := keys(clickOpsNoIgnoredChanges)
+		sort.Strings(uris)
+		fmt.Println("Found Click Ops Changes \n>", strings.Join(uris, "\n> "))
 	}
 	if len(missingTerraformChanges) > 0 {
-		fmt.Println("Found Missing Terraform Changes \n>", strings.Join(missingTerraformChanges, "\n> "))
+		uris := keys(missingTerraformNoIgnoredChanges)
+		sort.Strings(uris)
+		fmt.Println("Found Missing Terraform Changes \n>", strings.Join(uris, "\n> "))
 	}
 
 	return nil
@@ -152,15 +171,38 @@ func terraformStateIAM(
 	return m, nil
 }
 
-// Finds the keys located in the left map that are missing in the right map.
-func difference(left, right map[string]*iam.AssetIAM) []string {
-	var found []string
+// differenceMap finds the keys located in the left map that are missing in the right map.
+// We return a set so that we can do future comparisons easily with the result.
+func differenceMap(left, right map[string]*iam.AssetIAM) map[string]bool {
+	found := make(map[string]bool)
 	for key := range left {
 		if _, f := right[key]; !f {
-			found = append(found, key)
+			found[key] = true
 		}
 	}
 	return found
+}
+
+// differenceSet finds the keys located in the left set that are missing in the right set.
+// We return a set so that we can do future comparisons easily with the result.
+func differenceSet(left, right map[string]bool) map[string]bool {
+	found := make(map[string]bool)
+	for key := range left {
+		if _, f := right[key]; !f {
+			found[key] = true
+		}
+	}
+	return found
+}
+
+func keys(m map[string]bool) []string {
+	keys := make([]string, len(m))
+	cnt := 0
+	for k := range m {
+		keys[cnt] = k
+		cnt++
+	}
+	return keys
 }
 
 // URI returns a canonical string identifier for the IAM entity.
@@ -174,4 +216,27 @@ func URI(i *iam.AssetIAM, organizationID string) string {
 	} else {
 		return fmt.Sprintf("/organizations/%s/%s/%s", organizationID, role, i.Member)
 	}
+}
+
+// driftignore parses the driftignore file into a set.
+// Go doesn't implement set so we use a map of boolean values all set to true.
+func driftignore(ctx context.Context, fname string) (map[string]bool, error) {
+	lines := make(map[string]bool)
+	f, err := os.Open(fname)
+	defer f.Close()
+	if err != nil {
+		if os.IsNotExist(err) {
+			logger := logging.FromContext(ctx)
+			logger.Debugw("failed to find driftignore", "filename", fname)
+			return lines, nil
+		}
+		return nil, fmt.Errorf("failed to read driftignore file %s: %w", fname, err)
+	}
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		lines[scanner.Text()] = true
+	}
+
+	return lines, nil
 }
