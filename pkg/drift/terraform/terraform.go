@@ -105,7 +105,7 @@ func (p *Parser) ProcessStates(ctx context.Context, gcsUris []string) ([]*iam.As
 	var iams []*iam.AssetIAM
 	for _, uri := range gcsUris {
 		state := TerraformState{}
-		// TODO(dcreey): Don't read all into memory before unmarshall https://github.com/abcxyz/guardian/issues/97
+		// TODO(dcreey): Don't read all into memory before unmarshall https://github.com/abcxyz/guardian/issues/97.
 		data, err := p.gcs.DownloadFileIntoMemory(ctx, uri)
 		if err != nil {
 			return nil, fmt.Errorf("failed to download gcs URI for terraform: %w", err)
@@ -188,42 +188,42 @@ func (p *Parser) parseIAMBindingForProject(instances []ResourceInstance) []*iam.
 }
 
 func (p *Parser) parseIAMMemberForOrg(instances []ResourceInstance) []*iam.AssetIAM {
-	var iams []*iam.AssetIAM
-	for _, i := range instances {
-		iams = append(iams, &iam.AssetIAM{
+	iams := make([]*iam.AssetIAM, len(instances))
+	for x, i := range instances {
+		iams[x] = &iam.AssetIAM{
 			Member:       i.Attributes.Member,
 			Role:         i.Attributes.Role,
 			ResourceID:   p.organizationID,
 			ResourceType: iam.ORGANIZATION,
-		})
+		}
 	}
 	return iams
 }
 
 func (p *Parser) parseIAMMemberForFolder(instances []ResourceInstance) []*iam.AssetIAM {
-	var iams []*iam.AssetIAM
-	for _, i := range instances {
+	iams := make([]*iam.AssetIAM, len(instances))
+	for x, i := range instances {
 		parentID, parentType := p.maybeFindGCPAssetIDAndType(i.Attributes.Folder)
-		iams = append(iams, &iam.AssetIAM{
+		iams[x] = &iam.AssetIAM{
 			Member:       i.Attributes.Member,
 			Role:         i.Attributes.Role,
 			ResourceID:   parentID,
 			ResourceType: parentType,
-		})
+		}
 	}
 	return iams
 }
 
 func (p *Parser) parseIAMMemberForProject(instances []ResourceInstance) []*iam.AssetIAM {
-	var iams []*iam.AssetIAM
-	for _, i := range instances {
+	iams := make([]*iam.AssetIAM, len(instances))
+	for x, i := range instances {
 		parentID, parentType := p.maybeFindGCPAssetIDAndType(i.Attributes.Project)
-		iams = append(iams, &iam.AssetIAM{
+		iams[x] = &iam.AssetIAM{
 			Member:       i.Attributes.Member,
 			Role:         i.Attributes.Role,
 			ResourceID:   parentID,
 			ResourceType: parentType,
-		})
+		}
 	}
 	return iams
 }

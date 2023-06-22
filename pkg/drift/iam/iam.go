@@ -30,15 +30,15 @@ const (
 	PROJECT      = "project"
 )
 
-// AssetIAM represents the IAM of a GCP resource (e.g binding/policy/membership of GCP Project, Folder, Org)
+// AssetIAM represents the IAM of a GCP resource (e.g binding/policy/membership of GCP Project, Folder, Org).
 type AssetIAM struct {
-	// The ID of the resource (e.g. Project ID, Folder ID, Org ID)
+	// The ID of the resource (e.g. Project ID, Folder ID, Org ID).
 	ResourceID string
-	// The type of the resource (e.g. Project, Folder, Org)
+	// The type of the resource (e.g. Project, Folder, Org).
 	ResourceType string
-	// The IAM membership (e.g. group:my-group@google.com)
+	// The IAM membership (e.g. group:my-group@google.com).
 	Member string
-	// The role (e.g. roles/owner)
+	// The role (e.g. roles/owner).
 	Role string
 }
 
@@ -62,8 +62,7 @@ func NewClient(ctx context.Context) (*Client, error) {
 func (c *Client) ProjectIAM(ctx context.Context, projectID, api string) ([]*AssetIAM, error) {
 	request := &cloudresourcemanager.GetIamPolicyRequest{
 		Options: &cloudresourcemanager.GetPolicyOptions{
-			// Any operation that affects conditional role bindings must specify
-			// version `3`
+			// Any operation that affects conditional role bindings must specify version `3`.
 			RequestedPolicyVersion: 3,
 		},
 	}
@@ -78,7 +77,7 @@ func (c *Client) ProjectIAM(ctx context.Context, projectID, api string) ([]*Asse
 				Role:         b.Role,
 				Member:       member,
 				ResourceID:   projectID,
-				ResourceType: assets.PROJECT,
+				ResourceType: assets.Project,
 			})
 		}
 	}
@@ -106,7 +105,7 @@ func (c *Client) FolderIAM(ctx context.Context, folderID, api string) ([]*AssetI
 				Role:         b.Role,
 				Member:       member,
 				ResourceID:   folderID,
-				ResourceType: assets.FOLDER,
+				ResourceType: assets.Folder,
 			})
 		}
 	}
@@ -118,8 +117,7 @@ func (c *Client) FolderIAM(ctx context.Context, folderID, api string) ([]*AssetI
 func (c *Client) OrganizationIAM(ctx context.Context, organizationID, api string) ([]*AssetIAM, error) {
 	request := &cloudresourcemanager.GetIamPolicyRequest{
 		Options: &cloudresourcemanager.GetPolicyOptions{
-			// Any operation that affects conditional role bindings must specify
-			// version `3`
+			// Any operation that affects conditional role bindings must specify version `3`.
 			RequestedPolicyVersion: 3,
 		},
 	}
@@ -134,7 +132,7 @@ func (c *Client) OrganizationIAM(ctx context.Context, organizationID, api string
 				Role:         b.Role,
 				Member:       member,
 				ResourceID:   organizationID,
-				ResourceType: assets.ORGANIZATION,
+				ResourceType: assets.Organization,
 			})
 		}
 	}

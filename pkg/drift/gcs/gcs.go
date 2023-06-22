@@ -65,7 +65,7 @@ func (c *Client) FilesWithName(ctx context.Context, bucket, filename string) ([]
 }
 
 // DownloadFileIntoMemory fetches the file from GCS and reads it into memory.
-// TODO(dcreey): Handle race conditions https://github.com/abcxyz/guardian/issues/96
+// TODO(dcreey): Handle race conditions https://github.com/abcxyz/guardian/issues/96.
 func (c *Client) DownloadFileIntoMemory(ctx context.Context, uri string) ([]byte, error) {
 	bucketAndObject := strings.SplitN(strings.Replace(uri, "gs://", "", 1), "/", 2)
 	if len(bucketAndObject) < 2 {

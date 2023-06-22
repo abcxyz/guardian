@@ -29,20 +29,20 @@ import (
 
 const (
 	// Organization Node Type.
-	ORGANIZATION = "Organization"
+	Organization = "Organization"
 	// Folder Node Type.
-	FOLDER = "Folder"
+	Folder = "Folder"
 	// Project Node Type.
-	PROJECT = "Project"
+	Project = "Project"
 
-	ORGANIZATION_ASSET_TYPE = "cloudresourcemanager.googleapis.com/Organization"
-	FOLDER_ASSET_TYPE       = "cloudresourcemanager.googleapis.com/Folder"
-	PROJECT_ASSET_TYPE      = "cloudresourcemanager.googleapis.com/Project"
-	BUCKET_ASSET_TYPE       = "storage.googleapis.com/Bucket"
+	OrganizationAssetType = "cloudresourcemanager.googleapis.com/Organization"
+	FolderAssetType       = "cloudresourcemanager.googleapis.com/Folder"
+	ProjectAssetType      = "cloudresourcemanager.googleapis.com/Project"
+	BucketAssetType       = "storage.googleapis.com/Bucket"
 )
 
-// Regex pattern used to parse ID from ParentFullResourceName.
-var RESOURCE_NAME_ID_PATTERN = regexp.MustCompile(`\/\/cloudresourcemanager\.googleapis\.com\/(?:folders|organizations)\/(\d*)`)
+// resourceNameIDPattern is a Regex pattern used to parse ID from ParentFullResourceName.
+var resourceNameIDPattern = regexp.MustCompile(`\/\/cloudresourcemanager\.googleapis\.com\/(?:folders|organizations)\/(\d*)`)
 
 // HierarchyNode represents a node in the GCP Resource Hierarchy.
 // Example: Organization, Folder, or Project.
@@ -86,7 +86,7 @@ func (c *Client) Buckets(ctx context.Context, organizationID, query string) ([]s
 	readMask.Paths = append(readMask.Paths, "name")
 	req := &assetpb.SearchAllResourcesRequest{
 		Scope:      fmt.Sprintf("organizations/%s", organizationID),
-		AssetTypes: []string{BUCKET_ASSET_TYPE},
+		AssetTypes: []string{BucketAssetType},
 		Query:      query,
 		ReadMask:   &readMask,
 	}
@@ -124,10 +124,10 @@ func (c *Client) HierarchyAssets(ctx context.Context, organizationID, assetType 
 		var id string
 		// Example value: "cloudresourcemanager.googleapis.com/Folder"
 		assetType := strings.TrimPrefix(resource.AssetType, "cloudresourcemanager.googleapis.com/")
-		if assetType == FOLDER {
+		if assetType == Folder {
 			// Example value: "folders/123542345234"
 			id = strings.TrimPrefix(resource.Folders[0], "folders/")
-		} else if assetType == PROJECT {
+		} else if assetType == Project {
 			// Example value: "projects/45234234234"
 			id = strings.TrimPrefix(resource.Project, "projects/")
 		}
@@ -152,7 +152,7 @@ func (c *Client) HierarchyAssets(ctx context.Context, organizationID, assetType 
 }
 
 func extractIDFromResourceName(gcpResourceName string) (*string, error) {
-	matches := RESOURCE_NAME_ID_PATTERN.FindStringSubmatch(gcpResourceName)
+	matches := resourceNameIDPattern.FindStringSubmatch(gcpResourceName)
 	if len(matches) == 0 {
 		return nil, fmt.Errorf("failed to parse ID from Resource Name: %s", gcpResourceName)
 	}
