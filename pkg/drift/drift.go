@@ -17,7 +17,9 @@ package drift
 import (
 	"context"
 	"fmt"
-	"log"
+	"strings"
+
+	"github.com/abcxyz/pkg/logging"
 
 	"github.com/abcxyz/guardian/pkg/drift/assets"
 	"github.com/abcxyz/guardian/pkg/drift/iam"
@@ -27,6 +29,7 @@ import (
 // Process compares the actual GCP IAM against the IAM in your Terraform state files.
 func Process(ctx context.Context, organizationID, bucketQuery string) error {
 	assetsClient, err := assets.NewClient(ctx)
+	logger := logging.FromContext(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to initialize assets client: %w", err)
 	}
@@ -42,25 +45,25 @@ func Process(ctx context.Context, organizationID, bucketQuery string) error {
 	if err != nil {
 		return fmt.Errorf("failed to determine terraform state GCS buckets: %w", err)
 	}
-	log.Printf("Fetching IAM for 1 Org, %d Folders and %d Projects\n", len(folders), len(projects))
+	logger.Debugw("Fetching IAM for 1 Org, %d Folders and %d Projects\n", len(folders), len(projects))
 
 	gcpIAM, err := actualGCPIAM(ctx, organizationID, folders, projects)
 	if err != nil {
 		return fmt.Errorf("failed to determine GCP IAM: %w", err)
 	}
-	log.Printf("Fetching terraform state from %d Buckets\n", len(buckets))
+	logger.Debugw("Fetching terraform state from %d Buckets\n", len(buckets))
 	tfIAM, err := terraformStateIAM(ctx, organizationID, folders, projects, buckets)
 	if err != nil {
 		return fmt.Errorf("failed to parse IAM from Terraform State: %w", err)
 	}
-	log.Printf("Found %d gcp IAM entries\n", len(gcpIAM))
-	log.Printf("Found %d terraform IAM entries\n", len(tfIAM))
+	logger.Debugw("Found %d gcp IAM entries\n", len(gcpIAM))
+	logger.Debugw("Found %d terraform IAM entries\n", len(tfIAM))
 
 	clickOpsChanges := difference(gcpIAM, tfIAM)
 	missingTerraformChanges := difference(tfIAM, gcpIAM)
 
-	log.Printf("Found %d Click Ops Changes\n", len(clickOpsChanges))
-	log.Printf("Found %d Missing Terraform Changes\n", len(missingTerraformChanges))
+	logger.Debugw("Found %d Click Ops Changes\n", len(clickOpsChanges))
+	logger.Debugw("Found %d Missing Terraform Changes\n", len(missingTerraformChanges))
 
 	return nil
 }
@@ -70,8 +73,8 @@ func Process(ctx context.Context, organizationID, bucketQuery string) error {
 func actualGCPIAM(
 	ctx context.Context,
 	organizationID string,
-	folders []assets.HierarchyNode,
-	projects []assets.HierarchyNode,
+	folders []*assets.HierarchyNode,
+	projects []*assets.HierarchyNode,
 ) (map[string]*iam.AssetIAM, error) {
 	client, err := iam.NewClient(ctx)
 	if err != nil {
@@ -79,29 +82,29 @@ func actualGCPIAM(
 	}
 
 	m := make(map[string]*iam.AssetIAM)
-	oIAM, err := client.OrganizationIAM(ctx, organizationID, "folders")
+	oIAM, err := client.OrganizationIAM(ctx, organizationID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get organization IAM for ID '%s': %w", organizationID, err)
 	}
 	for _, i := range oIAM {
-		m[iam.URI(i, organizationID)] = i
+		m[URI(i, organizationID)] = i
 	}
 	for _, f := range folders {
-		fIAM, err := client.FolderIAM(ctx, f.ID, "folders")
+		fIAM, err := client.FolderIAM(ctx, f.ID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get folder IAM for folder with ID '%s' and name '%s': %w", f.ID, f.Name, err)
 		}
 		for _, i := range fIAM {
-			m[iam.URI(i, organizationID)] = i
+			m[URI(i, organizationID)] = i
 		}
 	}
 	for _, p := range projects {
-		pIAM, err := client.ProjectIAM(ctx, p.ID, "projects")
+		pIAM, err := client.ProjectIAM(ctx, p.ID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get project IAM for project with ID '%s' and name '%s': %w", p.ID, p.Name, err)
 		}
 		for _, i := range pIAM {
-			m[iam.URI(i, organizationID)] = i
+			m[URI(i, organizationID)] = i
 		}
 	}
 
@@ -113,8 +116,8 @@ func actualGCPIAM(
 func terraformStateIAM(
 	ctx context.Context,
 	organizationID string,
-	folders []assets.HierarchyNode,
-	projects []assets.HierarchyNode,
+	folders []*assets.HierarchyNode,
+	projects []*assets.HierarchyNode,
 	gcsBuckets []string,
 ) (map[string]*iam.AssetIAM, error) {
 	parser, err := terraform.NewParser(ctx, organizationID, folders, projects)
@@ -133,7 +136,7 @@ func terraformStateIAM(
 
 	m := make(map[string]*iam.AssetIAM)
 	for _, i := range tIAM {
-		m[iam.URI(i, organizationID)] = i
+		m[URI(i, organizationID)] = i
 	}
 
 	return m, nil
@@ -148,4 +151,17 @@ func difference(left, right map[string]*iam.AssetIAM) []string {
 		}
 	}
 	return found
+}
+
+// URI returns a canonical string identifier for the IAM entity.
+// This is used for diffing and as output to the user.
+func URI(i *iam.AssetIAM, organizationID string) string {
+	role := strings.Replace(strings.Replace(i.Role, "organizations/", "", 1), fmt.Sprintf("%s/", organizationID), "", 1)
+	if i.ResourceType == assets.Folder {
+		return fmt.Sprintf("/organizations/%s/folders/%s/role/%s/%s", organizationID, i.ResourceID, role, i.Member)
+	} else if i.ResourceType == assets.Project {
+		return fmt.Sprintf("/organizations/%s/projects/%s/role/%s/%s", organizationID, i.ResourceID, role, i.Member)
+	} else {
+		return fmt.Sprintf("/organizations/%s/role/%s/%s", organizationID, role, i.Member)
+	}
 }

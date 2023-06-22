@@ -82,13 +82,13 @@ func (c *Client) Buckets(ctx context.Context, organizationID, query string) ([]s
 	// gcloud asset search-all-resources \
 	// --asset-types=storage.googleapis.com/Bucket --query="$TERRAFORM_GCS_BUCKET_LABEL" --read-mask=name \
 	// "--scope=organizations/$ORGANIZATION_ID"
-	var readMask fmpb.FieldMask
-	readMask.Paths = append(readMask.Paths, "name")
 	req := &assetpb.SearchAllResourcesRequest{
 		Scope:      fmt.Sprintf("organizations/%s", organizationID),
 		AssetTypes: []string{BucketAssetType},
 		Query:      query,
-		ReadMask:   &readMask,
+		ReadMask: &fmpb.FieldMask{
+			Paths: []string{"name"},
+		},
 	}
 	it := c.assetClient.SearchAllResources(ctx, req)
 	var results []string
@@ -106,8 +106,8 @@ func (c *Client) Buckets(ctx context.Context, organizationID, query string) ([]s
 }
 
 // HierarchyAssets returns all GCP Hierarchy Nodes (Folders or Projects) for the given organization.
-func (c *Client) HierarchyAssets(ctx context.Context, organizationID, assetType string) ([]HierarchyNode, error) {
-	var f []HierarchyNode
+func (c *Client) HierarchyAssets(ctx context.Context, organizationID, assetType string) ([]*HierarchyNode, error) {
+	var f []*HierarchyNode
 	req := &assetpb.SearchAllResourcesRequest{
 		Scope:      fmt.Sprintf("organizations/%s", organizationID),
 		AssetTypes: []string{assetType},
@@ -139,7 +139,7 @@ func (c *Client) HierarchyAssets(ctx context.Context, organizationID, assetType 
 		}
 		// Example value: "cloudresourcemanager.googleapis.com/Folder"
 		parentType := strings.TrimPrefix(resource.ParentAssetType, "cloudresourcemanager.googleapis.com/")
-		f = append(f, HierarchyNode{
+		f = append(f, &HierarchyNode{
 			ID:         id,
 			Name:       resource.DisplayName,
 			ParentID:   *parentID,

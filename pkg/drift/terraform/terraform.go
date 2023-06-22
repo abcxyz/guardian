@@ -27,7 +27,11 @@ import (
 )
 
 const (
-	UnknownParentID   = "UNKNOWN_PARENT_ID"
+	// UnknownParentID is used when we are unable to find a match for the asset parent (e.g. project, folder, org)
+	// This shouldn't happen but it is theoretically possible especially if there is a race condition between
+	// fetching the projects & folders and querying for terraform state.
+	UnknownParentID = "UNKNOWN_PARENT_ID"
+	// UnknownParentType is used when we cannot find an asset parent. See UnknownParentID.
 	UnknownParentType = "UNKNOWN_PARENT_TYPE"
 )
 
@@ -53,8 +57,8 @@ type TerraformState struct {
 
 type Parser struct {
 	gcs             *gcs.Client
-	gcpAssetsByID   map[string]assets.HierarchyNode
-	gcpAssetsByName map[string]assets.HierarchyNode
+	gcpAssetsByID   map[string]*assets.HierarchyNode
+	gcpAssetsByName map[string]*assets.HierarchyNode
 	organizationID  string
 }
 
@@ -62,16 +66,16 @@ type Parser struct {
 func NewParser(
 	ctx context.Context,
 	organizationID string,
-	gcpFolders []assets.HierarchyNode,
-	gcpProjects []assets.HierarchyNode,
+	gcpFolders []*assets.HierarchyNode,
+	gcpProjects []*assets.HierarchyNode,
 ) (*Parser, error) {
 	client, err := gcs.NewClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize gcs Client: %w", err)
 	}
 	allAssets := append(gcpFolders, gcpProjects...)
-	assetsByID := make(map[string]assets.HierarchyNode)
-	assetsByName := make(map[string]assets.HierarchyNode)
+	assetsByID := make(map[string]*assets.HierarchyNode)
+	assetsByName := make(map[string]*assets.HierarchyNode)
 	for _, a := range allAssets {
 		assetsByID[a.ID] = a
 	}
@@ -244,17 +248,15 @@ func (p *Parser) maybeFindGCPAssetIDAndType(ID string) (string, string) {
 
 // findGCPAsset attempts to find a gcp asset match for the ID.
 func (p *Parser) findGCPAsset(gcpAssetID string) *assets.HierarchyNode {
-	var asset assets.HierarchyNode
 	if _, err := strconv.ParseInt(gcpAssetID, 10, 64); err == nil {
 		if _, ok := p.gcpAssetsByID[gcpAssetID]; !ok {
 			return nil
 		}
-		asset = p.gcpAssetsByID[gcpAssetID]
+		return p.gcpAssetsByID[gcpAssetID]
 	} else {
 		if _, ok := p.gcpAssetsByName[gcpAssetID]; !ok {
 			return nil
 		}
-		asset = p.gcpAssetsByName[gcpAssetID]
+		return p.gcpAssetsByName[gcpAssetID]
 	}
-	return &asset
 }

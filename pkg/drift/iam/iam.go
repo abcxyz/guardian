@@ -17,7 +17,6 @@ package iam
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"google.golang.org/api/cloudresourcemanager/v3"
 
@@ -53,16 +52,16 @@ func NewClient(ctx context.Context) (*Client, error) {
 }
 
 // ProjectIAM returns all IAM memberships, bindings, and policies for the given project.
-func (c *Client) ProjectIAM(ctx context.Context, projectID, api string) ([]*AssetIAM, error) {
-	request := &cloudresourcemanager.GetIamPolicyRequest{
+func (c *Client) ProjectIAM(ctx context.Context, projectID string) ([]*AssetIAM, error) {
+	req := &cloudresourcemanager.GetIamPolicyRequest{
 		Options: &cloudresourcemanager.GetPolicyOptions{
 			// Any operation that affects conditional role bindings must specify version `3`.
 			RequestedPolicyVersion: 3,
 		},
 	}
-	policy, err := c.crmService.Projects.GetIamPolicy(fmt.Sprintf("projects/%s", projectID), request).Context(ctx).Do()
+	policy, err := c.crmService.Projects.GetIamPolicy(fmt.Sprintf("projects/%s", projectID), req).Context(ctx).Do()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get iam policy: %s: %w", projectID, err)
+		return nil, fmt.Errorf("failed to get iam policy for project %s: %w", projectID, err)
 	}
 	var m []*AssetIAM
 	for _, b := range policy.Bindings {
@@ -80,17 +79,17 @@ func (c *Client) ProjectIAM(ctx context.Context, projectID, api string) ([]*Asse
 }
 
 // FolderIAM returns all IAM memberships, bindings, and policies for the given folder.
-func (c *Client) FolderIAM(ctx context.Context, folderID, api string) ([]*AssetIAM, error) {
-	request := &cloudresourcemanager.GetIamPolicyRequest{
+func (c *Client) FolderIAM(ctx context.Context, folderID string) ([]*AssetIAM, error) {
+	req := &cloudresourcemanager.GetIamPolicyRequest{
 		Options: &cloudresourcemanager.GetPolicyOptions{
 			// Any operation that affects conditional role bindings must specify
 			// version `3`
 			RequestedPolicyVersion: 3,
 		},
 	}
-	policy, err := c.crmService.Folders.GetIamPolicy(fmt.Sprintf("folders/%s", folderID), request).Context(ctx).Do()
+	policy, err := c.crmService.Folders.GetIamPolicy(fmt.Sprintf("folders/%s", folderID), req).Context(ctx).Do()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get iam policy: %s: %w", folderID, err)
+		return nil, fmt.Errorf("failed to get iam policy for folder %s: %w", folderID, err)
 	}
 	var m []*AssetIAM
 	for _, b := range policy.Bindings {
@@ -108,16 +107,16 @@ func (c *Client) FolderIAM(ctx context.Context, folderID, api string) ([]*AssetI
 }
 
 // OrganizationIAM returns all IAM memberships, bindings, and policies for the given organization.
-func (c *Client) OrganizationIAM(ctx context.Context, organizationID, api string) ([]*AssetIAM, error) {
-	request := &cloudresourcemanager.GetIamPolicyRequest{
+func (c *Client) OrganizationIAM(ctx context.Context, organizationID string) ([]*AssetIAM, error) {
+	req := &cloudresourcemanager.GetIamPolicyRequest{
 		Options: &cloudresourcemanager.GetPolicyOptions{
 			// Any operation that affects conditional role bindings must specify version `3`.
 			RequestedPolicyVersion: 3,
 		},
 	}
-	policy, err := c.crmService.Projects.GetIamPolicy(fmt.Sprintf("organizations/%s", organizationID), request).Context(ctx).Do()
+	policy, err := c.crmService.Projects.GetIamPolicy(fmt.Sprintf("organizations/%s", organizationID), req).Context(ctx).Do()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get iam policy: %s: %w", organizationID, err)
+		return nil, fmt.Errorf("failed to get iam policy for organization %s: %w", organizationID, err)
 	}
 	var m []*AssetIAM
 	for _, b := range policy.Bindings {
@@ -132,16 +131,4 @@ func (c *Client) OrganizationIAM(ctx context.Context, organizationID, api string
 	}
 
 	return m, nil
-}
-
-// URI returns a canonical string identifier for the IAM entity.
-func URI(i *AssetIAM, organizationID string) string {
-	role := strings.Replace(strings.Replace(i.Role, "organizations/", "", 1), fmt.Sprintf("%s/", organizationID), "", 1)
-	if i.ResourceType == assets.Folder {
-		return fmt.Sprintf("/organizations/%s/folders/%s/role/%s/%s", organizationID, i.ResourceID, role, i.Member)
-	} else if i.ResourceType == assets.Project {
-		return fmt.Sprintf("/organizations/%s/projects/%s/role/%s/%s", organizationID, i.ResourceID, role, i.Member)
-	} else {
-		return fmt.Sprintf("/organizations/%s/role/%s/%s", organizationID, role, i.Member)
-	}
 }

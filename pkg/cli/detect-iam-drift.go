@@ -19,7 +19,9 @@ import (
 	"fmt"
 
 	"github.com/abcxyz/pkg/cli"
+	"github.com/abcxyz/pkg/logging"
 
+	"github.com/abcxyz/guardian/internal/version"
 	"github.com/abcxyz/guardian/pkg/drift"
 )
 
@@ -31,19 +33,19 @@ type DetectIamDriftCommand struct {
 	// testFlagSetOpts is only used for testing.
 	testFlagSetOpts []cli.Option
 
-	organizationID string
-	gcsBucketQuery string
+	flagOrganizationID string
+	flagGCSBucketQuery string
 }
 
 func (c *DetectIamDriftCommand) Desc() string {
-	return `Detect IAM drift in a GCP Organization.`
+	return `Detect IAM drift in a GCP organization`
 }
 
 func (c *DetectIamDriftCommand) Help() string {
 	return `
 Usage: {{ COMMAND }} [options]
 
-  Detect IAM drift in a GCP Organization
+  Detect IAM drift in a GCP organization.
 `
 }
 
@@ -54,17 +56,17 @@ func (c *DetectIamDriftCommand) Flags() *cli.FlagSet {
 	f := set.NewSection("COMMAND OPTIONS")
 
 	f.StringVar(&cli.StringVar{
-		Name:    "organization_id",
-		Target:  &c.organizationID,
+		Name:    "organization-id",
+		Target:  &c.flagOrganizationID,
 		Example: "123435456456",
-		Usage:   `GCP Organization to detect drift for.`,
+		Usage:   `The Google Cloud organization ID for which to detect drift.`,
 		Default: "",
 	})
 	f.StringVar(&cli.StringVar{
-		Name:    "gcs_bucket_query",
-		Target:  &c.gcsBucketQuery,
+		Name:    "gcs-bucket-query",
+		Target:  &c.flagGCSBucketQuery,
 		Example: "labels.terraform:*",
-		Usage:   `The label to use to find GCS buckets with terraform statefiles.`,
+		Usage:   `The label to use to find GCS buckets with Terraform statefiles.`,
 	})
 
 	return set
@@ -77,19 +79,24 @@ func (c *DetectIamDriftCommand) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("failed to parse flags: %w", err)
 	}
 
+	logger := logging.FromContext(ctx)
+
 	args = f.Args()
 	if len(args) > 0 {
 		return fmt.Errorf("unexpected arguments: %q", args)
 	}
 
-	c.Outf("Running IAM Drift Detection...")
+	logger.Debugw("Running IAM Drift Detection...",
+		"name", version.Name,
+		"commit", version.Commit,
+		"version", version.Version)
 
-	if c.organizationID == "" {
-		return fmt.Errorf("invalid Argument: organization_id must be provided")
+	if c.flagOrganizationID == "" {
+		return fmt.Errorf("missing -organization-id")
 	}
 
-	if err := drift.Process(ctx, c.organizationID, c.gcsBucketQuery); err != nil {
-		return fmt.Errorf("error detecting drift %w", err)
+	if err := drift.Process(ctx, c.flagOrganizationID, c.flagGCSBucketQuery); err != nil {
+		return fmt.Errorf("failed to detect drift %w", err)
 	}
 
 	return nil
