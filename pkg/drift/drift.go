@@ -45,25 +45,33 @@ func Process(ctx context.Context, organizationID, bucketQuery string) error {
 	if err != nil {
 		return fmt.Errorf("failed to determine terraform state GCS buckets: %w", err)
 	}
-	logger.Debugw("Fetching IAM for 1 Org, %d Folders and %d Projects\n", len(folders), len(projects))
+	logger.Debugw("Fetching IAM for Org, Folders and Projects", "number_of_folders", len(folders), "number_of_projects", len(projects))
 
 	gcpIAM, err := actualGCPIAM(ctx, organizationID, folders, projects)
 	if err != nil {
 		return fmt.Errorf("failed to determine GCP IAM: %w", err)
 	}
-	logger.Debugw("Fetching terraform state from %d Buckets\n", len(buckets))
+	logger.Debugw("Fetching terraform state from Buckets", "number_of_buckets", len(buckets))
 	tfIAM, err := terraformStateIAM(ctx, organizationID, folders, projects, buckets)
 	if err != nil {
 		return fmt.Errorf("failed to parse IAM from Terraform State: %w", err)
 	}
-	logger.Debugw("Found %d gcp IAM entries\n", len(gcpIAM))
-	logger.Debugw("Found %d terraform IAM entries\n", len(tfIAM))
+	logger.Debugw("GCP IAM entries", "number_of_entries", len(gcpIAM))
+	logger.Debugw("Terraform IAM entries", "number_of_entries", len(tfIAM))
 
 	clickOpsChanges := difference(gcpIAM, tfIAM)
 	missingTerraformChanges := difference(tfIAM, gcpIAM)
 
-	logger.Debugw("Found %d Click Ops Changes\n", len(clickOpsChanges))
-	logger.Debugw("Found %d Missing Terraform Changes\n", len(missingTerraformChanges))
+	logger.Debugw("Found Click Ops Changes", "number_of_changes", len(clickOpsChanges))
+	logger.Debugw("Found Missing Terraform Changes", "number_of_changes", len(missingTerraformChanges))
+
+	// Output to stdout to mimic bash script for now.
+	if len(clickOpsChanges) > 0 {
+		fmt.Println("Found Click Ops Changes \n>", strings.Join(clickOpsChanges, "\n> "))
+	}
+	if len(missingTerraformChanges) > 0 {
+		fmt.Println("Found Missing Terraform Changes \n>", strings.Join(missingTerraformChanges, "\n> "))
+	}
 
 	return nil
 }
@@ -158,10 +166,10 @@ func difference(left, right map[string]*iam.AssetIAM) []string {
 func URI(i *iam.AssetIAM, organizationID string) string {
 	role := strings.Replace(strings.Replace(i.Role, "organizations/", "", 1), fmt.Sprintf("%s/", organizationID), "", 1)
 	if i.ResourceType == assets.Folder {
-		return fmt.Sprintf("/organizations/%s/folders/%s/role/%s/%s", organizationID, i.ResourceID, role, i.Member)
+		return fmt.Sprintf("/organizations/%s/folders/%s/%s/%s", organizationID, i.ResourceID, role, i.Member)
 	} else if i.ResourceType == assets.Project {
-		return fmt.Sprintf("/organizations/%s/projects/%s/role/%s/%s", organizationID, i.ResourceID, role, i.Member)
+		return fmt.Sprintf("/organizations/%s/projects/%s/%s/%s", organizationID, i.ResourceID, role, i.Member)
 	} else {
-		return fmt.Sprintf("/organizations/%s/role/%s/%s", organizationID, role, i.Member)
+		return fmt.Sprintf("/organizations/%s/%s/%s", organizationID, role, i.Member)
 	}
 }
