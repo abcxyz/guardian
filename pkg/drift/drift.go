@@ -50,7 +50,9 @@ func Process(ctx context.Context, organizationID, bucketQuery, driftignoreFile s
 	if err != nil {
 		return fmt.Errorf("failed to determine terraform state GCS buckets: %w", err)
 	}
-	logger.Debugw("Fetching IAM for Org, Folders and Projects", "number_of_folders", len(folders), "number_of_projects", len(projects))
+	logger.Debugw("fetching iam for org, folders and projects",
+		"number_of_folders", len(folders),
+		"number_of_projects", len(projects))
 
 	gcpIAM, err := actualGCPIAM(ctx, organizationID, folders, projects)
 	if err != nil {
@@ -61,8 +63,8 @@ func Process(ctx context.Context, organizationID, bucketQuery, driftignoreFile s
 	if err != nil {
 		return fmt.Errorf("failed to parse IAM from Terraform State: %w", err)
 	}
-	logger.Debugw("GCP IAM entries", "number_of_entries", len(gcpIAM))
-	logger.Debugw("Terraform IAM entries", "number_of_entries", len(tfIAM))
+	logger.Debugw("gcp iam entries", "number_of_entries", len(gcpIAM))
+	logger.Debugw("terraform iam entries", "number_of_entries", len(tfIAM))
 
 	clickOpsChanges := differenceMap(gcpIAM, tfIAM)
 	missingTerraformChanges := differenceMap(tfIAM, gcpIAM)
@@ -75,14 +77,15 @@ func Process(ctx context.Context, organizationID, bucketQuery, driftignoreFile s
 	clickOpsNoIgnoredChanges := differenceSet(clickOpsChanges, ignored)
 	missingTerraformNoIgnoredChanges := differenceSet(clickOpsChanges, ignored)
 
-	logger.Debugw("Found Click Ops Changes",
+	logger.Debugw("found click ops changes",
 		"number_of_changes", len(clickOpsNoIgnoredChanges),
 		"number_of_ignored_changes", len(clickOpsChanges)-len(clickOpsNoIgnoredChanges))
-	logger.Debugw("Found Missing Terraform Changes",
+	logger.Debugw("found missing terraform changes",
 		"number_of_changes", len(missingTerraformNoIgnoredChanges),
 		"number_of_ignored_changes", len(missingTerraformChanges)-len(missingTerraformNoIgnoredChanges))
 
 	// Output to stdout to mimic bash script for now.
+	// TODO(dcreey): Determine cleaner API that aligns with using the cli tool.
 	if len(clickOpsChanges) > 0 {
 		uris := keys(clickOpsNoIgnoredChanges)
 		sort.Strings(uris)
@@ -173,11 +176,11 @@ func terraformStateIAM(
 
 // differenceMap finds the keys located in the left map that are missing in the right map.
 // We return a set so that we can do future comparisons easily with the result.
-func differenceMap(left, right map[string]*iam.AssetIAM) map[string]bool {
-	found := make(map[string]bool)
+func differenceMap(left, right map[string]*iam.AssetIAM) map[string]struct{} {
+	found := make(map[string]struct{})
 	for key := range left {
 		if _, f := right[key]; !f {
-			found[key] = true
+			found[key] = struct{}{}
 		}
 	}
 	return found
@@ -185,22 +188,20 @@ func differenceMap(left, right map[string]*iam.AssetIAM) map[string]bool {
 
 // differenceSet finds the keys located in the left set that are missing in the right set.
 // We return a set so that we can do future comparisons easily with the result.
-func differenceSet(left, right map[string]bool) map[string]bool {
-	found := make(map[string]bool)
+func differenceSet(left, right map[string]struct{}) map[string]struct{} {
+	found := make(map[string]struct{})
 	for key := range left {
 		if _, f := right[key]; !f {
-			found[key] = true
+			found[key] = struct{}{}
 		}
 	}
 	return found
 }
 
-func keys(m map[string]bool) []string {
-	keys := make([]string, len(m))
-	cnt := 0
+func keys(m map[string]struct{}) []string {
+	keys := make([]string, 0, len(m))
 	for k := range m {
-		keys[cnt] = k
-		cnt++
+		keys = append(keys, k)
 	}
 	return keys
 }
@@ -220,8 +221,8 @@ func URI(i *iam.AssetIAM, organizationID string) string {
 
 // driftignore parses the driftignore file into a set.
 // Go doesn't implement set so we use a map of boolean values all set to true.
-func driftignore(ctx context.Context, fname string) (map[string]bool, error) {
-	lines := make(map[string]bool)
+func driftignore(ctx context.Context, fname string) (map[string]struct{}, error) {
+	lines := make(map[string]struct{})
 	f, err := os.Open(fname)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -235,7 +236,7 @@ func driftignore(ctx context.Context, fname string) (map[string]bool, error) {
 
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
-		lines[scanner.Text()] = true
+		lines[strings.TrimSpace(scanner.Text())] = struct{}{}
 	}
 
 	return lines, nil
