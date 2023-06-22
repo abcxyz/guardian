@@ -42,7 +42,7 @@ func Process(ctx context.Context, organizationID, bucketQuery string) error {
 	if err != nil {
 		return fmt.Errorf("failed to determine terraform state GCS buckets: %w", err)
 	}
-	log.Printf("Fetching IAM for %d Folders and %d Projects\n", len(folders), len(projects))
+	log.Printf("Fetching IAM for 1 Org, %d Folders and %d Projects\n", len(folders), len(projects))
 
 	gcpIAM, err := actualGCPIAM(ctx, organizationID, folders, projects)
 	if err != nil {
@@ -79,8 +79,15 @@ func actualGCPIAM(
 	}
 
 	m := make(map[string]*iam.AssetIAM)
+	oIAM, err := client.OrganizationIAM(ctx, organizationID, "folders")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get organization IAM for ID '%s': %w", organizationID, err)
+	}
+	for _, i := range oIAM {
+		m[iam.URI(i, organizationID)] = i
+	}
 	for _, f := range folders {
-		fIAM, err := client.FolderIAM(ctx, f, "folders")
+		fIAM, err := client.FolderIAM(ctx, f.ID, "folders")
 		if err != nil {
 			return nil, fmt.Errorf("failed to get folder IAM for folder with ID '%s' and name '%s': %w", f.ID, f.Name, err)
 		}
@@ -89,7 +96,7 @@ func actualGCPIAM(
 		}
 	}
 	for _, p := range projects {
-		pIAM, err := client.ProjectIAM(ctx, p, "projects")
+		pIAM, err := client.ProjectIAM(ctx, p.ID, "projects")
 		if err != nil {
 			return nil, fmt.Errorf("failed to get project IAM for project with ID '%s' and name '%s': %w", p.ID, p.Name, err)
 		}

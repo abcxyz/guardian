@@ -54,7 +54,7 @@ func NewClient(ctx context.Context) (*Client, error) {
 }
 
 // ProjectIAM returns all IAM memberships, bindings, and policies for the given project.
-func (c *Client) ProjectIAM(ctx context.Context, node assets.HierarchyNode, api string) ([]*AssetIAM, error) {
+func (c *Client) ProjectIAM(ctx context.Context, projectID string, api string) ([]*AssetIAM, error) {
 	request := &cloudresourcemanager.GetIamPolicyRequest{
 		Options: &cloudresourcemanager.GetPolicyOptions{
 			// Any operation that affects conditional role bindings must specify
@@ -62,9 +62,9 @@ func (c *Client) ProjectIAM(ctx context.Context, node assets.HierarchyNode, api 
 			RequestedPolicyVersion: 3,
 		},
 	}
-	policy, err := c.crmService.Projects.GetIamPolicy(fmt.Sprintf("projects/%s", node.ID), request).Context(ctx).Do()
+	policy, err := c.crmService.Projects.GetIamPolicy(fmt.Sprintf("projects/%s", projectID), request).Context(ctx).Do()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get iam policy: %s: %w", node.ID, err)
+		return nil, fmt.Errorf("failed to get iam policy: %s: %w", projectID, err)
 	}
 	var m []*AssetIAM
 	for _, b := range policy.Bindings {
@@ -72,8 +72,8 @@ func (c *Client) ProjectIAM(ctx context.Context, node assets.HierarchyNode, api 
 			m = append(m, &AssetIAM{
 				Role:       b.Role,
 				Member:     member,
-				ParentID:   node.ID,
-				ParentType: node.NodeType,
+				ParentID:   projectID,
+				ParentType: assets.PROJECT,
 			})
 		}
 	}
@@ -82,7 +82,7 @@ func (c *Client) ProjectIAM(ctx context.Context, node assets.HierarchyNode, api 
 }
 
 // FolderIAM returns all IAM memberships, bindings, and policies for the given folder.
-func (c *Client) FolderIAM(ctx context.Context, node assets.HierarchyNode, api string) ([]*AssetIAM, error) {
+func (c *Client) FolderIAM(ctx context.Context, folderID string, api string) ([]*AssetIAM, error) {
 	request := &cloudresourcemanager.GetIamPolicyRequest{
 		Options: &cloudresourcemanager.GetPolicyOptions{
 			// Any operation that affects conditional role bindings must specify
@@ -90,9 +90,9 @@ func (c *Client) FolderIAM(ctx context.Context, node assets.HierarchyNode, api s
 			RequestedPolicyVersion: 3,
 		},
 	}
-	policy, err := c.crmService.Folders.GetIamPolicy(fmt.Sprintf("folders/%s", node.ID), request).Context(ctx).Do()
+	policy, err := c.crmService.Folders.GetIamPolicy(fmt.Sprintf("folders/%s", folderID), request).Context(ctx).Do()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get iam policy: %s: %w", node.ID, err)
+		return nil, fmt.Errorf("failed to get iam policy: %s: %w", folderID, err)
 	}
 	var m []*AssetIAM
 	for _, b := range policy.Bindings {
@@ -100,8 +100,36 @@ func (c *Client) FolderIAM(ctx context.Context, node assets.HierarchyNode, api s
 			m = append(m, &AssetIAM{
 				Role:       b.Role,
 				Member:     member,
-				ParentID:   node.ID,
-				ParentType: node.NodeType,
+				ParentID:   folderID,
+				ParentType: assets.FOLDER,
+			})
+		}
+	}
+
+	return m, nil
+}
+
+// OrganizationIAM returns all IAM memberships, bindings, and policies for the given organization.
+func (c *Client) OrganizationIAM(ctx context.Context, organizationID string, api string) ([]*AssetIAM, error) {
+	request := &cloudresourcemanager.GetIamPolicyRequest{
+		Options: &cloudresourcemanager.GetPolicyOptions{
+			// Any operation that affects conditional role bindings must specify
+			// version `3`
+			RequestedPolicyVersion: 3,
+		},
+	}
+	policy, err := c.crmService.Projects.GetIamPolicy(fmt.Sprintf("organizations/%s", organizationID), request).Context(ctx).Do()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get iam policy: %s: %w", organizationID, err)
+	}
+	var m []*AssetIAM
+	for _, b := range policy.Bindings {
+		for _, member := range b.Members {
+			m = append(m, &AssetIAM{
+				Role:       b.Role,
+				Member:     member,
+				ParentID:   organizationID,
+				ParentType: assets.ORGANIZATION,
 			})
 		}
 	}
