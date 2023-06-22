@@ -233,17 +233,11 @@ func (p *Parser) parseIAMMemberForProject(instances []ResourceInstance) []*iam.A
 }
 
 func (p *Parser) maybeFindGCPAssetIDAndType(ID string) (string, string) {
-	var assetID string
-	var assetType string
 	asset := p.findGCPAsset(ID)
 	if asset == nil {
-		assetID = UnknownParentID
-		assetType = UnknownParentType
-	} else {
-		assetID = asset.ID
-		assetType = asset.NodeType
+		return UnknownParentID, UnknownParentType
 	}
-	return assetID, assetType
+	return asset.ID, asset.NodeType
 }
 
 // findGCPAsset attempts to find a gcp asset match for the ID.
