@@ -64,24 +64,28 @@ func (c *Client) FilesWithName(ctx context.Context, bucket, filename string) ([]
 	return uris, nil
 }
 
-// DownloadFileIntoMemory fetches the file from GCS and reads it into memory.
+// DownloadAndUnmarshal fetches the file from GCS and decodes it using the
+// provided unmarshaller.
+//
 // TODO(dcreey): Handle race conditions https://github.com/abcxyz/guardian/issues/96.
-func (c *Client) DownloadFileIntoMemory(ctx context.Context, uri string) ([]byte, error) {
+func (c *Client) DownloadAndUnmarshal(ctx context.Context, uri string, unmarshaller func(r io.Reader) error) error {
 	bucketAndObject := strings.SplitN(strings.Replace(uri, "gs://", "", 1), "/", 2)
 	if len(bucketAndObject) < 2 {
-		return nil, fmt.Errorf("failed to parse GCS URI: %s", uri)
+		return fmt.Errorf("failed to parse gcs uri: %s", uri)
 	}
 
-	rc, err := c.gcs.Bucket(bucketAndObject[0]).Object(bucketAndObject[1]).NewReader(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to download into memory: Object(%q).NewReader: %w", bucketAndObject[1], err)
-	}
-	defer rc.Close()
+	bucket := bucketAndObject[0]
+	object := bucketAndObject[1]
 
-	limitedReader := io.LimitReader(rc, defaultTerraformStateFileSizeLimit)
-	data, err := io.ReadAll(limitedReader)
+	r, err := c.gcs.Bucket(bucket).Object(object).NewReader(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to download into memory: ioutil.ReadAll: %w", err)
+		return fmt.Errorf("failed to create reader for object %s: %w", uri, err)
 	}
-	return data, nil
+	defer r.Close()
+
+	lr := io.LimitReader(r, defaultTerraformStateFileSizeLimit)
+	if err := unmarshaller(lr); err != nil {
+		return fmt.Errorf("failed to unmarshall gcs object %s: %w", uri, err)
+	}
+	return nil
 }
