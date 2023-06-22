@@ -31,7 +31,8 @@ const (
 	UNKNOWN_PARENT_TYPE = "UNKNOWN_PARENT_TYPE"
 )
 
-type ResourceInstances struct {
+// ResourceInstances represents the JSON terraform state IAM instance.
+type ResourceInstance struct {
 	Attributes struct {
 		ID      string   `json:"id"`
 		Members []string `json:"members,omitempty"`
@@ -42,10 +43,11 @@ type ResourceInstances struct {
 	}
 }
 
+// TerraformState represents the JSON terraform state.
 type TerraformState struct {
 	Resources []struct {
-		Type      string              `json:"type"`
-		Instances []ResourceInstances `json:"instances"`
+		Type      string             `json:"type"`
+		Instances []ResourceInstance `json:"instances"`
 	} `json:"resources"`
 }
 
@@ -138,89 +140,89 @@ func (p *Parser) parseTerraformStateIAM(state TerraformState) []*iam.AssetIAM {
 	return iams
 }
 
-func (p *Parser) parseIAMBindingForOrg(instances []ResourceInstances) []*iam.AssetIAM {
+func (p *Parser) parseIAMBindingForOrg(instances []ResourceInstance) []*iam.AssetIAM {
 	var iams []*iam.AssetIAM
 	for _, i := range instances {
 		for _, m := range i.Attributes.Members {
 			iams = append(iams, &iam.AssetIAM{
-				Member:     m,
-				Role:       i.Attributes.Role,
-				ParentID:   p.organizationID,
-				ParentType: iam.ORGANIZATION,
+				Member:       m,
+				Role:         i.Attributes.Role,
+				ResourceID:   p.organizationID,
+				ResourceType: iam.ORGANIZATION,
 			})
 		}
 	}
 	return iams
 }
 
-func (p *Parser) parseIAMBindingForFolder(instances []ResourceInstances) []*iam.AssetIAM {
+func (p *Parser) parseIAMBindingForFolder(instances []ResourceInstance) []*iam.AssetIAM {
 	var iams []*iam.AssetIAM
 	for _, i := range instances {
 		for _, m := range i.Attributes.Members {
 			parentID, parentType := p.maybeFindGCPAssetIDAndType(i.Attributes.Folder)
 			iams = append(iams, &iam.AssetIAM{
-				Member:     m,
-				Role:       i.Attributes.Role,
-				ParentID:   parentID,
-				ParentType: parentType,
+				Member:       m,
+				Role:         i.Attributes.Role,
+				ResourceID:   parentID,
+				ResourceType: parentType,
 			})
 		}
 	}
 	return iams
 }
 
-func (p *Parser) parseIAMBindingForProject(instances []ResourceInstances) []*iam.AssetIAM {
+func (p *Parser) parseIAMBindingForProject(instances []ResourceInstance) []*iam.AssetIAM {
 	var iams []*iam.AssetIAM
 	for _, i := range instances {
 		for _, m := range i.Attributes.Members {
 			parentID, parentType := p.maybeFindGCPAssetIDAndType(i.Attributes.Project)
 			iams = append(iams, &iam.AssetIAM{
-				Member:     m,
-				Role:       i.Attributes.Role,
-				ParentID:   parentID,
-				ParentType: parentType,
+				Member:       m,
+				Role:         i.Attributes.Role,
+				ResourceID:   parentID,
+				ResourceType: parentType,
 			})
 		}
 	}
 	return iams
 }
 
-func (p *Parser) parseIAMMemberForOrg(instances []ResourceInstances) []*iam.AssetIAM {
+func (p *Parser) parseIAMMemberForOrg(instances []ResourceInstance) []*iam.AssetIAM {
 	var iams []*iam.AssetIAM
 	for _, i := range instances {
 		iams = append(iams, &iam.AssetIAM{
-			Member:     i.Attributes.Member,
-			Role:       i.Attributes.Role,
-			ParentID:   p.organizationID,
-			ParentType: iam.ORGANIZATION,
+			Member:       i.Attributes.Member,
+			Role:         i.Attributes.Role,
+			ResourceID:   p.organizationID,
+			ResourceType: iam.ORGANIZATION,
 		})
 	}
 	return iams
 }
 
-func (p *Parser) parseIAMMemberForFolder(instances []ResourceInstances) []*iam.AssetIAM {
+func (p *Parser) parseIAMMemberForFolder(instances []ResourceInstance) []*iam.AssetIAM {
 	var iams []*iam.AssetIAM
 	for _, i := range instances {
 		parentID, parentType := p.maybeFindGCPAssetIDAndType(i.Attributes.Folder)
 		iams = append(iams, &iam.AssetIAM{
-			Member:     i.Attributes.Member,
-			Role:       i.Attributes.Role,
-			ParentID:   parentID,
-			ParentType: parentType,
+			Member:       i.Attributes.Member,
+			Role:         i.Attributes.Role,
+			ResourceID:   parentID,
+			ResourceType: parentType,
 		})
 	}
 	return iams
 }
 
-func (p *Parser) parseIAMMemberForProject(instances []ResourceInstances) []*iam.AssetIAM {
+func (p *Parser) parseIAMMemberForProject(instances []ResourceInstance) []*iam.AssetIAM {
 	var iams []*iam.AssetIAM
 	for _, i := range instances {
 		parentID, parentType := p.maybeFindGCPAssetIDAndType(i.Attributes.Project)
 		iams = append(iams, &iam.AssetIAM{
-			Member:     i.Attributes.Member,
-			Role:       i.Attributes.Role,
-			ParentID:   parentID,
-			ParentType: parentType,
+			Member:       i.Attributes.Member,
+			Role:         i.Attributes.Role,
+			ResourceID:   parentID,
+			ResourceType: parentType,
 		})
 	}
 	return iams

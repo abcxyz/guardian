@@ -30,11 +30,16 @@ const (
 	PROJECT      = "project"
 )
 
+// AssetIAM represents the IAM of a GCP resource (e.g binding/policy/membership of GCP Project, Folder, Org)
 type AssetIAM struct {
-	ParentID   string
-	ParentType string
-	Member     string
-	Role       string
+	// The ID of the resource (e.g. Project ID, Folder ID, Org ID)
+	ResourceID string
+	// The type of the resource (e.g. Project, Folder, Org)
+	ResourceType string
+	// The IAM membership (e.g. group:my-group@google.com)
+	Member string
+	// The role (e.g. roles/owner)
+	Role string
 }
 
 type Client struct {
@@ -54,7 +59,7 @@ func NewClient(ctx context.Context) (*Client, error) {
 }
 
 // ProjectIAM returns all IAM memberships, bindings, and policies for the given project.
-func (c *Client) ProjectIAM(ctx context.Context, projectID string, api string) ([]*AssetIAM, error) {
+func (c *Client) ProjectIAM(ctx context.Context, projectID, api string) ([]*AssetIAM, error) {
 	request := &cloudresourcemanager.GetIamPolicyRequest{
 		Options: &cloudresourcemanager.GetPolicyOptions{
 			// Any operation that affects conditional role bindings must specify
@@ -70,10 +75,10 @@ func (c *Client) ProjectIAM(ctx context.Context, projectID string, api string) (
 	for _, b := range policy.Bindings {
 		for _, member := range b.Members {
 			m = append(m, &AssetIAM{
-				Role:       b.Role,
-				Member:     member,
-				ParentID:   projectID,
-				ParentType: assets.PROJECT,
+				Role:         b.Role,
+				Member:       member,
+				ResourceID:   projectID,
+				ResourceType: assets.PROJECT,
 			})
 		}
 	}
@@ -82,7 +87,7 @@ func (c *Client) ProjectIAM(ctx context.Context, projectID string, api string) (
 }
 
 // FolderIAM returns all IAM memberships, bindings, and policies for the given folder.
-func (c *Client) FolderIAM(ctx context.Context, folderID string, api string) ([]*AssetIAM, error) {
+func (c *Client) FolderIAM(ctx context.Context, folderID, api string) ([]*AssetIAM, error) {
 	request := &cloudresourcemanager.GetIamPolicyRequest{
 		Options: &cloudresourcemanager.GetPolicyOptions{
 			// Any operation that affects conditional role bindings must specify
@@ -98,10 +103,10 @@ func (c *Client) FolderIAM(ctx context.Context, folderID string, api string) ([]
 	for _, b := range policy.Bindings {
 		for _, member := range b.Members {
 			m = append(m, &AssetIAM{
-				Role:       b.Role,
-				Member:     member,
-				ParentID:   folderID,
-				ParentType: assets.FOLDER,
+				Role:         b.Role,
+				Member:       member,
+				ResourceID:   folderID,
+				ResourceType: assets.FOLDER,
 			})
 		}
 	}
@@ -110,7 +115,7 @@ func (c *Client) FolderIAM(ctx context.Context, folderID string, api string) ([]
 }
 
 // OrganizationIAM returns all IAM memberships, bindings, and policies for the given organization.
-func (c *Client) OrganizationIAM(ctx context.Context, organizationID string, api string) ([]*AssetIAM, error) {
+func (c *Client) OrganizationIAM(ctx context.Context, organizationID, api string) ([]*AssetIAM, error) {
 	request := &cloudresourcemanager.GetIamPolicyRequest{
 		Options: &cloudresourcemanager.GetPolicyOptions{
 			// Any operation that affects conditional role bindings must specify
@@ -126,10 +131,10 @@ func (c *Client) OrganizationIAM(ctx context.Context, organizationID string, api
 	for _, b := range policy.Bindings {
 		for _, member := range b.Members {
 			m = append(m, &AssetIAM{
-				Role:       b.Role,
-				Member:     member,
-				ParentID:   organizationID,
-				ParentType: assets.ORGANIZATION,
+				Role:         b.Role,
+				Member:       member,
+				ResourceID:   organizationID,
+				ResourceType: assets.ORGANIZATION,
 			})
 		}
 	}
@@ -140,10 +145,10 @@ func (c *Client) OrganizationIAM(ctx context.Context, organizationID string, api
 // URI returns a canonical string identifier for the IAM entity.
 func URI(i *AssetIAM, organizationID string) string {
 	role := strings.Replace(strings.Replace(i.Role, "organizations/", "", 1), fmt.Sprintf("%s/", organizationID), "", 1)
-	if i.ParentType == FOLDER {
-		return fmt.Sprintf("/organizations/%s/folders/%s/role/%s/%s", organizationID, i.ParentID, role, i.Member)
-	} else if i.ParentType == PROJECT {
-		return fmt.Sprintf("/organizations/%s/projects/%s/role/%s/%s", organizationID, i.ParentID, role, i.Member)
+	if i.ResourceType == FOLDER {
+		return fmt.Sprintf("/organizations/%s/folders/%s/role/%s/%s", organizationID, i.ResourceID, role, i.Member)
+	} else if i.ResourceType == PROJECT {
+		return fmt.Sprintf("/organizations/%s/projects/%s/role/%s/%s", organizationID, i.ResourceID, role, i.Member)
 	} else {
 		return fmt.Sprintf("/organizations/%s/role/%s/%s", organizationID, role, i.Member)
 	}
