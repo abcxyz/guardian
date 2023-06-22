@@ -223,7 +223,6 @@ func URI(i *iam.AssetIAM, organizationID string) string {
 func driftignore(ctx context.Context, fname string) (map[string]bool, error) {
 	lines := make(map[string]bool)
 	f, err := os.Open(fname)
-	defer f.Close()
 	if err != nil {
 		if os.IsNotExist(err) {
 			logger := logging.FromContext(ctx)
@@ -232,6 +231,7 @@ func driftignore(ctx context.Context, fname string) (map[string]bool, error) {
 		}
 		return nil, fmt.Errorf("failed to read driftignore file %s: %w", fname, err)
 	}
+	defer f.Close()
 
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
