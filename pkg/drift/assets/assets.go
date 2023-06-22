@@ -18,8 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
-	"strconv"
+	"regexp"
 	"strings"
 
 	asset "cloud.google.com/go/asset/apiv1"
@@ -29,17 +28,37 @@ import (
 )
 
 const (
+	// Organization Node Type.
 	ORGANIZATION = "Organization"
-	FOLDER       = "Folder"
-	PROJECT      = "Project"
+	// Folder Node Type.
+	FOLDER = "Folder"
+	// Project Node Type.
+	PROJECT = "Project"
+
+	ORGANIZATION_ASSET_TYPE = "cloudresourcemanager.googleapis.com/Organization"
+	FOLDER_ASSET_TYPE       = "cloudresourcemanager.googleapis.com/Folder"
+	PROJECT_ASSET_TYPE      = "cloudresourcemanager.googleapis.com/Project"
+	BUCKET_ASSET_TYPE       = "storage.googleapis.com/Bucket"
 )
 
+// Regex pattern used to parse ID from ParentFullResourceName.
+var RESOURCE_NAME_ID_PATTERN = regexp.MustCompile(`\/\/cloudresourcemanager\.googleapis\.com\/(?:folders|organizations)\/(\d*)`)
+
+// HierarchyNode represents a node in the GCP Resource Hierarchy.
+// Example: Organization, Folder, or Project.
 type HierarchyNode struct {
-	ID         int64
-	Name       string
-	ParentID   int64
-	ParentType string // Either Folder or Organization
-	NodeType   string // Either Folder or Organization or Project
+	// The unique identifier of the GCP Organization, Folder, or Project
+	// Example: 123123423423
+	ID string
+	// The unique string name of the Organization, Folder, or Project.
+	// Example: my-project-1234
+	Name string
+	// The unique identifier of the Folder or Organization this Folder or Project resides in.
+	ParentID string
+	// The type of the parent node. Either Folder or Organization.
+	ParentType string
+	// The type of node. Either Folder or Organization or Project
+	NodeType string
 }
 
 type Client struct {
@@ -50,7 +69,7 @@ type Client struct {
 func NewClient(ctx context.Context) (*Client, error) {
 	client, err := asset.NewClient(ctx)
 	if err != nil {
-		log.Fatalf("asset.NewClient: %v", err)
+		return nil, fmt.Errorf("failed to initialize asset API client: %w", err)
 	}
 
 	return &Client{
@@ -58,39 +77,39 @@ func NewClient(ctx context.Context) (*Client, error) {
 	}, nil
 }
 
-// GetBuckets returns all GCS Buckets in the organization that matches the given query.
-func (c *Client) GetBuckets(ctx context.Context, organizationID int64, query string) ([]string, error) {
+// Buckets returns all GCS Buckets in the organization that matches the given query.
+func (c *Client) Buckets(ctx context.Context, organizationID, query string) ([]string, error) {
 	// gcloud asset search-all-resources \
 	// --asset-types=storage.googleapis.com/Bucket --query="$TERRAFORM_GCS_BUCKET_LABEL" --read-mask=name \
 	// "--scope=organizations/$ORGANIZATION_ID"
 	var readMask fmpb.FieldMask
 	readMask.Paths = append(readMask.Paths, "name")
 	req := &assetpb.SearchAllResourcesRequest{
-		Scope:      fmt.Sprintf("organizations/%d", organizationID),
-		AssetTypes: []string{"storage.googleapis.com/Bucket"},
+		Scope:      fmt.Sprintf("organizations/%s", organizationID),
+		AssetTypes: []string{BUCKET_ASSET_TYPE},
 		Query:      query,
 		ReadMask:   &readMask,
 	}
 	it := c.assetClient.SearchAllResources(ctx, req)
-	results := []string{}
+	var results []string
 	for {
 		resource, err := it.Next()
 		if errors.Is(err, iterator.Done) {
 			break
 		}
 		if err != nil {
-			return nil, fmt.Errorf("error while iterating over assets %w", err)
+			return nil, fmt.Errorf("failed to iterate assets: %w", err)
 		}
-		results = append(results, strings.Replace(resource.Name, "//storage.googleapis.com/", "", 1))
+		results = append(results, strings.TrimPrefix(resource.Name, "//storage.googleapis.com/"))
 	}
 	return results, nil
 }
 
-// GetBuckets returns all GCP Hierarchy Nodes (Folders or Projects) for the given organization.
-func (c *Client) GetHierarchyAssets(ctx context.Context, organizationID int64, assetType string) ([]HierarchyNode, error) {
-	f := []HierarchyNode{}
+// HierarchyAssets returns all GCP Hierarchy Nodes (Folders or Projects) for the given organization.
+func (c *Client) HierarchyAssets(ctx context.Context, organizationID, assetType string) ([]HierarchyNode, error) {
+	var f []HierarchyNode
 	req := &assetpb.SearchAllResourcesRequest{
-		Scope:      fmt.Sprintf("organizations/%d", organizationID),
+		Scope:      fmt.Sprintf("organizations/%s", organizationID),
 		AssetTypes: []string{assetType},
 	}
 	it := c.assetClient.SearchAllResources(ctx, req)
@@ -100,30 +119,31 @@ func (c *Client) GetHierarchyAssets(ctx context.Context, organizationID int64, a
 			break
 		}
 		if err != nil {
-			return nil, fmt.Errorf("error while iterating over assets %w", err)
+			return nil, fmt.Errorf("failed to iterate assets: %w", err)
 		}
-		var id int64
-		assetType := strings.Replace(resource.AssetType, "cloudresourcemanager.googleapis.com/", "", 1)
+		var id string
+		// Example value: "cloudresourcemanager.googleapis.com/Folder"
+		assetType := strings.TrimPrefix(resource.AssetType, "cloudresourcemanager.googleapis.com/")
 		if assetType == FOLDER {
-			id, err = strconv.ParseInt(strings.Replace(resource.Folders[0], "folders/", "", 1), 10, 64)
-			if err != nil {
-				return nil, fmt.Errorf("unable to parse ID from folder %v: %w", resource, err)
-			}
+			// Example value: "folders/123542345234"
+			id = strings.TrimPrefix(resource.Folders[0], "folders/")
 		} else if assetType == PROJECT {
-			id, err = strconv.ParseInt(strings.Replace(resource.Project, "projects/", "", 1), 10, 64)
-			if err != nil {
-				return nil, fmt.Errorf("unable to parse ID from folder %v: %w", resource, err)
-			}
+			// Example value: "projects/45234234234"
+			id = strings.TrimPrefix(resource.Project, "projects/")
 		}
-		parentID, err := strconv.ParseInt(parseName(resource.ParentFullResourceName), 10, 64)
+		// Example value: "//cloudresourcemanager.googleapis.com/folders/234234233233"
+		// Example value: "//cloudresourcemanager.googleapis.com/organizations/234234233235"
+		parentID, err := extractIDFromResourceName(resource.ParentFullResourceName)
 		if err != nil {
-			return nil, fmt.Errorf("unable to parse parent ID from folder %v: %w", resource, err)
+			return nil, fmt.Errorf("failed to parse ID from parent resource name: %w", err)
 		}
+		// Example value: "cloudresourcemanager.googleapis.com/Folder"
+		parentType := strings.TrimPrefix(resource.ParentAssetType, "cloudresourcemanager.googleapis.com/")
 		f = append(f, HierarchyNode{
 			ID:         id,
 			Name:       resource.DisplayName,
-			ParentID:   parentID,
-			ParentType: strings.Replace(resource.ParentAssetType, "cloudresourcemanager.googleapis.com/", "", 1),
+			ParentID:   *parentID,
+			ParentType: parentType,
 			NodeType:   assetType,
 		})
 	}
@@ -131,7 +151,10 @@ func (c *Client) GetHierarchyAssets(ctx context.Context, organizationID int64, a
 	return f, nil
 }
 
-func parseName(gcpResourceName string) string {
-	slice := strings.Split(gcpResourceName, "/")
-	return slice[len(slice)-1]
+func extractIDFromResourceName(gcpResourceName string) (*string, error) {
+	matches := RESOURCE_NAME_ID_PATTERN.FindStringSubmatch(gcpResourceName)
+	if len(matches) == 0 {
+		return nil, fmt.Errorf("failed to parse ID from Resource Name: %s", gcpResourceName)
+	}
+	return &matches[0], nil
 }

@@ -31,7 +31,7 @@ type DetectIamDriftCommand struct {
 	// testFlagSetOpts is only used for testing.
 	testFlagSetOpts []cli.Option
 
-	organizationID int64
+	organizationID string
 	gcsBucketQuery string
 }
 
@@ -53,12 +53,12 @@ func (c *DetectIamDriftCommand) Flags() *cli.FlagSet {
 	// Command options
 	f := set.NewSection("COMMAND OPTIONS")
 
-	f.Int64Var(&cli.Int64Var{
+	f.StringVar(&cli.StringVar{
 		Name:    "organization_id",
 		Target:  &c.organizationID,
 		Example: "123435456456",
 		Usage:   `GCP Organization to detect drift for.`,
-		Default: 0,
+		Default: "",
 	})
 	f.StringVar(&cli.StringVar{
 		Name:    "gcs_bucket_query",
@@ -84,7 +84,7 @@ func (c *DetectIamDriftCommand) Run(ctx context.Context, args []string) error {
 
 	c.Outf("Running IAM Drift Detection...")
 
-	if c.organizationID == 0 {
+	if c.organizationID == "" {
 		return fmt.Errorf("invalid Argument: organization_id must be provided")
 	}
 

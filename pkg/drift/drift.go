@@ -17,6 +17,7 @@ package drift
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/abcxyz/guardian/pkg/drift/assets"
 	"github.com/abcxyz/guardian/pkg/drift/iam"
@@ -24,113 +25,118 @@ import (
 )
 
 // Process compares the actual GCP IAM against the IAM in your Terraform state files.
-func Process(ctx context.Context, organizationID int64, bucketQuery string) error {
+func Process(ctx context.Context, organizationID, bucketQuery string) error {
 	assetsClient, err := assets.NewClient(ctx)
 	if err != nil {
-		return fmt.Errorf("error initializing assets Client: %w", err)
+		return fmt.Errorf("failed to initialize assets client: %w", err)
 	}
-	folders, err := assetsClient.GetHierarchyAssets(ctx, organizationID, "cloudresourcemanager.googleapis.com/Folder")
+	folders, err := assetsClient.HierarchyAssets(ctx, organizationID, assets.FOLDER_ASSET_TYPE)
 	if err != nil {
-		return fmt.Errorf("unable to get folders: %w", err)
+		return fmt.Errorf("failed to get folders: %w", err)
 	}
-	projects, err := assetsClient.GetHierarchyAssets(ctx, organizationID, "cloudresourcemanager.googleapis.com/Project")
+	projects, err := assetsClient.HierarchyAssets(ctx, organizationID, assets.PROJECT_ASSET_TYPE)
 	if err != nil {
-		return fmt.Errorf("unable to get folders: %w", err)
+		return fmt.Errorf("failed to get folders: %w", err)
 	}
-	buckets, err := assetsClient.GetBuckets(ctx, organizationID, bucketQuery)
+	buckets, err := assetsClient.Buckets(ctx, organizationID, bucketQuery)
 	if err != nil {
-		return fmt.Errorf("error fetching terraform state GCS buckets: %w", err)
+		return fmt.Errorf("failed to determine terraform state GCS buckets: %w", err)
 	}
-	fmt.Printf("Fetching IAM for %d Folders and %d Projects\n", len(folders), len(projects))
+	log.Printf("Fetching IAM for %d Folders and %d Projects\n", len(folders), len(projects))
 
-	gcpIAM, err := getActualGCPIAM(ctx, organizationID, folders, projects)
+	gcpIAM, err := actualGCPIAM(ctx, organizationID, folders, projects)
 	if err != nil {
-		return fmt.Errorf("error determining GCP IAM: %w", err)
+		return fmt.Errorf("failed to determine GCP IAM: %w", err)
 	}
-	fmt.Printf("Fetching terraform state from %d Buckets\n", len(buckets))
-	tfIAM, err := getTerraformStateIAM(ctx, organizationID, folders, projects, buckets)
+	log.Printf("Fetching terraform state from %d Buckets\n", len(buckets))
+	tfIAM, err := terraformStateIAM(ctx, organizationID, folders, projects, buckets)
 	if err != nil {
-		return fmt.Errorf("error determining Terraform State: %w", err)
+		return fmt.Errorf("failed to parse IAM from Terraform State: %w", err)
 	}
-	fmt.Printf("Found %d gcp IAM entries\n", len(gcpIAM))
-	fmt.Printf("Found %d terraform IAM entries\n", len(tfIAM))
+	log.Printf("Found %d gcp IAM entries\n", len(gcpIAM))
+	log.Printf("Found %d terraform IAM entries\n", len(tfIAM))
 
 	clickOpsChanges := difference(gcpIAM, tfIAM)
 	missingTerraformChanges := difference(tfIAM, gcpIAM)
 
-	fmt.Printf("Found %d Click Ops Changes\n", len(clickOpsChanges))
-	fmt.Printf("Found %d Missing Terraform Changes\n", len(missingTerraformChanges))
+	log.Printf("Found %d Click Ops Changes\n", len(clickOpsChanges))
+	log.Printf("Found %d Missing Terraform Changes\n", len(missingTerraformChanges))
 
 	return nil
 }
 
-func getActualGCPIAM(
+// actualGCPIAM queries the GCP Asset Inventory and Resource Manager to determine the IAM settings on all resources.
+// Returns a map of asset URI to asset IAM.
+func actualGCPIAM(
 	ctx context.Context,
-	organizationID int64,
+	organizationID string,
 	folders []assets.HierarchyNode,
 	projects []assets.HierarchyNode,
-) (map[string]iam.AssetIAM, error) {
+) (map[string]*iam.AssetIAM, error) {
 	client, err := iam.NewClient(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("error initializing iam Client: %w", err)
+		return nil, fmt.Errorf("failed to initialize iam client: %w", err)
 	}
 
-	m := make(map[string]iam.AssetIAM)
+	m := make(map[string]*iam.AssetIAM)
 	for _, f := range folders {
-		fIAM, err := client.GetIAMForFolder(ctx, f, "folders")
+		fIAM, err := client.FolderIAM(ctx, f, "folders")
 		if err != nil {
-			return nil, fmt.Errorf("unable to get folder IAM for folder with ID '%d' and name '%s': %w", f.ID, f.Name, err)
+			return nil, fmt.Errorf("failed to get folder IAM for folder with ID '%s' and name '%s': %w", f.ID, f.Name, err)
 		}
 		for _, i := range fIAM {
-			m[iam.CreateURI(i, organizationID)] = i
+			m[iam.URI(i, organizationID)] = i
 		}
 	}
 	for _, p := range projects {
-		pIAM, err := client.GetIAMForProject(ctx, p, "projects")
+		pIAM, err := client.ProjectIAM(ctx, p, "projects")
 		if err != nil {
-			return nil, fmt.Errorf("unable to get project IAM for project with ID '%d' and name '%s': %w", p.ID, p.Name, err)
+			return nil, fmt.Errorf("failed to get project IAM for project with ID '%s' and name '%s': %w", p.ID, p.Name, err)
 		}
 		for _, i := range pIAM {
-			m[iam.CreateURI(i, organizationID)] = i
+			m[iam.URI(i, organizationID)] = i
 		}
 	}
 
 	return m, nil
 }
 
-func getTerraformStateIAM(
+// terraformStateIAM locates all terraform state files in GCS buckets and parses them to find all IAM resources.
+// Returns a map of asset URI to asset IAM.
+func terraformStateIAM(
 	ctx context.Context,
-	organizationID int64,
+	organizationID string,
 	folders []assets.HierarchyNode,
 	projects []assets.HierarchyNode,
 	gcsBuckets []string,
-) (map[string]iam.AssetIAM, error) {
+) (map[string]*iam.AssetIAM, error) {
 	parser, err := terraform.NewParser(ctx, organizationID, folders, projects)
 	if err != nil {
-		return nil, fmt.Errorf("error initializing terraform parser: %w", err)
+		return nil, fmt.Errorf("failed to initialize terraform parser: %w", err)
 	}
-	gcsURIs, err := parser.GetAllTerraformStateFileURIs(ctx, gcsBuckets)
+	gcsURIs, err := parser.StateFileURIs(ctx, gcsBuckets)
 	if err != nil {
-		return nil, fmt.Errorf("error determining terraform state files: %w", err)
+		return nil, fmt.Errorf("failed to get terraform state file URIs: %w", err)
 	}
 
-	tIAM, err := parser.ProcessAllTerraformStates(ctx, gcsURIs)
+	tIAM, err := parser.ProcessStates(ctx, gcsURIs)
 	if err != nil {
-		return nil, fmt.Errorf("unable to parse terraform states: %w", err)
+		return nil, fmt.Errorf("failed to parse terraform states: %w", err)
 	}
 
-	m := make(map[string]iam.AssetIAM)
+	m := make(map[string]*iam.AssetIAM)
 	for _, i := range tIAM {
-		m[iam.CreateURI(i, organizationID)] = i
+		m[iam.URI(i, organizationID)] = i
 	}
 
 	return m, nil
 }
 
-func difference(source, target map[string]iam.AssetIAM) []string {
-	found := []string{}
-	for key := range source {
-		if _, f := target[key]; !f {
+// Finds the keys located in the left map that are missing in the right map.
+func difference(left, right map[string]*iam.AssetIAM) []string {
+	var found []string
+	for key := range left {
+		if _, f := right[key]; !f {
 			found = append(found, key)
 		}
 	}
