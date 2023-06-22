@@ -27,8 +27,8 @@ import (
 )
 
 const (
-	UNKNOWN_PARENT_ID   = "UNKNOWN_PARENT_ID"
-	UNKNOWN_PARENT_TYPE = "UNKNOWN_PARENT_TYPE"
+	UnknownParentID   = "UNKNOWN_PARENT_ID"
+	UnknownParentType = "UNKNOWN_PARENT_TYPE"
 )
 
 // ResourceInstances represents the JSON terraform state IAM instance.
@@ -148,7 +148,7 @@ func (p *Parser) parseIAMBindingForOrg(instances []ResourceInstance) []*iam.Asse
 				Member:       m,
 				Role:         i.Attributes.Role,
 				ResourceID:   p.organizationID,
-				ResourceType: iam.ORGANIZATION,
+				ResourceType: assets.Organization,
 			})
 		}
 	}
@@ -194,7 +194,7 @@ func (p *Parser) parseIAMMemberForOrg(instances []ResourceInstance) []*iam.Asset
 			Member:       i.Attributes.Member,
 			Role:         i.Attributes.Role,
 			ResourceID:   p.organizationID,
-			ResourceType: iam.ORGANIZATION,
+			ResourceType: assets.Organization,
 		}
 	}
 	return iams
@@ -233,8 +233,8 @@ func (p *Parser) maybeFindGCPAssetIDAndType(ID string) (string, string) {
 	var assetType string
 	asset := p.findGCPAsset(ID)
 	if asset == nil {
-		assetID = UNKNOWN_PARENT_ID
-		assetType = UNKNOWN_PARENT_TYPE
+		assetID = UnknownParentID
+		assetType = UnknownParentType
 	} else {
 		assetID = asset.ID
 		assetType = asset.NodeType

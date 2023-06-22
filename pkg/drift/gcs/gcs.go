@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	DEFAULT_TERRAFORM_STATE_FILE_LIMIT = 512 * 1024 * 1024 // 512 MB
+	defaultTerraformStateFileSizeLimit = 512 * 1024 * 1024 // 512 MB
 )
 
 type Client struct {
@@ -78,7 +78,7 @@ func (c *Client) DownloadFileIntoMemory(ctx context.Context, uri string) ([]byte
 	}
 	defer rc.Close()
 
-	limitedReader := io.LimitReader(rc, DEFAULT_TERRAFORM_STATE_FILE_LIMIT)
+	limitedReader := io.LimitReader(rc, defaultTerraformStateFileSizeLimit)
 	data, err := io.ReadAll(limitedReader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to download into memory: ioutil.ReadAll: %w", err)

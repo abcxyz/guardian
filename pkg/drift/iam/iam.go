@@ -24,12 +24,6 @@ import (
 	"github.com/abcxyz/guardian/pkg/drift/assets"
 )
 
-const (
-	ORGANIZATION = "organization"
-	FOLDER       = "folder"
-	PROJECT      = "project"
-)
-
 // AssetIAM represents the IAM of a GCP resource (e.g binding/policy/membership of GCP Project, Folder, Org).
 type AssetIAM struct {
 	// The ID of the resource (e.g. Project ID, Folder ID, Org ID).
@@ -143,9 +137,9 @@ func (c *Client) OrganizationIAM(ctx context.Context, organizationID, api string
 // URI returns a canonical string identifier for the IAM entity.
 func URI(i *AssetIAM, organizationID string) string {
 	role := strings.Replace(strings.Replace(i.Role, "organizations/", "", 1), fmt.Sprintf("%s/", organizationID), "", 1)
-	if i.ResourceType == FOLDER {
+	if i.ResourceType == assets.Folder {
 		return fmt.Sprintf("/organizations/%s/folders/%s/role/%s/%s", organizationID, i.ResourceID, role, i.Member)
-	} else if i.ResourceType == PROJECT {
+	} else if i.ResourceType == assets.Project {
 		return fmt.Sprintf("/organizations/%s/projects/%s/role/%s/%s", organizationID, i.ResourceID, role, i.Member)
 	} else {
 		return fmt.Sprintf("/organizations/%s/role/%s/%s", organizationID, role, i.Member)
