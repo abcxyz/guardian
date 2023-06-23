@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 
@@ -108,14 +109,14 @@ func (p *Parser) StateFileURIs(ctx context.Context, gcsBuckets []string) ([]stri
 func (p *Parser) ProcessStates(ctx context.Context, gcsUris []string) ([]*iam.AssetIAM, error) {
 	var iams []*iam.AssetIAM
 	for _, uri := range gcsUris {
-		state := TerraformState{}
-		// TODO(dcreey): Don't read all into memory before unmarshall https://github.com/abcxyz/guardian/issues/97.
-		data, err := p.gcs.DownloadFileIntoMemory(ctx, uri)
-		if err != nil {
+		var state TerraformState
+		if err := p.gcs.DownloadAndUnmarshal(ctx, uri, func(r io.Reader) error {
+			if err := json.NewDecoder(r).Decode(&state); err != nil {
+				return fmt.Errorf("failed to decode terraform state: %w", err)
+			}
+			return nil
+		}); err != nil {
 			return nil, fmt.Errorf("failed to download gcs URI for terraform: %w", err)
-		}
-		if err = json.Unmarshal(data, &state); err != nil {
-			return nil, fmt.Errorf("failed to parse terraform state into json: %w", err)
 		}
 		iams = append(iams, p.parseTerraformStateIAM(state)...)
 	}
