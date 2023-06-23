@@ -15,8 +15,10 @@
 package drift
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/abcxyz/pkg/logging"
@@ -26,56 +28,71 @@ import (
 	"github.com/abcxyz/guardian/pkg/drift/terraform"
 )
 
+// IAMDrift represents the detected iam drift in a gcp org.
+type IAMDrift struct {
+	ClickOpsChanges         map[string]struct{}
+	MissingTerraformChanges map[string]struct{}
+}
+
 // Process compares the actual GCP IAM against the IAM in your Terraform state files.
-func Process(ctx context.Context, organizationID, bucketQuery string) error {
+func Process(ctx context.Context, organizationID, bucketQuery, driftignoreFile string) (*IAMDrift, error) {
 	assetsClient, err := assets.NewClient(ctx)
 	logger := logging.FromContext(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to initialize assets client: %w", err)
+		return nil, fmt.Errorf("failed to initialize assets client: %w", err)
 	}
 	// We differentiate between projects and folders here since we use them separately in
 	// downstream operations.
 	folders, err := assetsClient.HierarchyAssets(ctx, organizationID, assets.FolderAssetType)
 	if err != nil {
-		return fmt.Errorf("failed to get folders: %w", err)
+		return nil, fmt.Errorf("failed to get folders: %w", err)
 	}
 	projects, err := assetsClient.HierarchyAssets(ctx, organizationID, assets.ProjectAssetType)
 	if err != nil {
-		return fmt.Errorf("failed to get folders: %w", err)
+		return nil, fmt.Errorf("failed to get folders: %w", err)
 	}
 	buckets, err := assetsClient.Buckets(ctx, organizationID, bucketQuery)
 	if err != nil {
-		return fmt.Errorf("failed to determine terraform state GCS buckets: %w", err)
+		return nil, fmt.Errorf("failed to determine terraform state GCS buckets: %w", err)
 	}
-	logger.Debugw("Fetching IAM for Org, Folders and Projects", "number_of_folders", len(folders), "number_of_projects", len(projects))
+	logger.Debugw("fetching iam for org, folders and projects",
+		"number_of_folders", len(folders),
+		"number_of_projects", len(projects))
 
 	gcpIAM, err := actualGCPIAM(ctx, organizationID, folders, projects)
 	if err != nil {
-		return fmt.Errorf("failed to determine GCP IAM: %w", err)
+		return nil, fmt.Errorf("failed to determine GCP IAM: %w", err)
 	}
 	logger.Debugw("Fetching terraform state from Buckets", "number_of_buckets", len(buckets))
 	tfIAM, err := terraformStateIAM(ctx, organizationID, folders, projects, buckets)
 	if err != nil {
-		return fmt.Errorf("failed to parse IAM from Terraform State: %w", err)
+		return nil, fmt.Errorf("failed to parse IAM from Terraform State: %w", err)
 	}
-	logger.Debugw("GCP IAM entries", "number_of_entries", len(gcpIAM))
-	logger.Debugw("Terraform IAM entries", "number_of_entries", len(tfIAM))
+	logger.Debugw("gcp iam entries", "number_of_entries", len(gcpIAM))
+	logger.Debugw("terraform iam entries", "number_of_entries", len(tfIAM))
 
-	clickOpsChanges := difference(gcpIAM, tfIAM)
-	missingTerraformChanges := difference(tfIAM, gcpIAM)
+	clickOpsChanges := differenceMap(gcpIAM, tfIAM)
+	missingTerraformChanges := differenceMap(tfIAM, gcpIAM)
 
-	logger.Debugw("Found Click Ops Changes", "number_of_changes", len(clickOpsChanges))
-	logger.Debugw("Found Missing Terraform Changes", "number_of_changes", len(missingTerraformChanges))
-
-	// Output to stdout to mimic bash script for now.
-	if len(clickOpsChanges) > 0 {
-		fmt.Println("Found Click Ops Changes \n>", strings.Join(clickOpsChanges, "\n> "))
-	}
-	if len(missingTerraformChanges) > 0 {
-		fmt.Println("Found Missing Terraform Changes \n>", strings.Join(missingTerraformChanges, "\n> "))
+	ignored, err := driftignore(ctx, driftignoreFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse driftignore file: %w", err)
 	}
 
-	return nil
+	clickOpsNoIgnoredChanges := differenceSet(clickOpsChanges, ignored)
+	missingTerraformNoIgnoredChanges := differenceSet(clickOpsChanges, ignored)
+
+	logger.Debugw("found click ops changes",
+		"number_of_changes", len(clickOpsNoIgnoredChanges),
+		"number_of_ignored_changes", len(clickOpsChanges)-len(clickOpsNoIgnoredChanges))
+	logger.Debugw("found missing terraform changes",
+		"number_of_changes", len(missingTerraformNoIgnoredChanges),
+		"number_of_ignored_changes", len(missingTerraformChanges)-len(missingTerraformNoIgnoredChanges))
+
+	return &IAMDrift{
+		ClickOpsChanges:         clickOpsChanges,
+		MissingTerraformChanges: missingTerraformChanges,
+	}, nil
 }
 
 // actualGCPIAM queries the GCP Asset Inventory and Resource Manager to determine the IAM settings on all resources.
@@ -152,12 +169,25 @@ func terraformStateIAM(
 	return m, nil
 }
 
-// Finds the keys located in the left map that are missing in the right map.
-func difference(left, right map[string]*iam.AssetIAM) []string {
-	var found []string
+// differenceMap finds the keys located in the left map that are missing in the right map.
+// We return a set so that we can do future comparisons easily with the result.
+func differenceMap(left, right map[string]*iam.AssetIAM) map[string]struct{} {
+	found := make(map[string]struct{})
 	for key := range left {
 		if _, f := right[key]; !f {
-			found = append(found, key)
+			found[key] = struct{}{}
+		}
+	}
+	return found
+}
+
+// differenceSet finds the keys located in the left set that are missing in the right set.
+// We return a set so that we can do future comparisons easily with the result.
+func differenceSet(left, right map[string]struct{}) map[string]struct{} {
+	found := make(map[string]struct{})
+	for key := range left {
+		if _, f := right[key]; !f {
+			found[key] = struct{}{}
 		}
 	}
 	return found
@@ -174,4 +204,27 @@ func URI(i *iam.AssetIAM, organizationID string) string {
 	} else {
 		return fmt.Sprintf("/organizations/%s/%s/%s", organizationID, role, i.Member)
 	}
+}
+
+// driftignore parses the driftignore file into a set.
+// Go doesn't implement set so we use a map of boolean values all set to true.
+func driftignore(ctx context.Context, fname string) (map[string]struct{}, error) {
+	lines := make(map[string]struct{})
+	f, err := os.Open(fname)
+	if err != nil {
+		if os.IsNotExist(err) {
+			logger := logging.FromContext(ctx)
+			logger.Debugw("failed to find driftignore", "filename", fname)
+			return lines, nil
+		}
+		return nil, fmt.Errorf("failed to read driftignore file %s: %w", fname, err)
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		lines[strings.TrimSpace(scanner.Text())] = struct{}{}
+	}
+
+	return lines, nil
 }
