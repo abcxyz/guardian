@@ -71,10 +71,10 @@ func expandGraph(ignored *ignoredAssets, hierarchyGraph *assets.HierarchyGraph) 
 		if err != nil {
 			return nil, fmt.Errorf("failed to traverse hierarchy for folder with ID %s: %w", folderID, err)
 		}
-		ignoredFolders = mergeSets(ignoredFolders, ids)
+		mergeSets(ignoredFolders, ids)
 	}
 	for folderID := range ignoredFolders {
-		ignoredProjects = addListToSet(ignoredProjects, hierarchyGraph.IDToNodes[folderID].ProjectIDs)
+		addListToSet(ignoredProjects, hierarchyGraph.IDToNodes[folderID].ProjectIDs)
 	}
 
 	return &ignoredAssets{
@@ -86,6 +86,7 @@ func expandGraph(ignored *ignoredAssets, hierarchyGraph *assets.HierarchyGraph) 
 
 // driftignore parses the driftignore file into a set.
 // Go doesn't implement set so we use a map of boolean values all set to true.
+// TODO(dcreey): Consider using yaml/json config https://github.com/abcxyz/guardian/issues/105
 func driftignore(ctx context.Context, fname string) (*ignoredAssets, error) {
 	iamAssets := make(map[string]struct{})
 	projects := make(map[string]struct{})
@@ -128,16 +129,14 @@ func driftignore(ctx context.Context, fname string) (*ignoredAssets, error) {
 	}, nil
 }
 
-func addListToSet(set map[string]struct{}, list []string) map[string]struct{} {
+func addListToSet(set map[string]struct{}, list []string) {
 	for _, v := range list {
 		set[v] = struct{}{}
 	}
-	return set
 }
 
-func mergeSets(setA, setB map[string]struct{}) map[string]struct{} {
+func mergeSets(setA, setB map[string]struct{}) {
 	for i := range setB {
 		setA[i] = struct{}{}
 	}
-	return setA
 }
