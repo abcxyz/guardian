@@ -175,7 +175,9 @@ func newHierarchyGraph(organizationID string, folders, projects []*assets.Hierar
 	}
 
 	for _, folder := range folders {
-		addFolderToGraph(graph, folder, folderHash)
+		if err := addFolderToGraph(graph, folder, folderHash); err != nil {
+			return nil, fmt.Errorf("failed to traverse folders hierarchy for folder with ID %s when creating graph: %w", folder.ID, err)
+		}
 	}
 
 	for _, project := range projects {
