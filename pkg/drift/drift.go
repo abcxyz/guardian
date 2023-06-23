@@ -19,7 +19,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"sort"
 	"strings"
 
 	"github.com/abcxyz/pkg/logging"
@@ -29,26 +28,32 @@ import (
 	"github.com/abcxyz/guardian/pkg/drift/terraform"
 )
 
+// IAMDrift represents the detected iam drift in a gcp org.
+type IAMDrift struct {
+	ClickOpsChanges         map[string]struct{}
+	MissingTerraformChanges map[string]struct{}
+}
+
 // Process compares the actual GCP IAM against the IAM in your Terraform state files.
-func Process(ctx context.Context, organizationID, bucketQuery, driftignoreFile string) error {
+func Process(ctx context.Context, organizationID, bucketQuery, driftignoreFile string) (*IAMDrift, error) {
 	assetsClient, err := assets.NewClient(ctx)
 	logger := logging.FromContext(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to initialize assets client: %w", err)
+		return nil, fmt.Errorf("failed to initialize assets client: %w", err)
 	}
 	// We differentiate between projects and folders here since we use them separately in
 	// downstream operations.
 	folders, err := assetsClient.HierarchyAssets(ctx, organizationID, assets.FolderAssetType)
 	if err != nil {
-		return fmt.Errorf("failed to get folders: %w", err)
+		return nil, fmt.Errorf("failed to get folders: %w", err)
 	}
 	projects, err := assetsClient.HierarchyAssets(ctx, organizationID, assets.ProjectAssetType)
 	if err != nil {
-		return fmt.Errorf("failed to get folders: %w", err)
+		return nil, fmt.Errorf("failed to get folders: %w", err)
 	}
 	buckets, err := assetsClient.Buckets(ctx, organizationID, bucketQuery)
 	if err != nil {
-		return fmt.Errorf("failed to determine terraform state GCS buckets: %w", err)
+		return nil, fmt.Errorf("failed to determine terraform state GCS buckets: %w", err)
 	}
 	logger.Debugw("fetching iam for org, folders and projects",
 		"number_of_folders", len(folders),
@@ -56,12 +61,12 @@ func Process(ctx context.Context, organizationID, bucketQuery, driftignoreFile s
 
 	gcpIAM, err := actualGCPIAM(ctx, organizationID, folders, projects)
 	if err != nil {
-		return fmt.Errorf("failed to determine GCP IAM: %w", err)
+		return nil, fmt.Errorf("failed to determine GCP IAM: %w", err)
 	}
 	logger.Debugw("Fetching terraform state from Buckets", "number_of_buckets", len(buckets))
 	tfIAM, err := terraformStateIAM(ctx, organizationID, folders, projects, buckets)
 	if err != nil {
-		return fmt.Errorf("failed to parse IAM from Terraform State: %w", err)
+		return nil, fmt.Errorf("failed to parse IAM from Terraform State: %w", err)
 	}
 	logger.Debugw("gcp iam entries", "number_of_entries", len(gcpIAM))
 	logger.Debugw("terraform iam entries", "number_of_entries", len(tfIAM))
@@ -71,7 +76,7 @@ func Process(ctx context.Context, organizationID, bucketQuery, driftignoreFile s
 
 	ignored, err := driftignore(ctx, driftignoreFile)
 	if err != nil {
-		return fmt.Errorf("failed to parse driftignore file: %w", err)
+		return nil, fmt.Errorf("failed to parse driftignore file: %w", err)
 	}
 
 	clickOpsNoIgnoredChanges := differenceSet(clickOpsChanges, ignored)
@@ -84,20 +89,10 @@ func Process(ctx context.Context, organizationID, bucketQuery, driftignoreFile s
 		"number_of_changes", len(missingTerraformNoIgnoredChanges),
 		"number_of_ignored_changes", len(missingTerraformChanges)-len(missingTerraformNoIgnoredChanges))
 
-	// Output to stdout to mimic bash script for now.
-	// TODO(dcreey): Determine cleaner API that aligns with using the cli tool.
-	if len(clickOpsChanges) > 0 {
-		uris := keys(clickOpsNoIgnoredChanges)
-		sort.Strings(uris)
-		fmt.Println("Found Click Ops Changes \n>", strings.Join(uris, "\n> "))
-	}
-	if len(missingTerraformChanges) > 0 {
-		uris := keys(missingTerraformNoIgnoredChanges)
-		sort.Strings(uris)
-		fmt.Println("Found Missing Terraform Changes \n>", strings.Join(uris, "\n> "))
-	}
-
-	return nil
+	return &IAMDrift{
+		ClickOpsChanges:         clickOpsChanges,
+		MissingTerraformChanges: missingTerraformChanges,
+	}, nil
 }
 
 // actualGCPIAM queries the GCP Asset Inventory and Resource Manager to determine the IAM settings on all resources.
@@ -196,14 +191,6 @@ func differenceSet(left, right map[string]struct{}) map[string]struct{} {
 		}
 	}
 	return found
-}
-
-func keys(m map[string]struct{}) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	return keys
 }
 
 // URI returns a canonical string identifier for the IAM entity.

@@ -17,6 +17,8 @@ package cli
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strings"
 
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
@@ -100,12 +102,34 @@ func (c *DetectIamDriftCommand) Run(ctx context.Context, args []string) error {
 		"version", version.Version)
 
 	if c.flagOrganizationID == "" {
-		return fmt.Errorf("missing -organization-id")
+		return fmt.Errorf("missing --organization-id")
 	}
 
-	if err := drift.Process(ctx, c.flagOrganizationID, c.flagGCSBucketQuery, c.flagDriftignoreFile); err != nil {
+	iamDiff, err := drift.Process(ctx, c.flagOrganizationID, c.flagGCSBucketQuery, c.flagDriftignoreFile)
+	if err != nil {
 		return fmt.Errorf("failed to detect drift %w", err)
 	}
 
+	// Output to stdout to mimic bash script for now.
+	// TODO(dcreey): Determine cleaner API that aligns with using the cli tool.
+	if len(iamDiff.ClickOpsChanges) > 0 {
+		uris := keys(iamDiff.ClickOpsChanges)
+		sort.Strings(uris)
+		c.Outf("Found Click Ops Changes \n> %s", strings.Join(uris, "\n> "))
+	}
+	if len(iamDiff.MissingTerraformChanges) > 0 {
+		uris := keys(iamDiff.MissingTerraformChanges)
+		sort.Strings(uris)
+		c.Outf("Found Missing Terraform Changes \n> %s", strings.Join(uris, "\n> "))
+	}
+
 	return nil
+}
+
+func keys(m map[string]struct{}) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
 }
