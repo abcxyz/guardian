@@ -64,11 +64,15 @@ type HierarchyNode struct {
 // HierarchyNodeWithChildren represents a node in the GCP Resource Hierarchy and all of its children.
 type HierarchyNodeWithChildren struct {
 	*HierarchyNode
+	// ProjectIDs contains the set of all projects that are immediate children of this node.
 	ProjectIDs []string
-	FolderIDs  []string
+	// FolderIDs contains the set of all folders that are immediate children of this node.
+	FolderIDs []string
 }
 
+// HierarchyGraph represents a complete GCP Resource Hierarchy including a single organization, all of the folders and all of the projects.
 type HierarchyGraph struct {
+	// IDToNodes maps parent node id (e.g. folder or organization) to their children nodes (e.g. folders or projects).
 	IDToNodes map[string]*HierarchyNodeWithChildren
 }
 
