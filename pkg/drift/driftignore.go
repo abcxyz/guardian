@@ -34,12 +34,6 @@ type ignoredAssets struct {
 	folders   map[string]struct{}
 }
 
-type hierarchyNode struct {
-	*assets.HierarchyNode
-	projectIDs []string
-	folderIDs  []string
-}
-
 // ignoredProjectPattern is a Regex pattern used to identify projects that should be ignored.
 var ignoredProjectPattern = regexp.MustCompile(`^\/organizations\/(?:\d*)\/projects\/(\d*)$`)
 
@@ -65,24 +59,20 @@ func filterIgnored(values map[string]*iam.AssetIAM, ignored *ignoredAssets) map[
 	return filtered
 }
 
-func expandGraph(ignored *ignoredAssets, hierarchyGraph map[string]*hierarchyNode) (*ignoredAssets, error) {
+func expandGraph(ignored *ignoredAssets, hierarchyGraph *assets.HierarchyGraph) (*ignoredAssets, error) {
 	ignoredProjects := ignored.projects
 	ignoredFolders := ignored.folders
 
 	// Traverse the hierarchy
 	for folderID := range ignored.folders {
-		ids, err := foldersBeneath(folderID, hierarchyGraph)
+		ids, err := assets.FoldersBeneath(folderID, hierarchyGraph)
 		if err != nil {
 			return nil, fmt.Errorf("failed to traverse hierarchy for folder with ID %s: %w", folderID, err)
 		}
-		for i := range ids {
-			ignoredFolders[i] = struct{}{}
-		}
+		ignoredFolders = mergeSets(ignoredFolders, ids)
 	}
 	for folderID := range ignoredFolders {
-		for _, projectID := range hierarchyGraph[folderID].projectIDs {
-			ignoredProjects[projectID] = struct{}{}
-		}
+		ignoredProjects = addListToSet(ignoredProjects, hierarchyGraph.IDToNodes[folderID].ProjectIDs)
 	}
 
 	return &ignoredAssets{
@@ -90,25 +80,6 @@ func expandGraph(ignored *ignoredAssets, hierarchyGraph map[string]*hierarchyNod
 		projects:  ignoredProjects,
 		folders:   ignoredFolders,
 	}, nil
-}
-
-func foldersBeneath(folderID string, hierarchyGraph map[string]*hierarchyNode) (map[string]struct{}, error) {
-	foundIDs := make(map[string]struct{})
-	if _, ok := hierarchyGraph[folderID]; !ok {
-		return nil, fmt.Errorf("missing reference for folder with ID %s", folderID)
-	}
-	folderIDs := hierarchyGraph[folderID].folderIDs
-	for _, id := range folderIDs {
-		ids, err := foldersBeneath(id, hierarchyGraph)
-		if err != nil {
-			return nil, fmt.Errorf("failed to find folders Beneath folder with ID %s: %w", id, err)
-		}
-		foundIDs[id] = struct{}{}
-		for i := range ids {
-			foundIDs[i] = struct{}{}
-		}
-	}
-	return foundIDs, nil
 }
 
 // driftignore parses the driftignore file into a set.
@@ -155,64 +126,16 @@ func driftignore(ctx context.Context, fname string) (*ignoredAssets, error) {
 	}, nil
 }
 
-func newHierarchyGraph(organizationID string, folders, projects []*assets.HierarchyNode) (map[string]*hierarchyNode, error) {
-	graph := make(map[string]*hierarchyNode)
-
-	folderHash := make(map[string]*assets.HierarchyNode)
-	for _, folder := range folders {
-		folderHash[folder.ID] = folder
+func addListToSet(set map[string]struct{}, list []string) map[string]struct{} {
+	for _, v := range list {
+		set[v] = struct{}{}
 	}
-
-	graph[organizationID] = &hierarchyNode{
-		HierarchyNode: &assets.HierarchyNode{
-			ID:         organizationID,
-			Name:       "Organization",
-			ParentID:   "",
-			ParentType: "",
-		},
-		projectIDs: []string{},
-		folderIDs:  []string{},
-	}
-
-	for _, folder := range folders {
-		if err := addFolderToGraph(graph, folder, folderHash); err != nil {
-			return nil, fmt.Errorf("failed to traverse folders hierarchy for folder with ID %s when creating graph: %w", folder.ID, err)
-		}
-	}
-
-	for _, project := range projects {
-		if _, ok := graph[project.ParentID]; !ok {
-			return nil, fmt.Errorf("missing reference for %s node ID %s", project.ParentType, project.ParentID)
-		}
-		graph[project.ParentID].projectIDs = append(graph[project.ParentID].projectIDs, project.ID)
-	}
-
-	return graph, nil
+	return set
 }
 
-func addFolderToGraph(graph map[string]*hierarchyNode, folder *assets.HierarchyNode, folders map[string]*assets.HierarchyNode) error {
-	// Already added.
-	if _, ok := graph[folder.ID]; ok {
-		return nil
+func mergeSets(setA, setB map[string]struct{}) map[string]struct{} {
+	for i := range setB {
+		setA[i] = struct{}{}
 	}
-
-	// Need to add parent node.
-	if _, ok := graph[folder.ParentID]; !ok {
-		if _, ok := folders[folder.ParentID]; !ok {
-			return fmt.Errorf("missing reference for folder ID %s and Name %s", folder.ParentID, folder.Name)
-		}
-		if err := addFolderToGraph(graph, folders[folder.ParentID], folders); err != nil {
-			return fmt.Errorf("failed to add folder %s to graph: %w", folder.ParentID, err)
-		}
-	}
-
-	graph[folder.ID] = &hierarchyNode{
-		HierarchyNode: folder,
-		projectIDs:    []string{},
-		folderIDs:     []string{},
-	}
-
-	graph[folder.ParentID].folderIDs = append(graph[folder.ParentID].folderIDs, folder.ID)
-
-	return nil
+	return setA
 }

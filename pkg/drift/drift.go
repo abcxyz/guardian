@@ -53,7 +53,7 @@ func Process(ctx context.Context, organizationID, bucketQuery, driftignoreFile s
 	if err != nil {
 		return nil, fmt.Errorf("failed to determine terraform state GCS buckets: %w", err)
 	}
-	gcpHierarchyGraph, err := newHierarchyGraph(organizationID, folders, projects)
+	gcpHierarchyGraph, err := assets.NewHierarchyGraph(organizationID, folders, projects)
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct graph from GCP assets: %w", err)
 	}

@@ -61,6 +61,17 @@ type HierarchyNode struct {
 	NodeType string
 }
 
+// HierarchyNodeWithChildren represents a node in the GCP Resource Hierarchy and all of its children.
+type HierarchyNodeWithChildren struct {
+	*HierarchyNode
+	ProjectIDs []string
+	FolderIDs  []string
+}
+
+type HierarchyGraph struct {
+	IDToNodes map[string]*HierarchyNodeWithChildren
+}
+
 type Client struct {
 	assetClient *asset.Client
 }
@@ -157,4 +168,87 @@ func extractIDFromResourceName(gcpResourceName string) (*string, error) {
 		return nil, fmt.Errorf("failed to parse ID from Resource Name: %s", gcpResourceName)
 	}
 	return &matches[1], nil
+}
+
+// NewHierarchyGraph builds a complete gcp organization graph representation of the org, its folders, and its projects.
+func NewHierarchyGraph(organizationID string, folders, projects []*HierarchyNode) (*HierarchyGraph, error) {
+	graph := make(map[string]*HierarchyNodeWithChildren)
+
+	folderHash := make(map[string]*HierarchyNode)
+	for _, folder := range folders {
+		folderHash[folder.ID] = folder
+	}
+
+	graph[organizationID] = &HierarchyNodeWithChildren{
+		HierarchyNode: &HierarchyNode{
+			ID:         organizationID,
+			Name:       "Organization",
+			ParentID:   "",
+			ParentType: "",
+		},
+		ProjectIDs: []string{},
+		FolderIDs:  []string{},
+	}
+
+	for _, folder := range folders {
+		if err := addFolderToGraph(graph, folder, folderHash); err != nil {
+			return nil, fmt.Errorf("failed to traverse folders hierarchy for folder with ID %s when creating graph: %w", folder.ID, err)
+		}
+	}
+
+	for _, project := range projects {
+		if _, ok := graph[project.ParentID]; !ok {
+			return nil, fmt.Errorf("missing reference for %s node ID %s", project.ParentType, project.ParentID)
+		}
+		graph[project.ParentID].ProjectIDs = append(graph[project.ParentID].ProjectIDs, project.ID)
+	}
+
+	return &HierarchyGraph{IDToNodes: graph}, nil
+}
+
+// FoldersBeneath tranverses the hierarchy graph to find all folders that are beneath a certain folder.
+func FoldersBeneath(folderID string, hierarchyGraph *HierarchyGraph) (map[string]struct{}, error) {
+	foundIDs := make(map[string]struct{})
+	if _, ok := hierarchyGraph.IDToNodes[folderID]; !ok {
+		return nil, fmt.Errorf("missing reference for folder with ID %s", folderID)
+	}
+	folderIDs := hierarchyGraph.IDToNodes[folderID].FolderIDs
+	for _, id := range folderIDs {
+		ids, err := FoldersBeneath(id, hierarchyGraph)
+		if err != nil {
+			return nil, fmt.Errorf("failed to find folders Beneath folder with ID %s: %w", id, err)
+		}
+		foundIDs[id] = struct{}{}
+		for i := range ids {
+			foundIDs[i] = struct{}{}
+		}
+	}
+	return foundIDs, nil
+}
+
+func addFolderToGraph(graph map[string]*HierarchyNodeWithChildren, folder *HierarchyNode, folders map[string]*HierarchyNode) error {
+	// Already added.
+	if _, ok := graph[folder.ID]; ok {
+		return nil
+	}
+
+	// Need to add parent node.
+	if _, ok := graph[folder.ParentID]; !ok {
+		if _, ok := folders[folder.ParentID]; !ok {
+			return fmt.Errorf("missing reference for folder ID %s and Name %s", folder.ParentID, folder.Name)
+		}
+		if err := addFolderToGraph(graph, folders[folder.ParentID], folders); err != nil {
+			return fmt.Errorf("failed to add folder %s to graph: %w", folder.ParentID, err)
+		}
+	}
+
+	graph[folder.ID] = &HierarchyNodeWithChildren{
+		HierarchyNode: folder,
+		ProjectIDs:    []string{},
+		FolderIDs:     []string{},
+	}
+
+	graph[folder.ParentID].FolderIDs = append(graph[folder.ParentID].FolderIDs, folder.ID)
+
+	return nil
 }
