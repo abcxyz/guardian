@@ -50,7 +50,7 @@ runs:
         ORGANIZATION_ID: '${{ inputs.organization_id }}'
         GCS_BUCKET_LABEL: '${{ inputs.gcs_bucket_label }}'
       run: |
-        diff_snippet="$(.guardian/iam-drift-detection/detect_drift.sh "$ORGANIZATION_ID" "$GCS_BUCKET_LABEL")"
+        diff_snippet="$(go run ./cmd/guardian detect-iam-drift --organization-id="$ORGANIZATION_ID" --gcs-bucket-query="$GCS_BUCKET_LABEL")"
         if [[ "${diff_snippet}" != "" ]]; then
           diff_detected="TRUE"
         else
