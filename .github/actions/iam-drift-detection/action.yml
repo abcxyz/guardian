@@ -52,7 +52,7 @@ runs:
       run: |
         driftignore_file="$(pwd)/.driftignore"
         cd ./.guardian
-        diff_snippet="$(go run ./cmd/guardian detect-iam-drift --organization-id="$ORGANIZATION_ID" --gcs-bucket-query="$GCS_BUCKET_LABEL" --driftignore-file="$driftignore_file")"
+        diff_snippet="$(go run ./cmd/guardian detect-iam-drift -organization-id="$ORGANIZATION_ID" -gcs-bucket-query="$GCS_BUCKET_LABEL" -driftignore-file="$driftignore_file")"
         if [[ "${diff_snippet}" != "" ]]; then
           diff_detected="TRUE"
         else
