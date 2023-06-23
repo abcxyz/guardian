@@ -183,6 +183,7 @@ func NewHierarchyGraph(organizationID string, folders, projects []*HierarchyNode
 		HierarchyNode: &HierarchyNode{
 			ID:         organizationID,
 			Name:       "Organization",
+			NodeType:   Organization,
 			ParentID:   "",
 			ParentType: "",
 		},
@@ -198,7 +199,7 @@ func NewHierarchyGraph(organizationID string, folders, projects []*HierarchyNode
 
 	for _, project := range projects {
 		if _, ok := graph[project.ParentID]; !ok {
-			return nil, fmt.Errorf("missing reference for %s node ID %s", project.ParentType, project.ParentID)
+			return nil, fmt.Errorf("missing reference for %s with ID %s", strings.ToLower(project.ParentType), project.ParentID)
 		}
 		graph[project.ParentID].ProjectIDs = append(graph[project.ParentID].ProjectIDs, project.ID)
 	}
@@ -235,7 +236,7 @@ func addFolderToGraph(graph map[string]*HierarchyNodeWithChildren, folder *Hiera
 	// Need to add parent node.
 	if _, ok := graph[folder.ParentID]; !ok {
 		if _, ok := folders[folder.ParentID]; !ok {
-			return fmt.Errorf("missing reference for folder ID %s and Name %s", folder.ParentID, folder.Name)
+			return fmt.Errorf("missing reference for folder with ID %s and Name %s", folder.ParentID, folder.Name)
 		}
 		if err := addFolderToGraph(graph, folders[folder.ParentID], folders); err != nil {
 			return fmt.Errorf("failed to add folder %s to graph: %w", folder.ParentID, err)
