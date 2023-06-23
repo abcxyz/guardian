@@ -102,7 +102,7 @@ func (c *DetectIamDriftCommand) Run(ctx context.Context, args []string) error {
 		"version", version.Version)
 
 	if c.flagOrganizationID == "" {
-		return fmt.Errorf("missing --organization-id")
+		return fmt.Errorf("missing -organization-id")
 	}
 
 	iamDiff, err := drift.Process(ctx, c.flagOrganizationID, c.flagGCSBucketQuery, c.flagDriftignoreFile)

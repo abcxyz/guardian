@@ -153,8 +153,8 @@ func (c *Client) HierarchyAssets(ctx context.Context, organizationID, assetType 
 
 func extractIDFromResourceName(gcpResourceName string) (*string, error) {
 	matches := resourceNameIDPattern.FindStringSubmatch(gcpResourceName)
-	if len(matches) == 0 {
+	if len(matches) < 2 {
 		return nil, fmt.Errorf("failed to parse ID from Resource Name: %s", gcpResourceName)
 	}
-	return &matches[0], nil
+	return &matches[1], nil
 }

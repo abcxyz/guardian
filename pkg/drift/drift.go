@@ -15,10 +15,8 @@
 package drift
 
 import (
-	"bufio"
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/abcxyz/pkg/logging"
@@ -55,9 +53,22 @@ func Process(ctx context.Context, organizationID, bucketQuery, driftignoreFile s
 	if err != nil {
 		return nil, fmt.Errorf("failed to determine terraform state GCS buckets: %w", err)
 	}
+	gcpHierarchyGraph, err := newHierarchyGraph(organizationID, folders, projects)
+	if err != nil {
+		return nil, fmt.Errorf("failed to construct graph from GCP assets: %w", err)
+	}
 	logger.Debugw("fetching iam for org, folders and projects",
 		"number_of_folders", len(folders),
 		"number_of_projects", len(projects))
+
+	ignored, err := driftignore(ctx, driftignoreFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse driftignore file: %w", err)
+	}
+	ignoredExpanded, err := expandGraph(ignored, gcpHierarchyGraph)
+	if err != nil {
+		return nil, fmt.Errorf("failed to expand graph for ignored assets: %w", err)
+	}
 
 	gcpIAM, err := actualGCPIAM(ctx, organizationID, folders, projects)
 	if err != nil {
@@ -71,16 +82,14 @@ func Process(ctx context.Context, organizationID, bucketQuery, driftignoreFile s
 	logger.Debugw("gcp iam entries", "number_of_entries", len(gcpIAM))
 	logger.Debugw("terraform iam entries", "number_of_entries", len(tfIAM))
 
-	clickOpsChanges := differenceMap(gcpIAM, tfIAM)
-	missingTerraformChanges := differenceMap(tfIAM, gcpIAM)
+	gcpIAMNoIgnored := filterIgnored(gcpIAM, ignoredExpanded)
+	tfIAMNoIgnored := filterIgnored(tfIAM, ignoredExpanded)
 
-	ignored, err := driftignore(ctx, driftignoreFile)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse driftignore file: %w", err)
-	}
+	clickOpsChanges := differenceMap(gcpIAMNoIgnored, tfIAMNoIgnored)
+	missingTerraformChanges := differenceMap(tfIAMNoIgnored, gcpIAMNoIgnored)
 
-	clickOpsNoIgnoredChanges := differenceSet(clickOpsChanges, ignored)
-	missingTerraformNoIgnoredChanges := differenceSet(clickOpsChanges, ignored)
+	clickOpsNoIgnoredChanges := differenceSet(clickOpsChanges, ignored.iamAssets)
+	missingTerraformNoIgnoredChanges := differenceSet(missingTerraformChanges, ignored.iamAssets)
 
 	logger.Debugw("found click ops changes",
 		"number_of_changes", len(clickOpsNoIgnoredChanges),
@@ -90,8 +99,8 @@ func Process(ctx context.Context, organizationID, bucketQuery, driftignoreFile s
 		"number_of_ignored_changes", len(missingTerraformChanges)-len(missingTerraformNoIgnoredChanges))
 
 	return &IAMDrift{
-		ClickOpsChanges:         clickOpsChanges,
-		MissingTerraformChanges: missingTerraformChanges,
+		ClickOpsChanges:         clickOpsNoIgnoredChanges,
+		MissingTerraformChanges: missingTerraformNoIgnoredChanges,
 	}, nil
 }
 
@@ -204,27 +213,4 @@ func URI(i *iam.AssetIAM, organizationID string) string {
 	} else {
 		return fmt.Sprintf("/organizations/%s/%s/%s", organizationID, role, i.Member)
 	}
-}
-
-// driftignore parses the driftignore file into a set.
-// Go doesn't implement set so we use a map of boolean values all set to true.
-func driftignore(ctx context.Context, fname string) (map[string]struct{}, error) {
-	lines := make(map[string]struct{})
-	f, err := os.Open(fname)
-	if err != nil {
-		if os.IsNotExist(err) {
-			logger := logging.FromContext(ctx)
-			logger.Debugw("failed to find driftignore", "filename", fname)
-			return lines, nil
-		}
-		return nil, fmt.Errorf("failed to read driftignore file %s: %w", fname, err)
-	}
-	defer f.Close()
-
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		lines[strings.TrimSpace(scanner.Text())] = struct{}{}
-	}
-
-	return lines, nil
 }
