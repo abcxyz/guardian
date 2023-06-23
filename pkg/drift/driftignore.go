@@ -40,6 +40,7 @@ var ignoredProjectPattern = regexp.MustCompile(`^\/organizations\/(?:\d*)\/proje
 // ignoredFolderPattern is a  Regex pattern used to identify folders that should be ignored.
 var ignoredFolderPattern = regexp.MustCompile(`^\/organizations\/(?:\d*)\/folders\/(\d*)$`)
 
+// filterIgnored removes any asset iam that is in the ignored assets.
 func filterIgnored(values map[string]*iam.AssetIAM, ignored *ignoredAssets) map[string]*iam.AssetIAM {
 	filtered := make(map[string]*iam.AssetIAM)
 	for k, a := range values {
@@ -59,6 +60,7 @@ func filterIgnored(values map[string]*iam.AssetIAM, ignored *ignoredAssets) map[
 	return filtered
 }
 
+// expandGraph traverses the asset hierarchy graph and adds any nested folders or projects beneath every ignored asset.
 func expandGraph(ignored *ignoredAssets, hierarchyGraph *assets.HierarchyGraph) (*ignoredAssets, error) {
 	ignoredProjects := ignored.projects
 	ignoredFolders := ignored.folders
