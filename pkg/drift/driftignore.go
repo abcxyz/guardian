@@ -32,6 +32,7 @@ type ignoredAssets struct {
 	iamAssets  map[string]struct{}
 	projectIDs map[string]struct{}
 	folderIDs  map[string]struct{}
+	roles      map[string]struct{}
 }
 
 // ignoredProjectPattern is a Regex pattern used to identify projects that should be ignored.
@@ -40,9 +41,15 @@ var ignoredProjectPattern = regexp.MustCompile(`^\/organizations\/(?:\d*)\/proje
 // ignoredFolderPattern is a  Regex pattern used to identify folders that should be ignored.
 var ignoredFolderPattern = regexp.MustCompile(`^\/organizations\/(?:\d*)\/folders\/([^\/]*)$`)
 
+// ignoredFolderPattern is a  Regex pattern used to identify folders that should be ignored.
+// Example: /roles/owner/serviceAccount:platform-ops-tfa-sa-ef3e@platform-ops-ef3e.iam.gserviceaccount.com
+// Example: /roles/resourcemanager.folderEditor/serviceAccount:platform-ops-tfa-sa-ef3e@platform-ops-ef3e.iam.gserviceaccount.com
+var ignoredRolesPattern = regexp.MustCompile(`^\/roles\/([^\/\s]*)\/(serviceAccount|group|user)\:([^\/\s]*)$`)
+
 var defaultURIFilterPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`artifactregistry.serviceAgent\/serviceAccount:service-(?:\d*)@gcp-sa-artifactregistry.iam.gserviceaccount.com`),
 	regexp.MustCompile(`bigquerydatatransfer.serviceAgent\/serviceAccount:service-(?:\d*)@gcp-sa-bigquerydatatransfer.iam.gserviceaccount.com`),
+	regexp.MustCompile(`binaryauthorization.serviceAgent\/serviceAccount:service-(?:\d*)@gcp-sa-binaryauthorization.iam.gserviceaccount.com`),
 	regexp.MustCompile(`cloudbuild.builds.builder\/serviceAccount:(?:\d*)@cloudbuild.gserviceaccount.com`),
 	regexp.MustCompile(`cloudbuild.serviceAgent\/serviceAccount:service-(?:\d*)@gcp-sa-cloudbuild.iam.gserviceaccount.com`),
 	regexp.MustCompile(`cloudfunctions.serviceAgent\/serviceAccount:service-(?:\d*)@gcf-admin-robot.iam.gserviceaccount.com`),
@@ -52,6 +59,7 @@ var defaultURIFilterPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`compute.serviceAgent\/serviceAccount:service-(?:\d*)@compute-system.iam.gserviceaccount.com`),
 	regexp.MustCompile(`container.serviceAgent\/serviceAccount:service-(?:\d*)@container-engine-robot.iam.gserviceaccount.com`),
 	regexp.MustCompile(`containeranalysis.ServiceAgent\/serviceAccount:service-(?:\d*)@container-analysis.iam.gserviceaccount.com`),
+	regexp.MustCompile(`containerregistry.ServiceAgent\/serviceAccount:service-(?:\d*)@containerregistry.iam.gserviceaccount.com`),
 	regexp.MustCompile(`containerthreatdetection.serviceAgent\/serviceAccount:service-(?:\d*)@gcp-sa-ktd-control.iam.gserviceaccount.com`),
 	regexp.MustCompile(`dataflow.serviceAgent\/serviceAccount:service-(?:\d*)@dataflow-service-producer-prod.iam.gserviceaccount.com`),
 	regexp.MustCompile(`editor\/serviceAccount:(?:\d*)-compute@developer.gserviceaccount.com`),
@@ -97,6 +105,9 @@ func filterDefaultURIs(uris map[string]struct{}) map[string]struct{} {
 func filterIgnored(values map[string]*iam.AssetIAM, ignored *ignoredAssets) map[string]*iam.AssetIAM {
 	filtered := make(map[string]*iam.AssetIAM)
 	for k, a := range values {
+		if _, ok := ignored.roles[roleURI(a)]; ok {
+			continue
+		}
 		if a.ResourceType == assets.Project {
 			if _, ok := ignored.projectIDs[a.ResourceID]; !ok {
 				filtered[k] = a
@@ -150,6 +161,7 @@ func driftignore(
 	iamAssets := make(map[string]struct{})
 	projects := make(map[string]struct{})
 	folders := make(map[string]struct{})
+	roles := make(map[string]struct{})
 	f, err := os.Open(fname)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -158,6 +170,7 @@ func driftignore(
 				iamAssets,
 				projects,
 				folders,
+				roles,
 			}, nil
 		}
 		return nil, fmt.Errorf("failed to read driftignore file %s: %w", fname, err)
@@ -196,12 +209,18 @@ func driftignore(
 				logger.Warnw("failed to identify ignored folder %s", "folder", a, "uri", line)
 			}
 		}
+
+		roleMatches := ignoredRolesPattern.FindStringSubmatch(line)
+		if len(roleMatches) == 4 {
+			roles[roleMatches[0]] = struct{}{}
+		}
 	}
 
 	return &ignoredAssets{
 		iamAssets,
 		projects,
 		folders,
+		roles,
 	}, nil
 }
 
@@ -215,4 +234,8 @@ func mergeSets(setA, setB map[string]struct{}) {
 	for i := range setB {
 		setA[i] = struct{}{}
 	}
+}
+
+func roleURI(a *iam.AssetIAM) string {
+	return fmt.Sprintf("roles/%s/%s", a.Role, a.Member)
 }
