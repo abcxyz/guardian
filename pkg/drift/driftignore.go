@@ -42,8 +42,8 @@ var ignoredProjectPattern = regexp.MustCompile(`^\/organizations\/(?:\d*)\/proje
 var ignoredFolderPattern = regexp.MustCompile(`^\/organizations\/(?:\d*)\/folders\/([^\/]*)$`)
 
 // ignoredFolderPattern is a  Regex pattern used to identify folders that should be ignored.
-// Example: /roles/owner/serviceAccount:platform-ops-tfa-sa-ef3e@platform-ops-ef3e.iam.gserviceaccount.com
-// Example: /roles/resourcemanager.folderEditor/serviceAccount:platform-ops-tfa-sa-ef3e@platform-ops-ef3e.iam.gserviceaccount.com
+// Example: /roles/owner/serviceAccount:platform-ops-tfa-sa-ef3e@platform-ops-ef3e.iam.gserviceaccount.com.
+// Example: /roles/resourcemanager.folderEditor/serviceAccount:platform-ops-tfa-sa-ef3e@platform-ops-ef3e.iam.gserviceaccount.com.
 var ignoredRolesPattern = regexp.MustCompile(`^\/roles\/([^\/\s]*)\/(serviceAccount|group|user)\:([^\/\s]*)$`)
 
 var defaultURIFilterPatterns = []*regexp.Regexp{
@@ -68,9 +68,10 @@ var defaultURIFilterPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`firebase.managementServiceAgent\/serviceAccount:firebase-service-account@firebase-sa-management.iam.gserviceaccount.com`),
 	regexp.MustCompile(`firebase.managementServiceAgent\/serviceAccount:service-(?:\d*)@gcp-sa-firebase.iam.gserviceaccount.com`),
 	regexp.MustCompile(`firebaserules.system\/serviceAccount:service-(?:\d*)@firebase-rules.iam.gserviceaccount.com`),
-	regexp.MustCompile(`.*iap.settingsAdmin\/serviceAccount:(?:\d*)-compute@developer.gserviceaccount.com`),
+	regexp.MustCompile(`iap.settingsAdmin\/serviceAccount:(?:\d*)-compute@developer.gserviceaccount.com`),
 	regexp.MustCompile(`identitytoolkit.viewer\/serviceAccount:(?:\d*)-compute@developer.gserviceaccount.com`),
 	regexp.MustCompile(`networkmanagement.serviceAgent\/serviceAccount:service-(?:\d*)@gcp-sa-networkmanagement.iam.gserviceaccount.com`),
+	regexp.MustCompile(`osconfig.serviceAgent\/serviceAccount:service-(?:\d*)@gcp-sa-osconfig.iam.gserviceaccount.com`),
 	regexp.MustCompile(`pubsub.serviceAgent\/serviceAccount:service-(?:\d*)@gcp-sa-pubsub.iam.gserviceaccount.com`),
 	regexp.MustCompile(`redis.serviceAgent\/serviceAccount:service-(?:\d*)@cloud-redis.iam.gserviceaccount.com`),
 	regexp.MustCompile(`run.serviceAgent\/serviceAccount:service-(?:\d*)@serverless-robot-prod.iam.gserviceaccount.com`),
