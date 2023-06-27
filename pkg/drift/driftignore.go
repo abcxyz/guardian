@@ -105,6 +105,7 @@ func filterDefaultURIs(uris map[string]struct{}) map[string]struct{} {
 func filterIgnored(values map[string]*iam.AssetIAM, ignored *ignoredAssets) map[string]*iam.AssetIAM {
 	filtered := make(map[string]*iam.AssetIAM)
 	for k, a := range values {
+		fmt.Println("Fake ID", roleURI(a))
 		if _, ok := ignored.roles[roleURI(a)]; ok {
 			continue
 		}
@@ -237,5 +238,5 @@ func mergeSets(setA, setB map[string]struct{}) {
 }
 
 func roleURI(a *iam.AssetIAM) string {
-	return fmt.Sprintf("roles/%s/%s", a.Role, a.Member)
+	return fmt.Sprintf("%s/%s", a.Role, a.Member)
 }
