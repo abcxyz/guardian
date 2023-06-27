@@ -32,6 +32,7 @@ type ignoredAssets struct {
 	iamAssets  map[string]struct{}
 	projectIDs map[string]struct{}
 	folderIDs  map[string]struct{}
+	roles      map[string]struct{}
 }
 
 // ignoredProjectPattern is a Regex pattern used to identify projects that should be ignored.
@@ -40,10 +41,74 @@ var ignoredProjectPattern = regexp.MustCompile(`^\/organizations\/(?:\d*)\/proje
 // ignoredFolderPattern is a  Regex pattern used to identify folders that should be ignored.
 var ignoredFolderPattern = regexp.MustCompile(`^\/organizations\/(?:\d*)\/folders\/([^\/]*)$`)
 
+// ignoredFolderPattern is a  Regex pattern used to identify folders that should be ignored.
+// Example: /roles/owner/serviceAccount:platform-ops-tfa-sa-ef3e@platform-ops-ef3e.iam.gserviceaccount.com.
+// Example: /roles/resourcemanager.folderEditor/serviceAccount:platform-ops-tfa-sa-ef3e@platform-ops-ef3e.iam.gserviceaccount.com.
+var ignoredRolesPattern = regexp.MustCompile(`^\/roles\/([^\/\s]*)\/(serviceAccount|group|user)\:([^\/\s]*)$`)
+
+var defaultURIFilterPatterns = []*regexp.Regexp{
+	regexp.MustCompile(`artifactregistry.serviceAgent\/serviceAccount:service-(?:\d*)@gcp-sa-artifactregistry.iam.gserviceaccount.com`),
+	regexp.MustCompile(`bigquerydatatransfer.serviceAgent\/serviceAccount:service-(?:\d*)@gcp-sa-bigquerydatatransfer.iam.gserviceaccount.com`),
+	regexp.MustCompile(`binaryauthorization.serviceAgent\/serviceAccount:service-(?:\d*)@gcp-sa-binaryauthorization.iam.gserviceaccount.com`),
+	regexp.MustCompile(`cloudbuild.builds.builder\/serviceAccount:(?:\d*)@cloudbuild.gserviceaccount.com`),
+	regexp.MustCompile(`cloudbuild.serviceAgent\/serviceAccount:service-(?:\d*)@gcp-sa-cloudbuild.iam.gserviceaccount.com`),
+	regexp.MustCompile(`cloudfunctions.serviceAgent\/serviceAccount:service-(?:\d*)@gcf-admin-robot.iam.gserviceaccount.com`),
+	regexp.MustCompile(`cloudkms.serviceAgent\/serviceAccount:service-(?:\d*)@gcp-sa-cloudkms.iam.gserviceaccount.com`),
+	regexp.MustCompile(`cloudscheduler.serviceAgent\/serviceAccount:service-(?:\d*)@gcp-sa-cloudscheduler.iam.gserviceaccount.com`),
+	regexp.MustCompile(`compute.networkViewer\/serviceAccount:(?:\d*)-compute@developer.gserviceaccount.com`),
+	regexp.MustCompile(`compute.serviceAgent\/serviceAccount:service-(?:\d*)@compute-system.iam.gserviceaccount.com`),
+	regexp.MustCompile(`container.serviceAgent\/serviceAccount:service-(?:\d*)@container-engine-robot.iam.gserviceaccount.com`),
+	regexp.MustCompile(`containeranalysis.ServiceAgent\/serviceAccount:service-(?:\d*)@container-analysis.iam.gserviceaccount.com`),
+	regexp.MustCompile(`containerregistry.ServiceAgent\/serviceAccount:service-(?:\d*)@containerregistry.iam.gserviceaccount.com`),
+	regexp.MustCompile(`containerthreatdetection.serviceAgent\/serviceAccount:service-(?:\d*)@gcp-sa-ktd-control.iam.gserviceaccount.com`),
+	regexp.MustCompile(`dataflow.serviceAgent\/serviceAccount:service-(?:\d*)@dataflow-service-producer-prod.iam.gserviceaccount.com`),
+	regexp.MustCompile(`editor\/serviceAccount:(?:\d*)-compute@developer.gserviceaccount.com`),
+	regexp.MustCompile(`editor\/serviceAccount:(?:\d*)@cloudservices.gserviceaccount.com`),
+	regexp.MustCompile(`file.serviceAgent\/serviceAccount:service-(?:\d*)@cloud-filer.iam.gserviceaccount.com`),
+	regexp.MustCompile(`firebase.managementServiceAgent\/serviceAccount:firebase-service-account@firebase-sa-management.iam.gserviceaccount.com`),
+	regexp.MustCompile(`firebase.managementServiceAgent\/serviceAccount:service-(?:\d*)@gcp-sa-firebase.iam.gserviceaccount.com`),
+	regexp.MustCompile(`firebaserules.system\/serviceAccount:service-(?:\d*)@firebase-rules.iam.gserviceaccount.com`),
+	regexp.MustCompile(`iap.settingsAdmin\/serviceAccount:(?:\d*)-compute@developer.gserviceaccount.com`),
+	regexp.MustCompile(`identitytoolkit.viewer\/serviceAccount:(?:\d*)-compute@developer.gserviceaccount.com`),
+	regexp.MustCompile(`networkmanagement.serviceAgent\/serviceAccount:service-(?:\d*)@gcp-sa-networkmanagement.iam.gserviceaccount.com`),
+	regexp.MustCompile(`osconfig.serviceAgent\/serviceAccount:service-(?:\d*)@gcp-sa-osconfig.iam.gserviceaccount.com`),
+	regexp.MustCompile(`pubsub.serviceAgent\/serviceAccount:service-(?:\d*)@gcp-sa-pubsub.iam.gserviceaccount.com`),
+	regexp.MustCompile(`redis.serviceAgent\/serviceAccount:service-(?:\d*)@cloud-redis.iam.gserviceaccount.com`),
+	regexp.MustCompile(`run.serviceAgent\/serviceAccount:service-(?:\d*)@serverless-robot-prod.iam.gserviceaccount.com`),
+	regexp.MustCompile(`securitycenter.serviceAgent\/serviceAccount:service-org-(?:\d*)@security-center-api.iam.gserviceaccount.com`),
+	regexp.MustCompile(`securitycenter.serviceAgent\/serviceAccount:service-project-(?:\d*)@security-center-api.iam.gserviceaccount.com`),
+	regexp.MustCompile(`servicenetworking.serviceAgent\/serviceAccount:service-(?:\d*)@service-networking.iam.gserviceaccount.com`),
+	regexp.MustCompile(`storage.admin\/serviceAccount:cloud-data-pipeline@koi-b2637a0100e14f34c8c1-tp.iam.gserviceaccount.com`),
+	regexp.MustCompile(`storage.admin\/serviceAccount:project-(?:\d*)@storage-transfer-service.iam.gserviceaccount.com`),
+	regexp.MustCompile(`storage.objectViewer\/serviceAccount:project-(?:\d*)@storage-transfer-service.iam.gserviceaccount.com`),
+	regexp.MustCompile(`vpcaccess.serviceAgent\/serviceAccount:service-(?:\d*)@gcp-sa-vpcaccess.iam.gserviceaccount.com`),
+	regexp.MustCompile(`websecurityscanner.serviceAgent\/serviceAccount:service-(?:\d*)@gcp-sa-websecurityscanner.iam.gserviceaccount.com`),
+}
+
+func filterDefaultURIs(uris map[string]struct{}) map[string]struct{} {
+	result := make(map[string]struct{})
+	for uri := range uris {
+		found := false
+		for _, re := range defaultURIFilterPatterns {
+			matches := re.FindStringSubmatch(uri)
+			if len(matches) != 0 {
+				found = true
+			}
+		}
+		if !found {
+			result[uri] = struct{}{}
+		}
+	}
+	return result
+}
+
 // filterIgnored removes any asset iam that is in the ignored assets.
 func filterIgnored(values map[string]*iam.AssetIAM, ignored *ignoredAssets) map[string]*iam.AssetIAM {
 	filtered := make(map[string]*iam.AssetIAM)
 	for k, a := range values {
+		if _, ok := ignored.roles[roleURI(a)]; ok {
+			continue
+		}
 		if a.ResourceType == assets.Project {
 			if _, ok := ignored.projectIDs[a.ResourceID]; !ok {
 				filtered[k] = a
@@ -81,6 +146,7 @@ func expandGraph(ignored *ignoredAssets, hierarchyGraph *assets.HierarchyGraph) 
 		iamAssets:  ignored.iamAssets,
 		projectIDs: ignoredProjects,
 		folderIDs:  ignoredFolders,
+		roles:      ignored.roles,
 	}, nil
 }
 
@@ -97,6 +163,7 @@ func driftignore(
 	iamAssets := make(map[string]struct{})
 	projects := make(map[string]struct{})
 	folders := make(map[string]struct{})
+	roles := make(map[string]struct{})
 	f, err := os.Open(fname)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -105,6 +172,7 @@ func driftignore(
 				iamAssets,
 				projects,
 				folders,
+				roles,
 			}, nil
 		}
 		return nil, fmt.Errorf("failed to read driftignore file %s: %w", fname, err)
@@ -143,12 +211,18 @@ func driftignore(
 				logger.Warnw("failed to identify ignored folder %s", "folder", a, "uri", line)
 			}
 		}
+
+		roleMatches := ignoredRolesPattern.FindStringSubmatch(line)
+		if len(roleMatches) == 4 {
+			roles[roleMatches[0]] = struct{}{}
+		}
 	}
 
 	return &ignoredAssets{
 		iamAssets,
 		projects,
 		folders,
+		roles,
 	}, nil
 }
 
@@ -162,4 +236,8 @@ func mergeSets(setA, setB map[string]struct{}) {
 	for i := range setB {
 		setA[i] = struct{}{}
 	}
+}
+
+func roleURI(a *iam.AssetIAM) string {
+	return fmt.Sprintf("/%s/%s", a.Role, a.Member)
 }

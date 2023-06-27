@@ -100,16 +100,19 @@ func Process(ctx context.Context, organizationID, bucketQuery, driftignoreFile s
 	clickOpsNoIgnoredChanges := differenceSet(clickOpsChanges, ignored.iamAssets)
 	missingTerraformNoIgnoredChanges := differenceSet(missingTerraformChanges, ignored.iamAssets)
 
+	clickOpsNoDefaultIgnoredChanges := filterDefaultURIs(clickOpsNoIgnoredChanges)
+	missingTerraformNoDefaultIgnoredChanges := filterDefaultURIs(missingTerraformNoIgnoredChanges)
+
 	logger.Debugw("found click ops changes",
 		"number_of_changes", len(clickOpsNoIgnoredChanges),
-		"number_of_ignored_changes", len(clickOpsChanges)-len(clickOpsNoIgnoredChanges))
+		"number_of_ignored_changes", len(clickOpsChanges)-len(clickOpsNoDefaultIgnoredChanges))
 	logger.Debugw("found missing terraform changes",
 		"number_of_changes", len(missingTerraformNoIgnoredChanges),
-		"number_of_ignored_changes", len(missingTerraformChanges)-len(missingTerraformNoIgnoredChanges))
+		"number_of_ignored_changes", len(missingTerraformChanges)-len(missingTerraformNoDefaultIgnoredChanges))
 
 	return &IAMDrift{
-		ClickOpsChanges:         clickOpsNoIgnoredChanges,
-		MissingTerraformChanges: missingTerraformNoIgnoredChanges,
+		ClickOpsChanges:         clickOpsNoDefaultIgnoredChanges,
+		MissingTerraformChanges: missingTerraformNoDefaultIgnoredChanges,
 	}, nil
 }
 
