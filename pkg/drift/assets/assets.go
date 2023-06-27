@@ -269,6 +269,7 @@ func addFolderToGraph(graph map[string]*HierarchyNodeWithChildren, folder *Hiera
 	return nil
 }
 
+// AssetsByName returns a map of assets keyed by asset name.
 func AssetsByName(assetsByID map[string]*HierarchyNode) map[string]*HierarchyNode {
 	assetsByName := make(map[string]*HierarchyNode)
 	for _, a := range assetsByID {
@@ -277,6 +278,7 @@ func AssetsByName(assetsByID map[string]*HierarchyNode) map[string]*HierarchyNod
 	return assetsByName
 }
 
+// Merge combines two maps of assets. In the case of collision we use the asset in assetsB.
 func Merge(assetsA, assetsB map[string]*HierarchyNode) map[string]*HierarchyNode {
 	assets := make(map[string]*HierarchyNode)
 	for _, a := range assetsA {
