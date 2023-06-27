@@ -145,6 +145,7 @@ func expandGraph(ignored *ignoredAssets, hierarchyGraph *assets.HierarchyGraph) 
 		iamAssets:  ignored.iamAssets,
 		projectIDs: ignoredProjects,
 		folderIDs:  ignoredFolders,
+		roles:      ignored.roles,
 	}, nil
 }
 
