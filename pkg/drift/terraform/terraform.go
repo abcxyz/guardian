@@ -160,7 +160,8 @@ func (p *Parser) parseIAMBindingForFolder(instances []ResourceInstance) []*iam.A
 	var iams []*iam.AssetIAM
 	for _, i := range instances {
 		for _, m := range i.Attributes.Members {
-			parentID, parentType := p.maybeFindGCPAssetIDAndType(i.Attributes.Folder)
+			folderID := strings.TrimPrefix(i.Attributes.Folder, "folders/")
+			parentID, parentType := p.maybeFindGCPAssetIDAndType(folderID)
 			iams = append(iams, &iam.AssetIAM{
 				Member:       m,
 				Role:         i.Attributes.Role,
@@ -204,7 +205,8 @@ func (p *Parser) parseIAMMemberForOrg(instances []ResourceInstance) []*iam.Asset
 func (p *Parser) parseIAMMemberForFolder(instances []ResourceInstance) []*iam.AssetIAM {
 	iams := make([]*iam.AssetIAM, len(instances))
 	for x, i := range instances {
-		parentID, parentType := p.maybeFindGCPAssetIDAndType(i.Attributes.Folder)
+		folderID := strings.TrimPrefix(i.Attributes.Folder, "folders/")
+		parentID, parentType := p.maybeFindGCPAssetIDAndType(folderID)
 		iams[x] = &iam.AssetIAM{
 			Member:       i.Attributes.Member,
 			Role:         i.Attributes.Role,
