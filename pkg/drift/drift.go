@@ -53,16 +53,16 @@ func Process(ctx context.Context, organizationID, bucketQuery, driftignoreFile s
 	if err != nil {
 		return nil, fmt.Errorf("failed to determine terraform state GCS buckets: %w", err)
 	}
-	foldersById := make(map[string]*assets.HierarchyNode)
+	foldersByID := make(map[string]*assets.HierarchyNode)
 	for _, folder := range folders {
-		foldersById[folder.ID] = folder
+		foldersByID[folder.ID] = folder
 	}
-	projectsById := make(map[string]*assets.HierarchyNode)
+	projectsByID := make(map[string]*assets.HierarchyNode)
 	for _, project := range projects {
-		projectsById[project.ID] = project
+		projectsByID[project.ID] = project
 	}
 
-	gcpHierarchyGraph, err := assets.NewHierarchyGraph(organizationID, foldersById, projectsById)
+	gcpHierarchyGraph, err := assets.NewHierarchyGraph(organizationID, foldersByID, projectsByID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct graph from GCP assets: %w", err)
 	}
@@ -70,7 +70,7 @@ func Process(ctx context.Context, organizationID, bucketQuery, driftignoreFile s
 		"number_of_folders", len(folders),
 		"number_of_projects", len(projects))
 
-	ignored, err := driftignore(ctx, driftignoreFile, foldersById, projectsById)
+	ignored, err := driftignore(ctx, driftignoreFile, foldersByID, projectsByID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse driftignore file: %w", err)
 	}
@@ -79,12 +79,12 @@ func Process(ctx context.Context, organizationID, bucketQuery, driftignoreFile s
 		return nil, fmt.Errorf("failed to expand graph for ignored assets: %w", err)
 	}
 
-	gcpIAM, err := actualGCPIAM(ctx, organizationID, foldersById, projectsById)
+	gcpIAM, err := actualGCPIAM(ctx, organizationID, foldersByID, projectsByID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to determine GCP IAM: %w", err)
 	}
 	logger.Debugw("Fetching terraform state from Buckets", "number_of_buckets", len(buckets))
-	tfIAM, err := terraformStateIAM(ctx, organizationID, foldersById, projectsById, buckets)
+	tfIAM, err := terraformStateIAM(ctx, organizationID, foldersByID, projectsByID, buckets)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse IAM from Terraform State: %w", err)
 	}

@@ -41,10 +41,10 @@ const (
 	BucketAssetType       = "storage.googleapis.com/Bucket"
 )
 
-// resourceNameIDPattern is a Regex pattern used to parse ID from ParentFullResourceName.
+// resourceNameIDPattern is a Regex pattern used to parse ID from the resource ParentFullResourceName.
 var resourceNameIDPattern = regexp.MustCompile(`\/\/cloudresourcemanager\.googleapis\.com\/(?:folders|organizations)\/(\d*)`)
 
-// resourceNamePattern is a Regex pattern used to parse ID from Name.
+// resourceNamePattern is a Regex pattern used to parse name from the resource Name.
 var resourceNamePattern = regexp.MustCompile(`\/\/cloudresourcemanager\.googleapis\.com\/(?:folders|organizations|projects)\/(.*)`)
 
 // HierarchyNode represents a node in the GCP Resource Hierarchy.

@@ -141,37 +141,37 @@ func TestNewHierarchyGraph(t *testing.T) {
 	cases := []struct {
 		name          string
 		orgID         string
-		folders       []*HierarchyNode
-		projects      []*HierarchyNode
+		folders       map[string]*HierarchyNode
+		projects      map[string]*HierarchyNode
 		wantGraph     *HierarchyGraph
 		wantErrSubstr string
 	}{
 		{
 			name:      "success",
 			orgID:     organizationID,
-			folders:   []*HierarchyNode{folderA, folderAB, folderABD, folderC},
-			projects:  []*HierarchyNode{projectA, projectAB, projectRoot},
+			folders:   map[string]*HierarchyNode{folderA.ID: folderA, folderAB.ID: folderAB, folderABD.ID: folderABD, folderC.ID: folderC},
+			projects:  map[string]*HierarchyNode{projectA.ID: projectA, projectAB.ID: projectAB, projectRoot.ID: projectRoot},
 			wantGraph: graph,
 		},
 		{
 			name:          "fails_with_unknown_project_parent",
 			orgID:         organizationID,
-			folders:       []*HierarchyNode{folderA, folderAB, folderABD, folderC},
-			projects:      []*HierarchyNode{projectA, projectAB, projectRoot, unknownParentProject},
+			folders:       map[string]*HierarchyNode{folderA.ID: folderA, folderAB.ID: folderAB, folderABD.ID: folderABD, folderC.ID: folderC},
+			projects:      map[string]*HierarchyNode{projectA.ID: projectA, projectAB.ID: projectAB, projectRoot.ID: projectRoot, unknownParentProject.ID: unknownParentProject},
 			wantErrSubstr: fmt.Sprintf("missing reference for folder with ID %s", unknownParentProject.ParentID),
 		},
 		{
 			name:          "fails_with_unknown_folder_parent",
 			orgID:         organizationID,
-			folders:       []*HierarchyNode{folderA, folderAB, folderABD, folderC, unknownParentFolder},
-			projects:      []*HierarchyNode{projectA, projectAB, projectRoot},
+			folders:       map[string]*HierarchyNode{folderA.ID: folderA, folderAB.ID: folderAB, folderABD.ID: folderABD, folderC.ID: folderC, unknownParentFolder.ID: unknownParentFolder},
+			projects:      map[string]*HierarchyNode{projectA.ID: projectA, projectAB.ID: projectAB, projectRoot.ID: projectRoot},
 			wantErrSubstr: fmt.Sprintf("missing reference for folder with ID %s", unknownParentFolder.ParentID),
 		},
 		{
 			name:          "fails_with_orphaned_folder_parent",
 			orgID:         organizationID,
-			folders:       []*HierarchyNode{folderA, folderAB, folderABD, folderC, orphanedFolder},
-			projects:      []*HierarchyNode{projectA, projectAB, projectRoot},
+			folders:       map[string]*HierarchyNode{folderA.ID: folderA, folderAB.ID: folderAB, folderABD.ID: folderABD, folderC.ID: folderC, orphanedFolder.ID: orphanedFolder},
+			projects:      map[string]*HierarchyNode{projectA.ID: projectA, projectAB.ID: projectAB, projectRoot.ID: projectRoot},
 			wantErrSubstr: fmt.Sprintf("missing reference for folder with ID %s", orphanedFolder.ParentID),
 		},
 	}
