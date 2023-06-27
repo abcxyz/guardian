@@ -53,7 +53,16 @@ func Process(ctx context.Context, organizationID, bucketQuery, driftignoreFile s
 	if err != nil {
 		return nil, fmt.Errorf("failed to determine terraform state GCS buckets: %w", err)
 	}
-	gcpHierarchyGraph, err := assets.NewHierarchyGraph(organizationID, folders, projects)
+	foldersById := make(map[string]*assets.HierarchyNode)
+	for _, folder := range folders {
+		foldersById[folder.ID] = folder
+	}
+	projectsById := make(map[string]*assets.HierarchyNode)
+	for _, project := range projects {
+		projectsById[project.ID] = project
+	}
+
+	gcpHierarchyGraph, err := assets.NewHierarchyGraph(organizationID, foldersById, projectsById)
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct graph from GCP assets: %w", err)
 	}
@@ -61,7 +70,7 @@ func Process(ctx context.Context, organizationID, bucketQuery, driftignoreFile s
 		"number_of_folders", len(folders),
 		"number_of_projects", len(projects))
 
-	ignored, err := driftignore(ctx, driftignoreFile)
+	ignored, err := driftignore(ctx, driftignoreFile, foldersById, projectsById)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse driftignore file: %w", err)
 	}
@@ -70,12 +79,12 @@ func Process(ctx context.Context, organizationID, bucketQuery, driftignoreFile s
 		return nil, fmt.Errorf("failed to expand graph for ignored assets: %w", err)
 	}
 
-	gcpIAM, err := actualGCPIAM(ctx, organizationID, folders, projects)
+	gcpIAM, err := actualGCPIAM(ctx, organizationID, foldersById, projectsById)
 	if err != nil {
 		return nil, fmt.Errorf("failed to determine GCP IAM: %w", err)
 	}
 	logger.Debugw("Fetching terraform state from Buckets", "number_of_buckets", len(buckets))
-	tfIAM, err := terraformStateIAM(ctx, organizationID, folders, projects, buckets)
+	tfIAM, err := terraformStateIAM(ctx, organizationID, foldersById, projectsById, buckets)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse IAM from Terraform State: %w", err)
 	}
@@ -109,8 +118,8 @@ func Process(ctx context.Context, organizationID, bucketQuery, driftignoreFile s
 func actualGCPIAM(
 	ctx context.Context,
 	organizationID string,
-	folders []*assets.HierarchyNode,
-	projects []*assets.HierarchyNode,
+	foldersByID map[string]*assets.HierarchyNode,
+	projectsByID map[string]*assets.HierarchyNode,
 ) (map[string]*iam.AssetIAM, error) {
 	client, err := iam.NewClient(ctx)
 	if err != nil {
@@ -123,24 +132,24 @@ func actualGCPIAM(
 		return nil, fmt.Errorf("failed to get organization IAM for ID '%s': %w", organizationID, err)
 	}
 	for _, i := range oIAM {
-		m[URI(i, organizationID)] = i
+		m[URI(i, organizationID, foldersByID, projectsByID)] = i
 	}
-	for _, f := range folders {
+	for _, f := range foldersByID {
 		fIAM, err := client.FolderIAM(ctx, f.ID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get folder IAM for folder with ID '%s' and name '%s': %w", f.ID, f.Name, err)
 		}
 		for _, i := range fIAM {
-			m[URI(i, organizationID)] = i
+			m[URI(i, organizationID, foldersByID, projectsByID)] = i
 		}
 	}
-	for _, p := range projects {
+	for _, p := range projectsByID {
 		pIAM, err := client.ProjectIAM(ctx, p.ID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get project IAM for project with ID '%s' and name '%s': %w", p.ID, p.Name, err)
 		}
 		for _, i := range pIAM {
-			m[URI(i, organizationID)] = i
+			m[URI(i, organizationID, foldersByID, projectsByID)] = i
 		}
 	}
 
@@ -152,11 +161,11 @@ func actualGCPIAM(
 func terraformStateIAM(
 	ctx context.Context,
 	organizationID string,
-	folders []*assets.HierarchyNode,
-	projects []*assets.HierarchyNode,
+	foldersByID map[string]*assets.HierarchyNode,
+	projectsByID map[string]*assets.HierarchyNode,
 	gcsBuckets []string,
 ) (map[string]*iam.AssetIAM, error) {
-	parser, err := terraform.NewParser(ctx, organizationID, folders, projects)
+	parser, err := terraform.NewParser(ctx, organizationID, foldersByID, projectsByID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize terraform parser: %w", err)
 	}
@@ -172,7 +181,7 @@ func terraformStateIAM(
 
 	m := make(map[string]*iam.AssetIAM)
 	for _, i := range tIAM {
-		m[URI(i, organizationID)] = i
+		m[URI(i, organizationID, foldersByID, projectsByID)] = i
 	}
 
 	return m, nil
@@ -204,12 +213,27 @@ func differenceSet(left, right map[string]struct{}) map[string]struct{} {
 
 // URI returns a canonical string identifier for the IAM entity.
 // This is used for diffing and as output to the user.
-func URI(i *iam.AssetIAM, organizationID string) string {
+func URI(
+	i *iam.AssetIAM,
+	organizationID string,
+	foldersByID map[string]*assets.HierarchyNode,
+	projectsByID map[string]*assets.HierarchyNode,
+) string {
 	role := strings.Replace(strings.Replace(i.Role, "organizations/", "", 1), fmt.Sprintf("%s/", organizationID), "", 1)
 	if i.ResourceType == assets.Folder {
-		return fmt.Sprintf("/organizations/%s/folders/%s/%s/%s", organizationID, i.ResourceID, role, i.Member)
+		// Fallback to folder ID if we can not find the folder.
+		resourceName := i.ResourceID
+		if f, ok := foldersByID[i.ResourceID]; ok {
+			resourceName = f.Name
+		}
+		return fmt.Sprintf("/organizations/%s/folders/%s/%s/%s", organizationID, resourceName, role, i.Member)
 	} else if i.ResourceType == assets.Project {
-		return fmt.Sprintf("/organizations/%s/projects/%s/%s/%s", organizationID, i.ResourceID, role, i.Member)
+		// Fallback to project ID if we can not find the project.
+		resourceName := i.ResourceID
+		if p, ok := projectsByID[i.ResourceID]; ok {
+			resourceName = p.Name
+		}
+		return fmt.Sprintf("/organizations/%s/projects/%s/%s/%s", organizationID, resourceName, role, i.Member)
 	} else {
 		return fmt.Sprintf("/organizations/%s/%s/%s", organizationID, role, i.Member)
 	}

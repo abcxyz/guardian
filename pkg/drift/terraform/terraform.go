@@ -57,38 +57,34 @@ type TerraformState struct {
 }
 
 type Parser struct {
-	gcs             *gcs.Client
-	gcpAssetsByID   map[string]*assets.HierarchyNode
-	gcpAssetsByName map[string]*assets.HierarchyNode
-	organizationID  string
+	gcs               *gcs.Client
+	gcpAssetsByID     map[string]*assets.HierarchyNode
+	gcpFoldersByName  map[string]*assets.HierarchyNode
+	gcpProjectsByName map[string]*assets.HierarchyNode
+	organizationID    string
 }
 
 // NewClient creates a new terraform parser.
 func NewParser(
 	ctx context.Context,
 	organizationID string,
-	gcpFolders []*assets.HierarchyNode,
-	gcpProjects []*assets.HierarchyNode,
+	gcpFolders map[string]*assets.HierarchyNode,
+	gcpProjects map[string]*assets.HierarchyNode,
 ) (*Parser, error) {
 	client, err := gcs.NewClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize gcs Client: %w", err)
 	}
-	allAssets := append(gcpFolders, gcpProjects...)
-	assetsByID := make(map[string]*assets.HierarchyNode)
-	assetsByName := make(map[string]*assets.HierarchyNode)
-	for _, a := range allAssets {
-		assetsByID[a.ID] = a
-	}
-	for _, a := range allAssets {
-		assetsByName[a.Name] = a
-	}
+	assetsByID := assets.Merge(gcpFolders, gcpProjects)
+	foldersByName := assets.AssetsByName(gcpFolders)
+	projectByName := assets.AssetsByName(gcpProjects)
 
 	return &Parser{
-		gcs:             client,
-		gcpAssetsByID:   assetsByID,
-		gcpAssetsByName: assetsByName,
-		organizationID:  organizationID,
+		gcs:               client,
+		gcpAssetsByID:     assetsByID,
+		gcpFoldersByName:  foldersByName,
+		gcpProjectsByName: projectByName,
+		organizationID:    organizationID,
 	}, nil
 }
 
@@ -249,9 +245,11 @@ func (p *Parser) findGCPAsset(gcpAssetID string) *assets.HierarchyNode {
 		}
 		return p.gcpAssetsByID[gcpAssetID]
 	} else {
-		if _, ok := p.gcpAssetsByName[gcpAssetID]; !ok {
-			return nil
+		if _, ok := p.gcpFoldersByName[gcpAssetID]; ok {
+			return p.gcpFoldersByName[gcpAssetID]
+		} else if _, ok := p.gcpProjectsByName[gcpAssetID]; ok {
+			return p.gcpProjectsByName[gcpAssetID]
 		}
-		return p.gcpAssetsByName[gcpAssetID]
+		return nil
 	}
 }
