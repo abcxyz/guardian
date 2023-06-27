@@ -41,8 +41,11 @@ const (
 	BucketAssetType       = "storage.googleapis.com/Bucket"
 )
 
-// resourceNameIDPattern is a Regex pattern used to parse ID from ParentFullResourceName.
+// resourceNameIDPattern is a Regex pattern used to parse ID from the resource ParentFullResourceName.
 var resourceNameIDPattern = regexp.MustCompile(`\/\/cloudresourcemanager\.googleapis\.com\/(?:folders|organizations)\/(\d*)`)
+
+// resourceNamePattern is a Regex pattern used to parse name from the resource Name.
+var resourceNamePattern = regexp.MustCompile(`\/\/cloudresourcemanager\.googleapis\.com\/(?:folders|organizations|projects)\/(.*)`)
 
 // HierarchyNode represents a node in the GCP Resource Hierarchy.
 // Example: Organization, Folder, or Project.
@@ -146,6 +149,11 @@ func (c *Client) HierarchyAssets(ctx context.Context, organizationID, assetType 
 			// Example value: "projects/45234234234"
 			id = strings.TrimPrefix(resource.Project, "projects/")
 		}
+		// Example value: "//cloudresourcemanager.googleapis.com/projects/my-project-name"
+		name, err := extractNameFromResourceName(resource.Name)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse name from resource name: %w", err)
+		}
 		// Example value: "//cloudresourcemanager.googleapis.com/folders/234234233233"
 		// Example value: "//cloudresourcemanager.googleapis.com/organizations/234234233235"
 		parentID, err := extractIDFromResourceName(resource.ParentFullResourceName)
@@ -156,7 +164,7 @@ func (c *Client) HierarchyAssets(ctx context.Context, organizationID, assetType 
 		parentType := strings.TrimPrefix(resource.ParentAssetType, "cloudresourcemanager.googleapis.com/")
 		f = append(f, &HierarchyNode{
 			ID:         id,
-			Name:       resource.DisplayName,
+			Name:       *name,
 			ParentID:   *parentID,
 			ParentType: parentType,
 			NodeType:   assetType,
@@ -164,6 +172,14 @@ func (c *Client) HierarchyAssets(ctx context.Context, organizationID, assetType 
 	}
 
 	return f, nil
+}
+
+func extractNameFromResourceName(gcpResourceName string) (*string, error) {
+	matches := resourceNamePattern.FindStringSubmatch(gcpResourceName)
+	if len(matches) < 2 {
+		return nil, fmt.Errorf("failed to parse name from Resource Name: %s", gcpResourceName)
+	}
+	return &matches[1], nil
 }
 
 func extractIDFromResourceName(gcpResourceName string) (*string, error) {
@@ -175,13 +191,8 @@ func extractIDFromResourceName(gcpResourceName string) (*string, error) {
 }
 
 // NewHierarchyGraph builds a complete gcp organization graph representation of the org, its folders, and its projects.
-func NewHierarchyGraph(organizationID string, folders, projects []*HierarchyNode) (*HierarchyGraph, error) {
+func NewHierarchyGraph(organizationID string, folders, projects map[string]*HierarchyNode) (*HierarchyGraph, error) {
 	graph := make(map[string]*HierarchyNodeWithChildren)
-
-	folderHash := make(map[string]*HierarchyNode)
-	for _, folder := range folders {
-		folderHash[folder.ID] = folder
-	}
 
 	graph[organizationID] = &HierarchyNodeWithChildren{
 		HierarchyNode: &HierarchyNode{
@@ -196,7 +207,7 @@ func NewHierarchyGraph(organizationID string, folders, projects []*HierarchyNode
 	}
 
 	for _, folder := range folders {
-		if err := addFolderToGraph(graph, folder, folderHash); err != nil {
+		if err := addFolderToGraph(graph, folder, folders); err != nil {
 			return nil, fmt.Errorf("failed to traverse folders hierarchy for folder with ID %s when creating graph: %w", folder.ID, err)
 		}
 	}
@@ -256,4 +267,25 @@ func addFolderToGraph(graph map[string]*HierarchyNodeWithChildren, folder *Hiera
 	graph[folder.ParentID].FolderIDs = append(graph[folder.ParentID].FolderIDs, folder.ID)
 
 	return nil
+}
+
+// AssetsByName returns a map of assets keyed by asset name.
+func AssetsByName(assetsByID map[string]*HierarchyNode) map[string]*HierarchyNode {
+	assetsByName := make(map[string]*HierarchyNode)
+	for _, a := range assetsByID {
+		assetsByName[a.Name] = a
+	}
+	return assetsByName
+}
+
+// Merge combines two maps of assets. In the case of collision we use the asset in assetsB.
+func Merge(assetsA, assetsB map[string]*HierarchyNode) map[string]*HierarchyNode {
+	assets := make(map[string]*HierarchyNode)
+	for _, a := range assetsA {
+		assets[a.Name] = a
+	}
+	for _, b := range assetsB {
+		assets[b.Name] = b
+	}
+	return assets
 }
