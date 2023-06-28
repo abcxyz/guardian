@@ -129,6 +129,7 @@ func (c *Client) HierarchyAssets(ctx context.Context, organizationID, assetType 
 	req := &assetpb.SearchAllResourcesRequest{
 		Scope:      fmt.Sprintf("organizations/%s", organizationID),
 		AssetTypes: []string{assetType},
+		Query:      "state:ACTIVE",
 	}
 	it := c.assetClient.SearchAllResources(ctx, req)
 	for {
