@@ -20,6 +20,7 @@ import (
 
 	"github.com/abcxyz/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
 const (
@@ -187,7 +188,8 @@ func TestNewHierarchyGraph(t *testing.T) {
 				t.Errorf("Process(%+v) got unexpected error substring: %v", tc.name, diff)
 			}
 			// Verify that the ResourceMapping is modified with additional annotations fetched from Asset Inventory.
-			if diff := cmp.Diff(tc.wantGraph, gotGraph); diff != "" {
+			less := func(a, b string) bool { return a < b }
+			if diff := cmp.Diff(tc.wantGraph, gotGraph, cmpopts.SortSlices(less)); diff != "" {
 				t.Errorf("Process(%+v) got diff (-want, +got): %v", tc.name, diff)
 			}
 		})
