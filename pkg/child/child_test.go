@@ -24,45 +24,6 @@ import (
 	"github.com/abcxyz/pkg/testutil"
 )
 
-func TestChild_New(t *testing.T) {
-	t.Parallel()
-
-	ctx := logging.WithLogger(context.Background(), logging.TestLogger(t))
-
-	cases := []struct {
-		name    string
-		command string
-		args    []string
-		expErr  string
-	}{
-		{
-			name:    "success",
-			command: "echo",
-			args:    []string{},
-			expErr:  "",
-		},
-		{
-			name:    "missing_exec_path",
-			command: "not-real",
-			args:    []string{},
-			expErr:  "failed to locate command exec path: exec: \"not-real\": executable file not found in $PATH",
-		},
-	}
-
-	for _, tc := range cases {
-		tc := tc
-
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			_, err := New(ctx, tc.command, tc.args)
-			if diff := testutil.DiffErrString(err, tc.expErr); diff != "" {
-				t.Errorf("unexpected err: %s", diff)
-			}
-		})
-	}
-}
-
 func TestChild_Run(t *testing.T) {
 	t.Parallel()
 
@@ -79,8 +40,8 @@ func TestChild_Run(t *testing.T) {
 	}{
 		{
 			name:        "success",
-			command:     "echo",
-			args:        []string{"\"this is a test\""},
+			command:     "bash",
+			args:        []string{"-c", "echo \"this is a test\""},
 			expStdout:   "this is a test",
 			expStderr:   "",
 			expExitCode: 0,
@@ -88,12 +49,12 @@ func TestChild_Run(t *testing.T) {
 		},
 		{
 			name:        "returns_stderr",
-			command:     "ls",
-			args:        []string{".", "*.not-real"},
-			expStdout:   "",
-			expStderr:   "No such file or directory",
-			expExitCode: 2,
-			expErr:      "failed to run command: exit status",
+			command:     "bash",
+			args:        []string{"-c", "echo stdout && echo stderr >&2 && exit 1"},
+			expStdout:   "stdout",
+			expStderr:   "stderr",
+			expExitCode: 1,
+			expErr:      "failed to run command: exit status 1",
 		},
 	}
 
@@ -103,13 +64,7 @@ func TestChild_Run(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			c, err := New(ctx, tc.command, tc.args)
-			if err != nil {
-				t.Errorf("unexpected err: %s", err)
-				return
-			}
-
-			stdout, stderr, exitCode, err := c.Run(ctx)
+			stdout, stderr, exitCode, err := Run(ctx, tc.command, tc.args, "")
 			if diff := testutil.DiffErrString(err, tc.expErr); diff != "" {
 				t.Errorf("unexpected err: %s", diff)
 			}
@@ -158,13 +113,7 @@ func TestChild_Run_Cancel(t *testing.T) {
 			ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 			defer cancel()
 
-			c, err := New(ctx, tc.command, tc.args)
-			if err != nil {
-				t.Errorf("unexpected err: %s", err)
-				return
-			}
-
-			stdout, stderr, _, err := c.Run(ctx)
+			stdout, stderr, _, err := Run(ctx, tc.command, tc.args, "")
 			if diff := testutil.DiffErrString(err, tc.expErr); diff != "" {
 				t.Errorf("unexpected err: %s", diff)
 			}

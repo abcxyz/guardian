@@ -20,83 +20,49 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
-	"strings"
 	"time"
 )
 
-// Child is a child process.
-type Child struct {
-	command string
-	args    []string
-	cmd     *exec.Cmd
-
-	workingDir string
-}
-
-// New creates a new child process.
-func New(ctx context.Context, command string, args []string, opts ...Option) (*Child, error) {
+// Run executes a child process with the provided arguments.
+func Run(ctx context.Context, command string, args []string, workingDir string) ([]byte, []byte, int, error) {
 	path, err := exec.LookPath(command)
 	if err != nil {
-		return nil, fmt.Errorf("failed to locate command exec path: %w", err)
+		return nil, nil, 1, fmt.Errorf("failed to locate command exec path: %w", err)
 	}
-
-	c := &Child{
-		command: command,
-		args:    args,
-	}
-
-	cmd := exec.CommandContext(ctx, path)
-	c.cmd = cmd
-	c.setSysProcAttr()
-	c.setCancel()
-
-	for _, opt := range opts {
-		if opt != nil {
-			c = opt(c)
-		}
-	}
-
-	if c.workingDir != "" {
-		c.cmd.Dir = c.workingDir
-	}
-
-	return c, nil
-}
-
-// Run executes the child process with the provided arguments.
-func (c *Child) Run(ctx context.Context) ([]byte, []byte, int, error) {
-	select {
-	case <-ctx.Done():
-		return nil, nil, 1, fmt.Errorf("failed to run command: %w", ctx.Err())
-	default:
-	}
-
-	c.cmd.Args = append(c.cmd.Args, c.args...)
-
-	// add small wait delay to kill subprocesses if context is canceled
-	// https://github.com/golang/go/issues/23019
-	// https://github.com/golang/go/issues/50436
-	c.cmd.WaitDelay = 2 * time.Second
 
 	stdout := bytes.NewBuffer(nil)
 	stderr := bytes.NewBuffer(nil)
 
-	c.cmd.Stdout = stdout
-	c.cmd.Stderr = stderr
+	cmd := exec.CommandContext(ctx, path)
+	setSysProcAttr(cmd)
+	setCancel(cmd)
 
-	if err := c.cmd.Start(); err != nil {
-		return nil, nil, c.cmd.ProcessState.ExitCode(), fmt.Errorf("failed to start command: %w", err)
+	if workingDir != "" {
+		cmd.Dir = workingDir
 	}
 
-	if err := c.cmd.Wait(); err != nil {
-		return stdout.Bytes(), stderr.Bytes(), c.cmd.ProcessState.ExitCode(), fmt.Errorf("failed to run command: %w", err)
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
+	cmd.Args = append(cmd.Args, args...)
+
+	// add small wait delay to kill subprocesses if context is canceled
+	// https://github.com/golang/go/issues/23019
+	// https://github.com/golang/go/issues/50436
+	cmd.WaitDelay = 2 * time.Second
+
+	select {
+	case <-ctx.Done():
+		return nil, nil, cmd.ProcessState.ExitCode(), fmt.Errorf("failed to run command: %w", ctx.Err())
+	default:
 	}
 
-	return stdout.Bytes(), stderr.Bytes(), c.cmd.ProcessState.ExitCode(), nil
-}
+	if err := cmd.Start(); err != nil {
+		return nil, nil, cmd.ProcessState.ExitCode(), fmt.Errorf("failed to start command: %w", err)
+	}
 
-// Command prints the command and args for the child process.
-func (c *Child) Command() string {
-	list := append([]string{c.command}, c.args...)
-	return strings.Join(list, " ")
+	if err := cmd.Wait(); err != nil {
+		return stdout.Bytes(), stderr.Bytes(), cmd.ProcessState.ExitCode(), fmt.Errorf("failed to run command: %w", err)
+	}
+
+	return stdout.Bytes(), stderr.Bytes(), cmd.ProcessState.ExitCode(), nil
 }

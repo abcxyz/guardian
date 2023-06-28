@@ -12,13 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build linux
+// +build linux
+
 package child
 
-import "syscall"
+import (
+	"os/exec"
+	"syscall"
+)
 
 // setSysProcAttr sets the sysProcAttr.
-func (c *Child) setSysProcAttr() {
-	c.cmd.SysProcAttr = &syscall.SysProcAttr{
+func setSysProcAttr(cmd *exec.Cmd) {
+	cmd.SysProcAttr = &syscall.SysProcAttr{
 		// kill children if parent is dead
 		Pdeathsig: syscall.SIGKILL,
 		// set process group ID
@@ -27,8 +33,8 @@ func (c *Child) setSysProcAttr() {
 }
 
 // setCancel sets the Cancel behavior for a child process.
-func (c *Child) setCancel() {
-	c.cmd.Cancel = func() error {
-		return c.cmd.Process.Signal(syscall.SIGQUIT) //nolint:wrapcheck // Want passthrough
+func setCancel(cmd *exec.Cmd) {
+	cmd.Cancel = func() error {
+		return cmd.Process.Signal(syscall.SIGQUIT) //nolint:wrapcheck // Want passthrough
 	}
 }

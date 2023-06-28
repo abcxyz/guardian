@@ -17,8 +17,10 @@
 
 package child
 
+import "os/exec"
+
 // setSysProcAttr sets the sysProcAttr.
-func (c *Child) setSysProcAttr() {}
+func setSysProcAttr(cmd *exec.Cmd) {}
 
 // setCancel sets the Cancel behavior for a child process.
-func (c *Child) setCancel() {}
+func setCancel(cmd *exec.Cmd) {}
