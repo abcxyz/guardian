@@ -87,20 +87,30 @@ func TestChild_Run_Cancel(t *testing.T) {
 	ctx := logging.WithLogger(context.Background(), logging.TestLogger(t))
 
 	cases := []struct {
-		name      string
-		command   string
-		args      []string
-		expStdout string
-		expStderr string
-		expErr    string
+		name         string
+		command      string
+		args         []string
+		cancelBefore bool
+		expStdout    string
+		expStderr    string
+		expErr       string
 	}{
 		{
-			name:      "cancels_context",
+			name:      "cancels_context_after_2s",
 			command:   "sleep",
 			args:      []string{"5"},
 			expStdout: "",
 			expStderr: "",
 			expErr:    "failed to run command: signal:",
+		},
+		{
+			name:         "cancels_context_before",
+			command:      "sleep",
+			args:         []string{"5"},
+			cancelBefore: true,
+			expStdout:    "",
+			expStderr:    "",
+			expErr:       "failed to start command: context canceled",
 		},
 	}
 
@@ -111,7 +121,12 @@ func TestChild_Run_Cancel(t *testing.T) {
 			t.Parallel()
 
 			ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
-			defer cancel()
+
+			if tc.cancelBefore {
+				cancel()
+			} else {
+				defer cancel()
+			}
 
 			stdout, stderr, _, err := Run(ctx, tc.command, tc.args, "")
 			if diff := testutil.DiffErrString(err, tc.expErr); diff != "" {

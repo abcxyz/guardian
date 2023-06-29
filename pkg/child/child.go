@@ -30,8 +30,7 @@ func Run(ctx context.Context, command string, args []string, workingDir string) 
 		return nil, nil, 1, fmt.Errorf("failed to locate command exec path: %w", err)
 	}
 
-	stdout := bytes.NewBuffer(nil)
-	stderr := bytes.NewBuffer(nil)
+	var stdout, stderr bytes.Buffer
 
 	cmd := exec.CommandContext(ctx, path)
 	setSysProcAttr(cmd)
@@ -41,20 +40,14 @@ func Run(ctx context.Context, command string, args []string, workingDir string) 
 		cmd.Dir = workingDir
 	}
 
-	cmd.Stdout = stdout
-	cmd.Stderr = stderr
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
 	cmd.Args = append(cmd.Args, args...)
 
 	// add small wait delay to kill subprocesses if context is canceled
 	// https://github.com/golang/go/issues/23019
 	// https://github.com/golang/go/issues/50436
 	cmd.WaitDelay = 2 * time.Second
-
-	select {
-	case <-ctx.Done():
-		return nil, nil, cmd.ProcessState.ExitCode(), fmt.Errorf("failed to run command: %w", ctx.Err())
-	default:
-	}
 
 	if err := cmd.Start(); err != nil {
 		return nil, nil, cmd.ProcessState.ExitCode(), fmt.Errorf("failed to start command: %w", err)
