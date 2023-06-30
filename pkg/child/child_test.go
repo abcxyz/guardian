@@ -54,7 +54,7 @@ func TestChild_Run(t *testing.T) {
 			expStdout:   "stdout",
 			expStderr:   "stderr",
 			expExitCode: 1,
-			expErr:      "failed to run command: exit status 1",
+			expErr:      "failed to run command [bash -c echo stdout && echo stderr >&2 && exit 1]: exit status 1",
 		},
 	}
 
@@ -64,7 +64,8 @@ func TestChild_Run(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			stdout, stderr, exitCode, err := Run(ctx, tc.command, tc.args, "")
+			c := &ChildRunner{}
+			stdout, stderr, exitCode, err := c.Run(ctx, "", tc.command, tc.args)
 			if diff := testutil.DiffErrString(err, tc.expErr); diff != "" {
 				t.Errorf("unexpected err: %s", diff)
 			}
@@ -101,7 +102,7 @@ func TestChild_Run_Cancel(t *testing.T) {
 			args:      []string{"5"},
 			expStdout: "",
 			expStderr: "",
-			expErr:    "failed to run command: signal:",
+			expErr:    "failed to run command [sleep 5]: signal:",
 		},
 		{
 			name:         "cancels_context_before",
@@ -110,7 +111,7 @@ func TestChild_Run_Cancel(t *testing.T) {
 			cancelBefore: true,
 			expStdout:    "",
 			expStderr:    "",
-			expErr:       "failed to start command: context canceled",
+			expErr:       "failed to start command [sleep 5]: context canceled",
 		},
 	}
 
@@ -128,7 +129,8 @@ func TestChild_Run_Cancel(t *testing.T) {
 				defer cancel()
 			}
 
-			stdout, stderr, _, err := Run(ctx, tc.command, tc.args, "")
+			c := &ChildRunner{}
+			stdout, stderr, _, err := c.Run(ctx, "", tc.command, tc.args)
 			if diff := testutil.DiffErrString(err, tc.expErr); diff != "" {
 				t.Errorf("unexpected err: %s", diff)
 			}

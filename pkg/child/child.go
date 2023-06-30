@@ -20,11 +20,22 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"strings"
 	"time"
 )
 
+var _ Runner = (*ChildRunner)(nil)
+
+// Runner defines the functionality for running child processes.
+type Runner interface {
+	Run(ctx context.Context, workingDir, command string, args []string) ([]byte, []byte, int, error)
+}
+
+// Child implements the Runner interface.
+type ChildRunner struct{}
+
 // Run executes a child process with the provided arguments.
-func Run(ctx context.Context, command string, args []string, workingDir string) ([]byte, []byte, int, error) {
+func (c *ChildRunner) Run(ctx context.Context, workingDir, command string, args []string) ([]byte, []byte, int, error) {
 	path, err := exec.LookPath(command)
 	if err != nil {
 		return nil, nil, 1, fmt.Errorf("failed to locate command exec path: %w", err)
@@ -50,11 +61,11 @@ func Run(ctx context.Context, command string, args []string, workingDir string) 
 	cmd.WaitDelay = 2 * time.Second
 
 	if err := cmd.Start(); err != nil {
-		return nil, nil, cmd.ProcessState.ExitCode(), fmt.Errorf("failed to start command: %w", err)
+		return nil, nil, cmd.ProcessState.ExitCode(), fmt.Errorf("failed to start command [%s %s]: %w", command, strings.Join(args, " "), err)
 	}
 
 	if err := cmd.Wait(); err != nil {
-		return stdout.Bytes(), stderr.Bytes(), cmd.ProcessState.ExitCode(), fmt.Errorf("failed to run command: %w", err)
+		return stdout.Bytes(), stderr.Bytes(), cmd.ProcessState.ExitCode(), fmt.Errorf("failed to run command [%s %s]: %w", command, strings.Join(args, " "), err)
 	}
 
 	return stdout.Bytes(), stderr.Bytes(), cmd.ProcessState.ExitCode(), nil
