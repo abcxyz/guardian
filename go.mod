@@ -21,6 +21,8 @@ require (
 	cloud.google.com/go/longrunning v0.4.1 // indirect
 	cloud.google.com/go/orgpolicy v1.10.0 // indirect
 	cloud.google.com/go/osconfig v1.11.0 // indirect
+	github.com/agext/levenshtein v1.2.3 // indirect
+	github.com/apparentlymart/go-textseg/v13 v13.0.0 // indirect
 	github.com/benbjohnson/clock v1.3.0 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
@@ -40,6 +42,7 @@ require (
 	github.com/lestrrat-go/jwx/v2 v2.0.11 // indirect
 	github.com/lestrrat-go/option v1.0.1 // indirect
 	github.com/mattn/go-isatty v0.0.17 // indirect
+	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
 	github.com/posener/complete/v2 v2.0.1-alpha.13 // indirect
 	github.com/posener/script v1.1.5 // indirect
 	github.com/segmentio/asm v1.2.0 // indirect

@@ -24,7 +24,7 @@ import (
 )
 
 // Run executes a child process with the provided arguments.
-func Run(ctx context.Context, command string, args []string, workingDir string) ([]byte, []byte, int, error) {
+func Run(ctx context.Context, workingDir, command string, args []string) ([]byte, []byte, int, error) {
 	path, err := exec.LookPath(command)
 	if err != nil {
 		return nil, nil, 1, fmt.Errorf("failed to locate command exec path: %w", err)

@@ -64,7 +64,7 @@ func TestChild_Run(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			stdout, stderr, exitCode, err := Run(ctx, tc.command, tc.args, "")
+			stdout, stderr, exitCode, err := Run(ctx, "", tc.command, tc.args)
 			if diff := testutil.DiffErrString(err, tc.expErr); diff != "" {
 				t.Errorf("unexpected err: %s", diff)
 			}
@@ -128,7 +128,7 @@ func TestChild_Run_Cancel(t *testing.T) {
 				defer cancel()
 			}
 
-			stdout, stderr, _, err := Run(ctx, tc.command, tc.args, "")
+			stdout, stderr, _, err := Run(ctx, "", tc.command, tc.args)
 			if diff := testutil.DiffErrString(err, tc.expErr); diff != "" {
 				t.Errorf("unexpected err: %s", diff)
 			}
