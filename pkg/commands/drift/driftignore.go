@@ -24,8 +24,8 @@ import (
 
 	"github.com/abcxyz/pkg/logging"
 
-	"github.com/abcxyz/guardian/pkg/drift/assets"
-	"github.com/abcxyz/guardian/pkg/drift/iam"
+	"github.com/abcxyz/guardian/pkg/commands/drift/assets"
+	"github.com/abcxyz/guardian/pkg/commands/drift/iam"
 )
 
 type ignoredAssets struct {
