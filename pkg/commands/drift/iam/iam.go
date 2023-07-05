@@ -20,7 +20,7 @@ import (
 
 	"google.golang.org/api/cloudresourcemanager/v3"
 
-	"github.com/abcxyz/guardian/pkg/drift/assets"
+	"github.com/abcxyz/guardian/pkg/commands/drift/assets"
 )
 
 // AssetIAM represents the IAM of a GCP resource (e.g binding/policy/membership of GCP Project, Folder, Org).

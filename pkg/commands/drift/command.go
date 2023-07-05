@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cli
+package drift
 
 import (
 	"context"
@@ -24,7 +24,6 @@ import (
 	"github.com/abcxyz/pkg/logging"
 
 	"github.com/abcxyz/guardian/internal/version"
-	"github.com/abcxyz/guardian/pkg/drift"
 )
 
 var _ cli.Command = (*DetectIamDriftCommand)(nil)
@@ -105,7 +104,7 @@ func (c *DetectIamDriftCommand) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("missing -organization-id")
 	}
 
-	iamDiff, err := drift.Process(ctx, c.flagOrganizationID, c.flagGCSBucketQuery, c.flagDriftignoreFile)
+	iamDiff, err := Process(ctx, c.flagOrganizationID, c.flagGCSBucketQuery, c.flagDriftignoreFile)
 	if err != nil {
 		return fmt.Errorf("failed to detect drift %w", err)
 	}

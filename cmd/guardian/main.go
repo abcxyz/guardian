@@ -22,8 +22,36 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/abcxyz/guardian/pkg/cli"
+	"github.com/abcxyz/guardian/internal/version"
+	"github.com/abcxyz/guardian/pkg/commands/drift"
+	"github.com/abcxyz/guardian/pkg/commands/plan"
+	"github.com/abcxyz/pkg/cli"
+	"github.com/abcxyz/pkg/logging"
 )
+
+const (
+	defaultLogLevel = "warn"
+	defaultLogMode  = "development"
+)
+
+// rootCmd defines the starting command structure.
+var rootCmd = func() cli.Command {
+	return &cli.RootCommand{
+		Name:    "guardian",
+		Version: version.HumanVersion,
+		Commands: map[string]cli.CommandFactory{
+			"plan": func() cli.Command {
+				return &plan.PlanCommand{}
+			},
+			// "apply": func() cli.Command {
+			// 	return &ApplyCommand{}
+			// },
+			"detect-iam-drift": func() cli.Command {
+				return &drift.DetectIamDriftCommand{}
+			},
+		},
+	}
+}
 
 func main() {
 	ctx, done := signal.NotifyContext(context.Background(),
@@ -38,5 +66,19 @@ func main() {
 }
 
 func realMain(ctx context.Context) error {
-	return cli.Run(ctx, os.Args[1:]) //nolint:wrapcheck // Want passthrough
+	setLogEnvVars()
+	ctx = logging.WithLogger(ctx, logging.NewFromEnv("GUARDIAN_"))
+	return rootCmd().Run(ctx, os.Args[1:]) //nolint:wrapcheck // Want passthrough
+}
+
+// setLogEnvVars set the logging environment variables to their default
+// values if not provided.
+func setLogEnvVars() {
+	if os.Getenv("GUARDIAN_LOG_MODE") == "" {
+		os.Setenv("GUARDIAN_LOG_MODE", defaultLogMode)
+	}
+
+	if os.Getenv("GUARDIAN_LOG_LEVEL") == "" {
+		os.Setenv("GUARDIAN_LOG_LEVEL", defaultLogLevel)
+	}
 }
