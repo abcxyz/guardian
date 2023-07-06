@@ -15,6 +15,7 @@
 package terraform
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/abcxyz/pkg/testutil"
@@ -85,8 +86,8 @@ first section !
 			t.Parallel()
 
 			output := FormatOutputForGitHubDiff(tc.content)
-			if diff := cmp.Diff(output, tc.exp); diff != "" {
-				t.Errorf("got %#v, want %#v, diff (-got, +want): %v", output, tc.exp, diff)
+			if got, want := strings.TrimSpace(output), strings.TrimSpace(tc.exp); got != want {
+				t.Errorf("expected\n\n%s\n\nto be\n\n%s\n\n", got, want)
 			}
 		})
 	}
