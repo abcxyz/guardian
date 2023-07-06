@@ -187,10 +187,11 @@ func actualGCPIAM(
 	})
 	for _, f := range foldersByID {
 		folderID := f.ID
+		folderName := f.Name
 		g.Go(func() error {
 			fIAM, err := client.FolderIAM(ctx, folderID)
 			if err != nil {
-				return fmt.Errorf("failed to get folder IAM for folder with ID '%s' and name '%s': %w", f.ID, f.Name, err)
+				return fmt.Errorf("failed to get folder IAM for folder with ID '%s' and name '%s': %w", folderID, folderName, err)
 			}
 			iamChan <- fIAM
 			return nil
@@ -198,10 +199,11 @@ func actualGCPIAM(
 	}
 	for _, p := range projectsByID {
 		projectID := p.ID
+		projectName := p.Name
 		g.Go(func() error {
 			pIAM, err := client.ProjectIAM(ctx, projectID)
 			if err != nil {
-				return fmt.Errorf("failed to get project IAM for project with ID '%s' and name '%s': %w", p.ID, p.Name, err)
+				return fmt.Errorf("failed to get project IAM for project with ID '%s' and name '%s': %w", projectID, projectName, err)
 			}
 			iamChan <- pIAM
 			return nil
