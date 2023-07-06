@@ -88,7 +88,7 @@ func (t *TerraformClient) Plan(ctx context.Context, workingDir, file string, arg
 	return child.Run(ctx, workingDir, "terraform", childArgs) //nolint:wrapcheck
 }
 
-// Apply runs the Terraform plan command.
+// Apply runs the Terraform apply command.
 func (t *TerraformClient) Apply(ctx context.Context, workingDir, file string, args ...string) ([]byte, []byte, int, error) {
 	childArgs := []string{"apply"}
 	childArgs = append(childArgs, args...)

@@ -103,12 +103,12 @@ func TestTerraform_GetEntrypointDirectories(t *testing.T) {
 	}{
 		{
 			name: "success_has_backend",
-			dir:  "../../terraform",
+			dir:  "../../terraform", // depend on test data in [REPO_ROOT]/terraform
 			exp:  []string{"../../terraform", "../../terraform/has-backend"},
 		},
 		{
 			name: "success_missing_directory",
-			dir:  "../../terraform/missing",
+			dir:  "../../terraform/missing", // depend on test data in [REPO_ROOT]/terraform
 			exp:  nil,
 			err:  "no such file or directory",
 		},

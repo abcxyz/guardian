@@ -16,7 +16,6 @@ package terraform
 
 import (
 	"context"
-	"fmt"
 )
 
 var _ Terraform = (*MockTerraformClient)(nil)
@@ -55,7 +54,6 @@ func (m *MockTerraformClient) Validate(ctx context.Context, workingDir string, a
 
 func (m *MockTerraformClient) Plan(ctx context.Context, workingDir, file string, args ...string) ([]byte, []byte, int, error) {
 	if m.PlanResponse != nil {
-		fmt.Printf("Plan response: %+v", m.PlanResponse)
 		return m.PlanResponse.Stdout, m.PlanResponse.Stderr, m.PlanResponse.ExitCode, m.PlanResponse.Err
 	}
 	return []byte{}, []byte{}, 0, nil
