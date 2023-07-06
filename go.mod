@@ -7,6 +7,7 @@ require (
 	cloud.google.com/go/storage v1.28.1
 	github.com/abcxyz/pkg v0.4.0
 	github.com/google/go-cmp v0.5.9
+	golang.org/x/sync v0.2.0
 	google.golang.org/api v0.128.0
 	google.golang.org/protobuf v1.30.0
 )

@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/abcxyz/pkg/logging"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/abcxyz/guardian/pkg/commands/drift/assets"
 	"github.com/abcxyz/guardian/pkg/commands/drift/iam"
@@ -41,17 +42,33 @@ func Process(ctx context.Context, organizationID, bucketQuery, driftignoreFile s
 	}
 	// We differentiate between projects and folders here since we use them separately in
 	// downstream operations.
-	folders, err := assetsClient.HierarchyAssets(ctx, organizationID, assets.FolderAssetType)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get folders: %w", err)
-	}
-	projects, err := assetsClient.HierarchyAssets(ctx, organizationID, assets.ProjectAssetType)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get folders: %w", err)
-	}
-	buckets, err := assetsClient.Buckets(ctx, organizationID, bucketQuery)
-	if err != nil {
-		return nil, fmt.Errorf("failed to determine terraform state GCS buckets: %w", err)
+	gAssets, gCtx := errgroup.WithContext(ctx)
+	var folders []*assets.HierarchyNode
+	var projects []*assets.HierarchyNode
+	var buckets []string
+	gAssets.Go(func() error {
+		folders, err = assetsClient.HierarchyAssets(gCtx, organizationID, assets.FolderAssetType)
+		if err != nil {
+			return fmt.Errorf("failed to get folders: %w", err)
+		}
+		return nil
+	})
+	gAssets.Go(func() error {
+		projects, err = assetsClient.HierarchyAssets(gCtx, organizationID, assets.ProjectAssetType)
+		if err != nil {
+			return fmt.Errorf("failed to get folders: %w", err)
+		}
+		return nil
+	})
+	gAssets.Go(func() error {
+		buckets, err = assetsClient.Buckets(gCtx, organizationID, bucketQuery)
+		if err != nil {
+			return fmt.Errorf("failed to determine terraform state GCS buckets: %w", err)
+		}
+		return nil
+	})
+	if err := gAssets.Wait(); err != nil {
+		return nil, fmt.Errorf("failed to execute Asset tasks in parallel: %w", err)
 	}
 	foldersByID := make(map[string]*assets.HierarchyNode)
 	for _, folder := range folders {
@@ -66,9 +83,6 @@ func Process(ctx context.Context, organizationID, bucketQuery, driftignoreFile s
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct graph from GCP assets: %w", err)
 	}
-	logger.Debugw("fetching iam for org, folders and projects",
-		"number_of_folders", len(folders),
-		"number_of_projects", len(projects))
 
 	ignored, err := driftignore(ctx, driftignoreFile, foldersByID, projectsByID)
 	if err != nil {
@@ -79,20 +93,50 @@ func Process(ctx context.Context, organizationID, bucketQuery, driftignoreFile s
 		return nil, fmt.Errorf("failed to expand graph for ignored assets: %w", err)
 	}
 
-	gcpIAM, err := actualGCPIAM(ctx, organizationID, foldersByID, projectsByID)
+	g, gCtx := errgroup.WithContext(ctx)
+
+	logger.Debugw("fetching iam for org, folders and projects",
+		"number_of_folders", len(folders),
+		"number_of_projects", len(projects))
+	gcpIAMCount := 1 + len(foldersByID) + len(projectsByID)
+	gcpIAMChan := make(chan []*iam.AssetIAM, gcpIAMCount)
+	err = actualGCPIAM(gCtx, g, organizationID, foldersByID, projectsByID, gcpIAMChan)
 	if err != nil {
 		return nil, fmt.Errorf("failed to determine GCP IAM: %w", err)
 	}
 	logger.Debugw("Fetching terraform state from Buckets", "number_of_buckets", len(buckets))
-	tfIAM, err := terraformStateIAM(ctx, organizationID, foldersByID, projectsByID, buckets)
+	terraformIAMChan := make(chan []*iam.AssetIAM, len(buckets))
+	err = terraformStateIAM(gCtx, g, organizationID, foldersByID, projectsByID, buckets, terraformIAMChan)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse IAM from Terraform State: %w", err)
 	}
-	logger.Debugw("gcp iam entries", "number_of_entries", len(gcpIAM))
-	logger.Debugw("terraform iam entries", "number_of_entries", len(tfIAM))
+	if err := g.Wait(); err != nil {
+		return nil, fmt.Errorf("failed to execute IAM tasks in parallel: %w", err)
+	}
 
+	gcpIAM := make(map[string]*iam.AssetIAM)
+	for i := 0; i < gcpIAMCount; i++ {
+		for _, iamF := range <-gcpIAMChan {
+			gcpIAM[URI(iamF, organizationID, foldersByID, projectsByID)] = iamF
+		}
+	}
+	tfIAM := make(map[string]*iam.AssetIAM)
+	for i := 0; i < len(buckets); i++ {
+		for _, iamF := range <-terraformIAMChan {
+			tfIAM[URI(iamF, organizationID, foldersByID, projectsByID)] = iamF
+		}
+	}
 	gcpIAMNoIgnored := filterIgnored(gcpIAM, ignoredExpanded)
 	tfIAMNoIgnored := filterIgnored(tfIAM, ignoredExpanded)
+
+	logger.Debugw("gcp iam entries",
+		"number_of_in_scope_entries", len(gcpIAMNoIgnored),
+		"number_of_entries", len(gcpIAM),
+		"number_of_ignored_entries", len(gcpIAM)-len(gcpIAMNoIgnored))
+	logger.Debugw("terraform iam entries",
+		"number_of_in_scope_entries", len(tfIAMNoIgnored),
+		"number_of_entries", len(tfIAM),
+		"number_of_ignored_entries", len(tfIAM)-len(tfIAMNoIgnored))
 
 	clickOpsChanges := differenceMap(gcpIAMNoIgnored, tfIAMNoIgnored)
 	missingTerraformChanges := differenceMap(tfIAMNoIgnored, gcpIAMNoIgnored)
@@ -104,11 +148,13 @@ func Process(ctx context.Context, organizationID, bucketQuery, driftignoreFile s
 	missingTerraformNoDefaultIgnoredChanges := filterDefaultURIs(missingTerraformNoIgnoredChanges)
 
 	logger.Debugw("found click ops changes",
+		"number_of_in_scope_changes", len(clickOpsNoDefaultIgnoredChanges),
 		"number_of_changes", len(clickOpsNoIgnoredChanges),
-		"number_of_ignored_changes", len(clickOpsChanges)-len(clickOpsNoDefaultIgnoredChanges))
+		"number_of_ignored_changes", (len(clickOpsChanges) - len(clickOpsNoDefaultIgnoredChanges)))
 	logger.Debugw("found missing terraform changes",
+		"number_of_in_scope_changes", len(missingTerraformNoDefaultIgnoredChanges),
 		"number_of_changes", len(missingTerraformNoIgnoredChanges),
-		"number_of_ignored_changes", len(missingTerraformChanges)-len(missingTerraformNoDefaultIgnoredChanges))
+		"number_of_ignored_changes", (len(missingTerraformChanges) - len(missingTerraformNoDefaultIgnoredChanges)))
 
 	return &IAMDrift{
 		ClickOpsChanges:         clickOpsNoDefaultIgnoredChanges,
@@ -120,74 +166,84 @@ func Process(ctx context.Context, organizationID, bucketQuery, driftignoreFile s
 // Returns a map of asset URI to asset IAM.
 func actualGCPIAM(
 	ctx context.Context,
+	g *errgroup.Group,
 	organizationID string,
 	foldersByID map[string]*assets.HierarchyNode,
 	projectsByID map[string]*assets.HierarchyNode,
-) (map[string]*iam.AssetIAM, error) {
+	iamChan chan []*iam.AssetIAM,
+) error {
 	client, err := iam.NewClient(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize iam client: %w", err)
+		return fmt.Errorf("failed to initialize iam client: %w", err)
 	}
 
-	m := make(map[string]*iam.AssetIAM)
-	oIAM, err := client.OrganizationIAM(ctx, organizationID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get organization IAM for ID '%s': %w", organizationID, err)
-	}
-	for _, i := range oIAM {
-		m[URI(i, organizationID, foldersByID, projectsByID)] = i
-	}
-	for _, f := range foldersByID {
-		fIAM, err := client.FolderIAM(ctx, f.ID)
+	g.Go(func() error {
+		oIAM, err := client.OrganizationIAM(ctx, organizationID)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get folder IAM for folder with ID '%s' and name '%s': %w", f.ID, f.Name, err)
+			return fmt.Errorf("failed to get organization IAM for ID '%s': %w", organizationID, err)
 		}
-		for _, i := range fIAM {
-			m[URI(i, organizationID, foldersByID, projectsByID)] = i
-		}
+		iamChan <- oIAM
+		return nil
+	})
+	for _, f := range foldersByID {
+		folderID := f.ID
+		g.Go(func() error {
+			fIAM, err := client.FolderIAM(ctx, folderID)
+			if err != nil {
+				return fmt.Errorf("failed to get folder IAM for folder with ID '%s' and name '%s': %w", f.ID, f.Name, err)
+			}
+			iamChan <- fIAM
+			return nil
+		})
 	}
 	for _, p := range projectsByID {
-		pIAM, err := client.ProjectIAM(ctx, p.ID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get project IAM for project with ID '%s' and name '%s': %w", p.ID, p.Name, err)
-		}
-		for _, i := range pIAM {
-			m[URI(i, organizationID, foldersByID, projectsByID)] = i
-		}
+		projectID := p.ID
+		g.Go(func() error {
+			pIAM, err := client.ProjectIAM(ctx, projectID)
+			if err != nil {
+				return fmt.Errorf("failed to get project IAM for project with ID '%s' and name '%s': %w", p.ID, p.Name, err)
+			}
+			iamChan <- pIAM
+			return nil
+		})
 	}
 
-	return m, nil
+	return nil
 }
 
 // terraformStateIAM locates all terraform state files in GCS buckets and parses them to find all IAM resources.
 // Returns a map of asset URI to asset IAM.
 func terraformStateIAM(
 	ctx context.Context,
+	g *errgroup.Group,
 	organizationID string,
 	foldersByID map[string]*assets.HierarchyNode,
 	projectsByID map[string]*assets.HierarchyNode,
 	gcsBuckets []string,
-) (map[string]*iam.AssetIAM, error) {
+	iamChan chan []*iam.AssetIAM,
+) error {
 	parser, err := terraform.NewParser(ctx, organizationID, foldersByID, projectsByID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize terraform parser: %w", err)
+		return fmt.Errorf("failed to initialize terraform parser: %w", err)
 	}
-	gcsURIs, err := parser.StateFileURIs(ctx, gcsBuckets)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get terraform state file URIs: %w", err)
+	for _, b := range gcsBuckets {
+		bucket := b
+		g.Go(func() error {
+			gcsURIs, err := parser.StateFileURIs(ctx, []string{bucket})
+			if err != nil {
+				return fmt.Errorf("failed to get terraform state file URIs: %w", err)
+			}
+
+			tIAM, err := parser.ProcessStates(ctx, gcsURIs)
+			if err != nil {
+				return fmt.Errorf("failed to parse terraform states: %w", err)
+			}
+			iamChan <- tIAM
+			return nil
+		})
 	}
 
-	tIAM, err := parser.ProcessStates(ctx, gcsURIs)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse terraform states: %w", err)
-	}
-
-	m := make(map[string]*iam.AssetIAM)
-	for _, i := range tIAM {
-		m[URI(i, organizationID, foldersByID, projectsByID)] = i
-	}
-
-	return m, nil
+	return nil
 }
 
 // differenceMap finds the keys located in the left map that are missing in the right map.
