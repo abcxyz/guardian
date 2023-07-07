@@ -159,53 +159,48 @@ func actualGCPIAM(
 		return nil, fmt.Errorf("failed to initialize iam client: %w", err)
 	}
 
-	p := pool.New().
+	p := pool.NewWithResults[[]*iam.AssetIAM]().
 		WithMaxGoroutines(maxConcurrentRequests).
 		WithContext(ctx).
 		WithCancelOnError()
-	gcpIAMCount := 1 + len(foldersByID) + len(projectsByID)
-	iamChan := make(chan []*iam.AssetIAM, gcpIAMCount)
-
-	p.Go(func(ctx context.Context) error {
+	p.Go(func(ctx context.Context) ([]*iam.AssetIAM, error) {
 		oIAM, err := client.OrganizationIAM(ctx, organizationID)
 		if err != nil {
-			return fmt.Errorf("failed to get organization IAM for ID '%s': %w", organizationID, err)
+			return nil, fmt.Errorf("failed to get organization IAM for ID '%s': %w", organizationID, err)
 		}
-		iamChan <- oIAM
-		return nil
+		return oIAM, nil
 	})
 	for _, f := range foldersByID {
 		folderID := f.ID
 		folderName := f.Name
-		p.Go(func(ctx context.Context) error {
+		p.Go(func(ctx context.Context) ([]*iam.AssetIAM, error) {
 			fIAM, err := client.FolderIAM(ctx, folderID)
 			if err != nil {
-				return fmt.Errorf("failed to get folder IAM for folder with ID '%s' and name '%s': %w", folderID, folderName, err)
+				return nil, fmt.Errorf("failed to get folder IAM for folder with ID '%s' and name '%s': %w", folderID, folderName, err)
 			}
-			iamChan <- fIAM
-			return nil
+			return fIAM, nil
 		})
 	}
 	for _, pr := range projectsByID {
 		projectID := pr.ID
 		projectName := pr.Name
-		p.Go(func(ctx context.Context) error {
+		p.Go(func(ctx context.Context) ([]*iam.AssetIAM, error) {
 			pIAM, err := client.ProjectIAM(ctx, projectID)
 			if err != nil {
-				return fmt.Errorf("failed to get project IAM for project with ID '%s' and name '%s': %w", projectID, projectName, err)
+				return nil, fmt.Errorf("failed to get project IAM for project with ID '%s' and name '%s': %w", projectID, projectName, err)
 			}
-			iamChan <- pIAM
-			return nil
+			return pIAM, nil
 		})
 	}
 
-	if err := p.Wait(); err != nil {
+	iamResults, err := p.Wait()
+	if err != nil {
 		return nil, fmt.Errorf("failed to execute GCP IAM tasks in parallel: %w", err)
 	}
 
 	gcpIAM := make(map[string]*iam.AssetIAM)
-	for i := 0; i < gcpIAMCount; i++ {
-		for _, iamF := range <-iamChan {
+	for _, r := range iamResults {
+		for _, iamF := range r {
 			gcpIAM[URI(iamF, organizationID, foldersByID, projectsByID)] = iamF
 		}
 	}
@@ -226,35 +221,34 @@ func terraformStateIAM(
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize terraform parser: %w", err)
 	}
-	p := pool.New().
+	p := pool.NewWithResults[[]*iam.AssetIAM]().
 		WithMaxGoroutines(maxConcurrentRequests).
 		WithContext(ctx).
 		WithCancelOnError()
-	iamChan := make(chan []*iam.AssetIAM, len(gcsBuckets))
 	for _, b := range gcsBuckets {
 		bucket := b
-		p.Go(func(ctx context.Context) error {
+		p.Go(func(ctx context.Context) ([]*iam.AssetIAM, error) {
 			gcsURIs, err := parser.StateFileURIs(ctx, []string{bucket})
 			if err != nil {
-				return fmt.Errorf("failed to get terraform state file URIs: %w", err)
+				return nil, fmt.Errorf("failed to get terraform state file URIs: %w", err)
 			}
 
 			tIAM, err := parser.ProcessStates(ctx, gcsURIs)
 			if err != nil {
-				return fmt.Errorf("failed to parse terraform states: %w", err)
+				return nil, fmt.Errorf("failed to parse terraform states: %w", err)
 			}
-			iamChan <- tIAM
-			return nil
+			return tIAM, nil
 		})
 	}
 
-	if err := p.Wait(); err != nil {
+	iamResults, err := p.Wait()
+	if err != nil {
 		return nil, fmt.Errorf("failed to execute terraform IAM tasks in parallel: %w", err)
 	}
 
 	tfIAM := make(map[string]*iam.AssetIAM)
-	for i := 0; i < len(gcsBuckets); i++ {
-		for _, iamF := range <-iamChan {
+	for _, r := range iamResults {
+		for _, iamF := range r {
 			tfIAM[URI(iamF, organizationID, foldersByID, projectsByID)] = iamF
 		}
 	}
