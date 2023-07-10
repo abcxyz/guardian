@@ -34,9 +34,10 @@ type DetectIamDriftCommand struct {
 	// testFlagSetOpts is only used for testing.
 	testFlagSetOpts []cli.Option
 
-	flagOrganizationID  string
-	flagGCSBucketQuery  string
-	flagDriftignoreFile string
+	flagOrganizationID        string
+	flagGCSBucketQuery        string
+	flagDriftignoreFile       string
+	flagMaxConcurrentRequests int64
 }
 
 func (c *DetectIamDriftCommand) Desc() string {
@@ -77,6 +78,13 @@ func (c *DetectIamDriftCommand) Flags() *cli.FlagSet {
 		Usage:   `The driftignore file to use which contains values to ignore.`,
 		Default: ".driftignore",
 	})
+	f.Int64Var(&cli.Int64Var{
+		Name:    "max-conncurrent-requests",
+		Target:  &c.flagMaxConcurrentRequests,
+		Example: "10",
+		Usage:   `The maximum number of concurrent requests allowed at any time to GCP.`,
+		Default: 10,
+	})
 
 	return set
 }
@@ -104,7 +112,7 @@ func (c *DetectIamDriftCommand) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("missing -organization-id")
 	}
 
-	iamDiff, err := Process(ctx, c.flagOrganizationID, c.flagGCSBucketQuery, c.flagDriftignoreFile)
+	iamDiff, err := Process(ctx, c.flagOrganizationID, c.flagGCSBucketQuery, c.flagDriftignoreFile, c.flagMaxConcurrentRequests)
 	if err != nil {
 		return fmt.Errorf("failed to detect drift %w", err)
 	}

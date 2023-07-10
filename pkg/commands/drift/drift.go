@@ -20,15 +20,11 @@ import (
 	"strings"
 
 	"github.com/abcxyz/pkg/logging"
-	"github.com/sourcegraph/conc/pool"
+	"github.com/abcxyz/pkg/worker"
 
 	"github.com/abcxyz/guardian/pkg/commands/drift/assets"
 	"github.com/abcxyz/guardian/pkg/commands/drift/iam"
 	"github.com/abcxyz/guardian/pkg/commands/drift/terraform"
-)
-
-const (
-	maxConcurrentRequests = 10
 )
 
 // IAMDrift represents the detected iam drift in a gcp org.
@@ -38,40 +34,46 @@ type IAMDrift struct {
 }
 
 // Process compares the actual GCP IAM against the IAM in your Terraform state files.
-func Process(ctx context.Context, organizationID, bucketQuery, driftignoreFile string) (*IAMDrift, error) {
+func Process(ctx context.Context, organizationID, bucketQuery, driftignoreFile string, maxConcurrentRequests int64) (*IAMDrift, error) {
 	assetsClient, err := assets.NewClient(ctx)
 	logger := logging.FromContext(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize assets client: %w", err)
 	}
+	w := worker.New[*worker.Void](maxConcurrentRequests)
 	// We differentiate between projects and folders here since we use them separately in
 	// downstream operations.
-	p := pool.New().WithErrors()
 	var folders []*assets.HierarchyNode
 	var projects []*assets.HierarchyNode
 	var buckets []string
-	p.Go(func() error {
+	if err := w.Do(ctx, func() (*worker.Void, error) {
 		folders, err = assetsClient.HierarchyAssets(ctx, organizationID, assets.FolderAssetType)
 		if err != nil {
-			return fmt.Errorf("failed to get folders: %w", err)
+			return nil, fmt.Errorf("failed to get folders: %w", err)
 		}
-		return nil
-	})
-	p.Go(func() error {
+		return nil, nil
+	}); err != nil {
+		return nil, fmt.Errorf("failed to execute folder list task: %w", err)
+	}
+	if err := w.Do(ctx, func() (*worker.Void, error) {
 		projects, err = assetsClient.HierarchyAssets(ctx, organizationID, assets.ProjectAssetType)
 		if err != nil {
-			return fmt.Errorf("failed to get folders: %w", err)
+			return nil, fmt.Errorf("failed to get projects: %w", err)
 		}
-		return nil
-	})
-	p.Go(func() error {
+		return nil, nil
+	}); err != nil {
+		return nil, fmt.Errorf("failed to execute project list task: %w", err)
+	}
+	if err := w.Do(ctx, func() (*worker.Void, error) {
 		buckets, err = assetsClient.Buckets(ctx, organizationID, bucketQuery)
 		if err != nil {
-			return fmt.Errorf("failed to determine terraform state GCS buckets: %w", err)
+			return nil, fmt.Errorf("failed to determine terraform state GCS buckets: %w", err)
 		}
-		return nil
-	})
-	if err := p.Wait(); err != nil {
+		return nil, nil
+	}); err != nil {
+		return nil, fmt.Errorf("failed to execute gcs bucket list task: %w", err)
+	}
+	if _, err := w.Done(ctx); err != nil {
 		return nil, fmt.Errorf("failed to execute Asset tasks in parallel: %w", err)
 	}
 	foldersByID := make(map[string]*assets.HierarchyNode)
@@ -100,12 +102,12 @@ func Process(ctx context.Context, organizationID, bucketQuery, driftignoreFile s
 	logger.Debugw("fetching iam for org, folders and projects",
 		"number_of_folders", len(folders),
 		"number_of_projects", len(projects))
-	gcpIAM, err := actualGCPIAM(ctx, organizationID, foldersByID, projectsByID)
+	gcpIAM, err := actualGCPIAM(ctx, organizationID, foldersByID, projectsByID, maxConcurrentRequests)
 	if err != nil {
 		return nil, fmt.Errorf("failed to determine GCP IAM: %w", err)
 	}
 	logger.Debugw("Fetching terraform state from Buckets", "number_of_buckets", len(buckets))
-	tfIAM, err := terraformStateIAM(ctx, organizationID, foldersByID, projectsByID, buckets)
+	tfIAM, err := terraformStateIAM(ctx, organizationID, foldersByID, projectsByID, buckets, maxConcurrentRequests)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse IAM from Terraform State: %w", err)
 	}
@@ -153,54 +155,61 @@ func actualGCPIAM(
 	organizationID string,
 	foldersByID map[string]*assets.HierarchyNode,
 	projectsByID map[string]*assets.HierarchyNode,
+	maxConcurrentRequests int64,
 ) (map[string]*iam.AssetIAM, error) {
 	client, err := iam.NewClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize iam client: %w", err)
 	}
 
-	p := pool.NewWithResults[[]*iam.AssetIAM]().
-		WithMaxGoroutines(maxConcurrentRequests).
-		WithContext(ctx).
-		WithCancelOnError()
-	p.Go(func(ctx context.Context) ([]*iam.AssetIAM, error) {
+	w := worker.New[[]*iam.AssetIAM](maxConcurrentRequests)
+	if err := w.Do(ctx, func() ([]*iam.AssetIAM, error) {
 		oIAM, err := client.OrganizationIAM(ctx, organizationID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get organization IAM for ID '%s': %w", organizationID, err)
 		}
 		return oIAM, nil
-	})
+	}); err != nil {
+		return nil, fmt.Errorf("failed to execute org task: %w", err)
+	}
 	for _, f := range foldersByID {
 		folderID := f.ID
 		folderName := f.Name
-		p.Go(func(ctx context.Context) ([]*iam.AssetIAM, error) {
+		if err := w.Do(ctx, func() ([]*iam.AssetIAM, error) {
 			fIAM, err := client.FolderIAM(ctx, folderID)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get folder IAM for folder with ID '%s' and name '%s': %w", folderID, folderName, err)
 			}
 			return fIAM, nil
-		})
+		}); err != nil {
+			return nil, fmt.Errorf("failed to execute folder IAM task: %w", err)
+		}
 	}
 	for _, pr := range projectsByID {
 		projectID := pr.ID
 		projectName := pr.Name
-		p.Go(func(ctx context.Context) ([]*iam.AssetIAM, error) {
+		if err := w.Do(ctx, func() ([]*iam.AssetIAM, error) {
 			pIAM, err := client.ProjectIAM(ctx, projectID)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get project IAM for project with ID '%s' and name '%s': %w", projectID, projectName, err)
 			}
 			return pIAM, nil
-		})
+		}); err != nil {
+			return nil, fmt.Errorf("failed to execute project IAM task: %w", err)
+		}
 	}
 
-	iamResults, err := p.Wait()
+	iamResults, err := w.Done(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute GCP IAM tasks in parallel: %w", err)
 	}
 
 	gcpIAM := make(map[string]*iam.AssetIAM)
 	for _, r := range iamResults {
-		for _, iamF := range r {
+		if r.Error != nil {
+			return nil, fmt.Errorf("failed to execute IAM task: %w", err)
+		}
+		for _, iamF := range r.Value {
 			gcpIAM[URI(iamF, organizationID, foldersByID, projectsByID)] = iamF
 		}
 	}
@@ -216,18 +225,16 @@ func terraformStateIAM(
 	foldersByID map[string]*assets.HierarchyNode,
 	projectsByID map[string]*assets.HierarchyNode,
 	gcsBuckets []string,
+	maxConcurrentRequests int64,
 ) (map[string]*iam.AssetIAM, error) {
 	parser, err := terraform.NewParser(ctx, organizationID, foldersByID, projectsByID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize terraform parser: %w", err)
 	}
-	p := pool.NewWithResults[[]*iam.AssetIAM]().
-		WithMaxGoroutines(maxConcurrentRequests).
-		WithContext(ctx).
-		WithCancelOnError()
+	w := worker.New[[]*iam.AssetIAM](maxConcurrentRequests)
 	for _, b := range gcsBuckets {
 		bucket := b
-		p.Go(func(ctx context.Context) ([]*iam.AssetIAM, error) {
+		if err := w.Do(ctx, func() ([]*iam.AssetIAM, error) {
 			gcsURIs, err := parser.StateFileURIs(ctx, []string{bucket})
 			if err != nil {
 				return nil, fmt.Errorf("failed to get terraform state file URIs: %w", err)
@@ -238,17 +245,22 @@ func terraformStateIAM(
 				return nil, fmt.Errorf("failed to parse terraform states: %w", err)
 			}
 			return tIAM, nil
-		})
+		}); err != nil {
+			return nil, fmt.Errorf("failed to execute terraform IAM task: %w", err)
+		}
 	}
 
-	iamResults, err := p.Wait()
+	iamResults, err := w.Done(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute terraform IAM tasks in parallel: %w", err)
 	}
 
 	tfIAM := make(map[string]*iam.AssetIAM)
 	for _, r := range iamResults {
-		for _, iamF := range r {
+		if r.Error != nil {
+			return nil, fmt.Errorf("failed to execute IAM task: %w", err)
+		}
+		for _, iamF := range r.Value {
 			tfIAM[URI(iamF, organizationID, foldersByID, projectsByID)] = iamF
 		}
 	}
