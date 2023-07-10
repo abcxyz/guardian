@@ -27,10 +27,6 @@ import (
 	"github.com/abcxyz/guardian/pkg/commands/drift/terraform"
 )
 
-const (
-	maxConcurrentRequests = 10
-)
-
 // IAMDrift represents the detected iam drift in a gcp org.
 type IAMDrift struct {
 	ClickOpsChanges         map[string]struct{}
@@ -38,13 +34,13 @@ type IAMDrift struct {
 }
 
 // Process compares the actual GCP IAM against the IAM in your Terraform state files.
-func Process(ctx context.Context, organizationID, bucketQuery, driftignoreFile string) (*IAMDrift, error) {
+func Process(ctx context.Context, organizationID, bucketQuery, driftignoreFile string, maxConcurrentRequests int64) (*IAMDrift, error) {
 	assetsClient, err := assets.NewClient(ctx)
 	logger := logging.FromContext(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize assets client: %w", err)
 	}
-	w := worker.New[*worker.Void](3)
+	w := worker.New[*worker.Void](maxConcurrentRequests)
 	// We differentiate between projects and folders here since we use them separately in
 	// downstream operations.
 	var folders []*assets.HierarchyNode
@@ -106,12 +102,12 @@ func Process(ctx context.Context, organizationID, bucketQuery, driftignoreFile s
 	logger.Debugw("fetching iam for org, folders and projects",
 		"number_of_folders", len(folders),
 		"number_of_projects", len(projects))
-	gcpIAM, err := actualGCPIAM(ctx, organizationID, foldersByID, projectsByID)
+	gcpIAM, err := actualGCPIAM(ctx, organizationID, foldersByID, projectsByID, maxConcurrentRequests)
 	if err != nil {
 		return nil, fmt.Errorf("failed to determine GCP IAM: %w", err)
 	}
 	logger.Debugw("Fetching terraform state from Buckets", "number_of_buckets", len(buckets))
-	tfIAM, err := terraformStateIAM(ctx, organizationID, foldersByID, projectsByID, buckets)
+	tfIAM, err := terraformStateIAM(ctx, organizationID, foldersByID, projectsByID, buckets, maxConcurrentRequests)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse IAM from Terraform State: %w", err)
 	}
@@ -159,6 +155,7 @@ func actualGCPIAM(
 	organizationID string,
 	foldersByID map[string]*assets.HierarchyNode,
 	projectsByID map[string]*assets.HierarchyNode,
+	maxConcurrentRequests int64,
 ) (map[string]*iam.AssetIAM, error) {
 	client, err := iam.NewClient(ctx)
 	if err != nil {
@@ -228,6 +225,7 @@ func terraformStateIAM(
 	foldersByID map[string]*assets.HierarchyNode,
 	projectsByID map[string]*assets.HierarchyNode,
 	gcsBuckets []string,
+	maxConcurrentRequests int64,
 ) (map[string]*iam.AssetIAM, error) {
 	parser, err := terraform.NewParser(ctx, organizationID, foldersByID, projectsByID)
 	if err != nil {
