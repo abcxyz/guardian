@@ -16,12 +16,12 @@ package child
 
 import (
 	"context"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/testutil"
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestChild_Run(t *testing.T) {
@@ -30,31 +30,32 @@ func TestChild_Run(t *testing.T) {
 	ctx := logging.WithLogger(context.Background(), logging.TestLogger(t))
 
 	cases := []struct {
-		name        string
-		command     string
-		args        []string
-		expStdout   string
-		expStderr   string
-		expExitCode int
-		expErr      string
+		name    string
+		command string
+		args    []string
+		exp     *RunResult
+		err     string
 	}{
 		{
-			name:        "success",
-			command:     "bash",
-			args:        []string{"-c", "echo \"this is a test\""},
-			expStdout:   "this is a test",
-			expStderr:   "",
-			expExitCode: 0,
-			expErr:      "",
+			name:    "success",
+			command: "bash",
+			args:    []string{"-c", "echo \"this is a test\""},
+			exp: &RunResult{
+				Stdout:   []byte("this is a test\n"),
+				Stderr:   []byte(""),
+				ExitCode: 0,
+			},
 		},
 		{
-			name:        "returns_stderr",
-			command:     "bash",
-			args:        []string{"-c", "echo stdout && echo stderr >&2 && exit 1"},
-			expStdout:   "stdout",
-			expStderr:   "stderr",
-			expExitCode: 1,
-			expErr:      "failed to run command: exit status 1",
+			name:    "returns_stderr",
+			command: "bash",
+			args:    []string{"-c", "echo stdout && echo stderr >&2 && exit 1"},
+			exp: &RunResult{
+				Stdout:   []byte("stdout\n"),
+				Stderr:   []byte("stderr\n"),
+				ExitCode: 1,
+			},
+			err: "failed to run command: exit status 1",
 		},
 	}
 
@@ -64,18 +65,12 @@ func TestChild_Run(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			stdout, stderr, exitCode, err := Run(ctx, "", tc.command, tc.args)
-			if diff := testutil.DiffErrString(err, tc.expErr); diff != "" {
-				t.Errorf("unexpected err: %s", diff)
+			result, err := Run(ctx, &RunConfig{WorkingDir: "", Command: tc.command, Args: tc.args})
+			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
+				t.Errorf(diff)
 			}
-			if got, want := strings.TrimSpace(string(stdout)), strings.TrimSpace(tc.expStdout); !strings.Contains(got, want) {
-				t.Errorf("expected\n\n%s\n\nto contain\n\n%s\n\n", got, want)
-			}
-			if got, want := strings.TrimSpace(string(stderr)), strings.TrimSpace(tc.expStderr); !strings.Contains(got, want) {
-				t.Errorf("expected\n\n%s\n\nto contain\n\n%s\n\n", got, want)
-			}
-			if got, want := exitCode, tc.expExitCode; got != want {
-				t.Errorf("expected %d to equal %d", got, want)
+			if diff := cmp.Diff(result, tc.exp); diff != "" {
+				t.Errorf("result differed from expected, (-got,+want): %s", diff)
 			}
 		})
 	}
@@ -91,26 +86,31 @@ func TestChild_Run_Cancel(t *testing.T) {
 		command      string
 		args         []string
 		cancelBefore bool
-		expStdout    string
-		expStderr    string
-		expErr       string
+		exp          *RunResult
+		err          string
 	}{
 		{
-			name:      "cancels_context_after_2s",
-			command:   "sleep",
-			args:      []string{"5"},
-			expStdout: "",
-			expStderr: "",
-			expErr:    "failed to run command: signal:",
+			name:    "cancels_context_after_2s",
+			command: "sleep",
+			args:    []string{"5"},
+			exp: &RunResult{
+				Stdout:   []byte{},
+				Stderr:   []byte{},
+				ExitCode: -1,
+			},
+			err: "failed to run command: signal:",
 		},
 		{
 			name:         "cancels_context_before",
 			command:      "sleep",
 			args:         []string{"5"},
 			cancelBefore: true,
-			expStdout:    "",
-			expStderr:    "",
-			expErr:       "failed to start command: context canceled",
+			exp: &RunResult{
+				Stdout:   nil,
+				Stderr:   nil,
+				ExitCode: -1,
+			},
+			err: "failed to start command: context canceled",
 		},
 	}
 
@@ -128,15 +128,12 @@ func TestChild_Run_Cancel(t *testing.T) {
 				defer cancel()
 			}
 
-			stdout, stderr, _, err := Run(ctx, "", tc.command, tc.args)
-			if diff := testutil.DiffErrString(err, tc.expErr); diff != "" {
-				t.Errorf("unexpected err: %s", diff)
+			result, err := Run(ctx, &RunConfig{WorkingDir: "", Command: tc.command, Args: tc.args})
+			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
+				t.Errorf(diff)
 			}
-			if got, want := strings.TrimSpace(string(stdout)), strings.TrimSpace(tc.expStdout); !strings.Contains(got, want) {
-				t.Errorf("expected\n\n%s\n\nto contain\n\n%s\n\n", got, want)
-			}
-			if got, want := strings.TrimSpace(string(stderr)), strings.TrimSpace(tc.expStderr); !strings.Contains(got, want) {
-				t.Errorf("expected\n\n%s\n\nto contain\n\n%s\n\n", got, want)
+			if diff := cmp.Diff(result, tc.exp); diff != "" {
+				t.Errorf("result differed from expected, (-got,+want): %s", diff)
 			}
 		})
 	}

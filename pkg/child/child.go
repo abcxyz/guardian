@@ -23,11 +23,25 @@ import (
 	"time"
 )
 
+// RunConfig are the inputs for a run operation.
+type RunConfig struct {
+	WorkingDir string
+	Command    string
+	Args       []string
+}
+
+// RunResult is the response from a run operation.
+type RunResult struct {
+	Stdout   []byte
+	Stderr   []byte
+	ExitCode int
+}
+
 // Run executes a child process with the provided arguments.
-func Run(ctx context.Context, workingDir, command string, args []string) ([]byte, []byte, int, error) {
-	path, err := exec.LookPath(command)
+func Run(ctx context.Context, cfg *RunConfig) (*RunResult, error) {
+	path, err := exec.LookPath(cfg.Command)
 	if err != nil {
-		return nil, nil, 1, fmt.Errorf("failed to locate command exec path: %w", err)
+		return nil, fmt.Errorf("failed to locate command exec path: %w", err)
 	}
 
 	var stdout, stderr bytes.Buffer
@@ -36,13 +50,13 @@ func Run(ctx context.Context, workingDir, command string, args []string) ([]byte
 	setSysProcAttr(cmd)
 	setCancel(cmd)
 
-	if workingDir != "" {
-		cmd.Dir = workingDir
+	if cfg.WorkingDir != "" {
+		cmd.Dir = cfg.WorkingDir
 	}
 
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
-	cmd.Args = append(cmd.Args, args...)
+	cmd.Args = append(cmd.Args, cfg.Args...)
 
 	// add small wait delay to kill subprocesses if context is canceled
 	// https://github.com/golang/go/issues/23019
@@ -50,12 +64,24 @@ func Run(ctx context.Context, workingDir, command string, args []string) ([]byte
 	cmd.WaitDelay = 2 * time.Second
 
 	if err := cmd.Start(); err != nil {
-		return nil, nil, cmd.ProcessState.ExitCode(), fmt.Errorf("failed to start command: %w", err)
+		return &RunResult{
+			Stdout:   stdout.Bytes(),
+			Stderr:   stderr.Bytes(),
+			ExitCode: cmd.ProcessState.ExitCode(),
+		}, fmt.Errorf("failed to start command: %w", err)
 	}
 
 	if err := cmd.Wait(); err != nil {
-		return stdout.Bytes(), stderr.Bytes(), cmd.ProcessState.ExitCode(), fmt.Errorf("failed to run command: %w", err)
+		return &RunResult{
+			Stdout:   stdout.Bytes(),
+			Stderr:   stderr.Bytes(),
+			ExitCode: cmd.ProcessState.ExitCode(),
+		}, fmt.Errorf("failed to run command: %w", err)
 	}
 
-	return stdout.Bytes(), stderr.Bytes(), cmd.ProcessState.ExitCode(), nil
+	return &RunResult{
+		Stdout:   stdout.Bytes(),
+		Stderr:   stderr.Bytes(),
+		ExitCode: cmd.ProcessState.ExitCode(),
+	}, nil
 }

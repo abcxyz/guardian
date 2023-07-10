@@ -7,7 +7,9 @@ require (
 	cloud.google.com/go/storage v1.28.1
 	github.com/abcxyz/pkg v0.4.0
 	github.com/google/go-cmp v0.5.9
+	github.com/hashicorp/hcl/v2 v2.16.2
 	github.com/sourcegraph/conc v0.3.0
+	golang.org/x/exp v0.0.0-20230626212559-97b1e661b5df
 	google.golang.org/api v0.128.0
 	google.golang.org/protobuf v1.30.0
 )
@@ -46,6 +48,7 @@ require (
 	github.com/posener/complete/v2 v2.0.1-alpha.13 // indirect
 	github.com/posener/script v1.1.5 // indirect
 	github.com/segmentio/asm v1.2.0 // indirect
+	github.com/zclconf/go-cty v1.13.0 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.10.0 // indirect

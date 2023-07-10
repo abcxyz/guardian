@@ -21,10 +21,8 @@ import (
 var _ Terraform = (*MockTerraformClient)(nil)
 
 type MockTerraformResponse struct {
-	Stdout   []byte
-	Stderr   []byte
-	ExitCode int
-	Err      error
+	TerraformResponse
+	Err error
 }
 
 // MockTerraformClient creates a mock TerraformClient for use with testing.
@@ -38,44 +36,57 @@ type MockTerraformClient struct {
 	EntrypointDirs []string
 }
 
-func (m *MockTerraformClient) Init(ctx context.Context, workingDir string, args ...string) ([]byte, []byte, int, error) {
+func (m *MockTerraformClient) Init(ctx context.Context, args ...string) (*TerraformResponse, error) {
 	if m.InitResponse != nil {
-		return m.InitResponse.Stdout, m.InitResponse.Stderr, m.InitResponse.ExitCode, m.InitResponse.Err
+		return &TerraformResponse{
+			Stdout:   m.InitResponse.Stdout,
+			Stderr:   m.InitResponse.Stderr,
+			ExitCode: m.InitResponse.ExitCode,
+		}, m.InitResponse.Err
 	}
-	return []byte{}, []byte{}, 0, nil
+	return nil, nil
 }
 
-func (m *MockTerraformClient) Validate(ctx context.Context, workingDir string, args ...string) ([]byte, []byte, int, error) {
+func (m *MockTerraformClient) Validate(ctx context.Context, args ...string) (*TerraformResponse, error) {
 	if m.ValidateResponse != nil {
-		return m.ValidateResponse.Stdout, m.ValidateResponse.Stderr, m.ValidateResponse.ExitCode, m.ValidateResponse.Err
+		return &TerraformResponse{
+			Stdout:   m.ValidateResponse.Stdout,
+			Stderr:   m.ValidateResponse.Stderr,
+			ExitCode: m.ValidateResponse.ExitCode,
+		}, m.ValidateResponse.Err
 	}
-	return []byte{}, []byte{}, 0, nil
+	return nil, nil
 }
 
-func (m *MockTerraformClient) Plan(ctx context.Context, workingDir, file string, args ...string) ([]byte, []byte, int, error) {
+func (m *MockTerraformClient) Plan(ctx context.Context, file string, args ...string) (*TerraformResponse, error) {
 	if m.PlanResponse != nil {
-		return m.PlanResponse.Stdout, m.PlanResponse.Stderr, m.PlanResponse.ExitCode, m.PlanResponse.Err
+		return &TerraformResponse{
+			Stdout:   m.PlanResponse.Stdout,
+			Stderr:   m.PlanResponse.Stderr,
+			ExitCode: m.PlanResponse.ExitCode,
+		}, m.PlanResponse.Err
 	}
-	return []byte{}, []byte{}, 0, nil
+	return nil, nil
 }
 
-func (m *MockTerraformClient) Apply(ctx context.Context, workingDir, file string, args ...string) ([]byte, []byte, int, error) {
+func (m *MockTerraformClient) Apply(ctx context.Context, file string, args ...string) (*TerraformResponse, error) {
 	if m.ApplyResponse != nil {
-		return m.ApplyResponse.Stdout, m.ApplyResponse.Stderr, m.ApplyResponse.ExitCode, m.ApplyResponse.Err
+		return &TerraformResponse{
+			Stdout:   m.ApplyResponse.Stdout,
+			Stderr:   m.ApplyResponse.Stderr,
+			ExitCode: m.ApplyResponse.ExitCode,
+		}, m.ApplyResponse.Err
 	}
-	return []byte{}, []byte{}, 0, nil
+	return nil, nil
 }
 
-func (m *MockTerraformClient) Show(ctx context.Context, workingDir, file string, args ...string) ([]byte, []byte, int, error) {
+func (m *MockTerraformClient) Show(ctx context.Context, file string, args ...string) (*TerraformResponse, error) {
 	if m.ShowResponse != nil {
-		return m.ShowResponse.Stdout, m.ShowResponse.Stderr, m.ShowResponse.ExitCode, m.ShowResponse.Err
+		return &TerraformResponse{
+			Stdout:   m.ShowResponse.Stdout,
+			Stderr:   m.ShowResponse.Stderr,
+			ExitCode: m.ShowResponse.ExitCode,
+		}, m.ShowResponse.Err
 	}
-	return []byte{}, []byte{}, 0, nil
-}
-
-func (m *MockTerraformClient) GetEntrypointDirectories(rootDir string) ([]string, error) {
-	if m.EntrypointDirs != nil {
-		return m.EntrypointDirs, nil
-	}
-	return []string{}, nil
+	return nil, nil
 }

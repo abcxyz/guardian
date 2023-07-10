@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
-	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -28,44 +27,86 @@ import (
 	"github.com/abcxyz/guardian/pkg/child"
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclparse"
+	"golang.org/x/exp/maps"
 )
 
 var _ Terraform = (*TerraformClient)(nil)
 
 // Terraform is the interface for working with the Terraform CLI.
 type Terraform interface {
-	Init(ctx context.Context, workingDir string, args ...string) ([]byte, []byte, int, error)
-	Validate(ctx context.Context, workingDir string, args ...string) ([]byte, []byte, int, error)
-	Plan(ctx context.Context, workingDir, file string, args ...string) ([]byte, []byte, int, error)
-	Apply(ctx context.Context, workingDir, file string, args ...string) ([]byte, []byte, int, error)
-	Show(ctx context.Context, workingDir, file string, args ...string) ([]byte, []byte, int, error)
-	GetEntrypointDirectories(rootDir string) ([]string, error)
+	// Init runs the terraform init command.
+	Init(context.Context, ...string) (*TerraformResponse, error)
+
+	// Validate runs the terraform validate command.
+	Validate(context.Context, ...string) (*TerraformResponse, error)
+
+	// Plan runs the terraform plan command.
+	Plan(context.Context, string, ...string) (*TerraformResponse, error)
+
+	// Apply runs the terraform apply command.
+	Apply(context.Context, string, ...string) (*TerraformResponse, error)
+
+	// Show runs the terraform show command.
+	Show(context.Context, string, ...string) (*TerraformResponse, error)
 }
 
 // TerraformClient implements the Terraform interface.
-type TerraformClient struct{}
+type TerraformClient struct {
+	workingDir string
+}
+
+// TerraformResponse is the response from running a terraform command.
+type TerraformResponse struct {
+	Stdout   []byte
+	Stderr   []byte
+	ExitCode int
+}
 
 // NewTerraformClient creates a new Terraform client.
-func NewTerraformClient() *TerraformClient {
-	return &TerraformClient{}
+func NewTerraformClient(workingDir string) *TerraformClient {
+	return &TerraformClient{
+		workingDir: workingDir,
+	}
 }
 
 // Init runs the terraform init command.
-func (t *TerraformClient) Init(ctx context.Context, workingDir string, args ...string) ([]byte, []byte, int, error) {
+func (t *TerraformClient) Init(ctx context.Context, args ...string) (*TerraformResponse, error) {
 	childArgs := []string{"init"}
 	childArgs = append(childArgs, args...)
-	return child.Run(ctx, workingDir, "terraform", childArgs) //nolint:wrapcheck
+
+	result, err := child.Run(ctx, &child.RunConfig{
+		WorkingDir: t.workingDir,
+		Command:    "terraform",
+		Args:       childArgs,
+	})
+
+	return &TerraformResponse{
+		Stdout:   result.Stdout,
+		Stderr:   result.Stderr,
+		ExitCode: result.ExitCode,
+	}, err //nolint:wrapcheck
 }
 
 // Validate runs the terraform validate command.
-func (t *TerraformClient) Validate(ctx context.Context, workingDir string, args ...string) ([]byte, []byte, int, error) {
+func (t *TerraformClient) Validate(ctx context.Context, args ...string) (*TerraformResponse, error) {
 	childArgs := []string{"validate"}
 	childArgs = append(childArgs, args...)
-	return child.Run(ctx, workingDir, "terraform", childArgs) //nolint:wrapcheck
+
+	result, err := child.Run(ctx, &child.RunConfig{
+		WorkingDir: t.workingDir,
+		Command:    "terraform",
+		Args:       childArgs,
+	})
+
+	return &TerraformResponse{
+		Stdout:   result.Stdout,
+		Stderr:   result.Stderr,
+		ExitCode: result.ExitCode,
+	}, err //nolint:wrapcheck
 }
 
 // Show runs the Terraform show command.
-func (t *TerraformClient) Show(ctx context.Context, workingDir, file string, args ...string) ([]byte, []byte, int, error) {
+func (t *TerraformClient) Show(ctx context.Context, file string, args ...string) (*TerraformResponse, error) {
 	childArgs := []string{"show"}
 	childArgs = append(childArgs, args...)
 
@@ -73,11 +114,21 @@ func (t *TerraformClient) Show(ctx context.Context, workingDir, file string, arg
 		childArgs = append(childArgs, file)
 	}
 
-	return child.Run(ctx, workingDir, "terraform", childArgs) //nolint:wrapcheck
+	result, err := child.Run(ctx, &child.RunConfig{
+		WorkingDir: t.workingDir,
+		Command:    "terraform",
+		Args:       childArgs,
+	})
+
+	return &TerraformResponse{
+		Stdout:   result.Stdout,
+		Stderr:   result.Stderr,
+		ExitCode: result.ExitCode,
+	}, err //nolint:wrapcheck
 }
 
 // Plan runs the Terraform plan command.
-func (t *TerraformClient) Plan(ctx context.Context, workingDir, file string, args ...string) ([]byte, []byte, int, error) {
+func (t *TerraformClient) Plan(ctx context.Context, file string, args ...string) (*TerraformResponse, error) {
 	childArgs := []string{"plan"}
 	childArgs = append(childArgs, args...)
 
@@ -85,11 +136,21 @@ func (t *TerraformClient) Plan(ctx context.Context, workingDir, file string, arg
 		childArgs = append(childArgs, fmt.Sprintf("-out=%s", file))
 	}
 
-	return child.Run(ctx, workingDir, "terraform", childArgs) //nolint:wrapcheck
+	result, err := child.Run(ctx, &child.RunConfig{
+		WorkingDir: t.workingDir,
+		Command:    "terraform",
+		Args:       childArgs,
+	})
+
+	return &TerraformResponse{
+		Stdout:   result.Stdout,
+		Stderr:   result.Stderr,
+		ExitCode: result.ExitCode,
+	}, err //nolint:wrapcheck
 }
 
 // Apply runs the Terraform apply command.
-func (t *TerraformClient) Apply(ctx context.Context, workingDir, file string, args ...string) ([]byte, []byte, int, error) {
+func (t *TerraformClient) Apply(ctx context.Context, file string, args ...string) (*TerraformResponse, error) {
 	childArgs := []string{"apply"}
 	childArgs = append(childArgs, args...)
 
@@ -97,12 +158,22 @@ func (t *TerraformClient) Apply(ctx context.Context, workingDir, file string, ar
 		childArgs = append(childArgs, file)
 	}
 
-	return child.Run(ctx, workingDir, "terraform", childArgs) //nolint:wrapcheck
+	result, err := child.Run(ctx, &child.RunConfig{
+		WorkingDir: t.workingDir,
+		Command:    "terraform",
+		Args:       childArgs,
+	})
+
+	return &TerraformResponse{
+		Stdout:   result.Stdout,
+		Stderr:   result.Stderr,
+		ExitCode: result.ExitCode,
+	}, err //nolint:wrapcheck
 }
 
 // GetEntrypointDirectories gets all the directories that have Terraform config
 // files containing a backend block to be used as an entrypoint module.
-func (t *TerraformClient) GetEntrypointDirectories(rootDir string) ([]string, error) {
+func GetEntrypointDirectories(rootDir string) ([]string, error) {
 	matches := make(map[string]struct{})
 	if err := filepath.WalkDir(rootDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -113,12 +184,7 @@ func (t *TerraformClient) GetEntrypointDirectories(rootDir string) ([]string, er
 			return nil
 		}
 
-		matched, err := filepath.Match("*.tf", filepath.Base(path))
-		if err != nil {
-			return fmt.Errorf("failed to find terraform files: %w", err)
-		}
-
-		if !matched {
+		if filepath.Ext(path) != ".tf" {
 			return nil
 		}
 
@@ -138,11 +204,7 @@ func (t *TerraformClient) GetEntrypointDirectories(rootDir string) ([]string, er
 		return nil, fmt.Errorf("failed to find files: %w", err)
 	}
 
-	dirs := []string{}
-
-	for dir := range matches {
-		dirs = append(dirs, dir)
-	}
+	dirs := maps.Keys(matches)
 
 	sort.Strings(dirs)
 
@@ -153,13 +215,17 @@ func (t *TerraformClient) GetEntrypointDirectories(rootDir string) ([]string, er
 func hasBackendConfig(path string) (bool, hcl.Diagnostics, error) {
 	var diags hcl.Diagnostics
 
-	if _, err := os.Stat(path); err != nil {
-		return false, nil, fmt.Errorf("failed to find file: %w", err)
-	}
-
 	parser := hclparse.NewParser()
 	file, d := parser.ParseHCLFile(path)
 	diags = append(diags, d...)
+
+	if d.HasErrors() {
+		for _, diag := range d {
+			if diag.Summary == "Failed to read file" {
+				return false, d, fmt.Errorf("failed to read file: %s", path)
+			}
+		}
+	}
 
 	rootBlocks, _, d := file.Body.PartialContent(RootSchema)
 	diags = append(diags, d...)
@@ -177,14 +243,23 @@ func hasBackendConfig(path string) (bool, hcl.Diagnostics, error) {
 	return false, diags, nil
 }
 
+var (
+	tildeChanged = regexp.MustCompile(
+		"(?m)" + // enable multi-line mode
+			"^([\t ]*)" + // only match tilde at start of line, can lead with tabs or spaces
+			"([~])") // tilde represents changes and needs switched to exclamation for git diff
+
+	swapLeadingWhitespace = regexp.MustCompile(
+		"(?m)" + // enable multi-line mode
+			"^([\t ]*)" + // only match tilde at start of line, can lead with tabs or spaces
+			`((\-(\/\+)*)|(\+(\/\-)*)|(!))`) // match characters to swap whitespace for git diff (+, +/-, -, -/+, !)
+)
+
 // FormatOutputForGitHubDiff formats the Terraform diff output for use with
 // GitHub diff markdown formatting.
 func FormatOutputForGitHubDiff(content string) string {
-	changed := regexp.MustCompile("(?m)^([\t ]*)([~])")
-	createReplace := regexp.MustCompile(`(?m)^([\t ]*)((\-(\/\+)*)|(\+(\/\-)*)|(!))`)
-
-	content = changed.ReplaceAllString(content, `$1!`)
-	content = createReplace.ReplaceAllString(content, "$2$1")
+	content = tildeChanged.ReplaceAllString(content, `$1!`)
+	content = swapLeadingWhitespace.ReplaceAllString(content, "$2$1")
 
 	return content
 }
