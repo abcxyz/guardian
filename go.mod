@@ -7,7 +7,6 @@ require (
 	cloud.google.com/go/storage v1.28.1
 	github.com/abcxyz/pkg v0.4.0
 	github.com/google/go-cmp v0.5.9
-	github.com/sourcegraph/conc v0.3.0
 	google.golang.org/api v0.128.0
 	google.golang.org/protobuf v1.30.0
 )
@@ -50,6 +49,7 @@ require (
 	golang.org/x/crypto v0.9.0 // indirect
 	golang.org/x/net v0.10.0 // indirect
 	golang.org/x/oauth2 v0.8.0 // indirect
+	golang.org/x/sync v0.2.0 // indirect
 	golang.org/x/sys v0.8.0 // indirect
 	golang.org/x/text v0.9.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
