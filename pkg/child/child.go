@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os/exec"
 	"time"
 )
@@ -32,8 +33,8 @@ type RunConfig struct {
 
 // RunResult is the response from a run operation.
 type RunResult struct {
-	Stdout   []byte
-	Stderr   []byte
+	Stdout   io.Reader
+	Stderr   io.Reader
 	ExitCode int
 }
 
@@ -50,8 +51,8 @@ func Run(ctx context.Context, cfg *RunConfig) (*RunResult, error) {
 	setSysProcAttr(cmd)
 	setCancel(cmd)
 
-	if cfg.WorkingDir != "" {
-		cmd.Dir = cfg.WorkingDir
+	if v := cfg.WorkingDir; v != "" {
+		cmd.Dir = v
 	}
 
 	cmd.Stdout = &stdout
@@ -65,23 +66,23 @@ func Run(ctx context.Context, cfg *RunConfig) (*RunResult, error) {
 
 	if err := cmd.Start(); err != nil {
 		return &RunResult{
-			Stdout:   stdout.Bytes(),
-			Stderr:   stderr.Bytes(),
+			Stdout:   &stdout,
+			Stderr:   &stderr,
 			ExitCode: cmd.ProcessState.ExitCode(),
 		}, fmt.Errorf("failed to start command: %w", err)
 	}
 
 	if err := cmd.Wait(); err != nil {
 		return &RunResult{
-			Stdout:   stdout.Bytes(),
-			Stderr:   stderr.Bytes(),
+			Stdout:   &stdout,
+			Stderr:   &stderr,
 			ExitCode: cmd.ProcessState.ExitCode(),
 		}, fmt.Errorf("failed to run command: %w", err)
 	}
 
 	return &RunResult{
-		Stdout:   stdout.Bytes(),
-		Stderr:   stderr.Bytes(),
+		Stdout:   &stdout,
+		Stderr:   &stderr,
 		ExitCode: cmd.ProcessState.ExitCode(),
 	}, nil
 }

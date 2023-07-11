@@ -19,6 +19,7 @@ package terraform
 import (
 	"context"
 	"fmt"
+	"io"
 	"io/fs"
 	"path/filepath"
 	"regexp"
@@ -28,6 +29,18 @@ import (
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclparse"
 	"golang.org/x/exp/maps"
+)
+
+var (
+	tildeChanged = regexp.MustCompile(
+		"(?m)" + // enable multi-line mode
+			"^([\t ]*)" + // only match tilde at start of line, can lead with tabs or spaces
+			"([~])") // tilde represents changes and needs switched to exclamation for git diff
+
+	swapLeadingWhitespace = regexp.MustCompile(
+		"(?m)" + // enable multi-line mode
+			"^([\t ]*)" + // only match tilde at start of line, can lead with tabs or spaces
+			`((\-(\/\+)*)|(\+(\/\-)*)|(!))`) // match characters to swap whitespace for git diff (+, +/-, -, -/+, !)
 )
 
 var _ Terraform = (*TerraformClient)(nil)
@@ -57,8 +70,8 @@ type TerraformClient struct {
 
 // TerraformResponse is the response from running a terraform command.
 type TerraformResponse struct {
-	Stdout   []byte
-	Stderr   []byte
+	Stdout   io.Reader
+	Stderr   io.Reader
 	ExitCode int
 }
 
@@ -242,18 +255,6 @@ func hasBackendConfig(path string) (bool, hcl.Diagnostics, error) {
 
 	return false, diags, nil
 }
-
-var (
-	tildeChanged = regexp.MustCompile(
-		"(?m)" + // enable multi-line mode
-			"^([\t ]*)" + // only match tilde at start of line, can lead with tabs or spaces
-			"([~])") // tilde represents changes and needs switched to exclamation for git diff
-
-	swapLeadingWhitespace = regexp.MustCompile(
-		"(?m)" + // enable multi-line mode
-			"^([\t ]*)" + // only match tilde at start of line, can lead with tabs or spaces
-			`((\-(\/\+)*)|(\+(\/\-)*)|(!))`) // match characters to swap whitespace for git diff (+, +/-, -, -/+, !)
-)
 
 // FormatOutputForGitHubDiff formats the Terraform diff output for use with
 // GitHub diff markdown formatting.
