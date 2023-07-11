@@ -37,19 +37,21 @@ type Git interface {
 }
 
 // GitClient implements the git interface.
-type GitClient struct{}
+type GitClient struct {
+	workingDir string
+}
 
 // NewGitClient creates a new Terraform client.
-func NewGitClient() *GitClient {
-	return &GitClient{}
+func NewGitClient(workingDir string) *GitClient {
+	return &GitClient{
+		workingDir: workingDir,
+	}
 }
 
 // DiffDirs runs a git diff between two revisions and returns the sorted ist of directories with changes.
-func (g *GitClient) DiffDirs(ctx context.Context, workingDir, baseRef, headRef string) ([]string, error) {
-	matches := make(map[string]struct{})
-
+func (g *GitClient) DiffDirs(ctx context.Context, baseRef, headRef string) ([]string, error) {
 	result, err := child.Run(ctx, &child.RunConfig{
-		WorkingDir: workingDir,
+		WorkingDir: g.workingDir,
 		Command:    "git",
 		Args:       []string{"diff", "--name-only", fmt.Sprintf("%s..%s", baseRef, headRef)},
 	})
@@ -59,10 +61,17 @@ func (g *GitClient) DiffDirs(ctx context.Context, workingDir, baseRef, headRef s
 
 	stdout, err := io.ReadAll(result.Stdout)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read git diff stdout: %w", err)
+		return nil, fmt.Errorf("failed to read git diff output: %w", err)
 	}
 
-	for _, line := range newline.Split(string(stdout), -1) {
+	return parseSortedDiffDirs(string(stdout)), err
+}
+
+// parseSortedDiffDirs splits a string at newlines and returns the sorted set of diff dirs.
+func parseSortedDiffDirs(v string) []string {
+	matches := make(map[string]struct{})
+
+	for _, line := range newline.Split(v, -1) {
 		if len(line) > 0 {
 			matches[filepath.Dir(line)] = struct{}{}
 		}
@@ -72,5 +81,5 @@ func (g *GitClient) DiffDirs(ctx context.Context, workingDir, baseRef, headRef s
 
 	sort.Strings(dirs)
 
-	return dirs, nil
+	return dirs
 }
