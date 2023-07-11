@@ -15,8 +15,8 @@
 package child
 
 import (
-	"bytes"
 	"context"
+	"io"
 	"strings"
 	"testing"
 	"time"
@@ -77,18 +77,20 @@ func TestChild_Run(t *testing.T) {
 				return
 			}
 
-			var stdout, stderr bytes.Buffer
-			if _, err := stdout.ReadFrom(result.Stdout); err != nil {
-				t.Fatalf("unexpected err: %s", err)
-			}
-			if _, err := stderr.ReadFrom(result.Stderr); err != nil {
+			stdout, err := io.ReadAll(result.Stdout)
+			if err != nil {
 				t.Fatalf("unexpected err: %s", err)
 			}
 
-			if got, want := strings.TrimSpace(stdout.String()), strings.TrimSpace(tc.expStdout); got != want {
+			stderr, err := io.ReadAll(result.Stdout)
+			if err != nil {
+				t.Fatalf("unexpected err: %s", err)
+			}
+
+			if got, want := strings.TrimSpace(string(stdout)), strings.TrimSpace(tc.expStdout); got != want {
 				t.Errorf("expected %s to be %s", got, want)
 			}
-			if got, want := strings.TrimSpace(stderr.String()), strings.TrimSpace(tc.expStderr); got != want {
+			if got, want := strings.TrimSpace(string(stderr)), strings.TrimSpace(tc.expStderr); got != want {
 				t.Errorf("expected %s to be %s", got, want)
 			}
 			if got, want := result.ExitCode, tc.expExitCode; got != want {
@@ -153,13 +155,13 @@ func TestChild_Run_Cancel(t *testing.T) {
 				t.Errorf(diff)
 			}
 
-			stdout := make([]byte, 0)
-			stderr := make([]byte, 0)
-
-			if _, err := result.Stdout.Read(stdout); err != nil {
+			stdout, err := io.ReadAll(result.Stdout)
+			if err != nil {
 				t.Fatalf("unexpected err: %s", err)
 			}
-			if _, err := result.Stderr.Read(stderr); err != nil {
+
+			stderr, err := io.ReadAll(result.Stdout)
+			if err != nil {
 				t.Fatalf("unexpected err: %s", err)
 			}
 
