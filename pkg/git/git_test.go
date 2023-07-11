@@ -29,9 +29,11 @@ func TestGit_parseSortedDiffDirs(t *testing.T) {
 		exp   []string
 	}{
 		{
-			name:  "success",
-			value: "first/test.txt\nsecond/test.txt\nthird/test.txt",
-			exp:   []string{"first", "second", "third"},
+			name: "success",
+			value: `first/test.txt
+second/test.txt
+third/test.txt`,
+			exp: []string{"first", "second", "third"},
 		},
 		{
 			name:  "carriage_return_and_newline",
