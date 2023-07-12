@@ -79,24 +79,32 @@ type HierarchyGraph struct {
 	IDToNodes map[string]*HierarchyNodeWithChildren
 }
 
-type Client struct {
+// AssetInventory defines the common gcp asset inventory functionality.
+type AssetInventory interface {
+	// Buckets returns the GCS Buckets matching a given query.
+	Buckets(ctx context.Context, organizationID, query string) ([]string, error)
+	// HierarchyAssets returns the projects or folders in a given organization.
+	HierarchyAssets(ctx context.Context, organizationID, assetType string) ([]*HierarchyNode, error)
+}
+
+type AssetInventoryClient struct {
 	assetClient *asset.Client
 }
 
-// NewClient creates a new asset client.
-func NewClient(ctx context.Context) (*Client, error) {
+// NewClient creates a new asset inventory client.
+func NewClient(ctx context.Context) (*AssetInventoryClient, error) {
 	client, err := asset.NewClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize asset API client: %w", err)
 	}
 
-	return &Client{
+	return &AssetInventoryClient{
 		assetClient: client,
 	}, nil
 }
 
 // Buckets returns all GCS Buckets in the organization that matches the given query.
-func (c *Client) Buckets(ctx context.Context, organizationID, query string) ([]string, error) {
+func (c *AssetInventoryClient) Buckets(ctx context.Context, organizationID, query string) ([]string, error) {
 	// gcloud asset search-all-resources \
 	// --asset-types=storage.googleapis.com/Bucket --query="$TERRAFORM_GCS_BUCKET_LABEL" --read-mask=name \
 	// "--scope=organizations/$ORGANIZATION_ID"
@@ -124,7 +132,7 @@ func (c *Client) Buckets(ctx context.Context, organizationID, query string) ([]s
 }
 
 // HierarchyAssets returns all GCP Hierarchy Nodes (Folders or Projects) for the given organization.
-func (c *Client) HierarchyAssets(ctx context.Context, organizationID, assetType string) ([]*HierarchyNode, error) {
+func (c *AssetInventoryClient) HierarchyAssets(ctx context.Context, organizationID, assetType string) ([]*HierarchyNode, error) {
 	var f []*HierarchyNode
 	req := &assetpb.SearchAllResourcesRequest{
 		Scope:      fmt.Sprintf("organizations/%s", organizationID),

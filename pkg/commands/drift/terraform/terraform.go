@@ -56,7 +56,17 @@ type TerraformState struct {
 	} `json:"resources"`
 }
 
-type Parser struct {
+// Terraform defines the common terraform functionality.
+type Terraform interface {
+	// SetAssets sets the assets to use for GCP asset lookup.
+	SetAssets(gcpFolders, gcpProjects map[string]*assets.HierarchyNode)
+	// StateFileURIs returns the URIs of terraform state files located in the given GCS buckets.
+	StateFileURIs(ctx context.Context, gcsBuckets []string) ([]string, error)
+	// ProcessStates returns the IAM permissions stored in the given state files.
+	ProcessStates(ctx context.Context, gcsUris []string) ([]*iam.AssetIAM, error)
+}
+
+type TerraformParser struct {
 	gcs               *gcs.Client
 	gcpAssetsByID     map[string]*assets.HierarchyNode
 	gcpFoldersByName  map[string]*assets.HierarchyNode
@@ -65,31 +75,32 @@ type Parser struct {
 }
 
 // NewClient creates a new terraform parser.
-func NewParser(
-	ctx context.Context,
-	organizationID string,
-	gcpFolders map[string]*assets.HierarchyNode,
-	gcpProjects map[string]*assets.HierarchyNode,
-) (*Parser, error) {
+func NewParser(ctx context.Context, organizationID string) (*TerraformParser, error) {
 	client, err := gcs.NewClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize gcs Client: %w", err)
 	}
-	assetsByID := assets.Merge(gcpFolders, gcpProjects)
-	foldersByName := assets.AssetsByName(gcpFolders)
-	projectByName := assets.AssetsByName(gcpProjects)
-
-	return &Parser{
+	return &TerraformParser{
 		gcs:               client,
-		gcpAssetsByID:     assetsByID,
-		gcpFoldersByName:  foldersByName,
-		gcpProjectsByName: projectByName,
+		gcpAssetsByID:     make(map[string]*assets.HierarchyNode),
+		gcpFoldersByName:  make(map[string]*assets.HierarchyNode),
+		gcpProjectsByName: make(map[string]*assets.HierarchyNode),
 		organizationID:    organizationID,
 	}, nil
 }
 
+// SetAssets sets up the assets to use when looking up IAM asset bindings.
+func (p *TerraformParser) SetAssets(
+	gcpFolders map[string]*assets.HierarchyNode,
+	gcpProjects map[string]*assets.HierarchyNode,
+) {
+	p.gcpAssetsByID = assets.Merge(gcpFolders, gcpProjects)
+	p.gcpFoldersByName = assets.AssetsByName(gcpFolders)
+	p.gcpProjectsByName = assets.AssetsByName(gcpProjects)
+}
+
 // StateFileURIs finds all terraform state files in the given buckets.
-func (p *Parser) StateFileURIs(ctx context.Context, gcsBuckets []string) ([]string, error) {
+func (p *TerraformParser) StateFileURIs(ctx context.Context, gcsBuckets []string) ([]string, error) {
 	var gcsURIs []string
 	for _, bucket := range gcsBuckets {
 		allStateFiles, err := p.gcs.FilesWithName(ctx, bucket, "default.tfstate")
@@ -102,7 +113,7 @@ func (p *Parser) StateFileURIs(ctx context.Context, gcsBuckets []string) ([]stri
 }
 
 // ProcessStates finds all IAM in memberships, bindings, or policies in the given terraform state files.
-func (p *Parser) ProcessStates(ctx context.Context, gcsUris []string) ([]*iam.AssetIAM, error) {
+func (p *TerraformParser) ProcessStates(ctx context.Context, gcsUris []string) ([]*iam.AssetIAM, error) {
 	var iams []*iam.AssetIAM
 	for _, uri := range gcsUris {
 		var state TerraformState
@@ -119,7 +130,7 @@ func (p *Parser) ProcessStates(ctx context.Context, gcsUris []string) ([]*iam.As
 	return iams, nil
 }
 
-func (p *Parser) parseTerraformStateIAM(state TerraformState) []*iam.AssetIAM {
+func (p *TerraformParser) parseTerraformStateIAM(state TerraformState) []*iam.AssetIAM {
 	var iams []*iam.AssetIAM
 	for _, r := range state.Resources {
 		if strings.Contains(r.Type, "google_organization_iam_binding") {
@@ -141,7 +152,7 @@ func (p *Parser) parseTerraformStateIAM(state TerraformState) []*iam.AssetIAM {
 	return iams
 }
 
-func (p *Parser) parseIAMBindingForOrg(instances []ResourceInstance) []*iam.AssetIAM {
+func (p *TerraformParser) parseIAMBindingForOrg(instances []ResourceInstance) []*iam.AssetIAM {
 	var iams []*iam.AssetIAM
 	for _, i := range instances {
 		for _, m := range i.Attributes.Members {
@@ -156,7 +167,7 @@ func (p *Parser) parseIAMBindingForOrg(instances []ResourceInstance) []*iam.Asse
 	return iams
 }
 
-func (p *Parser) parseIAMBindingForFolder(instances []ResourceInstance) []*iam.AssetIAM {
+func (p *TerraformParser) parseIAMBindingForFolder(instances []ResourceInstance) []*iam.AssetIAM {
 	var iams []*iam.AssetIAM
 	for _, i := range instances {
 		for _, m := range i.Attributes.Members {
@@ -173,7 +184,7 @@ func (p *Parser) parseIAMBindingForFolder(instances []ResourceInstance) []*iam.A
 	return iams
 }
 
-func (p *Parser) parseIAMBindingForProject(instances []ResourceInstance) []*iam.AssetIAM {
+func (p *TerraformParser) parseIAMBindingForProject(instances []ResourceInstance) []*iam.AssetIAM {
 	var iams []*iam.AssetIAM
 	for _, i := range instances {
 		for _, m := range i.Attributes.Members {
@@ -189,7 +200,7 @@ func (p *Parser) parseIAMBindingForProject(instances []ResourceInstance) []*iam.
 	return iams
 }
 
-func (p *Parser) parseIAMMemberForOrg(instances []ResourceInstance) []*iam.AssetIAM {
+func (p *TerraformParser) parseIAMMemberForOrg(instances []ResourceInstance) []*iam.AssetIAM {
 	iams := make([]*iam.AssetIAM, len(instances))
 	for x, i := range instances {
 		iams[x] = &iam.AssetIAM{
@@ -202,7 +213,7 @@ func (p *Parser) parseIAMMemberForOrg(instances []ResourceInstance) []*iam.Asset
 	return iams
 }
 
-func (p *Parser) parseIAMMemberForFolder(instances []ResourceInstance) []*iam.AssetIAM {
+func (p *TerraformParser) parseIAMMemberForFolder(instances []ResourceInstance) []*iam.AssetIAM {
 	iams := make([]*iam.AssetIAM, len(instances))
 	for x, i := range instances {
 		folderID := strings.TrimPrefix(i.Attributes.Folder, "folders/")
@@ -217,7 +228,7 @@ func (p *Parser) parseIAMMemberForFolder(instances []ResourceInstance) []*iam.As
 	return iams
 }
 
-func (p *Parser) parseIAMMemberForProject(instances []ResourceInstance) []*iam.AssetIAM {
+func (p *TerraformParser) parseIAMMemberForProject(instances []ResourceInstance) []*iam.AssetIAM {
 	iams := make([]*iam.AssetIAM, len(instances))
 	for x, i := range instances {
 		parentID, parentType := p.maybeFindGCPAssetIDAndType(i.Attributes.Project)
@@ -231,7 +242,7 @@ func (p *Parser) parseIAMMemberForProject(instances []ResourceInstance) []*iam.A
 	return iams
 }
 
-func (p *Parser) maybeFindGCPAssetIDAndType(ID string) (string, string) {
+func (p *TerraformParser) maybeFindGCPAssetIDAndType(ID string) (string, string) {
 	asset := p.findGCPAsset(ID)
 	if asset == nil {
 		return UnknownParentID, UnknownParentType
@@ -240,7 +251,7 @@ func (p *Parser) maybeFindGCPAssetIDAndType(ID string) (string, string) {
 }
 
 // findGCPAsset attempts to find a gcp asset match for the ID.
-func (p *Parser) findGCPAsset(gcpAssetID string) *assets.HierarchyNode {
+func (p *TerraformParser) findGCPAsset(gcpAssetID string) *assets.HierarchyNode {
 	if _, err := strconv.ParseInt(gcpAssetID, 10, 64); err == nil {
 		if _, ok := p.gcpAssetsByID[gcpAssetID]; !ok {
 			return nil
