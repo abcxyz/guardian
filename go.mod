@@ -7,6 +7,7 @@ require (
 	cloud.google.com/go/storage v1.28.1
 	github.com/abcxyz/pkg v0.4.0
 	github.com/google/go-cmp v0.5.9
+	github.com/googleapis/gax-go/v2 v2.10.0
 	github.com/hashicorp/hcl/v2 v2.16.2
 	golang.org/x/exp v0.0.0-20230626212559-97b1e661b5df
 	google.golang.org/api v0.128.0
@@ -32,7 +33,6 @@ require (
 	github.com/google/s2a-go v0.1.4 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.2.4 // indirect
-	github.com/googleapis/gax-go/v2 v2.10.0 // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/hashicorp/go-multierror v1.0.0 // indirect
 	github.com/kr/text v0.1.0 // indirect
