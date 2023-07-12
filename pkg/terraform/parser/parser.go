@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package terraform
+package parser
 
 import (
 	"context"
@@ -22,9 +22,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/abcxyz/guardian/pkg/commands/drift/assets"
+	"github.com/abcxyz/guardian/pkg/assetinventory"
 	"github.com/abcxyz/guardian/pkg/commands/drift/gcs"
-	"github.com/abcxyz/guardian/pkg/commands/drift/iam"
+	"github.com/abcxyz/guardian/pkg/iam"
 )
 
 const (
@@ -59,7 +59,7 @@ type TerraformState struct {
 // Terraform defines the common terraform functionality.
 type Terraform interface {
 	// SetAssets sets the assets to use for GCP asset lookup.
-	SetAssets(gcpFolders, gcpProjects map[string]*assets.HierarchyNode)
+	SetAssets(gcpFolders, gcpProjects map[string]*assetinventory.HierarchyNode)
 	// StateFileURIs returns the URIs of terraform state files located in the given GCS buckets.
 	StateFileURIs(ctx context.Context, gcsBuckets []string) ([]string, error)
 	// ProcessStates returns the IAM permissions stored in the given state files.
@@ -68,35 +68,35 @@ type Terraform interface {
 
 type TerraformParser struct {
 	gcs               *gcs.Client
-	gcpAssetsByID     map[string]*assets.HierarchyNode
-	gcpFoldersByName  map[string]*assets.HierarchyNode
-	gcpProjectsByName map[string]*assets.HierarchyNode
+	gcpAssetsByID     map[string]*assetinventory.HierarchyNode
+	gcpFoldersByName  map[string]*assetinventory.HierarchyNode
+	gcpProjectsByName map[string]*assetinventory.HierarchyNode
 	organizationID    string
 }
 
-// NewClient creates a new terraform parser.
-func NewParser(ctx context.Context, organizationID string) (*TerraformParser, error) {
+// NewTerraformParser creates a new terraform parser.
+func NewTerraformParser(ctx context.Context, organizationID string) (*TerraformParser, error) {
 	client, err := gcs.NewClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize gcs Client: %w", err)
 	}
 	return &TerraformParser{
 		gcs:               client,
-		gcpAssetsByID:     make(map[string]*assets.HierarchyNode),
-		gcpFoldersByName:  make(map[string]*assets.HierarchyNode),
-		gcpProjectsByName: make(map[string]*assets.HierarchyNode),
+		gcpAssetsByID:     make(map[string]*assetinventory.HierarchyNode),
+		gcpFoldersByName:  make(map[string]*assetinventory.HierarchyNode),
+		gcpProjectsByName: make(map[string]*assetinventory.HierarchyNode),
 		organizationID:    organizationID,
 	}, nil
 }
 
 // SetAssets sets up the assets to use when looking up IAM asset bindings.
 func (p *TerraformParser) SetAssets(
-	gcpFolders map[string]*assets.HierarchyNode,
-	gcpProjects map[string]*assets.HierarchyNode,
+	gcpFolders map[string]*assetinventory.HierarchyNode,
+	gcpProjects map[string]*assetinventory.HierarchyNode,
 ) {
-	p.gcpAssetsByID = assets.Merge(gcpFolders, gcpProjects)
-	p.gcpFoldersByName = assets.AssetsByName(gcpFolders)
-	p.gcpProjectsByName = assets.AssetsByName(gcpProjects)
+	p.gcpAssetsByID = assetinventory.Merge(gcpFolders, gcpProjects)
+	p.gcpFoldersByName = assetinventory.AssetsByName(gcpFolders)
+	p.gcpProjectsByName = assetinventory.AssetsByName(gcpProjects)
 }
 
 // StateFileURIs finds all terraform state files in the given buckets.
@@ -160,7 +160,7 @@ func (p *TerraformParser) parseIAMBindingForOrg(instances []ResourceInstance) []
 				Member:       m,
 				Role:         i.Attributes.Role,
 				ResourceID:   p.organizationID,
-				ResourceType: assets.Organization,
+				ResourceType: assetinventory.Organization,
 			})
 		}
 	}
@@ -207,7 +207,7 @@ func (p *TerraformParser) parseIAMMemberForOrg(instances []ResourceInstance) []*
 			Member:       i.Attributes.Member,
 			Role:         i.Attributes.Role,
 			ResourceID:   p.organizationID,
-			ResourceType: assets.Organization,
+			ResourceType: assetinventory.Organization,
 		}
 	}
 	return iams
@@ -251,7 +251,7 @@ func (p *TerraformParser) maybeFindGCPAssetIDAndType(ID string) (string, string)
 }
 
 // findGCPAsset attempts to find a gcp asset match for the ID.
-func (p *TerraformParser) findGCPAsset(gcpAssetID string) *assets.HierarchyNode {
+func (p *TerraformParser) findGCPAsset(gcpAssetID string) *assetinventory.HierarchyNode {
 	if _, err := strconv.ParseInt(gcpAssetID, 10, 64); err == nil {
 		if _, ok := p.gcpAssetsByID[gcpAssetID]; !ok {
 			return nil

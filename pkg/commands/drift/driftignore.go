@@ -24,8 +24,8 @@ import (
 
 	"github.com/abcxyz/pkg/logging"
 
-	"github.com/abcxyz/guardian/pkg/commands/drift/assets"
-	"github.com/abcxyz/guardian/pkg/commands/drift/iam"
+	"github.com/abcxyz/guardian/pkg/assetinventory"
+	"github.com/abcxyz/guardian/pkg/iam"
 )
 
 type ignoredAssets struct {
@@ -109,11 +109,11 @@ func filterIgnored(values map[string]*iam.AssetIAM, ignored *ignoredAssets) map[
 		if _, ok := ignored.roles[roleURI(a)]; ok {
 			continue
 		}
-		if a.ResourceType == assets.Project {
+		if a.ResourceType == assetinventory.Project {
 			if _, ok := ignored.projectIDs[a.ResourceID]; !ok {
 				filtered[k] = a
 			}
-		} else if a.ResourceType == assets.Folder {
+		} else if a.ResourceType == assetinventory.Folder {
 			if _, ok := ignored.folderIDs[a.ResourceID]; !ok {
 				filtered[k] = a
 			}
@@ -126,13 +126,13 @@ func filterIgnored(values map[string]*iam.AssetIAM, ignored *ignoredAssets) map[
 }
 
 // expandGraph traverses the asset hierarchy graph and adds any nested folders or projects beneath every ignored asset.
-func expandGraph(ignored *ignoredAssets, hierarchyGraph *assets.HierarchyGraph) (*ignoredAssets, error) {
+func expandGraph(ignored *ignoredAssets, hierarchyGraph *assetinventory.HierarchyGraph) (*ignoredAssets, error) {
 	ignoredProjects := ignored.projectIDs
 	ignoredFolders := ignored.folderIDs
 
 	// Traverse the hierarchy
 	for folderID := range ignored.folderIDs {
-		ids, err := assets.FoldersBeneath(folderID, hierarchyGraph)
+		ids, err := assetinventory.FoldersBeneath(folderID, hierarchyGraph)
 		if err != nil {
 			return nil, fmt.Errorf("failed to traverse hierarchy for folder with ID %s: %w", folderID, err)
 		}
@@ -156,8 +156,8 @@ func expandGraph(ignored *ignoredAssets, hierarchyGraph *assets.HierarchyGraph) 
 func driftignore(
 	ctx context.Context,
 	fname string,
-	gcpFolders map[string]*assets.HierarchyNode,
-	gcpProjects map[string]*assets.HierarchyNode,
+	gcpFolders map[string]*assetinventory.HierarchyNode,
+	gcpProjects map[string]*assetinventory.HierarchyNode,
 ) (*ignoredAssets, error) {
 	logger := logging.FromContext(ctx)
 	iamAssets := make(map[string]struct{})
@@ -179,8 +179,8 @@ func driftignore(
 	}
 	defer f.Close()
 
-	foldersByName := assets.AssetsByName(gcpFolders)
-	projectsByName := assets.AssetsByName(gcpProjects)
+	foldersByName := assetinventory.AssetsByName(gcpFolders)
+	projectsByName := assetinventory.AssetsByName(gcpProjects)
 
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
