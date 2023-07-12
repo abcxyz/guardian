@@ -20,7 +20,7 @@ import (
 
 	"google.golang.org/api/cloudresourcemanager/v3"
 
-	"github.com/abcxyz/guardian/pkg/commands/drift/assets"
+	"github.com/abcxyz/guardian/pkg/assetinventory"
 )
 
 // IAM defines the common gcp iam functionality.
@@ -80,7 +80,7 @@ func (c *IAMClient) ProjectIAM(ctx context.Context, projectID string) ([]*AssetI
 				Role:         b.Role,
 				Member:       member,
 				ResourceID:   projectID,
-				ResourceType: assets.Project,
+				ResourceType: assetinventory.Project,
 			})
 		}
 	}
@@ -108,7 +108,7 @@ func (c *IAMClient) FolderIAM(ctx context.Context, folderID string) ([]*AssetIAM
 				Role:         b.Role,
 				Member:       member,
 				ResourceID:   folderID,
-				ResourceType: assets.Folder,
+				ResourceType: assetinventory.Folder,
 			})
 		}
 	}
@@ -135,7 +135,7 @@ func (c *IAMClient) OrganizationIAM(ctx context.Context, organizationID string) 
 				Role:         b.Role,
 				Member:       member,
 				ResourceID:   organizationID,
-				ResourceType: assets.Organization,
+				ResourceType: assetinventory.Organization,
 			})
 		}
 	}

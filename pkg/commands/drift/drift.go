@@ -22,9 +22,9 @@ import (
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/worker"
 
-	"github.com/abcxyz/guardian/pkg/commands/drift/assets"
-	"github.com/abcxyz/guardian/pkg/commands/drift/iam"
-	"github.com/abcxyz/guardian/pkg/commands/drift/terraform"
+	"github.com/abcxyz/guardian/pkg/assetinventory"
+	"github.com/abcxyz/guardian/pkg/iam"
+	"github.com/abcxyz/guardian/pkg/terraform/parser"
 )
 
 // IAMDrift represents the detected iam drift in a gcp org.
@@ -34,17 +34,17 @@ type IAMDrift struct {
 }
 
 type IAMDriftDetector struct {
-	assetInventoryClient  assets.AssetInventory
+	assetInventoryClient  assetinventory.AssetInventory
 	iamClient             iam.IAM
-	terraformParser       terraform.Terraform
+	terraformParser       parser.Terraform
 	organizationID        string
 	maxConcurrentRequests int64
-	foldersByID           map[string]*assets.HierarchyNode
-	projectsByID          map[string]*assets.HierarchyNode
+	foldersByID           map[string]*assetinventory.HierarchyNode
+	projectsByID          map[string]*assetinventory.HierarchyNode
 }
 
 func NewIAMDriftDetector(ctx context.Context, organizationID string, maxConcurrentRequests int64) (*IAMDriftDetector, error) {
-	assetInventoryClient, err := assets.NewClient(ctx)
+	assetInventoryClient, err := assetinventory.NewClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize assets client: %w", err)
 	}
@@ -54,13 +54,13 @@ func NewIAMDriftDetector(ctx context.Context, organizationID string, maxConcurre
 		return nil, fmt.Errorf("failed to initialize iam client: %w", err)
 	}
 
-	terraformParser, err := terraform.NewParser(ctx, organizationID)
+	terraformParser, err := parser.NewTerraformParser(ctx, organizationID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize terraform parser: %w", err)
 	}
 
-	foldersByID := make(map[string]*assets.HierarchyNode)
-	projectsByID := make(map[string]*assets.HierarchyNode)
+	foldersByID := make(map[string]*assetinventory.HierarchyNode)
+	projectsByID := make(map[string]*assetinventory.HierarchyNode)
 
 	return &IAMDriftDetector{
 		assetInventoryClient,
@@ -83,12 +83,12 @@ func (d *IAMDriftDetector) DetectDrift(
 	w := worker.New[*worker.Void](d.maxConcurrentRequests)
 	// We differentiate between projects and folders here since we use them separately in
 	// downstream operations.
-	var folders []*assets.HierarchyNode
-	var projects []*assets.HierarchyNode
+	var folders []*assetinventory.HierarchyNode
+	var projects []*assetinventory.HierarchyNode
 	var buckets []string
 	var err error
 	if err := w.Do(ctx, func() (*worker.Void, error) {
-		folders, err = d.assetInventoryClient.HierarchyAssets(ctx, d.organizationID, assets.FolderAssetType)
+		folders, err = d.assetInventoryClient.HierarchyAssets(ctx, d.organizationID, assetinventory.FolderAssetType)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get folders: %w", err)
 		}
@@ -97,7 +97,7 @@ func (d *IAMDriftDetector) DetectDrift(
 		return nil, fmt.Errorf("failed to execute folder list task: %w", err)
 	}
 	if err := w.Do(ctx, func() (*worker.Void, error) {
-		projects, err = d.assetInventoryClient.HierarchyAssets(ctx, d.organizationID, assets.ProjectAssetType)
+		projects, err = d.assetInventoryClient.HierarchyAssets(ctx, d.organizationID, assetinventory.ProjectAssetType)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get projects: %w", err)
 		}
@@ -124,7 +124,7 @@ func (d *IAMDriftDetector) DetectDrift(
 		d.projectsByID[project.ID] = project
 	}
 
-	gcpHierarchyGraph, err := assets.NewHierarchyGraph(d.organizationID, d.foldersByID, d.projectsByID)
+	gcpHierarchyGraph, err := assetinventory.NewHierarchyGraph(d.organizationID, d.foldersByID, d.projectsByID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct graph from GCP assets: %w", err)
 	}
@@ -290,14 +290,14 @@ func (d *IAMDriftDetector) terraformStateIAM(ctx context.Context, gcsBuckets []s
 // This is used for diffing and as output to the user.
 func (d *IAMDriftDetector) URI(i *iam.AssetIAM) string {
 	role := strings.Replace(strings.Replace(i.Role, "organizations/", "", 1), fmt.Sprintf("%s/", d.organizationID), "", 1)
-	if i.ResourceType == assets.Folder {
+	if i.ResourceType == assetinventory.Folder {
 		// Fallback to folder ID if we can not find the folder.
 		resourceName := i.ResourceID
 		if f, ok := d.foldersByID[i.ResourceID]; ok {
 			resourceName = f.Name
 		}
 		return fmt.Sprintf("/organizations/%s/folders/%s/%s/%s", d.organizationID, resourceName, role, i.Member)
-	} else if i.ResourceType == assets.Project {
+	} else if i.ResourceType == assetinventory.Project {
 		// Fallback to project ID if we can not find the project.
 		resourceName := i.ResourceID
 		if p, ok := d.projectsByID[i.ResourceID]; ok {
