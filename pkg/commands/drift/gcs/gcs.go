@@ -29,24 +29,32 @@ const (
 	defaultTerraformStateFileSizeLimit = 512 * 1024 * 1024 // 512 MB
 )
 
-type Client struct {
+// GCS defined the common gcs functionality.
+type GCS interface {
+	// FilesWithName returns the URIs of files in a given bucket with the filename.
+	FilesWithName(ctx context.Context, bucket, filename string) ([]string, error)
+	// DownloadAndUnmarshal downloads the gcs file and unmarshalls it into an io reader.
+	DownloadAndUnmarshal(ctx context.Context, uri string, unmarshaller func(r io.Reader) error) error
+}
+
+type GCSClient struct {
 	gcs *storage.Client
 }
 
-// NewClient creates a new gcs client.
-func NewClient(ctx context.Context) (*Client, error) {
+// NewGCSClient creates a new gcs client.
+func NewGCSClient(ctx context.Context) (*GCSClient, error) {
 	gcs, err := storage.NewClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize storage client: %w", err)
 	}
 
-	return &Client{
+	return &GCSClient{
 		gcs: gcs,
 	}, nil
 }
 
 // FilesWithName returns all files in a bucket with a given file name.
-func (c *Client) FilesWithName(ctx context.Context, bucket, filename string) ([]string, error) {
+func (c *GCSClient) FilesWithName(ctx context.Context, bucket, filename string) ([]string, error) {
 	var uris []string
 	it := c.gcs.Bucket(bucket).Objects(ctx, nil)
 	for {
@@ -68,7 +76,7 @@ func (c *Client) FilesWithName(ctx context.Context, bucket, filename string) ([]
 // provided unmarshaller.
 //
 // TODO(dcreey): Handle race conditions https://github.com/abcxyz/guardian/issues/96.
-func (c *Client) DownloadAndUnmarshal(ctx context.Context, uri string, unmarshaller func(r io.Reader) error) error {
+func (c *GCSClient) DownloadAndUnmarshal(ctx context.Context, uri string, unmarshaller func(r io.Reader) error) error {
 	bucketAndObject := strings.SplitN(strings.Replace(uri, "gs://", "", 1), "/", 2)
 	if len(bucketAndObject) < 2 {
 		return fmt.Errorf("failed to parse gcs uri: %s", uri)

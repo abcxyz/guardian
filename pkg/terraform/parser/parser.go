@@ -67,7 +67,7 @@ type Terraform interface {
 }
 
 type TerraformParser struct {
-	gcs               *gcs.Client
+	gcs               gcs.GCS
 	gcpAssetsByID     map[string]*assetinventory.HierarchyNode
 	gcpFoldersByName  map[string]*assetinventory.HierarchyNode
 	gcpProjectsByName map[string]*assetinventory.HierarchyNode
@@ -76,7 +76,7 @@ type TerraformParser struct {
 
 // NewTerraformParser creates a new terraform parser.
 func NewTerraformParser(ctx context.Context, organizationID string) (*TerraformParser, error) {
-	client, err := gcs.NewClient(ctx)
+	client, err := gcs.NewGCSClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize gcs Client: %w", err)
 	}
