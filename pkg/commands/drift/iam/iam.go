@@ -23,6 +23,16 @@ import (
 	"github.com/abcxyz/guardian/pkg/commands/drift/assets"
 )
 
+// IAM defines the common gcp iam functionality.
+type IAM interface {
+	// OrganizationIAM returns the IAM set on the Organization.
+	OrganizationIAM(ctx context.Context, organizationID string) ([]*AssetIAM, error)
+	// FolderIAM returns the IAM set on the Folder.
+	FolderIAM(ctx context.Context, folderID string) ([]*AssetIAM, error)
+	// ProjectIAM returns the IAM set on the Project.
+	ProjectIAM(ctx context.Context, projectID string) ([]*AssetIAM, error)
+}
+
 // AssetIAM represents the IAM of a GCP resource (e.g binding/policy/membership of GCP Project, Folder, Org).
 type AssetIAM struct {
 	// The ID of the resource (e.g. Project ID, Folder ID, Org ID).
@@ -35,24 +45,24 @@ type AssetIAM struct {
 	Role string
 }
 
-type Client struct {
+type IAMClient struct {
 	crmService *cloudresourcemanager.Service
 }
 
 // NewClient creates a new iam client.
-func NewClient(ctx context.Context) (*Client, error) {
+func NewClient(ctx context.Context) (*IAMClient, error) {
 	crm, err := cloudresourcemanager.NewService(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize cloudresourcemanager service: %w", err)
 	}
 
-	return &Client{
+	return &IAMClient{
 		crmService: crm,
 	}, nil
 }
 
 // ProjectIAM returns all IAM memberships, bindings, and policies for the given project.
-func (c *Client) ProjectIAM(ctx context.Context, projectID string) ([]*AssetIAM, error) {
+func (c *IAMClient) ProjectIAM(ctx context.Context, projectID string) ([]*AssetIAM, error) {
 	req := &cloudresourcemanager.GetIamPolicyRequest{
 		Options: &cloudresourcemanager.GetPolicyOptions{
 			// Any operation that affects conditional role bindings must specify version `3`.
@@ -79,7 +89,7 @@ func (c *Client) ProjectIAM(ctx context.Context, projectID string) ([]*AssetIAM,
 }
 
 // FolderIAM returns all IAM memberships, bindings, and policies for the given folder.
-func (c *Client) FolderIAM(ctx context.Context, folderID string) ([]*AssetIAM, error) {
+func (c *IAMClient) FolderIAM(ctx context.Context, folderID string) ([]*AssetIAM, error) {
 	req := &cloudresourcemanager.GetIamPolicyRequest{
 		Options: &cloudresourcemanager.GetPolicyOptions{
 			// Any operation that affects conditional role bindings must specify
@@ -107,7 +117,7 @@ func (c *Client) FolderIAM(ctx context.Context, folderID string) ([]*AssetIAM, e
 }
 
 // OrganizationIAM returns all IAM memberships, bindings, and policies for the given organization.
-func (c *Client) OrganizationIAM(ctx context.Context, organizationID string) ([]*AssetIAM, error) {
+func (c *IAMClient) OrganizationIAM(ctx context.Context, organizationID string) ([]*AssetIAM, error) {
 	req := &cloudresourcemanager.GetIamPolicyRequest{
 		Options: &cloudresourcemanager.GetPolicyOptions{
 			// Any operation that affects conditional role bindings must specify version `3`.

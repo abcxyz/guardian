@@ -112,7 +112,12 @@ func (c *DetectIamDriftCommand) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("missing -organization-id")
 	}
 
-	iamDiff, err := Process(ctx, c.flagOrganizationID, c.flagGCSBucketQuery, c.flagDriftignoreFile, c.flagMaxConcurrentRequests)
+	iamDriftDetector, err := NewIAMDriftDetector(ctx, c.flagOrganizationID, c.flagMaxConcurrentRequests)
+	if err != nil {
+		return fmt.Errorf("failed to create iam drift detector %w", err)
+	}
+
+	iamDiff, err := iamDriftDetector.DetectDrift(ctx, c.flagGCSBucketQuery, c.flagDriftignoreFile)
 	if err != nil {
 		return fmt.Errorf("failed to detect drift %w", err)
 	}
