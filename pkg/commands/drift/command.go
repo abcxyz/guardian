@@ -124,7 +124,7 @@ func (c *DetectIamDriftCommand) Run(ctx context.Context, args []string) error {
 		sort.Strings(uris)
 		c.Outf("Found Click Ops Changes \n> %s", strings.Join(uris, "\n> "))
 		if len(iamDiff.MissingTerraformChanges) > 0 {
-			c.Outf("\n\n"))
+			c.Outf("\n\n")
 		}
 	}
 	if len(iamDiff.MissingTerraformChanges) > 0 {
