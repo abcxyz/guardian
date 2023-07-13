@@ -257,7 +257,6 @@ func (d *IAMDriftDetector) terraformStateIAM(ctx context.Context, gcsBuckets []s
 			if err != nil {
 				return nil, fmt.Errorf("failed to get terraform state file URIs: %w", err)
 			}
-
 			tIAM, err := d.terraformParser.ProcessStates(ctx, gcsURIs)
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse terraform states: %w", err)

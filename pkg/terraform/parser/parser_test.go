@@ -65,14 +65,14 @@ func TestParser_StateFileURIs(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			p := &TerraformParser{gcs: tc.gcsClient}
+			p := &TerraformParser{GCS: tc.gcsClient}
 
 			got, err := p.StateFileURIs(context.Background(), tc.gcsBuckets)
 			if tc.wantErr != "" && !strings.Contains(err.Error(), tc.wantErr) {
 				t.Errorf("StateFileURIs() failed to get error %s", tc.wantErr)
 			}
 			if diff := cmp.Diff(got, tc.want); diff != "" {
-				t.Errorf(diff)
+				t.Errorf("StateFileURIs() returned diff (-want +got):\n%s", diff)
 			}
 		})
 	}
@@ -210,7 +210,7 @@ func TestParser_ProcessStates(t *testing.T) {
 			}
 
 			gcsClient := &storage.MockStorageClient{GetData: string(data), GetErr: tc.wantErr}
-			p := &TerraformParser{gcs: gcsClient, organizationID: orgID}
+			p := &TerraformParser{GCS: gcsClient, OrganizationID: orgID}
 
 			if tc.knownFolders != nil && tc.knownProjects != nil {
 				p.SetAssets(tc.knownFolders, tc.knownProjects)
@@ -230,7 +230,8 @@ func TestParser_ProcessStates(t *testing.T) {
 	}
 }
 
-func absolutePath(filename string) (fn string) {
-	_, fn, _, _ = runtime.Caller(0)
-	return fmt.Sprintf("%s/%s", filepath.Dir(fn), filename)
+func absolutePath(filename string) string {
+	_, fn, _, _ := runtime.Caller(0)
+	repoRoot := filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(fn))))
+	return fmt.Sprintf("%s/%s", repoRoot, filename)
 }
