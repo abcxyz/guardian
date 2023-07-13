@@ -69,11 +69,11 @@ type Terraform interface {
 }
 
 type TerraformParser struct {
-	gcs               storage.Storage
+	GCS               storage.Storage
+	OrganizationID    string
 	gcpAssetsByID     map[string]*assetinventory.HierarchyNode
 	gcpFoldersByName  map[string]*assetinventory.HierarchyNode
 	gcpProjectsByName map[string]*assetinventory.HierarchyNode
-	organizationID    string
 }
 
 // NewTerraformParser creates a new terraform parser.
@@ -83,11 +83,11 @@ func NewTerraformParser(ctx context.Context, organizationID string) (*TerraformP
 		return nil, fmt.Errorf("failed to initialize gcs Client: %w", err)
 	}
 	return &TerraformParser{
-		gcs:               client,
+		GCS:               client,
 		gcpAssetsByID:     make(map[string]*assetinventory.HierarchyNode),
 		gcpFoldersByName:  make(map[string]*assetinventory.HierarchyNode),
 		gcpProjectsByName: make(map[string]*assetinventory.HierarchyNode),
-		organizationID:    organizationID,
+		OrganizationID:    organizationID,
 	}, nil
 }
 
@@ -105,7 +105,7 @@ func (p *TerraformParser) SetAssets(
 func (p *TerraformParser) StateFileURIs(ctx context.Context, gcsBuckets []string) ([]string, error) {
 	var gcsURIs []string
 	for _, bucket := range gcsBuckets {
-		allStateFiles, err := p.gcs.ObjectsWithName(ctx, bucket, "default.tfstate")
+		allStateFiles, err := p.GCS.ObjectsWithName(ctx, bucket, "default.tfstate")
 		if err != nil {
 			return nil, fmt.Errorf("failed to determine state files in GCS bucket %s: %w", bucket, err)
 		}
@@ -123,7 +123,7 @@ func (p *TerraformParser) ProcessStates(ctx context.Context, gcsUris []string) (
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse GCS URI: %w", err)
 		}
-		r, err := p.gcs.DownloadObject(ctx, *bucket, *name)
+		r, err := p.GCS.DownloadObject(ctx, *bucket, *name)
 		if err != nil {
 			return nil, fmt.Errorf("failed to download gcs URI for terraform: %w", err)
 		}
@@ -166,7 +166,7 @@ func (p *TerraformParser) parseIAMBindingForOrg(instances []ResourceInstance) []
 			iams = append(iams, &iam.AssetIAM{
 				Member:       m,
 				Role:         i.Attributes.Role,
-				ResourceID:   p.organizationID,
+				ResourceID:   p.OrganizationID,
 				ResourceType: assetinventory.Organization,
 			})
 		}
@@ -213,7 +213,7 @@ func (p *TerraformParser) parseIAMMemberForOrg(instances []ResourceInstance) []*
 		iams[x] = &iam.AssetIAM{
 			Member:       i.Attributes.Member,
 			Role:         i.Attributes.Role,
-			ResourceID:   p.organizationID,
+			ResourceID:   p.OrganizationID,
 			ResourceType: assetinventory.Organization,
 		}
 	}

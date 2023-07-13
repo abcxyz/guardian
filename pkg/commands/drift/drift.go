@@ -147,6 +147,7 @@ func (d *IAMDriftDetector) DetectDrift(
 	}
 	logger.Debugw("Fetching terraform state from Buckets", "number_of_buckets", len(buckets))
 	tfIAM, err := d.terraformStateIAM(ctx, buckets)
+	fmt.Println("DONE TFING")
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse IAM from Terraform State: %w", err)
 	}
@@ -180,7 +181,7 @@ func (d *IAMDriftDetector) DetectDrift(
 		"number_of_in_scope_changes", len(missingTerraformNoDefaultIgnoredChanges),
 		"number_of_changes", len(missingTerraformNoIgnoredChanges),
 		"number_of_ignored_changes", (len(missingTerraformChanges) - len(missingTerraformNoDefaultIgnoredChanges)))
-
+	fmt.Println("DONE DRIFTING")
 	return &IAMDrift{
 		ClickOpsChanges:         clickOpsNoDefaultIgnoredChanges,
 		MissingTerraformChanges: missingTerraformNoDefaultIgnoredChanges,
@@ -249,6 +250,7 @@ func (d *IAMDriftDetector) actualGCPIAM(ctx context.Context) (map[string]*iam.As
 // Returns a map of asset URI to asset IAM.
 func (d *IAMDriftDetector) terraformStateIAM(ctx context.Context, gcsBuckets []string) (map[string]*iam.AssetIAM, error) {
 	d.terraformParser.SetAssets(d.foldersByID, d.projectsByID)
+	fmt.Println("DONE SETTING TF ASSETS")
 	w := worker.New[[]*iam.AssetIAM](d.maxConcurrentRequests)
 	for _, b := range gcsBuckets {
 		bucket := b
@@ -257,11 +259,12 @@ func (d *IAMDriftDetector) terraformStateIAM(ctx context.Context, gcsBuckets []s
 			if err != nil {
 				return nil, fmt.Errorf("failed to get terraform state file URIs: %w", err)
 			}
-
+			fmt.Println("GETTING STATES:", gcsURIs)
 			tIAM, err := d.terraformParser.ProcessStates(ctx, gcsURIs)
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse terraform states: %w", err)
 			}
+			fmt.Println("GOT STATES:", tIAM)
 			return tIAM, nil
 		}); err != nil {
 			return nil, fmt.Errorf("failed to execute terraform IAM task: %w", err)
