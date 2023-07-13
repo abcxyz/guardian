@@ -41,6 +41,5 @@ func (m *MockStorageClient) DownloadAndUnmarshal(ctx context.Context, uri string
 	if m.DownloadErr != "" {
 		return fmt.Errorf("%s", m.DownloadErr)
 	}
-	unmarshaller(bytes.NewReader(m.DownloadBytes))
-	return nil
+	return unmarshaller(bytes.NewReader(m.DownloadBytes))
 }

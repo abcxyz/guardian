@@ -16,10 +16,14 @@ package parser
 
 import (
 	"context"
-	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
+	"github.com/abcxyz/guardian/pkg/assetinventory"
 	"github.com/abcxyz/guardian/pkg/commands/drift/gcs"
 	"github.com/abcxyz/guardian/pkg/iam"
 	"github.com/google/go-cmp/cmp"
@@ -65,7 +69,7 @@ func TestParser_StateFileURIs(t *testing.T) {
 
 			got, err := p.StateFileURIs(context.Background(), tc.gcsBuckets)
 			if tc.wantErr != "" && !strings.Contains(err.Error(), tc.wantErr) {
-				t.Errorf("StateFileURIs: failed to get error %s", tc.wantErr)
+				t.Errorf("StateFileURIs() failed to get error %s", tc.wantErr)
 			}
 			if diff := cmp.Diff(got, tc.want); diff != "" {
 				t.Errorf(diff)
@@ -74,11 +78,22 @@ func TestParser_StateFileURIs(t *testing.T) {
 	}
 }
 
-const (
-	orgID                = "1231231"
-	complexStatefileJSON = `{
-
-	}`
+var (
+	orgID  = "1231231"
+	folder = &assetinventory.HierarchyNode{
+		ID:         "123123123123",
+		Name:       "123123123123",
+		NodeType:   assetinventory.Folder,
+		ParentID:   orgID,
+		ParentType: assetinventory.Organization,
+	}
+	project = &assetinventory.HierarchyNode{
+		ID:         "1231232222",
+		Name:       "my-project",
+		NodeType:   assetinventory.Project,
+		ParentID:   folder.ID,
+		ParentType: assetinventory.Folder,
+	}
 )
 
 func TestParser_ProcessStates(t *testing.T) {
@@ -86,21 +101,100 @@ func TestParser_ProcessStates(t *testing.T) {
 
 	cases := []struct {
 		name                   string
-		terraformStatefileJSON string
-		gcsUris                []string
+		terraformStatefilename string
+		gcsURIs                []string
 		want                   []*iam.AssetIAM
 		wantErr                string
+		knownFolders           map[string]*assetinventory.HierarchyNode
+		knownProjects          map[string]*assetinventory.HierarchyNode
 	}{
 		{
 			name:                   "success",
-			terraformStatefileJSON: complexStatefileJSON,
-			want:                   []*iam.AssetIAM{},
-			gcsUris:                []string{"gs://my-bucket-123/abcsdasd/12312/default.tfstate"},
+			terraformStatefilename: "test_valid.tfstate",
+			want: []*iam.AssetIAM{
+				{
+					ResourceID:   "1231231",
+					ResourceType: "Organization",
+					Member:       "group:my-group@google.com",
+					Role:         "roles/browser",
+				},
+				{
+					ResourceID:   "1231231",
+					ResourceType: "Organization",
+					Member:       "serviceAccount:my-service-account@my-project.iam.gserviceaccount.com",
+					Role:         "roles/browser",
+				},
+				{
+					ResourceID:   "1231231",
+					ResourceType: "Organization",
+					Member:       "user:dcreey@google.com",
+					Role:         "roles/browser",
+				},
+				{
+					ResourceID:   "123123123123",
+					ResourceType: "Folder",
+					Member:       "group:my-group@google.com",
+					Role:         "roles/viewer",
+				},
+				{
+					ResourceID:   "1231232222",
+					ResourceType: "Project",
+					Member:       "serviceAccount:my-service-account@my-project.iam.gserviceaccount.com",
+					Role:         "roles/compute.admin",
+				},
+			},
+			gcsURIs:       []string{"gs://my-bucket-123/abcsdasd/12312/default.tfstate"},
+			knownFolders:  map[string]*assetinventory.HierarchyNode{folder.ID: folder},
+			knownProjects: map[string]*assetinventory.HierarchyNode{project.ID: project},
 		},
 		{
-			name:    "failure",
-			gcsUris: []string{"gs://my-bucket-123/abcsdasd/12312/default.tfstate"},
-			wantErr: "Failed cause 404",
+			name:                   "success_no_known_assets",
+			terraformStatefilename: "test_valid.tfstate",
+			want: []*iam.AssetIAM{
+				{
+					ResourceID:   "1231231",
+					ResourceType: "Organization",
+					Member:       "group:my-group@google.com",
+					Role:         "roles/browser",
+				},
+				{
+					ResourceID:   "1231231",
+					ResourceType: "Organization",
+					Member:       "serviceAccount:my-service-account@my-project.iam.gserviceaccount.com",
+					Role:         "roles/browser",
+				},
+				{
+					ResourceID:   "1231231",
+					ResourceType: "Organization",
+					Member:       "user:dcreey@google.com",
+					Role:         "roles/browser",
+				},
+				{
+					ResourceID:   "UNKNOWN_PARENT_ID",
+					ResourceType: "UNKNOWN_PARENT_TYPE",
+					Member:       "group:my-group@google.com",
+					Role:         "roles/viewer",
+				},
+				{
+					ResourceID:   "UNKNOWN_PARENT_ID",
+					ResourceType: "UNKNOWN_PARENT_TYPE",
+					Member:       "serviceAccount:my-service-account@my-project.iam.gserviceaccount.com",
+					Role:         "roles/compute.admin",
+				},
+			},
+			gcsURIs: []string{"gs://my-bucket-123/abcsdasd/12312/default.tfstate"},
+		},
+		{
+			name:                   "ignores_unsupported_iam_bindings",
+			terraformStatefilename: "test_ignored.tfstate",
+			want:                   nil,
+			gcsURIs:                []string{"gs://my-bucket-123/abcsdasd/12312/default.tfstate"},
+		},
+		{
+			name:                   "failure",
+			gcsURIs:                []string{"gs://my-bucket-123/abcsdasd/12312/default.tfstate"},
+			terraformStatefilename: "test_valid.tfstate",
+			wantErr:                "Failed cause 404",
 		},
 	}
 
@@ -110,21 +204,33 @@ func TestParser_ProcessStates(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			jsonBytes, err := json.Marshal(tc.terraformStatefileJSON)
+			data, err := ioutil.ReadFile(absolutePath(tc.terraformStatefilename))
 			if err != nil {
-				t.Errorf("StateFileURIs: failed to marshal json %s", tc.wantErr)
+				t.Errorf("ProcessStates() failed to read json file %v", err)
 			}
 
-			gcsClient := &gcs.MockStorageClient{DownloadBytes: jsonBytes}
+			gcsClient := &gcs.MockStorageClient{DownloadBytes: data, DownloadErr: tc.wantErr}
 			p := &TerraformParser{gcs: gcsClient, organizationID: orgID}
 
-			got, err := p.StateFileURIs(context.Background(), tc.gcsUris)
-			if tc.wantErr != "" && !strings.Contains(err.Error(), tc.wantErr) {
-				t.Errorf("StateFileURIs: failed to get error %s", tc.wantErr)
+			if tc.knownFolders != nil && tc.knownProjects != nil {
+				p.SetAssets(tc.knownFolders, tc.knownProjects)
 			}
-			if diff := cmp.Diff(got, tc.want); diff != "" {
-				t.Errorf(diff)
+
+			got, err := p.ProcessStates(context.Background(), tc.gcsURIs)
+			if tc.wantErr == "" && err != nil {
+				t.Errorf("ProcessStates() got unexpected error %v", err)
+			}
+			if tc.wantErr != "" && !strings.Contains(err.Error(), tc.wantErr) {
+				t.Errorf("ProcessStates() failed to get error %s", tc.wantErr)
+			}
+			if diff := cmp.Diff(tc.want, got); diff != "" {
+				t.Errorf("ProcessStates() returned diff (-want +got):\n%s", diff)
 			}
 		})
 	}
+}
+
+func absolutePath(filename string) (fn string) {
+	_, fn, _, _ = runtime.Caller(0)
+	return fmt.Sprintf("%s/%s", filepath.Dir(fn), filename)
 }
