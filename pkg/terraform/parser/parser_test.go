@@ -17,7 +17,7 @@ package parser
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -204,7 +204,7 @@ func TestParser_ProcessStates(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			data, err := ioutil.ReadFile(absolutePath(tc.terraformStatefilename))
+			data, err := os.ReadFile(absolutePath(tc.terraformStatefilename))
 			if err != nil {
 				t.Errorf("ProcessStates() failed to read json file %v", err)
 			}
