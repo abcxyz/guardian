@@ -98,7 +98,7 @@ func TestDrift_DetectDrift(t *testing.T) {
 			assetInventoryClient: &assetinventory.MockAssetInventoryClient{
 				AssetFolderData:  []*assetinventory.HierarchyNode{folder},
 				AssetProjectData: []*assetinventory.HierarchyNode{project},
-				BucketsData:      []string{bucketGCSURI},
+				BucketsData:      []string{bucket},
 			},
 			iamClient: &iam.MockIAMClient{
 				OrgData:     []*iam.AssetIAM{orgSABrowser, orgGroupBrowser, orgUserBrowser},
@@ -116,7 +116,7 @@ func TestDrift_DetectDrift(t *testing.T) {
 			assetInventoryClient: &assetinventory.MockAssetInventoryClient{
 				AssetFolderData:  []*assetinventory.HierarchyNode{folder},
 				AssetProjectData: []*assetinventory.HierarchyNode{project},
-				BucketsData:      []string{bucketGCSURI},
+				BucketsData:      []string{bucket},
 			},
 			iamClient: &iam.MockIAMClient{
 				OrgData:     []*iam.AssetIAM{orgSABrowser, orgGroupBrowser, orgUserBrowser},
@@ -140,7 +140,7 @@ func TestDrift_DetectDrift(t *testing.T) {
 			assetInventoryClient: &assetinventory.MockAssetInventoryClient{
 				AssetFolderData:  []*assetinventory.HierarchyNode{folder},
 				AssetProjectData: []*assetinventory.HierarchyNode{project},
-				BucketsData:      []string{bucketGCSURI},
+				BucketsData:      []string{bucket},
 			},
 			iamClient: &iam.MockIAMClient{
 				OrgData:     []*iam.AssetIAM{},

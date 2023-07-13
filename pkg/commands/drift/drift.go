@@ -180,6 +180,7 @@ func (d *IAMDriftDetector) DetectDrift(
 		"number_of_in_scope_changes", len(missingTerraformNoDefaultIgnoredChanges),
 		"number_of_changes", len(missingTerraformNoIgnoredChanges),
 		"number_of_ignored_changes", (len(missingTerraformChanges) - len(missingTerraformNoDefaultIgnoredChanges)))
+
 	return &IAMDrift{
 		ClickOpsChanges:         clickOpsNoDefaultIgnoredChanges,
 		MissingTerraformChanges: missingTerraformNoDefaultIgnoredChanges,
