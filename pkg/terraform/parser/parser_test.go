@@ -110,7 +110,7 @@ func TestParser_ProcessStates(t *testing.T) {
 	}{
 		{
 			name:                   "success",
-			terraformStatefilename: "test_valid.tfstate",
+			terraformStatefilename: "testdata/test_valid.tfstate",
 			want: []*iam.AssetIAM{
 				{
 					ResourceID:   "1231231",
@@ -149,7 +149,7 @@ func TestParser_ProcessStates(t *testing.T) {
 		},
 		{
 			name:                   "success_no_known_assets",
-			terraformStatefilename: "test_valid.tfstate",
+			terraformStatefilename: "testdata/test_valid.tfstate",
 			want: []*iam.AssetIAM{
 				{
 					ResourceID:   "1231231",
@@ -186,14 +186,14 @@ func TestParser_ProcessStates(t *testing.T) {
 		},
 		{
 			name:                   "ignores_unsupported_iam_bindings",
-			terraformStatefilename: "test_ignored.tfstate",
+			terraformStatefilename: "testdata/test_ignored.tfstate",
 			want:                   nil,
 			gcsURIs:                []string{"gs://my-bucket-123/abcsdasd/12312/default.tfstate"},
 		},
 		{
 			name:                   "failure",
 			gcsURIs:                []string{"gs://my-bucket-123/abcsdasd/12312/default.tfstate"},
-			terraformStatefilename: "test_valid.tfstate",
+			terraformStatefilename: "testdata/test_valid.tfstate",
 			wantErr:                "Failed cause 404",
 		},
 	}
