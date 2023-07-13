@@ -7,9 +7,12 @@ require (
 	cloud.google.com/go/storage v1.28.1
 	github.com/abcxyz/pkg v0.4.0
 	github.com/google/go-cmp v0.5.9
+	github.com/google/go-github/v53 v53.2.0
 	github.com/googleapis/gax-go/v2 v2.10.0
 	github.com/hashicorp/hcl/v2 v2.16.2
+	github.com/sethvargo/go-retry v0.2.4
 	golang.org/x/exp v0.0.0-20230626212559-97b1e661b5df
+	golang.org/x/oauth2 v0.8.0
 	google.golang.org/api v0.128.0
 	google.golang.org/protobuf v1.30.0
 )
@@ -23,13 +26,16 @@ require (
 	cloud.google.com/go/longrunning v0.4.1 // indirect
 	cloud.google.com/go/orgpolicy v1.10.0 // indirect
 	cloud.google.com/go/osconfig v1.11.0 // indirect
+	github.com/ProtonMail/go-crypto v0.0.0-20230217124315-7d5c6f04bbb8 // indirect
 	github.com/agext/levenshtein v1.2.3 // indirect
 	github.com/apparentlymart/go-textseg/v13 v13.0.0 // indirect
 	github.com/benbjohnson/clock v1.3.0 // indirect
+	github.com/cloudflare/circl v1.3.3 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
+	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/s2a-go v0.1.4 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.2.4 // indirect
@@ -54,7 +60,6 @@ require (
 	go.uber.org/zap v1.24.0 // indirect
 	golang.org/x/crypto v0.9.0 // indirect
 	golang.org/x/net v0.10.0 // indirect
-	golang.org/x/oauth2 v0.8.0 // indirect
 	golang.org/x/sync v0.2.0 // indirect
 	golang.org/x/sys v0.8.0 // indirect
 	golang.org/x/text v0.9.0 // indirect
