@@ -15,7 +15,6 @@
 package storage
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -25,6 +24,8 @@ import (
 	"cloud.google.com/go/storage"
 	"github.com/googleapis/gax-go/v2"
 )
+
+const MiB = 1_048_576 // 1 MiB
 
 var _ Storage = (*GoogleCloudStorage)(nil)
 
@@ -68,8 +69,8 @@ func NewGoogleCloudStorage(ctx context.Context, opts ...Option) (*GoogleCloudSto
 	}, nil
 }
 
-// getObjectHandleWithRetries retrieves an object handle configured with a retry mechanism.
-func (s *GoogleCloudStorage) getObjectHandleWithRetries(ctx context.Context, bucket, name string) (*storage.ObjectHandle, context.Context, context.CancelFunc) {
+// objectHandleWithRetries retrieves an object handle configured with a retry mechanism.
+func (s *GoogleCloudStorage) objectHandleWithRetries(ctx context.Context, bucket, name string) (*storage.ObjectHandle, context.Context, context.CancelFunc) {
 	o := s.client.Bucket(bucket).Object(name).Retryer(
 		storage.WithBackoff(gax.Backoff{
 			Initial:    s.cfg.initialRetryDelay,
@@ -82,79 +83,83 @@ func (s *GoogleCloudStorage) getObjectHandleWithRetries(ctx context.Context, buc
 	return o, ctx, cancel
 }
 
-func (s *GoogleCloudStorage) UploadObject(ctx context.Context, bucket, name string, contents []byte, contentType string, metadata map[string]string) error {
-	o, ctx, cancel := s.getObjectHandleWithRetries(ctx, bucket, name)
-	defer cancel()
+// makeUploadConfig creates default upload config and overwrites with the user
+// provided upload options.
+func makeUploadConfig(contentLength int, opts []UploadOption) *uploadConfig {
+	defaultChunkSize := 16 * MiB // default for cloud storage client
 
-	writer := o.NewWriter(ctx)
-
-	if contentType != "" {
-		writer.ContentType = contentType
+	// we can send smaller files in one request
+	if contentLength <= 16*MiB {
+		defaultChunkSize = contentLength + 256
 	}
 
-	if metadata != nil {
-		writer.Metadata = metadata
+	cfg := &uploadConfig{
+		chunkSize:          defaultChunkSize,
+		cacheMaxAgeSeconds: 86400, // 1 day
+	}
+
+	for _, opt := range opts {
+		if opt != nil {
+			cfg = opt(cfg)
+		}
+	}
+
+	cacheControl := fmt.Sprintf("public, max-age=%d", cfg.cacheMaxAgeSeconds)
+	if cfg.cacheMaxAgeSeconds == 0 {
+		cacheControl = "no-cache, max-age=0"
+	}
+	cfg.cacheControl = cacheControl
+
+	return cfg
+}
+
+func (s *GoogleCloudStorage) UploadObject(ctx context.Context, bucket, name string, contents []byte, opts ...UploadOption) error {
+	cfg := makeUploadConfig(len(contents), opts)
+
+	o, ctx, cancel := s.objectHandleWithRetries(ctx, bucket, name)
+	defer cancel()
+
+	writer := o.If(storage.Conditions{DoesNotExist: true}).NewWriter(ctx)
+	defer writer.Close()
+
+	writer.CacheControl = cfg.cacheControl
+	writer.ChunkSize = cfg.chunkSize
+
+	if cfg.contentType != "" {
+		writer.ContentType = cfg.contentType
+	}
+
+	if cfg.metadata != nil {
+		m := make(map[string]string, len(cfg.metadata))
+
+		for k, v := range cfg.metadata {
+			m[k] = v
+		}
+
+		writer.Metadata = m
 	}
 
 	if _, err := writer.Write(contents); err != nil {
 		return fmt.Errorf("failed to write data: %w", err)
 	}
 
-	if err := writer.Close(); err != nil {
-		return fmt.Errorf("failed to close writer: %w", err)
-	}
-
 	return nil
 }
 
-func (s *GoogleCloudStorage) GetObject(ctx context.Context, bucket, name string) ([]byte, error) {
-	o, ctx, cancel := s.getObjectHandleWithRetries(ctx, bucket, name)
+func (s *GoogleCloudStorage) DownloadObject(ctx context.Context, bucket, name string) (io.ReadCloser, error) {
+	o, ctx, cancel := s.objectHandleWithRetries(ctx, bucket, name)
 	defer cancel()
 
 	r, err := o.NewReader(ctx)
 	if err != nil {
-		if errors.Is(err, storage.ErrObjectNotExist) {
-			return nil, fmt.Errorf("failed to get object: %w", err)
-		}
-
 		return nil, fmt.Errorf("failed to get google cloud storage reader: %w", err)
 	}
-	defer r.Close()
 
-	var data bytes.Buffer
-	if _, err := io.Copy(&data, r); err != nil {
-		return nil, fmt.Errorf("failed to get object: %w", err)
-	}
-
-	return data.Bytes(), nil
+	return r, nil
 }
 
-func (s *GoogleCloudStorage) GetObjectWithLimit(ctx context.Context, bucket, name string, limit int64) ([]byte, error) {
-	o, ctx, cancel := s.getObjectHandleWithRetries(ctx, bucket, name)
-	defer cancel()
-
-	r, err := o.NewReader(ctx)
-	if err != nil {
-		if errors.Is(err, storage.ErrObjectNotExist) {
-			return nil, fmt.Errorf("failed to get object: %w", err)
-		}
-
-		return nil, fmt.Errorf("failed to get google cloud storage reader: %w", err)
-	}
-	defer r.Close()
-
-	lr := io.LimitReader(r, limit)
-
-	var data bytes.Buffer
-	if _, err := io.Copy(&data, lr); err != nil {
-		return nil, fmt.Errorf("failed to get object: %w", err)
-	}
-
-	return data.Bytes(), nil
-}
-
-func (s *GoogleCloudStorage) GetMetadata(ctx context.Context, bucket, name string) (map[string]string, error) {
-	o, ctx, cancel := s.getObjectHandleWithRetries(ctx, bucket, name)
+func (s *GoogleCloudStorage) ObjectMetadata(ctx context.Context, bucket, name string) (map[string]string, error) {
+	o, ctx, cancel := s.objectHandleWithRetries(ctx, bucket, name)
 	defer cancel()
 
 	attrs, err := o.Attrs(ctx)
@@ -164,12 +169,12 @@ func (s *GoogleCloudStorage) GetMetadata(ctx context.Context, bucket, name strin
 	return attrs.Metadata, nil
 }
 
-func (s *GoogleCloudStorage) DeleteObject(ctx context.Context, bucket, name string, ignoreNotFound bool) error {
-	o, ctx, cancel := s.getObjectHandleWithRetries(ctx, bucket, name)
+func (s *GoogleCloudStorage) DeleteObject(ctx context.Context, bucket, name string) error {
+	o, ctx, cancel := s.objectHandleWithRetries(ctx, bucket, name)
 	defer cancel()
 
 	if err := o.Delete(ctx); err != nil {
-		if errors.Is(err, storage.ErrObjectNotExist) && ignoreNotFound {
+		if errors.Is(err, storage.ErrObjectNotExist) {
 			return nil
 		}
 		return fmt.Errorf("failed to delete object: %w", err)

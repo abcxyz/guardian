@@ -15,8 +15,10 @@
 package storage
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"sync"
 )
 
@@ -41,12 +43,18 @@ type MockStorageClient struct {
 	DeleteErr    string
 }
 
-func (m *MockStorageClient) UploadObject(ctx context.Context, bucket, name string, contents []byte, contentType string, metadata map[string]string) error {
+type BufferReadCloser struct {
+	*bytes.Buffer
+}
+
+func (b *BufferReadCloser) Close() error { return nil }
+
+func (m *MockStorageClient) UploadObject(ctx context.Context, bucket, name string, contents []byte, opts ...UploadOption) error {
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
 	m.Reqs = append(m.Reqs, &Request{
 		Name:   "UploadObject",
-		Params: []any{bucket, name, contents, contentType, metadata},
+		Params: []any{bucket, name, contents, opts},
 	})
 
 	if m.UploadErr != "" {
@@ -55,39 +63,25 @@ func (m *MockStorageClient) UploadObject(ctx context.Context, bucket, name strin
 	return nil
 }
 
-func (m *MockStorageClient) GetObject(ctx context.Context, bucket, name string) ([]byte, error) {
+func (m *MockStorageClient) DownloadObject(ctx context.Context, bucket, name string) (io.ReadCloser, error) {
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
 	m.Reqs = append(m.Reqs, &Request{
-		Name:   "GetObject",
+		Name:   "DownloadObject",
 		Params: []any{bucket, name},
 	})
 
 	if m.GetErr != "" {
 		return nil, fmt.Errorf("%s", m.GetErr)
 	}
-	return []byte(m.GetData), nil
+	return &BufferReadCloser{bytes.NewBufferString(m.GetData)}, nil
 }
 
-func (m *MockStorageClient) GetObjectWithLimit(ctx context.Context, bucket, name string, limit int64) ([]byte, error) {
+func (m *MockStorageClient) ObjectMetadata(ctx context.Context, bucket, name string) (map[string]string, error) {
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
 	m.Reqs = append(m.Reqs, &Request{
-		Name:   "GetObjectWithLimit",
-		Params: []any{bucket, name},
-	})
-
-	if m.GetLimitErr != "" {
-		return nil, fmt.Errorf("%s", m.GetLimitErr)
-	}
-	return []byte(m.GetLimitData), nil
-}
-
-func (m *MockStorageClient) GetMetadata(ctx context.Context, bucket, name string) (map[string]string, error) {
-	m.reqMu.Lock()
-	defer m.reqMu.Unlock()
-	m.Reqs = append(m.Reqs, &Request{
-		Name:   "GetMetadata",
+		Name:   "ObjectMetadata",
 		Params: []any{bucket, name},
 	})
 
@@ -103,7 +97,7 @@ func (m *MockStorageClient) GetMetadata(ctx context.Context, bucket, name string
 	return metadata, nil
 }
 
-func (m *MockStorageClient) DeleteObject(ctx context.Context, bucket, name string, ignoreNotFound bool) error {
+func (m *MockStorageClient) DeleteObject(ctx context.Context, bucket, name string) error {
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
 	m.Reqs = append(m.Reqs, &Request{

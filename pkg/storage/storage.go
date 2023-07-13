@@ -17,22 +17,20 @@ package storage
 
 import (
 	"context"
+	"io"
 )
 
 // Storage defines the minimum interface for a blob storage system.
 type Storage interface {
 	// UploadObject uploads a blob storage object.
-	UploadObject(ctx context.Context, bucket, name string, contents []byte, contentType string, metadata map[string]string) error
+	UploadObject(ctx context.Context, bucket, name string, contents []byte, opts ...UploadOption) error
 
-	// GetObject gets a blob storage object.
-	GetObject(ctx context.Context, bucket, name string) ([]byte, error)
+	// DownloadObject gets a blob storage object.
+	DownloadObject(ctx context.Context, bucket, name string) (io.ReadCloser, error)
 
-	// GetObjectWithLimit gets a blob storage object with a limit.
-	GetObjectWithLimit(ctx context.Context, bucket, name string, limit int64) ([]byte, error)
-
-	// GetMetadata gets metadata for a blob storage object.
-	GetMetadata(ctx context.Context, bucket, name string) (map[string]string, error)
+	// ObjectMetadata gets metadata for a blob storage object.
+	ObjectMetadata(ctx context.Context, bucket, name string) (map[string]string, error)
 
 	// DeleteObject deletes a blob storage object.
-	DeleteObject(ctx context.Context, bucket, name string, ignoreNotFound bool) error
+	DeleteObject(ctx context.Context, bucket, name string) error
 }
