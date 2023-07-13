@@ -17,7 +17,9 @@ package storage
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"strings"
 )
 
 // Storage defines the minimum interface for a blob storage system.
@@ -33,4 +35,16 @@ type Storage interface {
 
 	// DeleteObject deletes a blob storage object.
 	DeleteObject(ctx context.Context, bucket, name string) error
+
+	// ObjectsWithName returns the URIs of files in a given bucket with the filename.
+	ObjectsWithName(ctx context.Context, bucket, filename string) ([]string, error)
+}
+
+func SplitObjectURI(uri string) (*string, *string, error) {
+	bucketAndObject := strings.SplitN(strings.Replace(uri, "gs://", "", 1), "/", 2)
+	if len(bucketAndObject) < 2 {
+		return nil, nil, fmt.Errorf("failed to parse gcs uri: %s", uri)
+	}
+
+	return &bucketAndObject[0], &bucketAndObject[1], nil
 }

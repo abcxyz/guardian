@@ -33,14 +33,16 @@ type MockStorageClient struct {
 	reqMu sync.Mutex
 	Reqs  []*Request
 
-	UploadErr    string
-	GetData      string
-	GetErr       string
-	GetLimitData string
-	GetLimitErr  string
-	Metadata     map[string]string
-	MetadataErr  string
-	DeleteErr    string
+	UploadErr      string
+	GetData        string
+	GetErr         string
+	GetLimitData   string
+	GetLimitErr    string
+	Metadata       map[string]string
+	MetadataErr    string
+	DeleteErr      string
+	ListObjectURIs []string
+	ListObjectErr  string
 }
 
 type BufferReadCloser struct {
@@ -109,4 +111,11 @@ func (m *MockStorageClient) DeleteObject(ctx context.Context, bucket, name strin
 		return fmt.Errorf("%s", m.DeleteErr)
 	}
 	return nil
+}
+
+func (m *MockStorageClient) ObjectsWithName(ctx context.Context, bucket, filename string) ([]string, error) {
+	if m.ListObjectErr != "" {
+		return nil, fmt.Errorf("%s", m.ListObjectErr)
+	}
+	return m.ListObjectURIs, nil
 }

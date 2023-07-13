@@ -23,8 +23,8 @@ import (
 	"strings"
 
 	"github.com/abcxyz/guardian/pkg/assetinventory"
-	"github.com/abcxyz/guardian/pkg/commands/drift/gcs"
 	"github.com/abcxyz/guardian/pkg/iam"
+	"github.com/abcxyz/guardian/pkg/storage"
 )
 
 const (
@@ -34,6 +34,8 @@ const (
 	UnknownParentID = "UNKNOWN_PARENT_ID"
 	// UnknownParentType is used when we cannot find an asset parent. See UnknownParentID.
 	UnknownParentType = "UNKNOWN_PARENT_TYPE"
+	// Default max size for a terraform statefile is 512 MB.
+	defaultTerraformStateFileSizeLimit = 512 * 1024 * 1024 // 512 MB
 )
 
 // ResourceInstances represents the JSON terraform state IAM instance.
@@ -67,7 +69,7 @@ type Terraform interface {
 }
 
 type TerraformParser struct {
-	gcs               gcs.GCS
+	gcs               storage.Storage
 	gcpAssetsByID     map[string]*assetinventory.HierarchyNode
 	gcpFoldersByName  map[string]*assetinventory.HierarchyNode
 	gcpProjectsByName map[string]*assetinventory.HierarchyNode
@@ -76,7 +78,7 @@ type TerraformParser struct {
 
 // NewTerraformParser creates a new terraform parser.
 func NewTerraformParser(ctx context.Context, organizationID string) (*TerraformParser, error) {
-	client, err := gcs.NewGCSClient(ctx)
+	client, err := storage.NewGoogleCloudStorage(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize gcs Client: %w", err)
 	}
@@ -103,7 +105,7 @@ func (p *TerraformParser) SetAssets(
 func (p *TerraformParser) StateFileURIs(ctx context.Context, gcsBuckets []string) ([]string, error) {
 	var gcsURIs []string
 	for _, bucket := range gcsBuckets {
-		allStateFiles, err := p.gcs.FilesWithName(ctx, bucket, "default.tfstate")
+		allStateFiles, err := p.gcs.ObjectsWithName(ctx, bucket, "default.tfstate")
 		if err != nil {
 			return nil, fmt.Errorf("failed to determine state files in GCS bucket %s: %w", bucket, err)
 		}
@@ -117,13 +119,18 @@ func (p *TerraformParser) ProcessStates(ctx context.Context, gcsUris []string) (
 	var iams []*iam.AssetIAM
 	for _, uri := range gcsUris {
 		var state TerraformState
-		if err := p.gcs.DownloadAndUnmarshal(ctx, uri, func(r io.Reader) error {
-			if err := json.NewDecoder(r).Decode(&state); err != nil {
-				return fmt.Errorf("failed to decode terraform state: %w", err)
-			}
-			return nil
-		}); err != nil {
+		bucket, name, err := storage.SplitObjectURI(uri)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse GCS URI: %w", err)
+		}
+		r, err := p.gcs.DownloadObject(ctx, *bucket, *name)
+		if err != nil {
 			return nil, fmt.Errorf("failed to download gcs URI for terraform: %w", err)
+		}
+		defer r.Close()
+		lr := io.LimitReader(r, defaultTerraformStateFileSizeLimit)
+		if err := json.NewDecoder(lr).Decode(&state); err != nil {
+			return nil, fmt.Errorf("failed to decode terraform state: %w", err)
 		}
 		iams = append(iams, p.parseTerraformStateIAM(state)...)
 	}
