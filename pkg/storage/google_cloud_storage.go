@@ -19,10 +19,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/storage"
 	"github.com/googleapis/gax-go/v2"
+	"google.golang.org/api/iterator"
 )
 
 const MiB = 1 << 20 // 1 MiB
@@ -189,6 +191,25 @@ func (s *GoogleCloudStorage) DeleteObject(ctx context.Context, bucket, name stri
 		return fmt.Errorf("failed to delete object: %w", err)
 	}
 	return nil
+}
+
+// ObjectsWithName returns all files in a bucket with a given file name.
+func (s *GoogleCloudStorage) ObjectsWithName(ctx context.Context, bucket, filename string) ([]string, error) {
+	var uris []string
+	it := s.client.Bucket(bucket).Objects(ctx, nil)
+	for {
+		attrs, err := it.Next()
+		if errors.Is(err, iterator.Done) {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to list bucket contents: Bucket(%q).Objects(): %w", bucket, err)
+		}
+		if strings.HasSuffix(attrs.Name, filename) {
+			uris = append(uris, fmt.Sprintf("gs://%s/%s", bucket, attrs.Name))
+		}
+	}
+	return uris, nil
 }
 
 // Option is an optional config value for the Google Cloud Storage.

@@ -24,8 +24,8 @@ import (
 	"testing"
 
 	"github.com/abcxyz/guardian/pkg/assetinventory"
-	"github.com/abcxyz/guardian/pkg/commands/drift/gcs"
 	"github.com/abcxyz/guardian/pkg/iam"
+	"github.com/abcxyz/guardian/pkg/storage"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -34,14 +34,14 @@ func TestParser_StateFileURIs(t *testing.T) {
 
 	cases := []struct {
 		name       string
-		gcsClient  gcs.GCS
+		gcsClient  storage.Storage
 		gcsBuckets []string
 		want       []string
 		wantErr    string
 	}{
 		{
 			name: "success",
-			gcsClient: &gcs.MockStorageClient{FilesURIs: []string{
+			gcsClient: &storage.MockStorageClient{ListObjectURIs: []string{
 				"gs://my-bucket-123/abcsdasd/12312/default.tfstate",
 				"gs://my-bucket-123/abcsdasd/12313/default.tfstate",
 			}},
@@ -53,7 +53,7 @@ func TestParser_StateFileURIs(t *testing.T) {
 		},
 		{
 			name:       "failure",
-			gcsClient:  &gcs.MockStorageClient{FilesErr: "Failed cause 404"},
+			gcsClient:  &storage.MockStorageClient{ListObjectErr: "Failed cause 404"},
 			gcsBuckets: []string{"my-bucket-123"},
 			wantErr:    "Failed cause 404",
 		},
@@ -209,7 +209,7 @@ func TestParser_ProcessStates(t *testing.T) {
 				t.Errorf("ProcessStates() failed to read json file %v", err)
 			}
 
-			gcsClient := &gcs.MockStorageClient{DownloadBytes: data, DownloadErr: tc.wantErr}
+			gcsClient := &storage.MockStorageClient{GetData: string(data), GetErr: tc.wantErr}
 			p := &TerraformParser{gcs: gcsClient, organizationID: orgID}
 
 			if tc.knownFolders != nil && tc.knownProjects != nil {
