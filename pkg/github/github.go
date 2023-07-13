@@ -25,8 +25,15 @@ import (
 	"golang.org/x/oauth2"
 )
 
-var ignoredStatusCodes = []int{400, 401, 403, 404, 422}
+var ignoredStatusCodes = map[int]struct{}{
+	400: {},
+	401: {},
+	403: {},
+	404: {},
+	422: {},
+}
 
+// Config is the config values for the GitHub client.
 type Config struct {
 	maxRetries        uint64
 	initialRetryDelay time.Duration
@@ -35,10 +42,17 @@ type Config struct {
 
 // GitHub provides the minimum interface for sending requests to the GitHub API.
 type GitHub interface {
-	CreatePullRequestComment(ctx context.Context, owner, repo string, number int, body string) (int64, error)
-	UpdatePullRequestComment(ctx context.Context, owner, repo string, id int64, body string) error
-	DeletePullRequestComment(ctx context.Context, owner, repo string, id int64) error
-	ListPullRequestComments(ctx context.Context, owner, repo string, number int, opts *github.IssueListCommentsOptions) ([]*github.IssueComment, *github.Response, error)
+	// CreateIssueComment creates a comment for an issue or pull request.
+	CreateIssueComment(ctx context.Context, owner, repo string, number int, body string) (*github.IssueComment, error)
+
+	// UpdateIssueComment updates an issue or pull request comment.
+	UpdateIssueComment(ctx context.Context, owner, repo string, id int64, body string) error
+
+	// DeleteIssueComment deletes an issue or pull request comment.
+	DeleteIssueComment(ctx context.Context, owner, repo string, id int64) error
+
+	// ListIssueComments lists existing comments for an issue or pull request.
+	ListIssueComments(ctx context.Context, owner, repo string, number int, opts *github.IssueListCommentsOptions) ([]*github.IssueComment, *github.Response, error)
 }
 
 var _ GitHub = (*GitHubClient)(nil)
@@ -63,6 +77,7 @@ func NewClient(ctx context.Context, token string, opts ...Option) *GitHubClient 
 		}
 	}
 
+	// TODO(#130): support multiple authentication methods
 	ts := oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: token},
 	)
@@ -78,37 +93,37 @@ func NewClient(ctx context.Context, token string, opts ...Option) *GitHubClient 
 	return g
 }
 
-// CreatePullRequestComment creates a pull request comment.
-func (g *GitHubClient) CreatePullRequestComment(ctx context.Context, owner, repo string, number int, body string) (int64, error) {
+// CreateIssueComment creates a comment for an issue or pull request.
+func (g *GitHubClient) CreateIssueComment(ctx context.Context, owner, repo string, number int, body string) (*github.IssueComment, error) {
 	backoff := retry.NewFibonacci(g.cfg.initialRetryDelay)
 	backoff = retry.WithMaxRetries(g.cfg.maxRetries, backoff)
 	backoff = retry.WithCappedDuration(g.cfg.maxRetryDelay, backoff)
 
-	var commentID int64
+	var response *github.IssueComment
 
 	if err := retry.Do(ctx, backoff, func(ctx context.Context) error {
 		comment, resp, err := g.client.Issues.CreateComment(ctx, owner, repo, number, &github.IssueComment{
 			Body: &body,
 		})
 		if err != nil {
-			if resp != nil && !containsInt(ignoredStatusCodes, resp.StatusCode) {
+			if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
 				return retry.RetryableError(err)
 			}
 
 			return fmt.Errorf("failed to create pull request comment: %w", err)
 		}
 
-		commentID = comment.GetID()
+		response = comment
 		return nil
 	}); err != nil {
-		return 0, fmt.Errorf("failed to create pull request comment: %w", err)
+		return nil, fmt.Errorf("failed to create pull request comment: %w", err)
 	}
 
-	return commentID, nil
+	return response, nil
 }
 
-// UpdatePullRequestComment updates a pull request comment.
-func (g *GitHubClient) UpdatePullRequestComment(ctx context.Context, owner, repo string, id int64, body string) error {
+// UpdateIssueComment updates an issue or pull request comment.
+func (g *GitHubClient) UpdateIssueComment(ctx context.Context, owner, repo string, id int64, body string) error {
 	backoff := retry.NewFibonacci(g.cfg.initialRetryDelay)
 	backoff = retry.WithMaxRetries(g.cfg.maxRetries, backoff)
 	backoff = retry.WithCappedDuration(g.cfg.maxRetryDelay, backoff)
@@ -118,7 +133,7 @@ func (g *GitHubClient) UpdatePullRequestComment(ctx context.Context, owner, repo
 			Body: &body,
 		})
 		if err != nil {
-			if resp != nil && !containsInt(ignoredStatusCodes, resp.StatusCode) {
+			if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
 				return retry.RetryableError(err)
 			}
 			return fmt.Errorf("failed to update pull request comment: %w", err)
@@ -132,8 +147,8 @@ func (g *GitHubClient) UpdatePullRequestComment(ctx context.Context, owner, repo
 	return nil
 }
 
-// DeletePullRequestComment deletes a pull request comment.
-func (g *GitHubClient) DeletePullRequestComment(ctx context.Context, owner, repo string, id int64) error {
+// DeleteIssueComment deletes an issue or pull request comment.
+func (g *GitHubClient) DeleteIssueComment(ctx context.Context, owner, repo string, id int64) error {
 	backoff := retry.NewFibonacci(g.cfg.initialRetryDelay)
 	backoff = retry.WithMaxRetries(g.cfg.maxRetries, backoff)
 	backoff = retry.WithCappedDuration(g.cfg.maxRetryDelay, backoff)
@@ -141,7 +156,7 @@ func (g *GitHubClient) DeletePullRequestComment(ctx context.Context, owner, repo
 	if err := retry.Do(ctx, backoff, func(ctx context.Context) error {
 		resp, err := g.client.Issues.DeleteComment(ctx, owner, repo, id)
 		if err != nil {
-			if resp != nil && !containsInt(ignoredStatusCodes, resp.StatusCode) {
+			if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
 				return retry.RetryableError(err)
 			}
 			return fmt.Errorf("failed to delete pull request comment: %w", err)
@@ -155,19 +170,19 @@ func (g *GitHubClient) DeletePullRequestComment(ctx context.Context, owner, repo
 	return nil
 }
 
-// ListPullRequestComments lists existing comments for a pull request.
-func (g *GitHubClient) ListPullRequestComments(ctx context.Context, owner, repo string, number int, opts *github.IssueListCommentsOptions) ([]*github.IssueComment, *github.Response, error) {
+// ListIssueComments lists existing comments for an issue or pull request.
+func (g *GitHubClient) ListIssueComments(ctx context.Context, owner, repo string, number int, opts *github.IssueListCommentsOptions) ([]*github.IssueComment, *github.Response, error) {
 	backoff := retry.NewFibonacci(g.cfg.initialRetryDelay)
 	backoff = retry.WithMaxRetries(g.cfg.maxRetries, backoff)
 	backoff = retry.WithCappedDuration(g.cfg.maxRetryDelay, backoff)
 
-	commentsResponse := make([]*github.IssueComment, 0)
+	var commentsResponse []*github.IssueComment
 	var gitHubResponse *github.Response
 
 	if err := retry.Do(ctx, backoff, func(ctx context.Context) error {
 		comments, resp, err := g.client.Issues.ListComments(ctx, owner, repo, number, opts)
 		if err != nil {
-			if resp != nil && !containsInt(ignoredStatusCodes, resp.StatusCode) {
+			if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
 				return retry.RetryableError(err)
 			}
 			return fmt.Errorf("failed to list pull request comments: %w", err)
@@ -182,14 +197,4 @@ func (g *GitHubClient) ListPullRequestComments(ctx context.Context, owner, repo 
 	}
 
 	return commentsResponse, gitHubResponse, nil
-}
-
-// containsInt is a helper function to determine if a slice contains an integer.
-func containsInt(search []int, value int) bool {
-	for _, target := range search {
-		if target == value {
-			return true
-		}
-	}
-	return false
 }

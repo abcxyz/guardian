@@ -32,62 +32,64 @@ type MockGitHubClient struct {
 	reqMu sync.Mutex
 	Reqs  []*Request
 
-	CreatePullRequestCommentsErr error
-	UpdatePullRequestCommentsErr error
-	DeletePullRequestCommentsErr error
-	ListPullRequestCommentsErr   error
+	CreateIssueCommentsErr error
+	UpdateIssueCommentsErr error
+	DeleteIssueCommentsErr error
+	ListIssueCommentsErr   error
 }
 
-func (m *MockGitHubClient) CreatePullRequestComment(ctx context.Context, owner, repo string, number int, body string) (int64, error) {
+func (m *MockGitHubClient) CreateIssueComment(ctx context.Context, owner, repo string, number int, body string) (*github.IssueComment, error) {
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
 	m.Reqs = append(m.Reqs, &Request{
-		Name:   "CreatePullRequestComment",
+		Name:   "CreateIssueComment",
 		Params: []any{owner, repo, number, body},
 	})
 
-	if m.CreatePullRequestCommentsErr != nil {
-		return 0, m.CreatePullRequestCommentsErr
+	if m.CreateIssueCommentsErr != nil {
+		return nil, m.CreateIssueCommentsErr
 	}
 
-	return 1, nil
+	var id *int64
+	*id = 1
+	return &github.IssueComment{ID: id}, nil
 }
 
-func (m *MockGitHubClient) UpdatePullRequestComment(ctx context.Context, owner, repo string, id int64, body string) error {
+func (m *MockGitHubClient) UpdateIssueComment(ctx context.Context, owner, repo string, id int64, body string) error {
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
 	m.Reqs = append(m.Reqs, &Request{
-		Name:   "UpdatePullRequestComment",
+		Name:   "UpdateIssueComment",
 		Params: []any{owner, repo, id, body},
 	})
 
-	if m.UpdatePullRequestCommentsErr != nil {
-		return m.UpdatePullRequestCommentsErr
+	if m.UpdateIssueCommentsErr != nil {
+		return m.UpdateIssueCommentsErr
 	}
 
 	return nil
 }
 
-func (m *MockGitHubClient) DeletePullRequestComment(ctx context.Context, owner, repo string, id int64) error {
+func (m *MockGitHubClient) DeleteIssueComment(ctx context.Context, owner, repo string, id int64) error {
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
 	m.Reqs = append(m.Reqs, &Request{
-		Name:   "DeletePullRequestComment",
+		Name:   "DeleteIssueComment",
 		Params: []any{owner, repo, id},
 	})
 
-	if m.DeletePullRequestCommentsErr != nil {
-		return m.DeletePullRequestCommentsErr
+	if m.DeleteIssueCommentsErr != nil {
+		return m.DeleteIssueCommentsErr
 	}
 
 	return nil
 }
 
-func (m *MockGitHubClient) ListPullRequestComments(ctx context.Context, owner, repo string, number int, opts *github.IssueListCommentsOptions) ([]*github.IssueComment, *github.Response, error) {
+func (m *MockGitHubClient) ListIssueComments(ctx context.Context, owner, repo string, number int, opts *github.IssueListCommentsOptions) ([]*github.IssueComment, *github.Response, error) {
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
 	m.Reqs = append(m.Reqs, &Request{
-		Name:   "ListPullRequestComments",
+		Name:   "ListIssueComments",
 		Params: []any{owner, repo, number},
 	})
 	return []*github.IssueComment{}, &github.Response{NextPage: 0}, nil
