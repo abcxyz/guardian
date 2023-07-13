@@ -25,7 +25,7 @@ import (
 	"github.com/googleapis/gax-go/v2"
 )
 
-const MiB = 1_048_576 // 1 MiB
+const MiB = 1 << 20 // 1 MiB
 
 var _ Storage = (*GoogleCloudStorage)(nil)
 
@@ -113,14 +113,19 @@ func makeUploadConfig(contentLength int, opts []UploadOption) *uploadConfig {
 	return cfg
 }
 
-func (s *GoogleCloudStorage) UploadObject(ctx context.Context, bucket, name string, contents []byte, opts ...UploadOption) error {
+// UploadObject uploads an object to a Google Cloud Storage bucket using a set of upload options.
+func (s *GoogleCloudStorage) UploadObject(ctx context.Context, bucket, name string, contents []byte, opts ...UploadOption) (merr error) {
 	cfg := makeUploadConfig(len(contents), opts)
 
 	o, ctx, cancel := s.objectHandleWithRetries(ctx, bucket, name)
 	defer cancel()
 
 	writer := o.If(storage.Conditions{DoesNotExist: true}).NewWriter(ctx)
-	defer writer.Close()
+	defer func() {
+		if closeErr := writer.Close(); closeErr != nil {
+			merr = errors.Join(merr, fmt.Errorf("failed to close writer: %w", closeErr))
+		}
+	}()
 
 	writer.CacheControl = cfg.cacheControl
 	writer.ChunkSize = cfg.chunkSize
@@ -140,12 +145,13 @@ func (s *GoogleCloudStorage) UploadObject(ctx context.Context, bucket, name stri
 	}
 
 	if _, err := writer.Write(contents); err != nil {
-		return fmt.Errorf("failed to write data: %w", err)
+		merr = errors.Join(merr, fmt.Errorf("failed to write data: %w", err))
 	}
 
-	return nil
+	return merr
 }
 
+// DownloadObject downloads an object from a Google Cloud Storage bucket. The caller must call Close on the returned Reader when done reading.
 func (s *GoogleCloudStorage) DownloadObject(ctx context.Context, bucket, name string) (io.ReadCloser, error) {
 	o, ctx, cancel := s.objectHandleWithRetries(ctx, bucket, name)
 	defer cancel()
@@ -158,6 +164,7 @@ func (s *GoogleCloudStorage) DownloadObject(ctx context.Context, bucket, name st
 	return r, nil
 }
 
+// ObjectMetadata gets the metadata for a Google Cloud Storage object.
 func (s *GoogleCloudStorage) ObjectMetadata(ctx context.Context, bucket, name string) (map[string]string, error) {
 	o, ctx, cancel := s.objectHandleWithRetries(ctx, bucket, name)
 	defer cancel()
@@ -169,6 +176,8 @@ func (s *GoogleCloudStorage) ObjectMetadata(ctx context.Context, bucket, name st
 	return attrs.Metadata, nil
 }
 
+// DeleteObject deletes an object from a Google Cloud Storage bucket. If the object does not exist, no error
+// will be returned.
 func (s *GoogleCloudStorage) DeleteObject(ctx context.Context, bucket, name string) error {
 	o, ctx, cancel := s.objectHandleWithRetries(ctx, bucket, name)
 	defer cancel()
