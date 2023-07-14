@@ -10,7 +10,6 @@ require (
 	github.com/google/go-github/v53 v53.2.0
 	github.com/googleapis/gax-go/v2 v2.10.0
 	github.com/hashicorp/hcl/v2 v2.16.2
-	github.com/sethvargo/go-githubactions v1.1.0
 	github.com/sethvargo/go-retry v0.2.4
 	golang.org/x/exp v0.0.0-20230626212559-97b1e661b5df
 	golang.org/x/oauth2 v0.8.0
@@ -54,7 +53,6 @@ require (
 	github.com/posener/complete/v2 v2.0.1-alpha.13 // indirect
 	github.com/posener/script v1.1.5 // indirect
 	github.com/segmentio/asm v1.2.0 // indirect
-	github.com/sethvargo/go-envconfig v0.9.0 // indirect
 	github.com/zclconf/go-cty v1.13.0 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
