@@ -40,8 +40,8 @@ type DetectIamDriftCommand struct {
 	flagGitHubToken           string
 	flagGitHubOwner           string
 	flagGitHubRepo            string
-	flagGitHubLabels          []string
-	flagGitHubAssignees       []string
+	flagGitHubIssueLabels     []string
+	flagGitHubIssueAssignees  []string
 }
 
 func (c *DetectIamDriftCommand) Desc() string {
@@ -97,36 +97,34 @@ func (c *DetectIamDriftCommand) Flags() *cli.FlagSet {
 		Default: false,
 	})
 	f.StringVar(&cli.StringVar{
-		Name:    "gh-token",
+		Name:    "github-token",
 		Target:  &c.flagGitHubToken,
-		Example: "...",
 		Usage:   `The github token to use to authenticate to create & manage GitHub Issues.`,
 		Default: "",
 	})
 	f.StringVar(&cli.StringVar{
-		Name:    "gh-owner",
+		Name:    "github-owner",
 		Target:  &c.flagGitHubOwner,
-		Example: "...",
 		Usage:   `The github token to use to authenticate to create & manage GitHub Issues.`,
 		Default: "",
 	})
 	f.StringVar(&cli.StringVar{
-		Name:    "gh-repo",
+		Name:    "github-repo",
 		Target:  &c.flagGitHubRepo,
-		Example: "...",
+		Example: "guardian",
 		Usage:   `The github token to use to authenticate to create & manage GitHub Issues.`,
 		Default: "",
 	})
 	f.StringSliceVar(&cli.StringSliceVar{
-		Name:    "gh-assignees",
-		Target:  &c.flagGitHubAssignees,
+		Name:    "github-issue-assignees",
+		Target:  &c.flagGitHubIssueAssignees,
 		Example: "dcreey",
 		Usage:   `The assignees to assign to for any created GitHub Issues.`,
 		Default: []string{},
 	})
 	f.StringSliceVar(&cli.StringSliceVar{
-		Name:    "gh-labels",
-		Target:  &c.flagGitHubLabels,
+		Name:    "github-issue-labels",
+		Target:  &c.flagGitHubIssueLabels,
 		Example: "guardian-iam-drift",
 		Usage:   `The labels to use on any created GitHub Issues.`,
 		Default: []string{"guardian-iam-drift"},
@@ -173,7 +171,7 @@ func (c *DetectIamDriftCommand) Run(ctx context.Context, args []string) error {
 	}
 
 	if !c.flagSkipGitHubIssue {
-		err = createUpdateOrCloseIssues(ctx, c.flagGitHubToken, c.flagGitHubOwner, c.flagGitHubRepo, c.flagGitHubAssignees, c.flagGitHubLabels, iamDiff)
+		err = createUpdateOrCloseIssues(ctx, c.flagGitHubToken, c.flagGitHubOwner, c.flagGitHubRepo, c.flagGitHubIssueAssignees, c.flagGitHubIssueLabels, iamDiff)
 		if err != nil {
 			return fmt.Errorf("failed to manage GitHub Issue %w", err)
 		}
