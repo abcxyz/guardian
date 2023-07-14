@@ -36,6 +36,7 @@ type MockStorageClient struct {
 	UploadErr      string
 	GetData        string
 	GetErr         string
+	GetCancelFunc  context.CancelFunc
 	GetLimitData   string
 	GetLimitErr    string
 	Metadata       map[string]string
@@ -65,7 +66,7 @@ func (m *MockStorageClient) UploadObject(ctx context.Context, bucket, name strin
 	return nil
 }
 
-func (m *MockStorageClient) DownloadObject(ctx context.Context, bucket, name string) (io.ReadCloser, error) {
+func (m *MockStorageClient) DownloadObject(ctx context.Context, bucket, name string) (io.ReadCloser, context.CancelFunc, error) {
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
 	m.Reqs = append(m.Reqs, &Request{
@@ -74,9 +75,9 @@ func (m *MockStorageClient) DownloadObject(ctx context.Context, bucket, name str
 	})
 
 	if m.GetErr != "" {
-		return nil, fmt.Errorf("%s", m.GetErr)
+		return nil, nil, fmt.Errorf("%s", m.GetErr)
 	}
-	return &BufferReadCloser{bytes.NewBufferString(m.GetData)}, nil
+	return &BufferReadCloser{bytes.NewBufferString(m.GetData)}, m.GetCancelFunc, nil
 }
 
 func (m *MockStorageClient) ObjectMetadata(ctx context.Context, bucket, name string) (map[string]string, error) {

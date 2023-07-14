@@ -28,7 +28,7 @@ type Storage interface {
 	UploadObject(ctx context.Context, bucket, name string, contents []byte, opts ...UploadOption) error
 
 	// DownloadObject downloads a blob storage object. The caller must call Close on the returned Reader when done reading.
-	DownloadObject(ctx context.Context, bucket, name string) (io.ReadCloser, error)
+	DownloadObject(ctx context.Context, bucket, name string) (io.ReadCloser, context.CancelFunc, error)
 
 	// ObjectMetadata gets metadata for a blob storage object.
 	ObjectMetadata(ctx context.Context, bucket, name string) (map[string]string, error)
