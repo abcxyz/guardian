@@ -253,6 +253,7 @@ func (d *IAMDriftDetector) terraformStateIAM(ctx context.Context, gcsBuckets []s
 	for _, b := range gcsBuckets {
 		bucket := b
 		if err := w.Do(ctx, func() ([]*iam.AssetIAM, error) {
+			fmt.Println("CONTEXT BEF", ctx.Err())
 			gcsURIs, err := d.terraformParser.StateFileURIs(ctx, []string{bucket})
 			if err != nil {
 				return nil, fmt.Errorf("failed to get terraform state file URIs: %w", err)
@@ -261,6 +262,7 @@ func (d *IAMDriftDetector) terraformStateIAM(ctx context.Context, gcsBuckets []s
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse terraform states: %w", err)
 			}
+			fmt.Println("CONTEXT AFT", ctx.Err())
 			return tIAM, nil
 		}); err != nil {
 			return nil, fmt.Errorf("failed to execute terraform IAM task: %w", err)

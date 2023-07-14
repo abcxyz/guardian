@@ -17,8 +17,6 @@ package drift
 import (
 	"context"
 	"fmt"
-	"sort"
-	"strings"
 
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
@@ -38,6 +36,12 @@ type DetectIamDriftCommand struct {
 	flagGCSBucketQuery        string
 	flagDriftignoreFile       string
 	flagMaxConcurrentRequests int64
+	flagSkipGitHubIssue       bool
+	flagGitHubToken           string
+	flagGitHubOwner           string
+	flagGitHubRepo            string
+	flagGitHubLabels          []string
+	flagGitHubAssignees       []string
 }
 
 func (c *DetectIamDriftCommand) Desc() string {
@@ -85,6 +89,48 @@ func (c *DetectIamDriftCommand) Flags() *cli.FlagSet {
 		Usage:   `The maximum number of concurrent requests allowed at any time to GCP.`,
 		Default: 10,
 	})
+	f.BoolVar(&cli.BoolVar{
+		Name:    "skip-github-issue",
+		Target:  &c.flagSkipGitHubIssue,
+		Example: "true",
+		Usage:   `Whether or not to create a GitHub Issue when a drift is detected.`,
+		Default: false,
+	})
+	f.StringVar(&cli.StringVar{
+		Name:    "gh-token",
+		Target:  &c.flagGitHubToken,
+		Example: "...",
+		Usage:   `The github token to use to authenticate to create & manage GitHub Issues.`,
+		Default: "",
+	})
+	f.StringVar(&cli.StringVar{
+		Name:    "gh-owner",
+		Target:  &c.flagGitHubOwner,
+		Example: "...",
+		Usage:   `The github token to use to authenticate to create & manage GitHub Issues.`,
+		Default: "",
+	})
+	f.StringVar(&cli.StringVar{
+		Name:    "gh-repo",
+		Target:  &c.flagGitHubRepo,
+		Example: "...",
+		Usage:   `The github token to use to authenticate to create & manage GitHub Issues.`,
+		Default: "",
+	})
+	f.StringSliceVar(&cli.StringSliceVar{
+		Name:    "gh-assignees",
+		Target:  &c.flagGitHubAssignees,
+		Example: "dcreey",
+		Usage:   `The assignees to assign to for any created GitHub Issues.`,
+		Default: []string{},
+	})
+	f.StringSliceVar(&cli.StringSliceVar{
+		Name:    "gh-labels",
+		Target:  &c.flagGitHubLabels,
+		Example: "guardian-iam-drift",
+		Usage:   `The labels to use on any created GitHub Issues.`,
+		Default: []string{"guardian-iam-drift"},
+	})
 
 	return set
 }
@@ -122,20 +168,15 @@ func (c *DetectIamDriftCommand) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("failed to detect drift %w", err)
 	}
 
-	// Output to stdout to mimic bash script for now.
-	// TODO(dcreey): Determine cleaner API that aligns with using the cli tool.
-	if len(iamDiff.ClickOpsChanges) > 0 {
-		uris := keys(iamDiff.ClickOpsChanges)
-		sort.Strings(uris)
-		c.Outf("Found Click Ops Changes \n> %s", strings.Join(uris, "\n> "))
-		if len(iamDiff.MissingTerraformChanges) > 0 {
-			c.Outf("\n\n")
-		}
+	if len(iamDiff.ClickOpsChanges) > 0 || len(iamDiff.MissingTerraformChanges) > 0 {
+		c.Outf(driftMessage(iamDiff))
 	}
-	if len(iamDiff.MissingTerraformChanges) > 0 {
-		uris := keys(iamDiff.MissingTerraformChanges)
-		sort.Strings(uris)
-		c.Outf("Found Missing Terraform Changes \n> %s", strings.Join(uris, "\n> "))
+
+	if !c.flagSkipGitHubIssue {
+		err = createUpdateOrCloseIssues(ctx, c.flagGitHubToken, c.flagGitHubOwner, c.flagGitHubRepo, c.flagGitHubAssignees, c.flagGitHubLabels, iamDiff)
+		if err != nil {
+			return fmt.Errorf("failed to manage GitHub Issue %w", err)
+		}
 	}
 
 	return nil

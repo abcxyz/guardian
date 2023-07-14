@@ -40,10 +40,25 @@ type Config struct {
 	maxRetryDelay     time.Duration
 }
 
+var (
+	Closed = "closed"
+	Open   = "open"
+	Any    = "any"
+)
+
 // GitHub provides the minimum interface for sending requests to the GitHub API.
 type GitHub interface {
+	// ListIssues lists all issues and returns their numbers in a repository matching the given criteria.
+	ListIssues(ctx context.Context, owner, repo string, labels []string, state string) ([]*int, error)
+
+	// CreateIssue creates an issue.
+	CreateIssue(ctx context.Context, owner, repo, title, body string, assignees, labels []string) (*int, error)
+
+	// CloseIssue closes an issue.
+	CloseIssue(ctx context.Context, owner, repo string, number int) error
+
 	// CreateIssueComment creates a comment for an issue or pull request.
-	CreateIssueComment(ctx context.Context, owner, repo string, number int, body string) (*github.IssueComment, error)
+	CreateIssueComment(ctx context.Context, owner, repo string, number int, body string) (*int64, error)
 
 	// UpdateIssueComment updates an issue or pull request comment.
 	UpdateIssueComment(ctx context.Context, owner, repo string, id int64, body string) error
@@ -52,7 +67,7 @@ type GitHub interface {
 	DeleteIssueComment(ctx context.Context, owner, repo string, id int64) error
 
 	// ListIssueComments lists existing comments for an issue or pull request.
-	ListIssueComments(ctx context.Context, owner, repo string, number int, opts *github.IssueListCommentsOptions) ([]*github.IssueComment, *github.Response, error)
+	ListIssueComments(ctx context.Context, owner, repo string, number int, opts *github.IssueListCommentsOptions) ([]*int64, error)
 }
 
 var _ GitHub = (*GitHubClient)(nil)
@@ -93,13 +108,102 @@ func NewClient(ctx context.Context, token string, opts ...Option) *GitHubClient 
 	return g
 }
 
-// CreateIssueComment creates a comment for an issue or pull request.
-func (g *GitHubClient) CreateIssueComment(ctx context.Context, owner, repo string, number int, body string) (*github.IssueComment, error) {
+// ListIssues lists all issues and returns their numbers in a repository matching the given criteria.
+func (g *GitHubClient) ListIssues(ctx context.Context, owner, repo string, labels []string, state string) ([]*int, error) {
 	backoff := retry.NewFibonacci(g.cfg.initialRetryDelay)
 	backoff = retry.WithMaxRetries(g.cfg.maxRetries, backoff)
 	backoff = retry.WithCappedDuration(g.cfg.maxRetryDelay, backoff)
 
-	var response *github.IssueComment
+	var response []*int
+
+	if err := retry.Do(ctx, backoff, func(ctx context.Context) error {
+		issues, resp, err := g.client.Issues.ListByRepo(ctx, owner, repo, &github.IssueListByRepoOptions{
+			Labels: labels,
+			State:  state,
+		})
+		if err != nil {
+			if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
+				return retry.RetryableError(err)
+			}
+
+			return fmt.Errorf("failed to list issues: %w", err)
+		}
+
+		for _, i := range issues {
+			response = append(response, i.Number)
+		}
+		return nil
+	}); err != nil {
+		return nil, fmt.Errorf("failed to list issues after retries: %w", err)
+	}
+
+	return response, nil
+}
+
+// CreateIssue creates an issue.
+func (g *GitHubClient) CreateIssue(ctx context.Context, owner, repo, title, body string, assignees, labels []string) (*int, error) {
+	backoff := retry.NewFibonacci(g.cfg.initialRetryDelay)
+	backoff = retry.WithMaxRetries(g.cfg.maxRetries, backoff)
+	backoff = retry.WithCappedDuration(g.cfg.maxRetryDelay, backoff)
+
+	var response *int
+
+	if err := retry.Do(ctx, backoff, func(ctx context.Context) error {
+		issue, resp, err := g.client.Issues.Create(ctx, owner, repo, &github.IssueRequest{
+			Title:     &title,
+			Body:      &body,
+			Labels:    &labels,
+			Assignees: &assignees,
+		})
+		if err != nil {
+			if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
+				return retry.RetryableError(err)
+			}
+
+			return fmt.Errorf("failed to create pull request comment: %w", err)
+		}
+
+		response = issue.Number
+
+		return nil
+	}); err != nil {
+		return nil, fmt.Errorf("failed to create pull request comment: %w", err)
+	}
+
+	return response, nil
+}
+
+// CloseIssue closes an issue.
+func (g *GitHubClient) CloseIssue(ctx context.Context, owner, repo string, number int) error {
+	backoff := retry.NewFibonacci(g.cfg.initialRetryDelay)
+	backoff = retry.WithMaxRetries(g.cfg.maxRetries, backoff)
+	backoff = retry.WithCappedDuration(g.cfg.maxRetryDelay, backoff)
+
+	if err := retry.Do(ctx, backoff, func(ctx context.Context) error {
+		_, resp, err := g.client.Issues.Edit(ctx, owner, repo, number, &github.IssueRequest{State: &Closed})
+		if err != nil {
+			if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
+				return retry.RetryableError(err)
+			}
+
+			return fmt.Errorf("failed to create pull request comment: %w", err)
+		}
+
+		return nil
+	}); err != nil {
+		return fmt.Errorf("failed to create pull request comment: %w", err)
+	}
+
+	return nil
+}
+
+// CreateIssueComment creates a comment for an issue or pull request.
+func (g *GitHubClient) CreateIssueComment(ctx context.Context, owner, repo string, number int, body string) (*int64, error) {
+	backoff := retry.NewFibonacci(g.cfg.initialRetryDelay)
+	backoff = retry.WithMaxRetries(g.cfg.maxRetries, backoff)
+	backoff = retry.WithCappedDuration(g.cfg.maxRetryDelay, backoff)
+
+	var response *int64
 
 	if err := retry.Do(ctx, backoff, func(ctx context.Context) error {
 		comment, resp, err := g.client.Issues.CreateComment(ctx, owner, repo, number, &github.IssueComment{
@@ -112,8 +216,7 @@ func (g *GitHubClient) CreateIssueComment(ctx context.Context, owner, repo strin
 
 			return fmt.Errorf("failed to create pull request comment: %w", err)
 		}
-
-		response = comment
+		response = comment.ID
 		return nil
 	}); err != nil {
 		return nil, fmt.Errorf("failed to create pull request comment: %w", err)
@@ -171,13 +274,12 @@ func (g *GitHubClient) DeleteIssueComment(ctx context.Context, owner, repo strin
 }
 
 // ListIssueComments lists existing comments for an issue or pull request.
-func (g *GitHubClient) ListIssueComments(ctx context.Context, owner, repo string, number int, opts *github.IssueListCommentsOptions) ([]*github.IssueComment, *github.Response, error) {
+func (g *GitHubClient) ListIssueComments(ctx context.Context, owner, repo string, number int, opts *github.IssueListCommentsOptions) ([]*int64, error) {
 	backoff := retry.NewFibonacci(g.cfg.initialRetryDelay)
 	backoff = retry.WithMaxRetries(g.cfg.maxRetries, backoff)
 	backoff = retry.WithCappedDuration(g.cfg.maxRetryDelay, backoff)
 
-	var commentsResponse []*github.IssueComment
-	var gitHubResponse *github.Response
+	var commentsResponse []*int64
 
 	if err := retry.Do(ctx, backoff, func(ctx context.Context) error {
 		comments, resp, err := g.client.Issues.ListComments(ctx, owner, repo, number, opts)
@@ -188,13 +290,14 @@ func (g *GitHubClient) ListIssueComments(ctx context.Context, owner, repo string
 			return fmt.Errorf("failed to list pull request comments: %w", err)
 		}
 
-		commentsResponse = comments
-		gitHubResponse = resp
+		for _, c := range comments {
+			commentsResponse = append(commentsResponse, c.ID)
+		}
 
 		return nil
 	}); err != nil {
-		return nil, nil, fmt.Errorf("failed to list pull request comments: %w", err)
+		return nil, fmt.Errorf("failed to list pull request comments: %w", err)
 	}
 
-	return commentsResponse, gitHubResponse, nil
+	return commentsResponse, nil
 }

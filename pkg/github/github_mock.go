@@ -33,13 +33,60 @@ type MockGitHubClient struct {
 	reqMu sync.Mutex
 	Reqs  []*Request
 
+	ListIssuesErr          error
+	CreateIssueErr         error
+	CloseIssueErr          error
 	CreateIssueCommentsErr error
 	UpdateIssueCommentsErr error
 	DeleteIssueCommentsErr error
 	ListIssueCommentsErr   error
 }
 
-func (m *MockGitHubClient) CreateIssueComment(ctx context.Context, owner, repo string, number int, body string) (*github.IssueComment, error) {
+func (m *MockGitHubClient) ListIssues(ctx context.Context, owner, repo string, labels []string, state string) ([]*int, error) {
+	m.reqMu.Lock()
+	defer m.reqMu.Unlock()
+	m.Reqs = append(m.Reqs, &Request{
+		Name:   "ListIssues",
+		Params: []any{owner, repo, labels, state},
+	})
+
+	if m.ListIssuesErr != nil {
+		return nil, m.ListIssuesErr
+	}
+	return []*int{}, nil
+}
+
+func (m *MockGitHubClient) CreateIssue(ctx context.Context, owner, repo, title, body string, assignees, labels []string) (*int, error) {
+	m.reqMu.Lock()
+	defer m.reqMu.Unlock()
+	m.Reqs = append(m.Reqs, &Request{
+		Name:   "CreateIssue",
+		Params: []any{owner, repo, title, body, labels, assignees},
+	})
+
+	if m.CreateIssueErr != nil {
+		return nil, m.CreateIssueErr
+	}
+
+	return util.Ptr(1), nil
+}
+
+func (m *MockGitHubClient) CloseIssue(ctx context.Context, owner, repo string, number int) error {
+	m.reqMu.Lock()
+	defer m.reqMu.Unlock()
+	m.Reqs = append(m.Reqs, &Request{
+		Name:   "CloseIssue",
+		Params: []any{owner, repo, number},
+	})
+
+	if m.CloseIssueErr != nil {
+		return m.CloseIssueErr
+	}
+
+	return nil
+}
+
+func (m *MockGitHubClient) CreateIssueComment(ctx context.Context, owner, repo string, number int, body string) (*int64, error) {
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
 	m.Reqs = append(m.Reqs, &Request{
@@ -53,7 +100,7 @@ func (m *MockGitHubClient) CreateIssueComment(ctx context.Context, owner, repo s
 
 	id := util.Ptr(int64(1))
 
-	return &github.IssueComment{ID: id}, nil
+	return id, nil
 }
 
 func (m *MockGitHubClient) UpdateIssueComment(ctx context.Context, owner, repo string, id int64, body string) error {
@@ -86,12 +133,17 @@ func (m *MockGitHubClient) DeleteIssueComment(ctx context.Context, owner, repo s
 	return nil
 }
 
-func (m *MockGitHubClient) ListIssueComments(ctx context.Context, owner, repo string, number int, opts *github.IssueListCommentsOptions) ([]*github.IssueComment, *github.Response, error) {
+func (m *MockGitHubClient) ListIssueComments(ctx context.Context, owner, repo string, number int, opts *github.IssueListCommentsOptions) ([]*int64, error) {
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
 	m.Reqs = append(m.Reqs, &Request{
 		Name:   "ListIssueComments",
 		Params: []any{owner, repo, number},
 	})
-	return []*github.IssueComment{}, &github.Response{NextPage: 0}, nil
+
+	if m.ListIssueCommentsErr != nil {
+		return nil, m.ListIssueCommentsErr
+	}
+
+	return []*int64{}, nil
 }
