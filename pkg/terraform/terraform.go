@@ -25,7 +25,6 @@ import (
 	"regexp"
 	"sort"
 
-	"github.com/abcxyz/guardian/pkg/child"
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclparse"
 	"golang.org/x/exp/maps"
@@ -48,19 +47,19 @@ var _ Terraform = (*TerraformClient)(nil)
 // Terraform is the interface for working with the Terraform CLI.
 type Terraform interface {
 	// Init runs the terraform init command.
-	Init(context.Context, ...string) (*TerraformResponse, error)
+	Init(context.Context, io.Writer, io.Writer, *InitOptions) (int, error)
 
 	// Validate runs the terraform validate command.
-	Validate(context.Context, ...string) (*TerraformResponse, error)
+	Validate(context.Context, io.Writer, io.Writer, *ValidateOptions) (int, error)
 
 	// Plan runs the terraform plan command.
-	Plan(context.Context, string, ...string) (*TerraformResponse, error)
+	Plan(context.Context, io.Writer, io.Writer, *PlanOptions) (int, error)
 
 	// Apply runs the terraform apply command.
-	Apply(context.Context, string, ...string) (*TerraformResponse, error)
+	Apply(context.Context, io.Writer, io.Writer, *ApplyOptions) (int, error)
 
 	// Show runs the terraform show command.
-	Show(context.Context, string, ...string) (*TerraformResponse, error)
+	Show(context.Context, io.Writer, io.Writer, *ShowOptions) (int, error)
 }
 
 // TerraformClient implements the Terraform interface.
@@ -80,108 +79,6 @@ func NewTerraformClient(workingDir string) *TerraformClient {
 	return &TerraformClient{
 		workingDir: workingDir,
 	}
-}
-
-// Init runs the terraform init command.
-func (t *TerraformClient) Init(ctx context.Context, args ...string) (*TerraformResponse, error) {
-	childArgs := []string{"init"}
-	childArgs = append(childArgs, args...)
-
-	result, err := child.Run(ctx, &child.RunConfig{
-		WorkingDir: t.workingDir,
-		Command:    "terraform",
-		Args:       childArgs,
-	})
-
-	return &TerraformResponse{
-		Stdout:   result.Stdout,
-		Stderr:   result.Stderr,
-		ExitCode: result.ExitCode,
-	}, err //nolint:wrapcheck
-}
-
-// Validate runs the terraform validate command.
-func (t *TerraformClient) Validate(ctx context.Context, args ...string) (*TerraformResponse, error) {
-	childArgs := []string{"validate"}
-	childArgs = append(childArgs, args...)
-
-	result, err := child.Run(ctx, &child.RunConfig{
-		WorkingDir: t.workingDir,
-		Command:    "terraform",
-		Args:       childArgs,
-	})
-
-	return &TerraformResponse{
-		Stdout:   result.Stdout,
-		Stderr:   result.Stderr,
-		ExitCode: result.ExitCode,
-	}, err //nolint:wrapcheck
-}
-
-// Show runs the Terraform show command.
-func (t *TerraformClient) Show(ctx context.Context, file string, args ...string) (*TerraformResponse, error) {
-	childArgs := []string{"show"}
-	childArgs = append(childArgs, args...)
-
-	if file != "" {
-		childArgs = append(childArgs, file)
-	}
-
-	result, err := child.Run(ctx, &child.RunConfig{
-		WorkingDir: t.workingDir,
-		Command:    "terraform",
-		Args:       childArgs,
-	})
-
-	return &TerraformResponse{
-		Stdout:   result.Stdout,
-		Stderr:   result.Stderr,
-		ExitCode: result.ExitCode,
-	}, err //nolint:wrapcheck
-}
-
-// Plan runs the Terraform plan command.
-func (t *TerraformClient) Plan(ctx context.Context, file string, args ...string) (*TerraformResponse, error) {
-	childArgs := []string{"plan"}
-	childArgs = append(childArgs, args...)
-
-	if file != "" {
-		childArgs = append(childArgs, fmt.Sprintf("-out=%s", file))
-	}
-
-	result, err := child.Run(ctx, &child.RunConfig{
-		WorkingDir: t.workingDir,
-		Command:    "terraform",
-		Args:       childArgs,
-	})
-
-	return &TerraformResponse{
-		Stdout:   result.Stdout,
-		Stderr:   result.Stderr,
-		ExitCode: result.ExitCode,
-	}, err //nolint:wrapcheck
-}
-
-// Apply runs the Terraform apply command.
-func (t *TerraformClient) Apply(ctx context.Context, file string, args ...string) (*TerraformResponse, error) {
-	childArgs := []string{"apply"}
-	childArgs = append(childArgs, args...)
-
-	if file != "" {
-		childArgs = append(childArgs, file)
-	}
-
-	result, err := child.Run(ctx, &child.RunConfig{
-		WorkingDir: t.workingDir,
-		Command:    "terraform",
-		Args:       childArgs,
-	})
-
-	return &TerraformResponse{
-		Stdout:   result.Stdout,
-		Stderr:   result.Stderr,
-		ExitCode: result.ExitCode,
-	}, err //nolint:wrapcheck
 }
 
 // GetEntrypointDirectories gets all the directories that have Terraform config

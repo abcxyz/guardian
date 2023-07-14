@@ -25,6 +25,6 @@ type MockGitClient struct {
 }
 
 // DiffDirs runs a git diff between two revisions and returns the list of directories with changes.
-func (m *MockGitClient) DiffDirs(ctx context.Context, workingDir, baseRef, headRef string) ([]string, error) {
+func (m *MockGitClient) DiffDirs(ctx context.Context, baseRef, headRef string) ([]string, error) {
 	return m.DiffResp, m.DiffErr
 }

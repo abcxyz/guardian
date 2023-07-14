@@ -55,7 +55,7 @@ func (m *MockStorageClient) UploadObject(ctx context.Context, bucket, name strin
 	defer m.reqMu.Unlock()
 	m.Reqs = append(m.Reqs, &Request{
 		Name:   "UploadObject",
-		Params: []any{bucket, name, contents, opts},
+		Params: []any{bucket, name, string(contents)},
 	})
 
 	if m.UploadErr != "" {

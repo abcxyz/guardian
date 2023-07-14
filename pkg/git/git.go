@@ -16,9 +16,9 @@
 package git
 
 import (
+	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -27,13 +27,15 @@ import (
 	"golang.org/x/exp/maps"
 )
 
+var _ Git = (*GitClient)(nil)
+
 // newline is a regexp to split strings at line breaks.
 var newline = regexp.MustCompile("\r?\n")
 
 // Git defined the common git functionality.
 type Git interface {
 	// DiffDirs returns the directories changed using the git diff command
-	DiffDirs(ctx context.Context, workingDir, baseRef, headRef string) ([]string, error)
+	DiffDirs(ctx context.Context, baseRef, headRef string) ([]string, error)
 }
 
 // GitClient implements the git interface.
@@ -50,7 +52,11 @@ func NewGitClient(workingDir string) *GitClient {
 
 // DiffDirs runs a git diff between two revisions and returns the sorted ist of directories with changes.
 func (g *GitClient) DiffDirs(ctx context.Context, baseRef, headRef string) ([]string, error) {
-	result, err := child.Run(ctx, &child.RunConfig{
+	var stdout, stderr bytes.Buffer
+
+	_, err := child.Run(ctx, &child.RunConfig{
+		Stdout:     &stdout,
+		Stderr:     &stderr,
 		WorkingDir: g.workingDir,
 		Command:    "git",
 		Args:       []string{"diff", "--name-only", fmt.Sprintf("%s..%s", baseRef, headRef)},
@@ -59,12 +65,7 @@ func (g *GitClient) DiffDirs(ctx context.Context, baseRef, headRef string) ([]st
 		return nil, fmt.Errorf("failed to run git diff command: %w", err)
 	}
 
-	stdout, err := io.ReadAll(result.Stdout)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read git diff output: %w", err)
-	}
-
-	return parseSortedDiffDirs(string(stdout)), err
+	return parseSortedDiffDirs(stdout.String()), err
 }
 
 // parseSortedDiffDirs splits a string at newlines and returns the sorted set of diff dirs.

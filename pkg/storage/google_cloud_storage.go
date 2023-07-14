@@ -98,6 +98,7 @@ func makeUploadConfig(contentLength int, opts []UploadOption) *uploadConfig {
 	cfg := &uploadConfig{
 		chunkSize:          defaultChunkSize,
 		cacheMaxAgeSeconds: 86400, // 1 day
+		allowOverwrite:     false,
 	}
 
 	for _, opt := range opts {
@@ -122,7 +123,11 @@ func (s *GoogleCloudStorage) UploadObject(ctx context.Context, bucket, name stri
 	o, ctx, cancel := s.objectHandleWithRetries(ctx, bucket, name)
 	defer cancel()
 
-	writer := o.If(storage.Conditions{DoesNotExist: true}).NewWriter(ctx)
+	if !cfg.allowOverwrite {
+		o = o.If(storage.Conditions{DoesNotExist: true})
+	}
+
+	writer := o.NewWriter(ctx)
 	defer func() {
 		if closeErr := writer.Close(); closeErr != nil {
 			merr = errors.Join(merr, fmt.Errorf("failed to close writer: %w", closeErr))

@@ -16,9 +16,10 @@ package storage
 
 // uploadConfig is the set of configuration used when uploading storage objects.
 type uploadConfig struct {
-	chunkSize          int
+	allowOverwrite     bool
 	cacheControl       string
 	cacheMaxAgeSeconds int
+	chunkSize          int
 	contentType        string
 	metadata           map[string]string
 }
@@ -48,6 +49,14 @@ func WithCacheMaxAgeSeconds(cacheMaxAgeSeconds int) UploadOption {
 func WithContentType(contentType string) UploadOption {
 	return func(c *uploadConfig) *uploadConfig {
 		c.contentType = contentType
+		return c
+	}
+}
+
+// WithAllowOverwrite sets the overwrite flag to allow overwriting the destination object.
+func WithAllowOverwrite(allowOverwrite bool) UploadOption {
+	return func(c *uploadConfig) *uploadConfig {
+		c.allowOverwrite = allowOverwrite
 		return c
 	}
 }

@@ -15,8 +15,8 @@
 package child
 
 import (
+	"bytes"
 	"context"
-	"io"
 	"strings"
 	"testing"
 	"time"
@@ -69,7 +69,14 @@ func TestChild_Run(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			result, err := Run(ctx, &RunConfig{WorkingDir: "", Command: tc.command, Args: tc.args})
+			var stdout, stderr bytes.Buffer
+
+			exitCode, err := Run(ctx, &RunConfig{
+				Stdout:  &stdout,
+				Stderr:  &stderr,
+				Command: tc.command,
+				Args:    tc.args,
+			})
 			if err != nil {
 				if diff := testutil.DiffErrString(err, tc.err); diff != "" {
 					t.Errorf(diff)
@@ -77,23 +84,13 @@ func TestChild_Run(t *testing.T) {
 				return
 			}
 
-			stdout, err := io.ReadAll(result.Stdout)
-			if err != nil {
-				t.Fatalf("unexpected err: %s", err)
-			}
-
-			stderr, err := io.ReadAll(result.Stdout)
-			if err != nil {
-				t.Fatalf("unexpected err: %s", err)
-			}
-
-			if got, want := strings.TrimSpace(string(stdout)), strings.TrimSpace(tc.expStdout); got != want {
+			if got, want := strings.TrimSpace(stdout.String()), strings.TrimSpace(tc.expStdout); got != want {
 				t.Errorf("expected %s to be %s", got, want)
 			}
-			if got, want := strings.TrimSpace(string(stderr)), strings.TrimSpace(tc.expStderr); got != want {
+			if got, want := strings.TrimSpace(stderr.String()), strings.TrimSpace(tc.expStderr); got != want {
 				t.Errorf("expected %s to be %s", got, want)
 			}
-			if got, want := result.ExitCode, tc.expExitCode; got != want {
+			if got, want := exitCode, tc.expExitCode; got != want {
 				t.Errorf("expected %d to be %d", got, want)
 			}
 		})
@@ -150,29 +147,29 @@ func TestChild_Run_Cancel(t *testing.T) {
 				defer cancel()
 			}
 
-			result, err := Run(ctx, &RunConfig{WorkingDir: "", Command: tc.command, Args: tc.args})
-			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
-				t.Errorf(diff)
-			}
+			var stdout, stderr bytes.Buffer
 
-			stdout, err := io.ReadAll(result.Stdout)
+			exitCode, err := Run(ctx, &RunConfig{
+				Stdout:  &stdout,
+				Stderr:  &stderr,
+				Command: tc.command,
+				Args:    tc.args,
+			})
 			if err != nil {
-				t.Fatalf("unexpected err: %s", err)
+				if diff := testutil.DiffErrString(err, tc.err); diff != "" {
+					t.Errorf(diff)
+				}
+				return
 			}
 
-			stderr, err := io.ReadAll(result.Stdout)
-			if err != nil {
-				t.Fatalf("unexpected err: %s", err)
+			if got, want := strings.TrimSpace(stdout.String()), strings.TrimSpace(tc.expStdout); got != want {
+				t.Errorf("expected %s to be %s", got, want)
 			}
-
-			if got, want := strings.TrimSpace(string(stdout)), strings.TrimSpace(tc.expStdout); got != want {
-				t.Errorf("stdout expected %s to be %s", got, want)
+			if got, want := strings.TrimSpace(stderr.String()), strings.TrimSpace(tc.expStderr); got != want {
+				t.Errorf("expected %s to be %s", got, want)
 			}
-			if got, want := strings.TrimSpace(string(stderr)), strings.TrimSpace(tc.expStderr); got != want {
-				t.Errorf("stderr expected %s to be %s", got, want)
-			}
-			if got, want := result.ExitCode, tc.expExitCode; got != want {
-				t.Errorf("exit code expected %d to be %d", got, want)
+			if got, want := exitCode, tc.expExitCode; got != want {
+				t.Errorf("expected %d to be %d", got, want)
 			}
 		})
 	}
