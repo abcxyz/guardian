@@ -33,16 +33,15 @@ type MockStorageClient struct {
 	reqMu sync.Mutex
 	Reqs  []*Request
 
-	UploadErr      string
-	GetData        string
-	GetErr         string
-	GetLimitData   string
-	GetLimitErr    string
-	Metadata       map[string]string
-	MetadataErr    string
-	DeleteErr      string
-	ListObjectURIs []string
-	ListObjectErr  string
+	UploadErr          string
+	DownloadData       string
+	DownloadErr        string
+	DownloadCancelFunc context.CancelFunc
+	Metadata           map[string]string
+	MetadataErr        string
+	DeleteErr          string
+	ListObjectURIs     []string
+	ListObjectErr      string
 }
 
 type BufferReadCloser struct {
@@ -65,7 +64,7 @@ func (m *MockStorageClient) UploadObject(ctx context.Context, bucket, name strin
 	return nil
 }
 
-func (m *MockStorageClient) DownloadObject(ctx context.Context, bucket, name string) (io.ReadCloser, error) {
+func (m *MockStorageClient) DownloadObject(ctx context.Context, bucket, name string) (io.ReadCloser, context.CancelFunc, error) {
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
 	m.Reqs = append(m.Reqs, &Request{
@@ -73,10 +72,10 @@ func (m *MockStorageClient) DownloadObject(ctx context.Context, bucket, name str
 		Params: []any{bucket, name},
 	})
 
-	if m.GetErr != "" {
-		return nil, fmt.Errorf("%s", m.GetErr)
+	if m.DownloadErr != "" {
+		return nil, nil, fmt.Errorf("%s", m.DownloadErr)
 	}
-	return &BufferReadCloser{bytes.NewBufferString(m.GetData)}, nil
+	return &BufferReadCloser{bytes.NewBufferString(m.DownloadData)}, m.DownloadCancelFunc, nil
 }
 
 func (m *MockStorageClient) ObjectMetadata(ctx context.Context, bucket, name string) (map[string]string, error) {

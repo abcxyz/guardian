@@ -41,10 +41,12 @@ func TestParser_StateFileURIs(t *testing.T) {
 	}{
 		{
 			name: "success",
-			gcsClient: &storage.MockStorageClient{ListObjectURIs: []string{
-				"gs://my-bucket-123/abcsdasd/12312/default.tfstate",
-				"gs://my-bucket-123/abcsdasd/12313/default.tfstate",
-			}},
+			gcsClient: &storage.MockStorageClient{
+				ListObjectURIs: []string{
+					"gs://my-bucket-123/abcsdasd/12312/default.tfstate",
+					"gs://my-bucket-123/abcsdasd/12313/default.tfstate",
+				},
+			},
 			want: []string{
 				"gs://my-bucket-123/abcsdasd/12312/default.tfstate",
 				"gs://my-bucket-123/abcsdasd/12313/default.tfstate",
@@ -52,8 +54,10 @@ func TestParser_StateFileURIs(t *testing.T) {
 			gcsBuckets: []string{"my-bucket-123"},
 		},
 		{
-			name:       "failure",
-			gcsClient:  &storage.MockStorageClient{ListObjectErr: "Failed cause 404"},
+			name: "failure",
+			gcsClient: &storage.MockStorageClient{
+				ListObjectErr: "Failed cause 404",
+			},
 			gcsBuckets: []string{"my-bucket-123"},
 			wantErr:    "Failed cause 404",
 		},
@@ -209,7 +213,11 @@ func TestParser_ProcessStates(t *testing.T) {
 				t.Errorf("ProcessStates() failed to read json file %v", err)
 			}
 
-			gcsClient := &storage.MockStorageClient{GetData: string(data), GetErr: tc.wantErr}
+			gcsClient := &storage.MockStorageClient{
+				DownloadData:       string(data),
+				DownloadErr:        tc.wantErr,
+				DownloadCancelFunc: func() {},
+			}
 			p := &TerraformParser{GCS: gcsClient, OrganizationID: orgID}
 
 			if tc.knownFolders != nil && tc.knownProjects != nil {

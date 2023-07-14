@@ -123,10 +123,11 @@ func (p *TerraformParser) ProcessStates(ctx context.Context, gcsUris []string) (
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse GCS URI: %w", err)
 		}
-		r, err := p.GCS.DownloadObject(ctx, *bucket, *name)
+		r, cancel, err := p.GCS.DownloadObject(ctx, *bucket, *name)
 		if err != nil {
 			return nil, fmt.Errorf("failed to download gcs URI for terraform: %w", err)
 		}
+		defer cancel()
 		defer r.Close()
 		lr := io.LimitReader(r, defaultTerraformStateFileSizeLimit)
 		if err := json.NewDecoder(lr).Decode(&state); err != nil {
