@@ -234,8 +234,8 @@ func (d *IAMDriftDetector) actualGCPIAM(ctx context.Context) (map[string]*iam.As
 
 	gcpIAM := make(map[string]*iam.AssetIAM)
 	for _, r := range iamResults {
-		if r.Error != nil {
-			return nil, fmt.Errorf("failed to execute IAM task: %w", r.Error)
+		if err := r.Error; err != nil {
+			return nil, fmt.Errorf("failed to execute IAM task: %w", err)
 		}
 		for _, iamF := range r.Value {
 			gcpIAM[d.URI(iamF)] = iamF
@@ -274,8 +274,8 @@ func (d *IAMDriftDetector) terraformStateIAM(ctx context.Context, gcsBuckets []s
 
 	tfIAM := make(map[string]*iam.AssetIAM)
 	for _, r := range iamResults {
-		if r.Error != nil {
-			return nil, fmt.Errorf("failed to execute IAM task: %w", r.Error)
+		if err := r.Error; err != nil {
+			return nil, fmt.Errorf("failed to execute IAM task: %w", err)
 		}
 		for _, iamF := range r.Value {
 			tfIAM[d.URI(iamF)] = iamF

@@ -214,9 +214,8 @@ func TestParser_ProcessStates(t *testing.T) {
 			}
 
 			gcsClient := &storage.MockStorageClient{
-				DownloadData:       string(data),
-				DownloadErr:        tc.wantErr,
-				DownloadCancelFunc: func() {},
+				DownloadData: string(data),
+				DownloadErr:  tc.wantErr,
 			}
 			p := &TerraformParser{GCS: gcsClient, OrganizationID: orgID}
 
