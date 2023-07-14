@@ -173,6 +173,7 @@ func TestDrift_DetectDrift(t *testing.T) {
 			}
 			gcsClient := &storage.MockStorageClient{
 				GetData:        string(data),
+				GetCancelFunc:  func() {},
 				ListObjectURIs: []string{bucketGCSURI},
 			}
 			d := &IAMDriftDetector{
