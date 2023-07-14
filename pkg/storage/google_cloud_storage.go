@@ -155,8 +155,8 @@ func (s *GoogleCloudStorage) UploadObject(ctx context.Context, bucket, name stri
 
 // DownloadObject downloads an object from a Google Cloud Storage bucket. The caller must call Close on the returned Reader when done reading.
 func (s *GoogleCloudStorage) DownloadObject(ctx context.Context, bucket, name string) (io.ReadCloser, error) {
-	o, ctx, cancel := s.objectHandleWithRetries(ctx, bucket, name)
-	defer cancel()
+	o, ctx, _ := s.objectHandleWithRetries(ctx, bucket, name)
+	// defer cancel()
 
 	r, err := o.NewReader(ctx)
 	if err != nil {
