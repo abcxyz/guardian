@@ -25,6 +25,15 @@ import (
 
 const (
 	issueTitle = "IAM drift detected"
+	issueBody  = `We've detected a drift between your submitted IAM policies and actual
+		IAM policies.
+
+		See the comment(s) below to see details of the drift
+
+		Please determine which parts are correct, and submit updated
+		terraform config and/or remove the extra policies.
+
+		Re-run drift detection manually once complete to verify all diffs are properly resolved.`
 )
 
 func createUpdateOrCloseIssues(ctx context.Context, token, owner, repo string, assignees, labels []string, drift *IAMDrift) error {
@@ -50,21 +59,12 @@ func createUpdateOrCloseIssues(ctx context.Context, token, owner, repo string, a
 			if err != nil {
 				return fmt.Errorf("failed to close GitHub issue for %s/%s %d: %w", owner, repo, issueNumberToClose, err)
 			}
-			return nil
 		}
+		return nil
 	}
 
 	var issueNumber int
 	if len(issueNumbers) == 0 {
-		issueBody := fmt.Sprintf(`We've detected a drift between your submitted IAM policies and actual
-		IAM policies.
-
-		See the comment(s) below to see details of the drift
-
-		Please determine which parts are correct, and submit updated
-		terraform config and/or remove the extra policies.
-
-		Re-run drift detection manually once complete to verify all diffs are properly resolved.`)
 		id, err := gh.CreateIssue(ctx, owner, repo, issueTitle, issueBody, assignees, labels)
 		if err != nil {
 			return fmt.Errorf("failed to create GitHub for %s/%s: %w", owner, repo, err)
