@@ -12,48 +12,55 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package git
+package terraform
 
 import (
 	"testing"
 
+	"github.com/abcxyz/guardian/pkg/util"
 	"github.com/google/go-cmp/cmp"
 )
 
-func TestParseSortedDiffDirs(t *testing.T) {
+func TestShowArgsFromOptions(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
-		name  string
-		value string
-		exp   []string
+		name string
+		opts *ShowOptions
+		exp  []string
 	}{
 		{
-			name: "success",
-			value: `first/test.txt
-second/test.txt
-third/test.txt`,
-			exp: []string{"first", "second", "third"},
+			name: "truthy",
+			opts: &ShowOptions{
+				File:    util.Ptr[string]("filename"),
+				NoColor: util.Ptr[bool](true),
+				JSON:    util.Ptr[bool](true),
+			},
+			exp: []string{
+				"show",
+				"-no-color",
+				"-json",
+				"filename",
+			},
 		},
 		{
-			name:  "carriage_return_and_newline",
-			value: "foo/test.txt\r\nbar/test.txt\r\nbaz/test.txt",
-			exp:   []string{"bar", "baz", "foo"},
+			name: "falsey",
+			opts: &ShowOptions{
+				File:    util.Ptr[string]("filename"),
+				NoColor: util.Ptr[bool](false),
+				JSON:    util.Ptr[bool](false),
+			},
+			exp: []string{"show", "filename"},
 		},
 		{
-			name:  "sorts",
-			value: "foo/test.txt\nbar/test.txt\nbaz/test.txt",
-			exp:   []string{"bar", "baz", "foo"},
+			name: "empty",
+			opts: &ShowOptions{},
+			exp:  []string{"show"},
 		},
 		{
-			name:  "handles_dirs",
-			value: "test/first\ntest/second",
-			exp:   []string{"test"},
-		},
-		{
-			name:  "handles_empty",
-			value: "",
-			exp:   []string{},
+			name: "nil",
+			opts: nil,
+			exp:  []string{"show"},
 		},
 	}
 
@@ -63,8 +70,8 @@ third/test.txt`,
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			dirs := parseSortedDiffDirs(tc.value)
-			if diff := cmp.Diff(dirs, tc.exp); diff != "" {
+			args := showArgsFromOptions(tc.opts)
+			if diff := cmp.Diff(args, tc.exp); diff != "" {
 				t.Errorf(diff)
 			}
 		})

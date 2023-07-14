@@ -18,6 +18,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/abcxyz/guardian/pkg/util"
 	"github.com/google/go-github/v53/github"
 )
 
@@ -50,8 +51,8 @@ func (m *MockGitHubClient) CreateIssueComment(ctx context.Context, owner, repo s
 		return nil, m.CreateIssueCommentsErr
 	}
 
-	var id *int64
-	*id = 1
+	id := util.Ptr[int64](1)
+
 	return &github.IssueComment{ID: id}, nil
 }
 

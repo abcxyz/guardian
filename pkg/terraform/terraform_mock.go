@@ -16,13 +16,16 @@ package terraform
 
 import (
 	"context"
+	"io"
 )
 
 var _ Terraform = (*MockTerraformClient)(nil)
 
 type MockTerraformResponse struct {
-	TerraformResponse
-	Err error
+	Stdout   string
+	Stderr   string
+	ExitCode int
+	Err      error
 }
 
 // MockTerraformClient creates a mock TerraformClient for use with testing.
@@ -32,61 +35,49 @@ type MockTerraformClient struct {
 	PlanResponse     *MockTerraformResponse
 	ApplyResponse    *MockTerraformResponse
 	ShowResponse     *MockTerraformResponse
-
-	EntrypointDirs []string
 }
 
-func (m *MockTerraformClient) Init(ctx context.Context, args ...string) (*TerraformResponse, error) {
+func (m *MockTerraformClient) Init(ctx context.Context, stdout, stderr io.Writer, opts *InitOptions) (int, error) {
 	if m.InitResponse != nil {
-		return &TerraformResponse{
-			Stdout:   m.InitResponse.Stdout,
-			Stderr:   m.InitResponse.Stderr,
-			ExitCode: m.InitResponse.ExitCode,
-		}, m.InitResponse.Err
+		stdout.Write([]byte(m.InitResponse.Stdout))
+		stderr.Write([]byte(m.InitResponse.Stderr))
+		return m.InitResponse.ExitCode, m.InitResponse.Err
 	}
-	return nil, nil
+	return 0, nil
 }
 
-func (m *MockTerraformClient) Validate(ctx context.Context, args ...string) (*TerraformResponse, error) {
+func (m *MockTerraformClient) Validate(ctx context.Context, stdout, stderr io.Writer, opts *ValidateOptions) (int, error) {
 	if m.ValidateResponse != nil {
-		return &TerraformResponse{
-			Stdout:   m.ValidateResponse.Stdout,
-			Stderr:   m.ValidateResponse.Stderr,
-			ExitCode: m.ValidateResponse.ExitCode,
-		}, m.ValidateResponse.Err
+		stdout.Write([]byte(m.ValidateResponse.Stdout))
+		stderr.Write([]byte(m.ValidateResponse.Stderr))
+		return m.ValidateResponse.ExitCode, m.ValidateResponse.Err
 	}
-	return nil, nil
+	return 0, nil
 }
 
-func (m *MockTerraformClient) Plan(ctx context.Context, file string, args ...string) (*TerraformResponse, error) {
+func (m *MockTerraformClient) Plan(ctx context.Context, stdout, stderr io.Writer, opts *PlanOptions) (int, error) {
 	if m.PlanResponse != nil {
-		return &TerraformResponse{
-			Stdout:   m.PlanResponse.Stdout,
-			Stderr:   m.PlanResponse.Stderr,
-			ExitCode: m.PlanResponse.ExitCode,
-		}, m.PlanResponse.Err
+		stdout.Write([]byte(m.PlanResponse.Stdout))
+		stderr.Write([]byte(m.PlanResponse.Stderr))
+		return m.PlanResponse.ExitCode, m.PlanResponse.Err
 	}
-	return nil, nil
+	return 0, nil
 }
 
-func (m *MockTerraformClient) Apply(ctx context.Context, file string, args ...string) (*TerraformResponse, error) {
+func (m *MockTerraformClient) Apply(ctx context.Context, stdout, stderr io.Writer, opts *ApplyOptions) (int, error) {
 	if m.ApplyResponse != nil {
-		return &TerraformResponse{
-			Stdout:   m.ApplyResponse.Stdout,
-			Stderr:   m.ApplyResponse.Stderr,
-			ExitCode: m.ApplyResponse.ExitCode,
-		}, m.ApplyResponse.Err
+		stdout.Write([]byte(m.ApplyResponse.Stdout))
+		stderr.Write([]byte(m.ApplyResponse.Stderr))
+		return m.ApplyResponse.ExitCode, m.ApplyResponse.Err
 	}
-	return nil, nil
+	return 0, nil
 }
 
-func (m *MockTerraformClient) Show(ctx context.Context, file string, args ...string) (*TerraformResponse, error) {
+func (m *MockTerraformClient) Show(ctx context.Context, stdout, stderr io.Writer, opts *ShowOptions) (int, error) {
 	if m.ShowResponse != nil {
-		return &TerraformResponse{
-			Stdout:   m.ShowResponse.Stdout,
-			Stderr:   m.ShowResponse.Stderr,
-			ExitCode: m.ShowResponse.ExitCode,
-		}, m.ShowResponse.Err
+		stdout.Write([]byte(m.ShowResponse.Stdout))
+		stderr.Write([]byte(m.ShowResponse.Stderr))
+		return m.ShowResponse.ExitCode, m.ShowResponse.Err
 	}
-	return nil, nil
+	return 0, nil
 }

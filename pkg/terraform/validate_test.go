@@ -12,48 +12,52 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package git
+package terraform
 
 import (
 	"testing"
 
+	"github.com/abcxyz/guardian/pkg/util"
 	"github.com/google/go-cmp/cmp"
 )
 
-func TestParseSortedDiffDirs(t *testing.T) {
+func TestValidateArgsFromOptions(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
-		name  string
-		value string
-		exp   []string
+		name string
+		opts *ValidateOptions
+		exp  []string
 	}{
 		{
-			name: "success",
-			value: `first/test.txt
-second/test.txt
-third/test.txt`,
-			exp: []string{"first", "second", "third"},
+			name: "truthy",
+			opts: &ValidateOptions{
+				NoColor: util.Ptr[bool](true),
+				JSON:    util.Ptr[bool](true),
+			},
+			exp: []string{
+				"validate",
+				"-no-color",
+				"-json",
+			},
 		},
 		{
-			name:  "carriage_return_and_newline",
-			value: "foo/test.txt\r\nbar/test.txt\r\nbaz/test.txt",
-			exp:   []string{"bar", "baz", "foo"},
+			name: "falsey",
+			opts: &ValidateOptions{
+				NoColor: util.Ptr[bool](false),
+				JSON:    util.Ptr[bool](false),
+			},
+			exp: []string{"validate"},
 		},
 		{
-			name:  "sorts",
-			value: "foo/test.txt\nbar/test.txt\nbaz/test.txt",
-			exp:   []string{"bar", "baz", "foo"},
+			name: "empty",
+			opts: &ValidateOptions{},
+			exp:  []string{"validate"},
 		},
 		{
-			name:  "handles_dirs",
-			value: "test/first\ntest/second",
-			exp:   []string{"test"},
-		},
-		{
-			name:  "handles_empty",
-			value: "",
-			exp:   []string{},
+			name: "nil",
+			opts: nil,
+			exp:  []string{"validate"},
 		},
 	}
 
@@ -63,8 +67,8 @@ third/test.txt`,
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			dirs := parseSortedDiffDirs(tc.value)
-			if diff := cmp.Diff(dirs, tc.exp); diff != "" {
+			args := validateArgsFromOptions(tc.opts)
+			if diff := cmp.Diff(args, tc.exp); diff != "" {
 				t.Errorf(diff)
 			}
 		})

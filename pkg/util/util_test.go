@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package git
+package util
 
 import (
 	"testing"
@@ -20,40 +20,38 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-func TestParseSortedDiffDirs(t *testing.T) {
+func TestGetSliceIntersection(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
-		name  string
-		value string
-		exp   []string
+		name string
+		a    []string
+		b    []string
+		exp  []string
 	}{
 		{
 			name: "success",
-			value: `first/test.txt
-second/test.txt
-third/test.txt`,
-			exp: []string{"first", "second", "third"},
+			a:    []string{"a", "b", "c", "d"},
+			b:    []string{"b", "c"},
+			exp:  []string{"b", "c"},
 		},
 		{
-			name:  "carriage_return_and_newline",
-			value: "foo/test.txt\r\nbar/test.txt\r\nbaz/test.txt",
-			exp:   []string{"bar", "baz", "foo"},
+			name: "sorts",
+			a:    []string{"d", "c", "b", "a"},
+			b:    []string{"a", "d"},
+			exp:  []string{"a", "d"},
 		},
 		{
-			name:  "sorts",
-			value: "foo/test.txt\nbar/test.txt\nbaz/test.txt",
-			exp:   []string{"bar", "baz", "foo"},
+			name: "handles_empty",
+			a:    []string{"d", "d", "c", "d", "b", "a"},
+			b:    []string{},
+			exp:  []string{},
 		},
 		{
-			name:  "handles_dirs",
-			value: "test/first\ntest/second",
-			exp:   []string{"test"},
-		},
-		{
-			name:  "handles_empty",
-			value: "",
-			exp:   []string{},
+			name: "exclude_duplicates",
+			a:    []string{"d", "d", "c", "d", "b", "a"},
+			b:    []string{"a", "d", "a", "d"},
+			exp:  []string{"a", "d"},
 		},
 	}
 
@@ -63,9 +61,11 @@ third/test.txt`,
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			dirs := parseSortedDiffDirs(tc.value)
-			if diff := cmp.Diff(dirs, tc.exp); diff != "" {
-				t.Errorf(diff)
+			v := GetSliceIntersection(tc.a, tc.b)
+
+			opts := []cmp.Option{}
+			if diff := cmp.Diff(v, tc.exp, opts...); diff != "" {
+				t.Errorf("got %#v, want %#v, diff (-got, +want): %v", v, tc.exp, diff)
 			}
 		})
 	}

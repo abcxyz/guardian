@@ -20,7 +20,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-func TestStorage_makeUploadConfig(t *testing.T) {
+func TestMakeUploadConfig(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
