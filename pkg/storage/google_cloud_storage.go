@@ -159,16 +159,19 @@ func (s *GoogleCloudStorage) UploadObject(ctx context.Context, bucket, name stri
 }
 
 // DownloadObject downloads an object from a Google Cloud Storage bucket. The caller must call Close on the returned Reader when done reading.
-func (s *GoogleCloudStorage) DownloadObject(ctx context.Context, bucket, name string) (io.ReadCloser, context.CancelFunc, error) {
+func (s *GoogleCloudStorage) DownloadObject(ctx context.Context, bucket, name string) (io.ReadCloser, error) {
 	o, ctx, cancel := s.objectHandleWithRetries(ctx, bucket, name)
 
 	r, err := o.NewReader(ctx)
 	if err != nil {
 		cancel()
-		return nil, nil, fmt.Errorf("failed to get google cloud storage reader: %w", err)
+		return nil, fmt.Errorf("failed to get google cloud storage reader: %w", err)
 	}
 
-	return r, cancel, nil
+	return &readCloserCanceller{
+		ReadCloser: r,
+		cancelFunc: cancel,
+	}, nil
 }
 
 // ObjectMetadata gets the metadata for a Google Cloud Storage object.
@@ -250,4 +253,14 @@ func WithRetryTimeout(retryTimeout time.Duration) Option {
 		c.retryTimeout = retryTimeout
 		return c
 	}
+}
+
+type readCloserCanceller struct {
+	io.ReadCloser
+	cancelFunc context.CancelFunc
+}
+
+func (r *readCloserCanceller) Close() error {
+	defer r.cancelFunc()
+	return r.ReadCloser.Close() //nolint:wrapcheck // Want passthrough
 }
