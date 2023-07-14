@@ -20,7 +20,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-func TestGit_parseSortedDiffDirs(t *testing.T) {
+func TestParseSortedDiffDirs(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {

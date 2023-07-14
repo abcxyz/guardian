@@ -17,6 +17,8 @@ package util
 
 import (
 	"sort"
+
+	"golang.org/x/exp/maps"
 )
 
 // Ptr returns the pointer of a given value.
@@ -39,11 +41,7 @@ func GetSliceIntersection(a, b []string) []string {
 		}
 	}
 
-	result := []string{}
-
-	for r := range intersection {
-		result = append(result, r)
-	}
+	result := maps.Keys(intersection)
 
 	sort.Strings(result)
 

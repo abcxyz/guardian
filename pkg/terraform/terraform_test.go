@@ -23,7 +23,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-func TestTerraform_FormatOutputForGitHubDiff(t *testing.T) {
+func TestFormatOutputForGitHubDiff(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
@@ -94,7 +94,7 @@ first section !
 	}
 }
 
-func TestTerraform_GetEntrypointDirectories(t *testing.T) {
+func TestGetEntrypointDirectories(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
@@ -139,7 +139,7 @@ func TestTerraform_GetEntrypointDirectories(t *testing.T) {
 	}
 }
 
-func TestTerraform_hasBackendConfig(t *testing.T) {
+func TestHasBackendConfig(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {

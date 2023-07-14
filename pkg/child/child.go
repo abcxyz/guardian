@@ -53,16 +53,18 @@ func Run(ctx context.Context, cfg *RunConfig) (int, error) {
 		cmd.Dir = v
 	}
 
-	if cfg.Stdout == nil {
-		cfg.Stdout = os.Stdout
+	stdout := cfg.Stdout
+	if stdout == nil {
+		stdout = os.Stdout
 	}
 
-	if cfg.Stderr == nil {
-		cfg.Stderr = os.Stderr
+	stderr := cfg.Stderr
+	if stderr == nil {
+		stderr = os.Stderr
 	}
 
-	cmd.Stdout = cfg.Stdout
-	cmd.Stderr = cfg.Stderr
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
 	cmd.Args = append(cmd.Args, cfg.Args...)
 
 	// add small wait delay to kill subprocesses if context is canceled

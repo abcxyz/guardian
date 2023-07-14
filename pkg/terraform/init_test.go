@@ -21,7 +21,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-func TestTerraform_initArgsFromOptions(t *testing.T) {
+func TestInitArgsFromOptions(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {

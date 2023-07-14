@@ -25,7 +25,7 @@ import (
 	"github.com/abcxyz/pkg/testutil"
 )
 
-func TestChild_Run(t *testing.T) {
+func TestRun(t *testing.T) {
 	t.Parallel()
 
 	ctx := logging.WithLogger(context.Background(), logging.TestLogger(t))
@@ -97,7 +97,7 @@ func TestChild_Run(t *testing.T) {
 	}
 }
 
-func TestChild_Run_Cancel(t *testing.T) {
+func TestRun_Cancel(t *testing.T) {
 	t.Parallel()
 
 	ctx := logging.WithLogger(context.Background(), logging.TestLogger(t))

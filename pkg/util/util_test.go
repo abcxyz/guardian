@@ -20,7 +20,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-func TestUtil_GetSliceIntersection(t *testing.T) {
+func TestGetSliceIntersection(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {

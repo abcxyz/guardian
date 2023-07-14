@@ -21,7 +21,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-func TestTerraform_validateArgsFromOptions(t *testing.T) {
+func TestValidateArgsFromOptions(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
