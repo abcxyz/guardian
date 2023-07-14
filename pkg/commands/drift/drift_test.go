@@ -172,9 +172,9 @@ func TestDrift_DetectDrift(t *testing.T) {
 				t.Errorf("ProcessStates() failed to read json file %v", err)
 			}
 			gcsClient := &storage.MockStorageClient{
-				GetData:        string(data),
-				GetCancelFunc:  func() {},
-				ListObjectURIs: []string{bucketGCSURI},
+				DownloadData:       string(data),
+				DownloadCancelFunc: func() {},
+				ListObjectURIs:     []string{bucketGCSURI},
 			}
 			d := &IAMDriftDetector{
 				assetInventoryClient:  tc.assetInventoryClient,
