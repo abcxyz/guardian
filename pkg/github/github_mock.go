@@ -42,7 +42,7 @@ type MockGitHubClient struct {
 	ListIssueCommentsErr   error
 }
 
-func (m *MockGitHubClient) ListIssues(ctx context.Context, owner, repo string, labels []string, state string) ([]*int, error) {
+func (m *MockGitHubClient) ListIssues(ctx context.Context, owner, repo string, labels []string, state string) ([]*Issue, error) {
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
 	m.Reqs = append(m.Reqs, &Request{
@@ -53,10 +53,10 @@ func (m *MockGitHubClient) ListIssues(ctx context.Context, owner, repo string, l
 	if m.ListIssuesErr != nil {
 		return nil, m.ListIssuesErr
 	}
-	return []*int{}, nil
+	return []*Issue{}, nil
 }
 
-func (m *MockGitHubClient) CreateIssue(ctx context.Context, owner, repo, title, body string, assignees, labels []string) (*int, error) {
+func (m *MockGitHubClient) CreateIssue(ctx context.Context, owner, repo, title, body string, assignees, labels []string) (*Issue, error) {
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
 	m.Reqs = append(m.Reqs, &Request{
@@ -68,7 +68,7 @@ func (m *MockGitHubClient) CreateIssue(ctx context.Context, owner, repo, title, 
 		return nil, m.CreateIssueErr
 	}
 
-	return util.Ptr(1), nil
+	return &Issue{Number: util.Ptr(1)}, nil
 }
 
 func (m *MockGitHubClient) CloseIssue(ctx context.Context, owner, repo string, number int) error {
@@ -86,7 +86,7 @@ func (m *MockGitHubClient) CloseIssue(ctx context.Context, owner, repo string, n
 	return nil
 }
 
-func (m *MockGitHubClient) CreateIssueComment(ctx context.Context, owner, repo string, number int, body string) (*int64, error) {
+func (m *MockGitHubClient) CreateIssueComment(ctx context.Context, owner, repo string, number int, body string) (*IssueComment, error) {
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
 	m.Reqs = append(m.Reqs, &Request{
@@ -98,9 +98,7 @@ func (m *MockGitHubClient) CreateIssueComment(ctx context.Context, owner, repo s
 		return nil, m.CreateIssueCommentsErr
 	}
 
-	id := util.Ptr(int64(1))
-
-	return id, nil
+	return &IssueComment{ID: util.Ptr(int64(1))}, nil
 }
 
 func (m *MockGitHubClient) UpdateIssueComment(ctx context.Context, owner, repo string, id int64, body string) error {

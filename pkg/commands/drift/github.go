@@ -44,34 +44,34 @@ func createUpdateOrCloseIssues(ctx context.Context, token, owner, repo string, a
 	changesDetected := len(drift.ClickOpsChanges) > 0 || len(drift.MissingTerraformChanges) > 0
 	gh := github.NewClient(ctx, token)
 
-	issueNumbers, err := gh.ListIssues(ctx, owner, repo, labels, github.Open)
+	issues, err := gh.ListIssues(ctx, owner, repo, labels, github.Open)
 	if err != nil {
 		return fmt.Errorf("failed to list GitHub issues for %s/%s: %w", owner, repo, err)
 	}
 	// Close all open issues matching the given labels if the drift is resolved.
-	if !changesDetected && len(issueNumbers) > 0 {
-		for _, issueNumberToClose := range issueNumbers {
-			_, err = gh.CreateIssueComment(ctx, owner, repo, *issueNumberToClose, "Drift Resolved.")
+	if !changesDetected && len(issues) > 0 {
+		for _, issueToClose := range issues {
+			_, err = gh.CreateIssueComment(ctx, owner, repo, *issueToClose.Number, "Drift Resolved.")
 			if err != nil {
-				return fmt.Errorf("failed to comment on issue %s/%s %d: %w", owner, repo, issueNumberToClose, err)
+				return fmt.Errorf("failed to comment on issue %s/%s %d: %w", owner, repo, issueToClose.Number, err)
 			}
-			err = gh.CloseIssue(ctx, owner, repo, *issueNumberToClose)
+			err = gh.CloseIssue(ctx, owner, repo, *issueToClose.Number)
 			if err != nil {
-				return fmt.Errorf("failed to close GitHub issue for %s/%s %d: %w", owner, repo, issueNumberToClose, err)
+				return fmt.Errorf("failed to close GitHub issue for %s/%s %d: %w", owner, repo, issueToClose.Number, err)
 			}
 		}
 		return nil
 	}
 
 	var issueNumber int
-	if len(issueNumbers) == 0 {
-		id, err := gh.CreateIssue(ctx, owner, repo, issueTitle, issueBody, assignees, labels)
+	if len(issues) == 0 {
+		issue, err := gh.CreateIssue(ctx, owner, repo, issueTitle, issueBody, assignees, labels)
 		if err != nil {
 			return fmt.Errorf("failed to create GitHub for %s/%s: %w", owner, repo, err)
 		}
-		issueNumber = *id
+		issueNumber = *issue.Number
 	} else {
-		issueNumber = *issueNumbers[0]
+		issueNumber = *issues[0].Number
 	}
 
 	_, err = gh.CreateIssueComment(ctx, owner, repo, issueNumber, driftMessage(drift))
