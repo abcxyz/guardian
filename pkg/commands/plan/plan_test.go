@@ -16,6 +16,7 @@ package plan
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -38,7 +39,6 @@ func TestPlan_Process(t *testing.T) {
 	cases := []struct {
 		name                  string
 		flagGitHubToken       string
-		flagConcurrency       int64
 		flagWorkingDirectory  string
 		flagBucketName        string
 		flagProtectLockfile   bool
@@ -58,7 +58,6 @@ func TestPlan_Process(t *testing.T) {
 			name:                  "success_with_diff",
 			flagGitHubToken:       "github-token",
 			flagWorkingDirectory:  "../../../testdata",
-			flagConcurrency:       2,
 			flagBucketName:        "my-bucket-name",
 			flagProtectLockfile:   true,
 			flagLockTimeout:       10 * time.Minute,
@@ -95,20 +94,12 @@ func TestPlan_Process(t *testing.T) {
 			},
 			expGitHubClientReqs: []*github.Request{
 				{
-					Name:   "ListIssueComments",
-					Params: []any{"owner", "repo", int(1)},
-				},
-				{
 					Name:   "CreateIssueComment",
-					Params: []any{"owner", "repo", int(1), "**`🔱 Guardian 🔱 PLAN`** -  🟨 Running for dir: `../../../testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
+					Params: []any{"owner", "repo", int(1), "**`🔱 Guardian 🔱 PLAN`** - 🟨 Running for dir: `../../../testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
 				},
 				{
-					Name:   "CreateIssueComment",
-					Params: []any{"owner", "repo", int(1), "**`🔱 Guardian 🔱 PLAN`** -  🟩 Successful for dir: `../../../testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]\n\n<details>\n<summary>Details</summary>\n\n```diff\n\nterraform show success with diff\n```\n</details>"},
-				},
-				{
-					Name:   "DeleteIssueComment",
-					Params: []any{"owner", "repo", int64(1)},
+					Name:   "UpdateIssueComment",
+					Params: []any{"owner", "repo", int64(1), "**`🔱 Guardian 🔱 PLAN`** - 🟩 Successful for dir: `../../../testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]\n\n<details>\n<summary>Details</summary>\n\n```diff\n\nterraform show success with diff\n```\n</details>"},
 				},
 			},
 			expStorageClientReqs: []*storage.Request{
@@ -126,7 +117,6 @@ func TestPlan_Process(t *testing.T) {
 			name:                  "success_with_no_diff",
 			flagGitHubToken:       "github-token",
 			flagWorkingDirectory:  "../../../testdata",
-			flagConcurrency:       2,
 			flagBucketName:        "my-bucket-name",
 			flagProtectLockfile:   true,
 			flagLockTimeout:       10 * time.Minute,
@@ -138,7 +128,7 @@ func TestPlan_Process(t *testing.T) {
 				EventName:         "pull_request_target",
 				RepositoryOwner:   "owner",
 				RepositoryName:    "repo",
-				PullRequestNumber: 1,
+				PullRequestNumber: 2,
 				ServerURL:         "https://github.com",
 				RunID:             int64(100),
 				RunAttempt:        int64(1),
@@ -163,24 +153,19 @@ func TestPlan_Process(t *testing.T) {
 			},
 			expGitHubClientReqs: []*github.Request{
 				{
-					Name:   "ListIssueComments",
-					Params: []any{"owner", "repo", int(1)},
-				},
-				{
 					Name:   "CreateIssueComment",
-					Params: []any{"owner", "repo", int(1), "**`🔱 Guardian 🔱 PLAN`** -  🟨 Running for dir: `../../../testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
+					Params: []any{"owner", "repo", int(2), "**`🔱 Guardian 🔱 PLAN`** - 🟨 Running for dir: `../../../testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
 				},
 				{
 					Name:   "UpdateIssueComment",
-					Params: []any{"owner", "repo", int64(1), "**`🔱 Guardian 🔱 PLAN`** -  🟦 No Terraform files have changes, planning skipped."},
+					Params: []any{"owner", "repo", int64(1), "**`🔱 Guardian 🔱 PLAN`** - 🟦 No changes for dir: `../../../testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
 				},
 			},
 		},
 		{
-			name:                  "success_no_changes",
+			name:                  "handles_error",
 			flagGitHubToken:       "github-token",
 			flagWorkingDirectory:  "../../../testdata",
-			flagConcurrency:       2,
 			flagBucketName:        "my-bucket-name",
 			flagProtectLockfile:   true,
 			flagLockTimeout:       10 * time.Minute,
@@ -192,24 +177,65 @@ func TestPlan_Process(t *testing.T) {
 				EventName:         "pull_request_target",
 				RepositoryOwner:   "owner",
 				RepositoryName:    "repo",
-				PullRequestNumber: 1,
+				PullRequestNumber: 3,
 				ServerURL:         "https://github.com",
 				RunID:             int64(100),
 				RunAttempt:        int64(1),
 			},
-			terraformClient: &terraform.MockTerraformClient{},
+			terraformClient: &terraform.MockTerraformClient{
+				InitResponse: &terraform.MockTerraformResponse{
+					Stdout:   "terraform init output",
+					Stderr:   "terraform init failed",
+					ExitCode: 1,
+					Err:      fmt.Errorf("failed to run terraform init"),
+				},
+				ValidateResponse: &terraform.MockTerraformResponse{
+					Stdout:   "terraform validate success",
+					ExitCode: 0,
+				},
+				PlanResponse: &terraform.MockTerraformResponse{
+					Stdout:   "terraform plan success - no diff",
+					ExitCode: 0,
+				},
+				ShowResponse: &terraform.MockTerraformResponse{
+					Stdout:   "terraform show success - no diff",
+					ExitCode: 0,
+				},
+			},
+			expStdout: "terraform init output",
+			expStderr: "terraform init failed",
+			err:       "failed to run Guardian plan: failed to initialize: failed to run terraform init",
 			expGitHubClientReqs: []*github.Request{
 				{
-					Name:   "ListIssueComments",
-					Params: []any{"owner", "repo", int(1)},
-				},
-				{
 					Name:   "CreateIssueComment",
-					Params: []any{"owner", "repo", int(1), "**`🔱 Guardian 🔱 PLAN`** -  🟨 Running for dir: `../../../testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
+					Params: []any{"owner", "repo", int(3), "**`🔱 Guardian 🔱 PLAN`** - 🟨 Running for dir: `../../../testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
 				},
 				{
-					Name:   "UpdateIssueComment",
-					Params: []any{"owner", "repo", int64(1), "**`🔱 Guardian 🔱 PLAN`** -  🟦 No Terraform files have changes, planning skipped."},
+					Name: "UpdateIssueComment",
+					Params: []any{
+						"owner",
+						"repo",
+						int64(1),
+						"**`🔱 Guardian 🔱 PLAN`** - 🟥 Failed for dir: `../../../testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]\n" +
+							"\n" +
+							"<details>\n" +
+							"<summary>Error</summary>\n" +
+							"\n" +
+							"```\n" +
+							"\n" +
+							"failed to initialize: failed to run terraform init\n" +
+							"```\n" +
+							"</details>\n" +
+							"\n" +
+							"<details>\n" +
+							"<summary>Details</summary>\n" +
+							"\n" +
+							"```diff\n" +
+							"\n" +
+							"terraform init failed\n" +
+							"```\n" +
+							"</details>",
+					},
 				},
 			},
 		},
@@ -231,7 +257,6 @@ func TestPlan_Process(t *testing.T) {
 				planFilename: "test-tfplan.binary",
 
 				flagGitHubToken:       tc.flagGitHubToken,
-				flagConcurrency:       tc.flagConcurrency,
 				flagWorkingDirectory:  tc.flagWorkingDirectory,
 				flagBucketName:        tc.flagBucketName,
 				flagProtectLockfile:   tc.flagProtectLockfile,
@@ -250,7 +275,7 @@ func TestPlan_Process(t *testing.T) {
 
 			err := c.Process(ctx)
 			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
-				t.Errorf("unexpected err: %s", diff)
+				t.Errorf(diff)
 			}
 
 			if diff := cmp.Diff(githubClient.Reqs, tc.expGitHubClientReqs); diff != "" {

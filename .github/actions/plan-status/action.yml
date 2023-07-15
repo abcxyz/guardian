@@ -48,7 +48,7 @@ runs:
             owner: context.repo.owner,
             repo: context.repo.repo,
             issue_number: context.issue.number,
-            body: `**\`🔱 Guardian 🔱\`** - 🟩 **\`PLAN\`** Plan completed successfully.${commentContext} [[logs](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}/attempts/${process.env.GITHUB_RUN_ATTEMPT})]`,
+            body: `**\`🔱 Guardian 🔱 PLAN\`** - 🟩 Plan completed successfully.${commentContext} [[logs](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}/attempts/${process.env.GITHUB_RUN_ATTEMPT})]`,
           });
 
     - name: 'Failure'
@@ -76,7 +76,7 @@ runs:
             owner: context.repo.owner,
             repo: context.repo.repo,
             issue_number: context.issue.number,
-            body: `**\`🔱 Guardian 🔱\`** - 🟦 **\`PLAN\`** No Terraform changes, planning skipped.${commentContext} [[logs](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}/attempts/${process.env.GITHUB_RUN_ATTEMPT})]`,
+            body: `**\`🔱 Guardian 🔱 PLAN\`** - 🟦 No Terraform changes, planning skipped.${commentContext} [[logs](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}/attempts/${process.env.GITHUB_RUN_ATTEMPT})]`,
           });
 
     - name: 'Indeterminate'

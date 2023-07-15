@@ -51,7 +51,7 @@ func (m *MockGitHubClient) CreateIssueComment(ctx context.Context, owner, repo s
 		return nil, m.CreateIssueCommentsErr
 	}
 
-	id := util.Ptr[int64](1)
+	id := util.Ptr(int64(1))
 
 	return &github.IssueComment{ID: id}, nil
 }

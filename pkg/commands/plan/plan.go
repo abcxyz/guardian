@@ -22,15 +22,15 @@ import (
 	"io"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 
 	"github.com/abcxyz/guardian/pkg/storage"
 	"github.com/abcxyz/guardian/pkg/terraform"
 	"github.com/abcxyz/guardian/pkg/util"
-	"github.com/google/go-github/v53/github"
 )
 
-const planCommentPrefix = "**`🔱 Guardian 🔱 PLAN`** - "
+const planCommentPrefix = "**`🔱 Guardian 🔱 PLAN`** -"
 
 // Result is the result of a plan operation.
 type Result struct {
@@ -44,14 +44,9 @@ func (c *PlanCommand) Process(ctx context.Context) error {
 
 	c.Outf("Starting Guardian plan")
 
-	c.Outf("\n\nRemoving outdated comments...")
-	if err := c.deleteOutdatedComments(ctx, c.cfg.RepositoryOwner, c.cfg.RepositoryName, c.cfg.PullRequestNumber); err != nil {
-		return fmt.Errorf("failed to delete outdated comments: %w", err)
-	}
-
 	logURL := fmt.Sprintf("[[logs](%s/%s/%s/actions/runs/%d/attempts/%d)]", c.cfg.ServerURL, c.cfg.RepositoryOwner, c.cfg.RepositoryName, c.cfg.RunID, c.cfg.RunAttempt)
 
-	c.Outf("\n\nCreating start comment...")
+	c.Outf("Creating start comment...")
 	startComment, err := c.githubClient.CreateIssueComment(
 		ctx,
 		c.cfg.RepositoryOwner,
@@ -63,69 +58,61 @@ func (c *PlanCommand) Process(ctx context.Context) error {
 		return fmt.Errorf("failed to create start comment: %w", err)
 	}
 
-	c.Outf("\n\nRunning Terraform commands...")
+	c.Outf("Running Terraform commands...")
 	result, err := c.handleTerraformPlan(ctx)
-
 	if err != nil {
 		var comment strings.Builder
 
-		comment.WriteString(fmt.Sprintf("%s 🟥 Failed for dir: `%s` %s\n\n<details>\n<summary>Error</summary>\n\n```\n\n%s\n```\n</details>", planCommentPrefix, c.flagWorkingDirectory, logURL, err))
+		fmt.Fprintf(&comment, "%s 🟥 Failed for dir: `%s` %s\n\n<details>\n<summary>Error</summary>\n\n```\n\n%s\n```\n</details>", planCommentPrefix, c.flagWorkingDirectory, logURL, err)
 		if result.commentDetails != "" {
-			comment.WriteString(fmt.Sprintf("\n\n<details>\n<summary>Details</summary>\n\n```diff\n\n%s\n```\n</details>", result.commentDetails))
+			fmt.Fprintf(&comment, "\n\n<details>\n<summary>Details</summary>\n\n```diff\n\n%s\n```\n</details>", result.commentDetails)
 		}
 
-		if _, commentErr := c.githubClient.CreateIssueComment(
+		if commentErr := c.githubClient.UpdateIssueComment(
 			ctx,
 			c.cfg.RepositoryOwner,
 			c.cfg.RepositoryName,
-			c.cfg.PullRequestNumber,
+			startComment.GetID(),
 			comment.String(),
 		); commentErr != nil {
 			merr = errors.Join(merr, fmt.Errorf("failed to create plan error comment: %w", commentErr))
 		}
 
 		merr = errors.Join(merr, fmt.Errorf("failed to run Guardian plan: %w", err))
-	} else if result.hasChanges {
+
+		return merr
+	}
+
+	if result.hasChanges {
 		var comment strings.Builder
 
-		comment.WriteString(fmt.Sprintf("%s 🟩 Successful for dir: `%s` %s", planCommentPrefix, c.flagWorkingDirectory, logURL))
+		fmt.Fprintf(&comment, "%s 🟩 Successful for dir: `%s` %s", planCommentPrefix, c.flagWorkingDirectory, logURL)
 		if result.commentDetails != "" {
-			comment.WriteString(fmt.Sprintf("\n\n<details>\n<summary>Details</summary>\n\n```diff\n\n%s\n```\n</details>", result.commentDetails))
+			fmt.Fprintf(&comment, "\n\n<details>\n<summary>Details</summary>\n\n```diff\n\n%s\n```\n</details>", result.commentDetails)
 		}
 
-		if _, commentErr := c.githubClient.CreateIssueComment(
+		if commentErr := c.githubClient.UpdateIssueComment(
 			ctx,
 			c.cfg.RepositoryOwner,
 			c.cfg.RepositoryName,
-			c.cfg.PullRequestNumber,
+			startComment.GetID(),
 			comment.String(),
 		); commentErr != nil {
 			merr = errors.Join(merr, fmt.Errorf("failed to create plan comment: %w", commentErr))
 		}
+
+		return merr
 	}
 
-	if !result.hasChanges {
-		if err := c.githubClient.UpdateIssueComment(
-			ctx,
-			c.cfg.RepositoryOwner,
-			c.cfg.RepositoryName,
-			startComment.GetID(),
-			fmt.Sprintf("%s 🟦 No Terraform files have changes, planning skipped.", planCommentPrefix),
-		); err != nil {
-			merr = errors.Join(merr, fmt.Errorf("failed to update plan comment: %w", err))
-		}
-	} else {
-		if err := c.githubClient.DeleteIssueComment(
-			ctx,
-			c.cfg.RepositoryOwner,
-			c.cfg.RepositoryName,
-			startComment.GetID(),
-		); err != nil {
-			merr = errors.Join(merr, fmt.Errorf("failed to delete plan comment: %w", err))
-		}
+	if err := c.githubClient.UpdateIssueComment(
+		ctx,
+		c.cfg.RepositoryOwner,
+		c.cfg.RepositoryName,
+		startComment.GetID(),
+		fmt.Sprintf("%s 🟦 No changes for dir: `%s` %s", planCommentPrefix, c.flagWorkingDirectory, logURL),
+	); err != nil {
+		merr = errors.Join(merr, fmt.Errorf("failed to update plan comment: %w", err))
 	}
-
-	c.Outf("\n\nGuardian Plan completed")
 
 	return merr
 }
@@ -149,10 +136,10 @@ func (c *PlanCommand) handleTerraformPlan(ctx context.Context) (*Result, error) 
 		c.Stdout(),
 		multiStderr,
 		&terraform.InitOptions{
-			Input:       util.Ptr[bool](false),
-			NoColor:     util.Ptr[bool](true),
-			Lockfile:    util.Ptr[string](lockfileMode),
-			LockTimeout: util.Ptr[string](c.flagLockTimeout.String()),
+			Input:       util.Ptr(false),
+			NoColor:     util.Ptr(true),
+			Lockfile:    util.Ptr(lockfileMode),
+			LockTimeout: util.Ptr(c.flagLockTimeout.String()),
 		}); err != nil {
 		return &Result{commentDetails: stderr.String()}, fmt.Errorf("failed to initialize: %w", err)
 	}
@@ -165,7 +152,7 @@ func (c *PlanCommand) handleTerraformPlan(ctx context.Context) (*Result, error) 
 		ctx,
 		c.Stdout(),
 		multiStderr,
-		&terraform.ValidateOptions{NoColor: util.Ptr[bool](true)},
+		&terraform.ValidateOptions{NoColor: util.Ptr(true)},
 	); err != nil {
 		return &Result{commentDetails: stderr.String()}, fmt.Errorf("failed to validate: %w", err)
 	}
@@ -176,16 +163,18 @@ func (c *PlanCommand) handleTerraformPlan(ctx context.Context) (*Result, error) 
 	c.actions.Group("Running Terraform plan")
 
 	planExitCode, err := c.terraformClient.Plan(ctx, c.Stdout(), multiStderr, &terraform.PlanOptions{
-		Out:              util.Ptr[string](c.planFilename),
-		Input:            util.Ptr[bool](false),
-		NoColor:          util.Ptr[bool](true),
-		DetailedExitcode: util.Ptr[bool](true),
-		LockTimeout:      util.Ptr[string](c.flagLockTimeout.String()),
+		Out:              util.Ptr(c.planFilename),
+		Input:            util.Ptr(false),
+		NoColor:          util.Ptr(true),
+		DetailedExitcode: util.Ptr(true),
+		LockTimeout:      util.Ptr(c.flagLockTimeout.String()),
 	})
 
 	stderr.Reset()
 	c.actions.EndGroup()
 
+	// use the detailed exitcode from terraform to determine if there is a diff
+	// 0 - success, no diff  1 - failed   2 - success, diff
 	hasChanges := planExitCode == 2
 
 	if err != nil && !hasChanges {
@@ -196,9 +185,9 @@ func (c *PlanCommand) handleTerraformPlan(ctx context.Context) (*Result, error) 
 		return &Result{hasChanges: hasChanges}, nil
 	}
 
-	c.actions.Group("\n\nFormatting plan output")
+	c.actions.Group("Formatting plan output")
 
-	_, err = c.terraformClient.Show(ctx, multiStdout, multiStderr, &terraform.ShowOptions{File: util.Ptr[string](c.planFilename), NoColor: util.Ptr[bool](true)})
+	_, err = c.terraformClient.Show(ctx, multiStdout, multiStderr, &terraform.ShowOptions{File: util.Ptr(c.planFilename), NoColor: util.Ptr(true)})
 	if err != nil {
 		return &Result{
 			commentDetails: stderr.String(),
@@ -241,7 +230,7 @@ func (c *PlanCommand) handleUploadGuardianPlan(ctx context.Context, planFilePath
 	guardianPlanName := fmt.Sprintf("guardian-plans/%s/%s/%d/%s", c.cfg.RepositoryOwner, c.cfg.RepositoryName, c.cfg.PullRequestNumber, planFilePath)
 
 	metadata := make(map[string]string)
-	metadata["plan_exit_code"] = fmt.Sprintf("%d", planExitCode)
+	metadata["plan_exit_code"] = strconv.Itoa(planExitCode)
 
 	if err := c.storageClient.UploadObject(ctx, c.flagBucketName, guardianPlanName, planData,
 		storage.WithContentType("application/octet-stream"),
@@ -249,35 +238,6 @@ func (c *PlanCommand) handleUploadGuardianPlan(ctx context.Context, planFilePath
 		storage.WithAllowOverwrite(true),
 	); err != nil {
 		return fmt.Errorf("failed to upload plan file: %w", err)
-	}
-
-	return nil
-}
-
-// deleteOutdatedComments deletes the pull request comments from previous Guardian plan runs.
-func (c *PlanCommand) deleteOutdatedComments(ctx context.Context, owner, repo string, number int) error {
-	listOpts := &github.IssueListCommentsOptions{
-		ListOptions: github.ListOptions{PerPage: 100},
-	}
-
-	for {
-		comments, resp, err := c.githubClient.ListIssueComments(ctx, owner, repo, number, listOpts)
-		if err != nil {
-			return fmt.Errorf("failed to list comments: %w", err)
-		}
-
-		for _, comment := range comments {
-			if strings.HasPrefix(comment.GetBody(), planCommentPrefix) {
-				if err := c.githubClient.DeleteIssueComment(ctx, owner, repo, comment.GetID()); err != nil {
-					return fmt.Errorf("failed to delete comment: %w", err)
-				}
-			}
-		}
-
-		if resp.NextPage == 0 {
-			break
-		}
-		listOpts.Page = resp.NextPage
 	}
 
 	return nil

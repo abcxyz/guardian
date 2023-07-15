@@ -32,13 +32,13 @@ func TestApplyArgsFromOptions(t *testing.T) {
 		{
 			name: "truthy",
 			opts: &ApplyOptions{
-				File:            util.Ptr[string]("filename"),
-				AutoApprove:     util.Ptr[bool](true),
-				CompactWarnings: util.Ptr[bool](true),
-				Lock:            util.Ptr[bool](true),
-				LockTimeout:     util.Ptr[string]("10m"),
-				Input:           util.Ptr[bool](true),
-				NoColor:         util.Ptr[bool](true),
+				File:            util.Ptr("filename"),
+				AutoApprove:     util.Ptr(true),
+				CompactWarnings: util.Ptr(true),
+				Lock:            util.Ptr(true),
+				LockTimeout:     util.Ptr("10m"),
+				Input:           util.Ptr(true),
+				NoColor:         util.Ptr(true),
 			},
 			exp: []string{
 				"apply",
@@ -54,13 +54,13 @@ func TestApplyArgsFromOptions(t *testing.T) {
 		{
 			name: "falsey",
 			opts: &ApplyOptions{
-				File:            util.Ptr[string]("filename"),
-				AutoApprove:     util.Ptr[bool](false),
-				CompactWarnings: util.Ptr[bool](false),
-				Lock:            util.Ptr[bool](false),
-				LockTimeout:     util.Ptr[string]("10m"),
-				Input:           util.Ptr[bool](false),
-				NoColor:         util.Ptr[bool](false),
+				File:            util.Ptr("filename"),
+				AutoApprove:     util.Ptr(false),
+				CompactWarnings: util.Ptr(false),
+				Lock:            util.Ptr(false),
+				LockTimeout:     util.Ptr("10m"),
+				Input:           util.Ptr(false),
+				NoColor:         util.Ptr(false),
 			},
 			exp: []string{
 				"apply",

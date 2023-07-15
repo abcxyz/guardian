@@ -20,7 +20,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/abcxyz/guardian/pkg/git"
 	"github.com/abcxyz/guardian/pkg/github"
 	"github.com/abcxyz/guardian/pkg/storage"
 	"github.com/abcxyz/guardian/pkg/terraform"
@@ -37,7 +36,6 @@ type PlanCommand struct {
 	cfg *Config
 
 	flagGitHubToken       string
-	flagConcurrency       int64
 	flagWorkingDirectory  string
 	flagBucketName        string
 	flagProtectLockfile   bool
@@ -49,7 +47,6 @@ type PlanCommand struct {
 	planFilename string
 
 	actions         *githubactions.Action
-	gitClient       git.Git
 	githubClient    github.GitHub
 	storageClient   storage.Storage
 	terraformClient terraform.Terraform
@@ -80,14 +77,6 @@ func (c *PlanCommand) Flags() *cli.FlagSet {
 		EnvVar: "GITHUB_TOKEN",
 		Target: &c.flagGitHubToken,
 		Usage:  "The GitHub access token to make GitHub API calls.",
-	})
-
-	f.Int64Var(&cli.Int64Var{
-		Name:    "concurrency",
-		EnvVar:  "INPUTS_CONCURRENCY",
-		Target:  &c.flagConcurrency,
-		Default: 0, // 0 will default to the number of cores on the host machine
-		Usage:   "The number of concurrent worker threads.",
 	})
 
 	f.StringVar(&cli.StringVar{
@@ -191,7 +180,6 @@ func (c *PlanCommand) Run(ctx context.Context, args []string) error {
 	}
 	logger.Debugw("loaded configuration", "config", c.cfg)
 
-	c.gitClient = git.NewGitClient(c.flagWorkingDirectory)
 	c.githubClient = github.NewClient(ctx, c.flagGitHubToken, github.WithMaxRetries(c.flagMaxRetries), github.WithMaxRetryDelay(c.flagMaxRetryDelay))
 	c.terraformClient = terraform.NewTerraformClient(c.flagWorkingDirectory)
 
