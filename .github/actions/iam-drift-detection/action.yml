@@ -67,7 +67,7 @@ runs:
         GCS_BUCKET_LABEL: '${{ inputs.gcs_bucket_label }}'
         GITHUB_TOKEN: '${{ github.token }}'
         GITHUB_OWNER: '${{ github.repository_owner }}'
-        GITHUB_REPO: '${{ github.repository }}'
+        GITHUB_REPO: '${{ github.event.repository.name }}'
         ISSUE_ASSIGNEES: '${{ inputs.issue_assignees }}'
         ISSUE_LABEL: '${{ inputs.issue_label }}'
       run: |

@@ -17,7 +17,6 @@ package drift
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
@@ -107,14 +106,14 @@ func (c *DetectIamDriftCommand) Flags() *cli.FlagSet {
 		Name:    "github-owner",
 		Target:  &c.flagGitHubOwner,
 		Usage:   `The github token to use to authenticate to create & manage GitHub Issues.`,
-		Default: os.Getenv("GITHUB_REPOSITORY_OWNER"),
+		Default: "",
 	})
 	f.StringVar(&cli.StringVar{
 		Name:    "github-repo",
 		Target:  &c.flagGitHubRepo,
 		Example: "guardian",
 		Usage:   `The github token to use to authenticate to create & manage GitHub Issues.`,
-		Default: os.Getenv("GITHUB_REPOSITORY"),
+		Default: "",
 	})
 	f.StringSliceVar(&cli.StringSliceVar{
 		Name:    "github-issue-assignees",
