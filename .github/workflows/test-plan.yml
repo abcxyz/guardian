@@ -33,6 +33,11 @@ permissions:
 concurrency:
   group: '${{ github.workflow }}-${{ github.event.pull_request.number }}-${{ github.head_ref || github.ref }}'
 
+env:
+  REPO_OWNER: '${{ github.repository_owner }}'
+  REPO_NAME: '${{ github.event.repository.name }}'
+  PR_NUMBER: '${{ github.event.number }}'
+
 jobs:
   init:
     runs-on: 'ubuntu-latest'
@@ -45,17 +50,30 @@ jobs:
           fetch-depth: 0 # get everything so we can use git diff
           ref: '${{ github.event.pull_request.head.ref }}'
 
-      - name: 'Guardian Directories'
-        id: 'dirs'
-        uses: './.github/actions/directories'
+      - name: 'Setup Go'
+        uses: 'actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568' # ratchet:actions/setup-go@v3
         with:
-          terraform_directory: './terraform'
-          # detect_plan_changes: 'true'
+          go-version: '1.20'
 
-      - name: 'Guardian Remove Previous Plan Comments'
-        uses: './.github/actions/hide-plan-comments'
-        with:
-          strategy: 'delete'
+      - name: 'Install Guardian CLI'
+        shell: 'bash'
+        run: 'go install github.com/abcxyz/guardian/cmd/guardian@${{ github.event.pull_request.head.sha }}'
+
+      - name: 'Guardian Plan Init'
+        env:
+          GITHUB_TOKEN: '${{ github.token }}'
+          SOURCE_REF: '${{ github.event.pull_request.head.ref }}'
+          DEST_REF: '${{ github.event.pull_request.base.ref }}'
+          GUARDIAN_LOG_MODE: 'development'
+          GUARDIAN_LOG_LEVEL: 'debug'
+        run: |-
+          DIRS=$(guardian plan init \
+            --github-owner=${REPO_OWNER} \
+            --github-repo=${REPO_NAME} \
+            --source-ref=${SOURCE_REF} \
+            --dest-ref=${DEST_REF})
+
+          echo "directories=${DIRS}" >> $GITHUB_OUTPUT
 
   plan:
     if: "${{ needs.init.outputs.directories != '[]' }}"
@@ -112,13 +130,15 @@ jobs:
       - name: 'Guardian Plan'
         env:
           GITHUB_TOKEN: '${{ github.token }}'
-          WORKING_DIRECTORY: './${{ matrix.working_directory }}'
+          WORKING_DIRECTORY: '${{ matrix.working_directory }}'
           BUCKET_NAME: '${{ vars.GUARDIAN_BUCKET_NAME }}'
         run: |-
-          guardian plan \
-            --github-token=${GITHUB_TOKEN} \
+          guardian plan run \
             --working-directory=${WORKING_DIRECTORY} \
-            --bucket-name=${BUCKET_NAME}
+            --bucket-name=${BUCKET_NAME} \
+            --github-owner=${REPO_OWNER} \
+            --github-repo=${REPO_NAME} \
+            --pull-request-number=${PR_NUMBER}
 
   plan_success:
     if: '${{ always() }}'

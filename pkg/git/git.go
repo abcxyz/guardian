@@ -59,7 +59,7 @@ func (g *GitClient) DiffDirs(ctx context.Context, baseRef, headRef string) ([]st
 		Stderr:     &stderr,
 		WorkingDir: g.workingDir,
 		Command:    "git",
-		Args:       []string{"diff", "--name-only", fmt.Sprintf("%s..%s", baseRef, headRef)},
+		Args:       []string{"diff", fmt.Sprintf(`"%s..%s"`, baseRef, headRef), "--name-only"},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to run git diff command: %w", err)

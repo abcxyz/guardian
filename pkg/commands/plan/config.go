@@ -15,48 +15,21 @@
 package plan
 
 import (
-	"fmt"
-	"math"
-
 	"github.com/sethvargo/go-githubactions"
 )
 
 // Config defines the of configuration required for running the plan action.
 type Config struct {
 	// GitHub context values
-	IsAction          bool
-	EventName         string
-	RepositoryOwner   string
-	RepositoryName    string
-	PullRequestNumber int
-	ServerURL         string
-	RunID             int64
-	RunAttempt        int64
+	ServerURL  string
+	RunID      int64
+	RunAttempt int64
 }
 
 // MapGitHubContext maps values from the GitHub context to the PlanConfig.
 func (c *Config) MapGitHubContext(context *githubactions.GitHubContext) error {
-	repoOwner, repoName := context.Repo()
-
-	c.IsAction = context.Actions
-	c.EventName = context.EventName
-	c.RepositoryOwner = repoOwner
-	c.RepositoryName = repoName
 	c.ServerURL = context.ServerURL
 	c.RunID = context.RunID
 	c.RunAttempt = context.RunAttempt
-
-	if _, ok := context.Event["number"]; !ok {
-		return fmt.Errorf("failed to get pull request number from github event")
-	}
-
-	// parsing a json file into this map causes javascript numbers to be float64
-	v, ok := context.Event["number"].(float64)
-	if !ok {
-		return fmt.Errorf("failed to get pull request number, github.event.number is not a number")
-	}
-
-	c.PullRequestNumber = int(math.Round(v))
-
 	return nil
 }

@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/github"
 	"github.com/abcxyz/guardian/pkg/storage"
 	"github.com/abcxyz/guardian/pkg/terraform"
@@ -31,6 +32,60 @@ import (
 	"github.com/sethvargo/go-githubactions"
 )
 
+func TestNormalizeWorkingDir(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name string
+		dir  string
+		exp  string
+		err  string
+	}{
+		{
+			name: "current_dir",
+			dir:  ".",
+			exp:  "",
+		},
+		{
+			name: "relative_current_dir",
+			dir:  "../plan",
+			exp:  "",
+		},
+		{
+			name: "child_dir",
+			dir:  "./testdata/test",
+			exp:  "testdata/test",
+		},
+		{
+			name: "empty",
+			dir:  "",
+			exp:  "",
+		},
+		{
+			name: "non_child_dir",
+			dir:  "../another",
+			err:  "working directory must be a child of the current directory",
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			dir, err := normalizeWorkingDir(tc.dir)
+			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
+				t.Errorf(diff)
+			}
+
+			if got, want := dir, tc.exp; got != want {
+				t.Errorf("expected %s to be %s", got, want)
+			}
+		})
+	}
+}
+
 func TestPlan_Process(t *testing.T) {
 	t.Parallel()
 
@@ -39,6 +94,10 @@ func TestPlan_Process(t *testing.T) {
 	cases := []struct {
 		name                  string
 		flagGitHubToken       string
+		flagGitHubAction      bool
+		flagGitHubOwner       string
+		flagGitHubRepo        string
+		flagPullRequestNumber int
 		flagWorkingDirectory  string
 		flagBucketName        string
 		flagProtectLockfile   bool
@@ -56,7 +115,11 @@ func TestPlan_Process(t *testing.T) {
 	}{
 		{
 			name:                  "success_with_diff",
+			flagGitHubAction:      true,
 			flagGitHubToken:       "github-token",
+			flagGitHubOwner:       "owner",
+			flagGitHubRepo:        "repo",
+			flagPullRequestNumber: 1,
 			flagWorkingDirectory:  "../../../testdata",
 			flagBucketName:        "my-bucket-name",
 			flagProtectLockfile:   true,
@@ -65,14 +128,9 @@ func TestPlan_Process(t *testing.T) {
 			flagInitialRetryDelay: 2 * time.Second,
 			flagMaxRetryDelay:     10 * time.Second,
 			config: &Config{
-				IsAction:          true,
-				EventName:         "pull_request_target",
-				RepositoryOwner:   "owner",
-				RepositoryName:    "repo",
-				PullRequestNumber: 1,
-				ServerURL:         "https://github.com",
-				RunID:             int64(100),
-				RunAttempt:        int64(1),
+				ServerURL:  "https://github.com",
+				RunID:      int64(100),
+				RunAttempt: int64(1),
 			},
 			terraformClient: &terraform.MockTerraformClient{
 				InitResponse: &terraform.MockTerraformResponse{
@@ -115,7 +173,11 @@ func TestPlan_Process(t *testing.T) {
 		},
 		{
 			name:                  "success_with_no_diff",
+			flagGitHubAction:      true,
 			flagGitHubToken:       "github-token",
+			flagGitHubOwner:       "owner",
+			flagGitHubRepo:        "repo",
+			flagPullRequestNumber: 2,
 			flagWorkingDirectory:  "../../../testdata",
 			flagBucketName:        "my-bucket-name",
 			flagProtectLockfile:   true,
@@ -124,14 +186,9 @@ func TestPlan_Process(t *testing.T) {
 			flagInitialRetryDelay: 2 * time.Second,
 			flagMaxRetryDelay:     10 * time.Second,
 			config: &Config{
-				IsAction:          true,
-				EventName:         "pull_request_target",
-				RepositoryOwner:   "owner",
-				RepositoryName:    "repo",
-				PullRequestNumber: 2,
-				ServerURL:         "https://github.com",
-				RunID:             int64(100),
-				RunAttempt:        int64(1),
+				ServerURL:  "https://github.com",
+				RunID:      int64(100),
+				RunAttempt: int64(1),
 			},
 			terraformClient: &terraform.MockTerraformClient{
 				InitResponse: &terraform.MockTerraformResponse{
@@ -164,7 +221,11 @@ func TestPlan_Process(t *testing.T) {
 		},
 		{
 			name:                  "handles_error",
+			flagGitHubAction:      true,
 			flagGitHubToken:       "github-token",
+			flagGitHubOwner:       "owner",
+			flagGitHubRepo:        "repo",
+			flagPullRequestNumber: 3,
 			flagWorkingDirectory:  "../../../testdata",
 			flagBucketName:        "my-bucket-name",
 			flagProtectLockfile:   true,
@@ -173,14 +234,9 @@ func TestPlan_Process(t *testing.T) {
 			flagInitialRetryDelay: 2 * time.Second,
 			flagMaxRetryDelay:     10 * time.Second,
 			config: &Config{
-				IsAction:          true,
-				EventName:         "pull_request_target",
-				RepositoryOwner:   "owner",
-				RepositoryName:    "repo",
-				PullRequestNumber: 3,
-				ServerURL:         "https://github.com",
-				RunID:             int64(100),
-				RunAttempt:        int64(1),
+				ServerURL:  "https://github.com",
+				RunID:      int64(100),
+				RunAttempt: int64(1),
 			},
 			terraformClient: &terraform.MockTerraformClient{
 				InitResponse: &terraform.MockTerraformResponse{
@@ -251,20 +307,27 @@ func TestPlan_Process(t *testing.T) {
 			githubClient := &github.MockGitHubClient{}
 			storageClient := &storage.MockStorageClient{}
 
-			c := &PlanCommand{
+			c := &PlanRunCommand{
 				cfg: tc.config,
 
 				planFilename: "test-tfplan.binary",
 
-				flagGitHubToken:       tc.flagGitHubToken,
 				flagWorkingDirectory:  tc.flagWorkingDirectory,
+				flagPullRequestNumber: tc.flagPullRequestNumber,
 				flagBucketName:        tc.flagBucketName,
 				flagProtectLockfile:   tc.flagProtectLockfile,
 				flagLockTimeout:       tc.flagLockTimeout,
-				flagMaxRetries:        tc.flagMaxRetries,
-				flagInitialRetryDelay: tc.flagInitialRetryDelay,
-				flagMaxRetryDelay:     tc.flagMaxRetryDelay,
-
+				GitHubFlags: flags.GitHubFlags{
+					FlagGitHubToken:  tc.flagGitHubToken,
+					FlagGitHubAction: tc.flagGitHubAction,
+					FlagGitHubOwner:  tc.flagGitHubOwner,
+					FlagGitHubRepo:   tc.flagGitHubRepo,
+				},
+				RetryFlags: flags.RetryFlags{
+					FlagMaxRetries:        tc.flagMaxRetries,
+					FlagInitialRetryDelay: tc.flagInitialRetryDelay,
+					FlagMaxRetryDelay:     tc.flagMaxRetryDelay,
+				},
 				actions:         actions,
 				githubClient:    githubClient,
 				storageClient:   storageClient,
