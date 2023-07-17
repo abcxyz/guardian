@@ -157,9 +157,11 @@ func (g *GitHubClient) ListIssues(ctx context.Context, owner, repo string, label
 		}
 	}
 
-	var response []*Issue
-	for _, i := range uniqueResponses {
-		response = append(response, i)
+	response := make([]*Issue, len(uniqueResponses))
+	i := 0
+	for _, r := range uniqueResponses {
+		response[i] = r
+		i++
 	}
 
 	return response, nil
