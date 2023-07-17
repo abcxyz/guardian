@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/abcxyz/guardian/pkg/github"
+	githubAPI "github.com/google/go-github/v53/github"
 )
 
 const (
@@ -43,7 +44,7 @@ func createOrUpdateIssue(ctx context.Context, token, owner, repo string, assigne
 	}
 	gh := github.NewClient(ctx, token)
 
-	issues, err := gh.ListIssues(ctx, owner, repo, labels, github.Open)
+	issues, err := gh.ListIssues(ctx, owner, repo, &githubAPI.IssueListByRepoOptions{Labels: labels, State: github.Open})
 	if err != nil {
 		return fmt.Errorf("failed to list GitHub issues for %s/%s: %w", owner, repo, err)
 	}
@@ -72,7 +73,7 @@ func closeIssues(ctx context.Context, token, owner, repo string, labels []string
 		return fmt.Errorf("invalid argument - at least one 'label' must be provided")
 	}
 	gh := github.NewClient(ctx, token)
-	issues, err := gh.ListIssues(ctx, owner, repo, labels, github.Open)
+	issues, err := gh.ListIssues(ctx, owner, repo, &githubAPI.IssueListByRepoOptions{Labels: labels, State: github.Open})
 	if err != nil {
 		return fmt.Errorf("failed to list GitHub issues for %s/%s: %w", owner, repo, err)
 	}

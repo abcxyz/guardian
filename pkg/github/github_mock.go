@@ -41,12 +41,12 @@ type MockGitHubClient struct {
 	ListIssueCommentsErr   error
 }
 
-func (m *MockGitHubClient) ListIssues(ctx context.Context, owner, repo string, labels []string, state string) ([]*Issue, error) {
+func (m *MockGitHubClient) ListIssues(ctx context.Context, owner, repo string, opts *github.IssueListByRepoOptions) ([]*Issue, error) {
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
 	m.Reqs = append(m.Reqs, &Request{
 		Name:   "ListIssues",
-		Params: []any{owner, repo, labels, state},
+		Params: []any{owner, repo, opts},
 	})
 
 	if m.ListIssuesErr != nil {

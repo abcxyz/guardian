@@ -100,6 +100,7 @@ func (c *DetectIamDriftCommand) Flags() *cli.FlagSet {
 		Name:    "github-token",
 		Target:  &c.flagGitHubToken,
 		Usage:   `The github token to use to authenticate to create & manage GitHub Issues.`,
+		EnvVar:  "GITHUB_TOKEN",
 		Default: "",
 	})
 	f.StringVar(&cli.StringVar{
@@ -158,12 +159,12 @@ func (c *DetectIamDriftCommand) Run(ctx context.Context, args []string) error {
 
 	iamDriftDetector, err := NewIAMDriftDetector(ctx, c.flagOrganizationID, c.flagMaxConcurrentRequests)
 	if err != nil {
-		return fmt.Errorf("failed to create iam drift detector %w", err)
+		return fmt.Errorf("failed to create iam drift detector: %w", err)
 	}
 
 	iamDiff, err := iamDriftDetector.DetectDrift(ctx, c.flagGCSBucketQuery, c.flagDriftignoreFile)
 	if err != nil {
-		return fmt.Errorf("failed to detect drift %w", err)
+		return fmt.Errorf("failed to detect drift: %w", err)
 	}
 
 	changesDetected := len(iamDiff.ClickOpsChanges) > 0 || len(iamDiff.MissingTerraformChanges) > 0
@@ -177,11 +178,11 @@ func (c *DetectIamDriftCommand) Run(ctx context.Context, args []string) error {
 	}
 	if changesDetected {
 		if err = createOrUpdateIssue(ctx, c.flagGitHubToken, c.flagGitHubOwner, c.flagGitHubRepo, c.flagGitHubIssueAssignees, c.flagGitHubIssueLabels, m); err != nil {
-			return fmt.Errorf("failed to manage GitHub Issue %w", err)
+			return fmt.Errorf("failed to create or update GitHub Issue: %w", err)
 		}
 	} else {
 		if err = closeIssues(ctx, c.flagGitHubToken, c.flagGitHubOwner, c.flagGitHubRepo, c.flagGitHubIssueLabels); err != nil {
-			return fmt.Errorf("failed to close GitHub Issues %w", err)
+			return fmt.Errorf("failed to close GitHub Issues: %w", err)
 		}
 	}
 
