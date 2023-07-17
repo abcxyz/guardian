@@ -58,7 +58,7 @@ jobs:
           strategy: 'delete'
 
   plan:
-    if: '${{ needs.init.outputs.directories != ''[]'' }}'
+    if: "${{ needs.init.outputs.directories != '[]' }}"
     needs:
       - 'init'
     runs-on: 'ubuntu-latest'
@@ -110,16 +110,15 @@ jobs:
           git config --global url."https://guardian-bot:${{ steps.mint-token.outputs.token }}@github.com".insteadOf "https://github.com"
 
       - name: 'Guardian Plan'
-        shell: 'bash'
         env:
           GITHUB_TOKEN: '${{ github.token }}'
           WORKING_DIRECTORY: './${{ matrix.working_directory }}'
           BUCKET_NAME: '${{ vars.GUARDIAN_BUCKET_NAME }}'
         run: |-
           guardian plan \
-            --github-token=$GITHUB_TOKEN \
-            --working-directory=$WORKING_DIRECTORY \
-            --bucket-name=$BUCKET_NAME
+            --github-token=${GITHUB_TOKEN} \
+            --working-directory=${WORKING_DIRECTORY} \
+            --bucket-name=${BUCKET_NAME}
 
   plan_success:
     if: '${{ always() }}'

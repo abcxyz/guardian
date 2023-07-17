@@ -16,6 +16,7 @@ package plan
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/sethvargo/go-githubactions"
 )
@@ -55,7 +56,7 @@ func (c *Config) MapGitHubContext(context *githubactions.GitHubContext) error {
 		return fmt.Errorf("failed to get pull request number, github.event.number is not a number")
 	}
 
-	c.PullRequestNumber = int(v)
+	c.PullRequestNumber = int(math.Round(v))
 
 	return nil
 }
