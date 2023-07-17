@@ -15,6 +15,7 @@
 package storage
 
 import (
+	"compress/gzip"
 	"context"
 	"errors"
 	"fmt"
@@ -127,18 +128,29 @@ func (s *GoogleCloudStorage) UploadObject(ctx context.Context, bucket, name stri
 		o = o.If(storage.Conditions{DoesNotExist: true})
 	}
 
-	writer := o.NewWriter(ctx)
+	gcsWriter := o.NewWriter(ctx)
 	defer func() {
-		if closeErr := writer.Close(); closeErr != nil {
-			merr = errors.Join(merr, fmt.Errorf("failed to close writer: %w", closeErr))
+		if closeErr := gcsWriter.Close(); closeErr != nil {
+			merr = errors.Join(merr, fmt.Errorf("failed to close gcs writer: %w", closeErr))
 		}
 	}()
 
-	writer.CacheControl = cfg.cacheControl
-	writer.ChunkSize = cfg.chunkSize
+	gcsWriter.CacheControl = cfg.cacheControl
+	gcsWriter.ChunkSize = cfg.chunkSize
 
+	// Per https://cloud.google.com/storage/docs/transcoding#good_practices:
+	//
+	// When uploading a gzip-compressed object, the recommended way to set your
+	// metadata is to specify both the Content-Type and Content-Encoding.
+	// Alternatively, you can upload the object with the Content-Type set to
+	// indicate compression and NO Content-Encoding at all. In this case the only
+	// thing immediately known about the object is that it is gzip-compressed,
+	// with no information regarding the underlying object type.
 	if cfg.contentType != "" {
-		writer.ContentType = cfg.contentType
+		gcsWriter.ContentType = cfg.contentType
+		gcsWriter.ContentEncoding = "gzip"
+	} else {
+		gcsWriter.ContentType = "application/gzip"
 	}
 
 	if cfg.metadata != nil {
@@ -148,10 +160,17 @@ func (s *GoogleCloudStorage) UploadObject(ctx context.Context, bucket, name stri
 			m[k] = v
 		}
 
-		writer.Metadata = m
+		gcsWriter.Metadata = m
 	}
 
-	if _, err := writer.Write(contents); err != nil {
+	gzipWriter := gzip.NewWriter(gcsWriter)
+	defer func() {
+		if closeErr := gzipWriter.Close(); closeErr != nil {
+			merr = errors.Join(merr, fmt.Errorf("failed to close gzip writer: %w", closeErr))
+		}
+	}()
+
+	if _, err := gzipWriter.Write(contents); err != nil {
 		merr = errors.Join(merr, fmt.Errorf("failed to write data: %w", err))
 	}
 
