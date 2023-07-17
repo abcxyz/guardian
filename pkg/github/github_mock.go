@@ -131,7 +131,7 @@ func (m *MockGitHubClient) DeleteIssueComment(ctx context.Context, owner, repo s
 	return nil
 }
 
-func (m *MockGitHubClient) ListIssueComments(ctx context.Context, owner, repo string, number int, opts *github.IssueListCommentsOptions) ([]*int64, error) {
+func (m *MockGitHubClient) ListIssueComments(ctx context.Context, owner, repo string, number int, opts *github.IssueListCommentsOptions) ([]*IssueComment, error) {
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
 	m.Reqs = append(m.Reqs, &Request{
@@ -143,5 +143,5 @@ func (m *MockGitHubClient) ListIssueComments(ctx context.Context, owner, repo st
 		return nil, m.ListIssueCommentsErr
 	}
 
-	return []*int64{}, nil
+	return []*IssueComment{}, nil
 }

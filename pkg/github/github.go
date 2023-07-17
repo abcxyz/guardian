@@ -40,6 +40,15 @@ type Config struct {
 	maxRetryDelay     time.Duration
 }
 
+// Issue is the GitHub Issue.
+type Issue struct {
+	Number *int
+}
+
+type IssueComment struct {
+	ID *int64
+}
+
 var (
 	Closed = "closed"
 	Open   = "open"
@@ -67,7 +76,7 @@ type GitHub interface {
 	DeleteIssueComment(ctx context.Context, owner, repo string, id int64) error
 
 	// ListIssueComments lists existing comments for an issue or pull request.
-	ListIssueComments(ctx context.Context, owner, repo string, number int, opts *github.IssueListCommentsOptions) ([]*int64, error)
+	ListIssueComments(ctx context.Context, owner, repo string, number int, opts *github.IssueListCommentsOptions) ([]*IssueComment, error)
 }
 
 var _ GitHub = (*GitHubClient)(nil)
@@ -106,10 +115,6 @@ func NewClient(ctx context.Context, token string, opts ...Option) *GitHubClient 
 	}
 
 	return g
-}
-
-type Issue struct {
-	Number *int
 }
 
 // ListIssues lists all issues and returns their numbers in a repository matching the given criteria.
@@ -201,10 +206,6 @@ func (g *GitHubClient) CloseIssue(ctx context.Context, owner, repo string, numbe
 	return nil
 }
 
-type IssueComment struct {
-	ID *int64
-}
-
 // CreateIssueComment creates a comment for an issue or pull request.
 func (g *GitHubClient) CreateIssueComment(ctx context.Context, owner, repo string, number int, body string) (*IssueComment, error) {
 	backoff := retry.NewFibonacci(g.cfg.initialRetryDelay)
@@ -282,12 +283,12 @@ func (g *GitHubClient) DeleteIssueComment(ctx context.Context, owner, repo strin
 }
 
 // ListIssueComments lists existing comments for an issue or pull request.
-func (g *GitHubClient) ListIssueComments(ctx context.Context, owner, repo string, number int, opts *github.IssueListCommentsOptions) ([]*int64, error) {
+func (g *GitHubClient) ListIssueComments(ctx context.Context, owner, repo string, number int, opts *github.IssueListCommentsOptions) ([]*IssueComment, error) {
 	backoff := retry.NewFibonacci(g.cfg.initialRetryDelay)
 	backoff = retry.WithMaxRetries(g.cfg.maxRetries, backoff)
 	backoff = retry.WithCappedDuration(g.cfg.maxRetryDelay, backoff)
 
-	var commentsResponse []*int64
+	var commentsResponse []*IssueComment
 
 	if err := retry.Do(ctx, backoff, func(ctx context.Context) error {
 		comments, resp, err := g.client.Issues.ListComments(ctx, owner, repo, number, opts)
@@ -299,7 +300,7 @@ func (g *GitHubClient) ListIssueComments(ctx context.Context, owner, repo string
 		}
 
 		for _, c := range comments {
-			commentsResponse = append(commentsResponse, c.ID)
+			commentsResponse = append(commentsResponse, &IssueComment{ID: c.ID})
 		}
 
 		return nil
