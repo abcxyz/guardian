@@ -67,7 +67,6 @@ func (c *DetectIamDriftCommand) Flags() *cli.FlagSet {
 		Target:  &c.flagOrganizationID,
 		Example: "123435456456",
 		Usage:   `The Google Cloud organization ID for which to detect drift.`,
-		Default: "",
 	})
 	f.StringVar(&cli.StringVar{
 		Name:    "gcs-bucket-query",
@@ -97,31 +96,27 @@ func (c *DetectIamDriftCommand) Flags() *cli.FlagSet {
 		Default: false,
 	})
 	f.StringVar(&cli.StringVar{
-		Name:    "github-token",
-		Target:  &c.flagGitHubToken,
-		Usage:   `The github token to use to authenticate to create & manage GitHub Issues.`,
-		EnvVar:  "GITHUB_TOKEN",
-		Default: "",
+		Name:   "github-token",
+		Target: &c.flagGitHubToken,
+		Usage:  `The github token to use to authenticate to create & manage GitHub Issues.`,
+		EnvVar: "GITHUB_TOKEN",
 	})
 	f.StringVar(&cli.StringVar{
-		Name:    "github-owner",
-		Target:  &c.flagGitHubOwner,
-		Usage:   `The github token to use to authenticate to create & manage GitHub Issues.`,
-		Default: "",
+		Name:   "github-owner",
+		Target: &c.flagGitHubOwner,
+		Usage:  `The github token to use to authenticate to create & manage GitHub Issues.`,
 	})
 	f.StringVar(&cli.StringVar{
 		Name:    "github-repo",
 		Target:  &c.flagGitHubRepo,
 		Example: "guardian",
 		Usage:   `The github token to use to authenticate to create & manage GitHub Issues.`,
-		Default: "",
 	})
 	f.StringSliceVar(&cli.StringSliceVar{
 		Name:    "github-issue-assignees",
 		Target:  &c.flagGitHubIssueAssignees,
 		Example: "dcreey",
 		Usage:   `The assignees to assign to for any created GitHub Issues.`,
-		Default: []string{},
 	})
 	f.StringSliceVar(&cli.StringSliceVar{
 		Name:    "github-issue-labels",
@@ -177,22 +172,14 @@ func (c *DetectIamDriftCommand) Run(ctx context.Context, args []string) error {
 		return nil
 	}
 	if changesDetected {
-		if err = createOrUpdateIssue(ctx, c.flagGitHubToken, c.flagGitHubOwner, c.flagGitHubRepo, c.flagGitHubIssueAssignees, c.flagGitHubIssueLabels, m); err != nil {
+		if err := createOrUpdateIssue(ctx, c.flagGitHubToken, c.flagGitHubOwner, c.flagGitHubRepo, c.flagGitHubIssueAssignees, c.flagGitHubIssueLabels, m); err != nil {
 			return fmt.Errorf("failed to create or update GitHub Issue: %w", err)
 		}
 	} else {
-		if err = closeIssues(ctx, c.flagGitHubToken, c.flagGitHubOwner, c.flagGitHubRepo, c.flagGitHubIssueLabels); err != nil {
+		if err := closeIssues(ctx, c.flagGitHubToken, c.flagGitHubOwner, c.flagGitHubRepo, c.flagGitHubIssueLabels); err != nil {
 			return fmt.Errorf("failed to close GitHub Issues: %w", err)
 		}
 	}
 
 	return nil
-}
-
-func keys(m map[string]struct{}) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	return keys
 }

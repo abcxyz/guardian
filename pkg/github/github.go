@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/abcxyz/guardian/pkg/util"
 	"github.com/google/go-github/v53/github"
 	"github.com/sethvargo/go-retry"
 	"golang.org/x/oauth2"
@@ -49,7 +50,7 @@ type IssueComment struct {
 	ID int64
 }
 
-var (
+const (
 	Closed = "closed"
 	Open   = "open"
 	Any    = "any"
@@ -150,11 +151,9 @@ func (g *GitHubClient) ListIssues(ctx context.Context, owner, repo string, opts 
 		}
 	}
 
-	response := make([]*Issue, len(uniqueResponses))
-	i := 0
+	response := make([]*Issue, 0, len(uniqueResponses))
 	for _, r := range uniqueResponses {
-		response[i] = r
-		i++
+		response = append(response, r)
 	}
 
 	return response, nil
@@ -200,7 +199,7 @@ func (g *GitHubClient) CreateIssue(ctx context.Context, owner, repo, title, body
 // CloseIssue closes an issue.
 func (g *GitHubClient) CloseIssue(ctx context.Context, owner, repo string, number int) error {
 	if err := g.withRetries(ctx, func(ctx context.Context) error {
-		_, resp, err := g.client.Issues.Edit(ctx, owner, repo, number, &github.IssueRequest{State: &Closed})
+		_, resp, err := g.client.Issues.Edit(ctx, owner, repo, number, &github.IssueRequest{State: util.Ptr(Closed)})
 		if err != nil {
 			if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
 				return retry.RetryableError(err)
@@ -306,7 +305,7 @@ func (g *GitHubClient) ListIssueComments(ctx context.Context, owner, repo string
 	return commentsResponse, nil
 }
 
-func (g *GitHubClient) withRetries(ctx context.Context, retryFunc func(ctx context.Context) error) error {
+func (g *GitHubClient) withRetries(ctx context.Context, retryFunc retry.RetryFunc) error {
 	backoff := retry.NewFibonacci(g.cfg.initialRetryDelay)
 	backoff = retry.WithMaxRetries(g.cfg.maxRetries, backoff)
 	backoff = retry.WithCappedDuration(g.cfg.maxRetryDelay, backoff)

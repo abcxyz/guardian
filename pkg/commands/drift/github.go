@@ -44,7 +44,10 @@ func createOrUpdateIssue(ctx context.Context, token, owner, repo string, assigne
 	}
 	gh := github.NewClient(ctx, token)
 
-	issues, err := gh.ListIssues(ctx, owner, repo, &githubAPI.IssueListByRepoOptions{Labels: labels, State: github.Open})
+	issues, err := gh.ListIssues(ctx, owner, repo, &githubAPI.IssueListByRepoOptions{
+		Labels: labels,
+		State:  github.Open,
+	})
 	if err != nil {
 		return fmt.Errorf("failed to list GitHub issues for %s/%s: %w", owner, repo, err)
 	}
@@ -60,7 +63,7 @@ func createOrUpdateIssue(ctx context.Context, token, owner, repo string, assigne
 		issueNumber = issues[0].Number
 	}
 
-	if _, err = gh.CreateIssueComment(ctx, owner, repo, issueNumber, message); err != nil {
+	if _, err := gh.CreateIssueComment(ctx, owner, repo, issueNumber, message); err != nil {
 		return fmt.Errorf("failed to comment on issue %s/%s %d: %w", owner, repo, issueNumber, err)
 	}
 
@@ -73,15 +76,18 @@ func closeIssues(ctx context.Context, token, owner, repo string, labels []string
 		return fmt.Errorf("invalid argument - at least one 'label' must be provided")
 	}
 	gh := github.NewClient(ctx, token)
-	issues, err := gh.ListIssues(ctx, owner, repo, &githubAPI.IssueListByRepoOptions{Labels: labels, State: github.Open})
+	issues, err := gh.ListIssues(ctx, owner, repo, &githubAPI.IssueListByRepoOptions{
+		Labels: labels,
+		State:  github.Open,
+	})
 	if err != nil {
 		return fmt.Errorf("failed to list GitHub issues for %s/%s: %w", owner, repo, err)
 	}
 	for _, issueToClose := range issues {
-		if _, err = gh.CreateIssueComment(ctx, owner, repo, issueToClose.Number, "Drift Resolved."); err != nil {
+		if _, err := gh.CreateIssueComment(ctx, owner, repo, issueToClose.Number, "Drift Resolved."); err != nil {
 			return fmt.Errorf("failed to comment on issue %s/%s %d: %w", owner, repo, issueToClose.Number, err)
 		}
-		if err = gh.CloseIssue(ctx, owner, repo, issueToClose.Number); err != nil {
+		if err := gh.CloseIssue(ctx, owner, repo, issueToClose.Number); err != nil {
 			return fmt.Errorf("failed to close GitHub issue for %s/%s %d: %w", owner, repo, issueToClose.Number, err)
 		}
 	}
@@ -92,7 +98,6 @@ func driftMessage(drift *IAMDrift) string {
 	var msg strings.Builder
 	if len(drift.ClickOpsChanges) > 0 {
 		uris := keys(drift.ClickOpsChanges)
-		sort.Strings(uris)
 		msg.WriteString(fmt.Sprintf("Found Click Ops Changes \n> %s", strings.Join(uris, "\n> ")))
 		if len(drift.MissingTerraformChanges) > 0 {
 			msg.WriteString("\n\n")
@@ -100,8 +105,17 @@ func driftMessage(drift *IAMDrift) string {
 	}
 	if len(drift.MissingTerraformChanges) > 0 {
 		uris := keys(drift.MissingTerraformChanges)
-		sort.Strings(uris)
 		msg.WriteString(fmt.Sprintf("Found Missing Terraform Changes \n> %s", strings.Join(uris, "\n> ")))
 	}
 	return msg.String()
+}
+
+// keys returns the sorted keys in the map.
+func keys(m map[string]struct{}) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
