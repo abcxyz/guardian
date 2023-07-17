@@ -32,8 +32,8 @@ func TestValidateArgsFromOptions(t *testing.T) {
 		{
 			name: "truthy",
 			opts: &ValidateOptions{
-				NoColor: util.Ptr[bool](true),
-				JSON:    util.Ptr[bool](true),
+				NoColor: util.Ptr(true),
+				JSON:    util.Ptr(true),
 			},
 			exp: []string{
 				"validate",
@@ -44,8 +44,8 @@ func TestValidateArgsFromOptions(t *testing.T) {
 		{
 			name: "falsey",
 			opts: &ValidateOptions{
-				NoColor: util.Ptr[bool](false),
-				JSON:    util.Ptr[bool](false),
+				NoColor: util.Ptr(false),
+				JSON:    util.Ptr(false),
 			},
 			exp: []string{"validate"},
 		},

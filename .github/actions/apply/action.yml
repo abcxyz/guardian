@@ -184,7 +184,7 @@ runs:
             owner: context.repo.owner,
             repo: context.repo.repo,
             issue_number: process.env.PR_NUMBER,
-            body: `**\`🔱 Guardian 🔱\`** - 🟨 **\`APPLY\`** Running for dir: \`${process.env.WORKING_DIRECTORY}\` [[logs](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}/attempts/${process.env.GITHUB_RUN_ATTEMPT})]`,
+            body: `**\`🔱 Guardian 🔱 APPLY\`** - 🟨 Running for dir: \`${process.env.WORKING_DIRECTORY}\` [[logs](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}/attempts/${process.env.GITHUB_RUN_ATTEMPT})]`,
           });
 
           return prComment.id;
@@ -370,7 +370,7 @@ runs:
             owner: context.repo.owner,
             repo: context.repo.repo,
             comment_id: process.env.COMMENT_ID,
-            body: `**\`🔱 Guardian 🔱\`** - 🟥 **\`APPLY\`** Failed for dir: \`${process.env.WORKING_DIRECTORY}\` [[logs](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}/attempts/${process.env.GITHUB_RUN_ATTEMPT})]\n
+            body: `**\`🔱 Guardian 🔱 APPLY\`** - 🟥 Failed for dir: \`${process.env.WORKING_DIRECTORY}\` [[logs](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}/attempts/${process.env.GITHUB_RUN_ATTEMPT})]\n
           <details>
           <summary>Details</summary>\n
           \`\`\`diff\n
@@ -400,7 +400,7 @@ runs:
             owner: context.repo.owner,
             repo: context.repo.repo,
             comment_id: process.env.COMMENT_ID,
-            body: `**\`🔱 Guardian 🔱\`** - 🟩 **\`APPLY\`** Successful for dir: \`${process.env.WORKING_DIRECTORY}\` [[logs](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}/attempts/${process.env.GITHUB_RUN_ATTEMPT})]
+            body: `**\`🔱 Guardian 🔱 APPLY\`** - 🟩 Successful for dir: \`${process.env.WORKING_DIRECTORY}\` [[logs](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}/attempts/${process.env.GITHUB_RUN_ATTEMPT})]
 
           <details>
           <summary>Details</summary>\n

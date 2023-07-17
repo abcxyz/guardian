@@ -32,12 +32,12 @@ func TestInitArgsFromOptions(t *testing.T) {
 		{
 			name: "truthy",
 			opts: &InitOptions{
-				Backend:     util.Ptr[bool](true),
-				Lock:        util.Ptr[bool](true),
-				LockTimeout: util.Ptr[string]("10m"),
-				Lockfile:    util.Ptr[string]("readonly"),
-				Input:       util.Ptr[bool](true),
-				NoColor:     util.Ptr[bool](true),
+				Backend:     util.Ptr(true),
+				Lock:        util.Ptr(true),
+				LockTimeout: util.Ptr("10m"),
+				Lockfile:    util.Ptr("readonly"),
+				Input:       util.Ptr(true),
+				NoColor:     util.Ptr(true),
 			},
 			exp: []string{
 				"init",
@@ -52,12 +52,12 @@ func TestInitArgsFromOptions(t *testing.T) {
 		{
 			name: "falsey",
 			opts: &InitOptions{
-				Backend:     util.Ptr[bool](false),
-				Lock:        util.Ptr[bool](false),
-				LockTimeout: util.Ptr[string]("10m"),
-				Lockfile:    util.Ptr[string]("readonly"),
-				Input:       util.Ptr[bool](false),
-				NoColor:     util.Ptr[bool](false),
+				Backend:     util.Ptr(false),
+				Lock:        util.Ptr(false),
+				LockTimeout: util.Ptr("10m"),
+				Lockfile:    util.Ptr("readonly"),
+				Input:       util.Ptr(false),
+				NoColor:     util.Ptr(false),
 			},
 			exp: []string{
 				"init",

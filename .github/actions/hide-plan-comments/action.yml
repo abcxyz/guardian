@@ -44,7 +44,7 @@ runs:
               .filter(
                 (comment) =>
                   comment.user.login == "github-actions[bot]" &&
-                  comment.body.match(/^\*\*\`🔱 Guardian 🔱\`\*\*(.*)\*\*\`PLAN\`\*\* /g)
+                  comment.body.match(/^\*\*\`🔱 Guardian 🔱 PLAN\`\*\* -(.*)/g)
               )
               .map(async (comment) => {
                 await github.rest.issues.deleteComment({
