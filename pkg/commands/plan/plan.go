@@ -72,7 +72,7 @@ func (c *PlanCommand) Process(ctx context.Context) error {
 			ctx,
 			c.cfg.RepositoryOwner,
 			c.cfg.RepositoryName,
-			*startComment.ID,
+			startComment.ID,
 			comment.String(),
 		); commentErr != nil {
 			merr = errors.Join(merr, fmt.Errorf("failed to create plan error comment: %w", commentErr))
@@ -95,7 +95,7 @@ func (c *PlanCommand) Process(ctx context.Context) error {
 			ctx,
 			c.cfg.RepositoryOwner,
 			c.cfg.RepositoryName,
-			*startComment.ID,
+			startComment.ID,
 			comment.String(),
 		); commentErr != nil {
 			merr = errors.Join(merr, fmt.Errorf("failed to create plan comment: %w", commentErr))
@@ -108,7 +108,7 @@ func (c *PlanCommand) Process(ctx context.Context) error {
 		ctx,
 		c.cfg.RepositoryOwner,
 		c.cfg.RepositoryName,
-		*startComment.ID,
+		startComment.ID,
 		fmt.Sprintf("%s 🟦 No changes for dir: `%s` %s", planCommentPrefix, c.flagWorkingDirectory, logURL),
 	); err != nil {
 		merr = errors.Join(merr, fmt.Errorf("failed to update plan comment: %w", err))

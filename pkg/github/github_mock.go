@@ -18,7 +18,6 @@ import (
 	"context"
 	"sync"
 
-	"github.com/abcxyz/guardian/pkg/util"
 	"github.com/google/go-github/v53/github"
 )
 
@@ -68,7 +67,7 @@ func (m *MockGitHubClient) CreateIssue(ctx context.Context, owner, repo, title, 
 		return nil, m.CreateIssueErr
 	}
 
-	return &Issue{Number: util.Ptr(1)}, nil
+	return &Issue{Number: 1}, nil
 }
 
 func (m *MockGitHubClient) CloseIssue(ctx context.Context, owner, repo string, number int) error {
@@ -98,7 +97,7 @@ func (m *MockGitHubClient) CreateIssueComment(ctx context.Context, owner, repo s
 		return nil, m.CreateIssueCommentsErr
 	}
 
-	return &IssueComment{ID: util.Ptr(int64(1))}, nil
+	return &IssueComment{ID: int64(1)}, nil
 }
 
 func (m *MockGitHubClient) UpdateIssueComment(ctx context.Context, owner, repo string, id int64, body string) error {

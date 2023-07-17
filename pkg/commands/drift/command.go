@@ -166,14 +166,22 @@ func (c *DetectIamDriftCommand) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("failed to detect drift %w", err)
 	}
 
-	if len(iamDiff.ClickOpsChanges) > 0 || len(iamDiff.MissingTerraformChanges) > 0 {
-		c.Outf(driftMessage(iamDiff))
+	changesDetected := len(iamDiff.ClickOpsChanges) > 0 || len(iamDiff.MissingTerraformChanges) > 0
+	m := driftMessage(iamDiff)
+	if changesDetected {
+		c.Outf(m)
 	}
 
-	if !c.flagSkipGitHubIssue {
-		err = createUpdateOrCloseIssues(ctx, c.flagGitHubToken, c.flagGitHubOwner, c.flagGitHubRepo, c.flagGitHubIssueAssignees, c.flagGitHubIssueLabels, iamDiff)
-		if err != nil {
+	if c.flagSkipGitHubIssue {
+		return nil
+	}
+	if changesDetected {
+		if err = createOrUpdateIssue(ctx, c.flagGitHubToken, c.flagGitHubOwner, c.flagGitHubRepo, c.flagGitHubIssueAssignees, c.flagGitHubIssueLabels, m); err != nil {
 			return fmt.Errorf("failed to manage GitHub Issue %w", err)
+		}
+	} else {
+		if err = closeIssues(ctx, c.flagGitHubToken, c.flagGitHubOwner, c.flagGitHubRepo, c.flagGitHubIssueLabels); err != nil {
+			return fmt.Errorf("failed to close GitHub Issues %w", err)
 		}
 	}
 

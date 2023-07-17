@@ -42,11 +42,11 @@ type Config struct {
 
 // Issue is the GitHub Issue.
 type Issue struct {
-	Number *int
+	Number int
 }
 
 type IssueComment struct {
-	ID *int64
+	ID int64
 }
 
 var (
@@ -123,27 +123,43 @@ func (g *GitHubClient) ListIssues(ctx context.Context, owner, repo string, label
 	backoff = retry.WithMaxRetries(g.cfg.maxRetries, backoff)
 	backoff = retry.WithCappedDuration(g.cfg.maxRetryDelay, backoff)
 
-	var response []*Issue
+	var uniqueResponses map[int]*Issue
+	var page *int // Use nil to indicate start of request.
 
-	if err := retry.Do(ctx, backoff, func(ctx context.Context) error {
-		issues, resp, err := g.client.Issues.ListByRepo(ctx, owner, repo, &github.IssueListByRepoOptions{
-			Labels: labels,
-			State:  state,
-		})
-		if err != nil {
-			if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
-				return retry.RetryableError(err)
+	pageStart := func(i *int) bool { return i == nil }
+	pageEnd := func(i *int) bool { return *i == 0 }
+
+	for pageStart(page) || !pageEnd(page) {
+		if err := retry.Do(ctx, backoff, func(ctx context.Context) error {
+			opt := &github.IssueListByRepoOptions{
+				Labels: labels,
+				State:  state,
+			}
+			if page != nil {
+				opt.Page = *page
+			}
+			issues, resp, err := g.client.Issues.ListByRepo(ctx, owner, repo, opt)
+			if err != nil {
+				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
+					return retry.RetryableError(err)
+				}
+
+				return fmt.Errorf("failed to list issues: %w", err)
 			}
 
-			return fmt.Errorf("failed to list issues: %w", err)
+			for _, i := range issues {
+				uniqueResponses[*i.Number] = &Issue{Number: *i.Number}
+			}
+			page = &resp.NextPage
+			return nil
+		}); err != nil {
+			return nil, fmt.Errorf("failed to list issues after retries: %w", err)
 		}
+	}
 
-		for _, i := range issues {
-			response = append(response, &Issue{Number: i.Number})
-		}
-		return nil
-	}); err != nil {
-		return nil, fmt.Errorf("failed to list issues after retries: %w", err)
+	var response []*Issue
+	for _, i := range uniqueResponses {
+		response = append(response, i)
 	}
 
 	return response, nil
@@ -161,22 +177,22 @@ func (g *GitHubClient) CreateIssue(ctx context.Context, owner, repo, title, body
 		issue, resp, err := g.client.Issues.Create(ctx, owner, repo, &github.IssueRequest{
 			Title:     &title,
 			Body:      &body,
-			Labels:    &labels,
 			Assignees: &assignees,
+			Labels:    &labels,
 		})
 		if err != nil {
 			if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
 				return retry.RetryableError(err)
 			}
 
-			return fmt.Errorf("failed to create pull request comment: %w", err)
+			return fmt.Errorf("failed to create issue: %w", err)
 		}
 
-		response = &Issue{Number: issue.Number}
+		response = &Issue{Number: *issue.Number}
 
 		return nil
 	}); err != nil {
-		return nil, fmt.Errorf("failed to create pull request comment: %w", err)
+		return nil, fmt.Errorf("failed to create issue with retries: %w", err)
 	}
 
 	return response, nil
@@ -195,12 +211,12 @@ func (g *GitHubClient) CloseIssue(ctx context.Context, owner, repo string, numbe
 				return retry.RetryableError(err)
 			}
 
-			return fmt.Errorf("failed to create pull request comment: %w", err)
+			return fmt.Errorf("failed to close issue: %w", err)
 		}
 
 		return nil
 	}); err != nil {
-		return fmt.Errorf("failed to create pull request comment: %w", err)
+		return fmt.Errorf("failed to close issue with retries: %w", err)
 	}
 
 	return nil
@@ -223,12 +239,12 @@ func (g *GitHubClient) CreateIssueComment(ctx context.Context, owner, repo strin
 				return retry.RetryableError(err)
 			}
 
-			return fmt.Errorf("failed to create pull request comment: %w", err)
+			return fmt.Errorf("failed to create pull-request/issue comment: %w", err)
 		}
-		response = &IssueComment{ID: comment.ID}
+		response = &IssueComment{ID: *comment.ID}
 		return nil
 	}); err != nil {
-		return nil, fmt.Errorf("failed to create pull request comment: %w", err)
+		return nil, fmt.Errorf("failed to create pull-request/issue comment with retries: %w", err)
 	}
 
 	return response, nil
@@ -300,7 +316,7 @@ func (g *GitHubClient) ListIssueComments(ctx context.Context, owner, repo string
 		}
 
 		for _, c := range comments {
-			commentsResponse = append(commentsResponse, &IssueComment{ID: c.ID})
+			commentsResponse = append(commentsResponse, &IssueComment{ID: *c.ID})
 		}
 
 		return nil
