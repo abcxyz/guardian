@@ -178,7 +178,7 @@ func (g *GitHubClient) CreateIssue(ctx context.Context, owner, repo, title, body
 	}
 
 	if err := g.withRetries(ctx, func(ctx context.Context) error {
-		issue, resp, err := g.client.Issues.Create(ctx, owner, repo)
+		issue, resp, err := g.client.Issues.Create(ctx, owner, repo, req)
 		if err != nil {
 			if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
 				return retry.RetryableError(err)
@@ -311,5 +311,8 @@ func (g *GitHubClient) withRetries(ctx context.Context, retryFunc func(ctx conte
 	backoff = retry.WithMaxRetries(g.cfg.maxRetries, backoff)
 	backoff = retry.WithCappedDuration(g.cfg.maxRetryDelay, backoff)
 
-	return retry.Do(ctx, backoff, retryFunc)
+	if err := retry.Do(ctx, backoff, retryFunc); err != nil {
+		return fmt.Errorf("failed to execute retriable function: %w", err)
+	}
+	return nil
 }
