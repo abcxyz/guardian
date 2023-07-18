@@ -31,11 +31,15 @@ inputs:
     default: 'labels:terraform'
     required: false
   issue_assignees:
-    description: 'The assignees to use on the created github issue.'
+    description: 'A comma delimited list of assignees to assign the created github issue.'
+    default: ''
+    required: false
+  issue_mentions:
+    description: 'A comma delimited list of people or teams to mention in created github issue comment.'
     default: ''
     required: false
   issue_labels:
-    description: 'The label to use on the created github issue. This will be used to discover previously created issues and manage them.'
+    description: 'A comma delimited list of labels to use on the created github issue. This will be used to discover previously created issues and manage them.'
     default: 'guardian-iam-drift'
     required: false
   guardian_cli_version:
@@ -69,11 +73,15 @@ runs:
         GITHUB_OWNER: '${{ github.repository_owner }}'
         GITHUB_REPO: '${{ github.event.repository.name }}'
         ISSUE_ASSIGNEES: '${{ inputs.issue_assignees }}'
+        ISSUE_MENTIONS: '${{ inputs.issue_mentions }}'
         ISSUE_LABELS: '${{ inputs.issue_labels }}'
       run: |
         EXTRA_ARGS=()
         if [[ "$ISSUE_ASSIGNEES" != "" ]]; then
             EXTRA_ARGS+=(-github-issue-assignees="$ISSUE_ASSIGNEES")
+        fi
+        if [[ "$ISSUE_MENTIONS" != "" ]]; then
+            EXTRA_ARGS+=(-github-issue-mentions="$ISSUE_MENTIONS")
         fi
         DRIFTIGNORE_FILE="$(pwd)/.driftignore"
         diff_snippet="$(guardian detect-iam-drift \

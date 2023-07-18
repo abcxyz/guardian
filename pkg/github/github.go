@@ -120,12 +120,12 @@ func NewClient(ctx context.Context, token string, opts ...Option) *GitHubClient 
 
 // ListIssues lists all issues and returns their numbers in a repository matching the given criteria.
 func (g *GitHubClient) ListIssues(ctx context.Context, owner, repo string, opts *github.IssueListByRepoOptions) ([]*Issue, error) {
-	var uniqueResponses map[int]*Issue
-	var page *int // Use nil to indicate start of request.
-
 	pageStart := func(i *int) bool { return i == nil }
 	pageEnd := func(i *int) bool { return *i == 0 }
+	uniqueResponses := make(map[int]*Issue)
 	opt := *opts
+
+	var page *int // Use nil to indicate start of request.
 
 	for pageStart(page) || !pageEnd(page) {
 		if err := g.withRetries(ctx, func(ctx context.Context) error {

@@ -42,6 +42,7 @@ type DetectIamDriftCommand struct {
 	flagGitHubRepo            string
 	flagGitHubIssueLabels     []string
 	flagGitHubIssueAssignees  []string
+	flagGitHubIssueMentions   []string
 }
 
 func (c *DetectIamDriftCommand) Desc() string {
@@ -119,6 +120,12 @@ func (c *DetectIamDriftCommand) Flags() *cli.FlagSet {
 		Usage:   `The assignees to assign to for any created GitHub Issues.`,
 	})
 	f.StringSliceVar(&cli.StringSliceVar{
+		Name:    "github-issue-mentions",
+		Target:  &c.flagGitHubIssueMentions,
+		Example: "dcreey, my-org/my-team",
+		Usage:   `The people or teams to mention on any new drift comments.`,
+	})
+	f.StringSliceVar(&cli.StringSliceVar{
 		Name:    "github-issue-labels",
 		Target:  &c.flagGitHubIssueLabels,
 		Example: "guardian-iam-drift",
@@ -172,7 +179,7 @@ func (c *DetectIamDriftCommand) Run(ctx context.Context, args []string) error {
 		return nil
 	}
 	if changesDetected {
-		if err := createOrUpdateIssue(ctx, c.flagGitHubToken, c.flagGitHubOwner, c.flagGitHubRepo, c.flagGitHubIssueAssignees, c.flagGitHubIssueLabels, m); err != nil {
+		if err := createOrUpdateIssue(ctx, c.flagGitHubToken, c.flagGitHubOwner, c.flagGitHubRepo, c.flagGitHubIssueAssignees, c.flagGitHubIssueMentions, c.flagGitHubIssueLabels, m); err != nil {
 			return fmt.Errorf("failed to create or update GitHub Issue: %w", err)
 		}
 	} else {
