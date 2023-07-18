@@ -37,7 +37,7 @@ const (
         Re-run drift detection manually once complete to verify all diffs are properly resolved.`
 )
 
-func createOrUpdateIssue(ctx context.Context, token, owner, repo string, assignees, mentions, labels []string, message string) error {
+func createOrUpdateIssue(ctx context.Context, token, owner, repo string, assignees, labels []string, message string) error {
 	// Labels are used to uniquely identify Drift issues.
 	if len(labels) == 0 {
 		return fmt.Errorf("invalid argument - at least one 'label' must be provided")
@@ -63,13 +63,7 @@ func createOrUpdateIssue(ctx context.Context, token, owner, repo string, assigne
 		issueNumber = issues[0].Number
 	}
 
-	messageParts := []string{message}
-	for _, v := range mentions {
-		messageParts = append(messageParts, fmt.Sprintf("@%s", v))
-	}
-	commentBody := strings.Join(messageParts, "\n")
-
-	if _, err := gh.CreateIssueComment(ctx, owner, repo, issueNumber, commentBody); err != nil {
+	if _, err := gh.CreateIssueComment(ctx, owner, repo, issueNumber, message); err != nil {
 		return fmt.Errorf("failed to comment on issue %s/%s %d: %w", owner, repo, issueNumber, err)
 	}
 
