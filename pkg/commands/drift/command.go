@@ -17,6 +17,7 @@ package drift
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
@@ -32,16 +33,17 @@ type DetectIamDriftCommand struct {
 	// testFlagSetOpts is only used for testing.
 	testFlagSetOpts []cli.Option
 
-	flagOrganizationID        string
-	flagGCSBucketQuery        string
-	flagDriftignoreFile       string
-	flagMaxConcurrentRequests int64
-	flagSkipGitHubIssue       bool
-	flagGitHubToken           string
-	flagGitHubOwner           string
-	flagGitHubRepo            string
-	flagGitHubIssueLabels     []string
-	flagGitHubIssueAssignees  []string
+	flagOrganizationID             string
+	flagGCSBucketQuery             string
+	flagDriftignoreFile            string
+	flagMaxConcurrentRequests      int64
+	flagSkipGitHubIssue            bool
+	flagGitHubToken                string
+	flagGitHubOwner                string
+	flagGitHubRepo                 string
+	flagGitHubIssueLabels          []string
+	flagGitHubIssueAssignees       []string
+	flagGitHubCommentMessageAppend string
 }
 
 func (c *DetectIamDriftCommand) Desc() string {
@@ -125,6 +127,12 @@ func (c *DetectIamDriftCommand) Flags() *cli.FlagSet {
 		Usage:   `The labels to use on any created GitHub Issues.`,
 		Default: []string{"guardian-iam-drift"},
 	})
+	f.StringVar(&cli.StringVar{
+		Name:    "github-comment-message-append",
+		Target:  &c.flagGitHubCommentMessageAppend,
+		Example: "@dcreey, @my-org/my-team",
+		Usage:   `Any arbitrary string message to append to the drift GitHub comment.`,
+	})
 
 	return set
 }
@@ -170,6 +178,9 @@ func (c *DetectIamDriftCommand) Run(ctx context.Context, args []string) error {
 
 	if c.flagSkipGitHubIssue {
 		return nil
+	}
+	if c.flagGitHubCommentMessageAppend != "" {
+		m = strings.Join([]string{m, c.flagGitHubCommentMessageAppend}, "\n\n")
 	}
 	if changesDetected {
 		if err := createOrUpdateIssue(ctx, c.flagGitHubToken, c.flagGitHubOwner, c.flagGitHubRepo, c.flagGitHubIssueAssignees, c.flagGitHubIssueLabels, m); err != nil {
