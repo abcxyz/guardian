@@ -30,7 +30,11 @@ inputs:
     description: 'The label to use to discover GCS buckets used as terraform backends in your organization. Format "labels:{label}={value}"'
     default: 'labels:terraform'
     required: false
-  issue_label:
+  issue_assignees:
+    description: 'The assignees to use on the created github issue.'
+    default: ''
+    required: false
+  issue_labels:
     description: 'The label to use on the created github issue. This will be used to discover previously created issues and manage them.'
     default: 'guardian-iam-drift'
     required: false
@@ -61,100 +65,27 @@ runs:
       env:
         ORGANIZATION_ID: '${{ inputs.organization_id }}'
         GCS_BUCKET_LABEL: '${{ inputs.gcs_bucket_label }}'
+        GITHUB_TOKEN: '${{ github.token }}'
+        GITHUB_OWNER: '${{ github.repository_owner }}'
+        GITHUB_REPO: '${{ github.event.repository.name }}'
+        ISSUE_ASSIGNEES: '${{ inputs.issue_assignees }}'
+        ISSUE_LABELS: '${{ inputs.issue_labels }}'
       run: |
-        DRIFTIGNORE_FILE="$(pwd)/.driftignore"
-        diff_snippet="$(guardian detect-iam-drift -organization-id="$ORGANIZATION_ID" -gcs-bucket-query="$GCS_BUCKET_LABEL" -driftignore-file="$DRIFTIGNORE_FILE")"
-        if [[ "${diff_snippet}" != "" ]]; then
-          diff_detected="TRUE"
-        else
-          diff_detected="FALSE"
+        EXTRA_ARGS=()
+        if [[ "$ISSUE_ASSIGNEES" != "" ]]; then
+            EXTRA_ARGS+=(-github-issue-assignees="$ISSUE_ASSIGNEES")
         fi
+        DRIFTIGNORE_FILE="$(pwd)/.driftignore"
+        diff_snippet="$(guardian detect-iam-drift \
+          -organization-id="$ORGANIZATION_ID" \
+          -gcs-bucket-query="$GCS_BUCKET_LABEL" \
+          -github-token="$GITHUB_TOKEN" \
+          -github-owner="$GITHUB_OWNER" \
+          -github-repo="$GITHUB_REPO" \
+          -github-issue-labels="$ISSUE_LABELS" \
+          -driftignore-file="$DRIFTIGNORE_FILE" \
+          "${EXTRA_ARGS[@]}")"
 
-        # We write to a file since the max character limit of the ENV variable is quite low.
-        TMPFILE_DIFF=$(mktemp /tmp/XXXXX.txt)
-        echo "$diff_snippet" >> $TMPFILE_DIFF
         # We output it so we can link the user to the full diff in the logs.
         echo "$diff_snippet"
 
-        echo "diff_detected=${diff_detected}" >> "$GITHUB_OUTPUT"
-        echo "diff_file=${TMPFILE_DIFF}" >> $GITHUB_OUTPUT
-
-    - uses: 'actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce' # ratchet:actions/upload-artifact@v3
-      if: '${{steps.run_diff.outputs.diff_detected == ''TRUE''}}'
-      with:
-        name: 'iam-drift'
-        path: '${{ steps.run_diff.outputs.diff_file }}'
-
-    - uses: 'actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410' # ratchet:actions/github-script@v6
-      id: 'get_previous_issue'
-      if: '${{steps.run_diff.outputs.diff_detected == ''TRUE''}}'
-      env:
-        ISSUE_LABEL: '${{ inputs.issue_label }}'
-      with:
-        result-encoding: 'string'
-        retries: '3'
-        script: |
-          const { ISSUE_LABEL } = process.env;
-          const data = (await github.rest.issues.listForRepo({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            labels: [ISSUE_LABEL],
-            state: 'all',
-          })).data[0];
-          if (data) {
-            return data.number;
-          }
-          return "";
-
-    - uses: 'actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410' # ratchet:actions/github-script@v6
-      id: 'create_issue'
-      if: '${{steps.run_diff.outputs.diff_detected == ''TRUE''}}'
-      env:
-        ISSUE_LABEL: '${{ inputs.issue_label }}'
-        DIFF_FILE: '${{ steps.run_diff.outputs.diff_file }}'
-        WORKFLOW_RUN_URL: '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}'
-      with:
-        retries: '3'
-        script: |
-          const { ISSUE_LABEL, DIFF_FILE, WORKFLOW_RUN_URL } = process.env;
-          const fs = require('fs');
-          const diff_content = fs.readFileSync(DIFF_FILE, 'utf8');
-          const diff_100_lines = diff_content.split('\n').slice(0, 100).join("\n");
-          const was_shortened = diff_content !== diff_100_lines;
-          const shortened_msg = was_shortened ? '...' : '';
-          const issue_body = `We've detected a drift between your submitted IAM policies and actual
-          IAM policies.
-
-          See the logs for the full details: ${WORKFLOW_RUN_URL}
-
-          ${diff_100_lines}
-          ${shortened_msg}
-
-          Please determine which parts are correct, and submit updated
-          terraform config and/or remove the extra policies.
-
-          Re-run this manually once complete to verify all diffs are properly resolved.`;
-
-          await github.rest.issues.create({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            labels: [ISSUE_LABEL],
-            title: 'IAM drift detected',
-            body: issue_body,
-          });
-
-    - uses: 'actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410' # ratchet:actions/github-script@v6
-      id: 'maybe-close-previous-issue'
-      if: '${{ steps.get_previous_issue.outputs.result != '''' && steps.run_diff.outputs.diff_detected == ''TRUE'' }}'
-      env:
-        PREVIOUS_ISSUE_NUMBER: '${{ steps.get_previous_issue.outputs.result }}'
-      with:
-        retries: '3'
-        script: |
-          const { PREVIOUS_ISSUE_NUMBER } = process.env;
-          await github.rest.issues.update({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            issue_number: PREVIOUS_ISSUE_NUMBER,
-            state: 'closed',
-          });
