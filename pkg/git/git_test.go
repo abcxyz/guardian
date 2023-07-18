@@ -15,40 +15,49 @@
 package git
 
 import (
+	"os"
+	"path"
 	"testing"
 
+	"github.com/abcxyz/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
 )
 
-func TestParseSortedDiffDirs(t *testing.T) {
+func TestParseSortedDiffDirsAbs(t *testing.T) {
 	t.Parallel()
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	cases := []struct {
 		name  string
 		value string
 		exp   []string
+		err   string
 	}{
 		{
 			name: "success",
 			value: `first/test.txt
 second/test.txt
 third/test.txt`,
-			exp: []string{"first", "second", "third"},
+			exp: []string{path.Join(cwd, "first"), path.Join(cwd, "second"), path.Join(cwd, "third")},
 		},
 		{
 			name:  "carriage_return_and_newline",
 			value: "foo/test.txt\r\nbar/test.txt\r\nbaz/test.txt",
-			exp:   []string{"bar", "baz", "foo"},
+			exp:   []string{path.Join(cwd, "bar"), path.Join(cwd, "baz"), path.Join(cwd, "foo")},
 		},
 		{
 			name:  "sorts",
 			value: "foo/test.txt\nbar/test.txt\nbaz/test.txt",
-			exp:   []string{"bar", "baz", "foo"},
+			exp:   []string{path.Join(cwd, "bar"), path.Join(cwd, "baz"), path.Join(cwd, "foo")},
 		},
 		{
 			name:  "handles_dirs",
 			value: "test/first\ntest/second",
-			exp:   []string{"test"},
+			exp:   []string{path.Join(cwd, "test")},
 		},
 		{
 			name:  "handles_empty",
@@ -63,7 +72,11 @@ third/test.txt`,
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			dirs := parseSortedDiffDirs(tc.value)
+			dirs, err := parseSortedDiffDirsAbs(tc.value)
+			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
+				t.Errorf(diff)
+			}
+
 			if diff := cmp.Diff(dirs, tc.exp); diff != "" {
 				t.Errorf(diff)
 			}

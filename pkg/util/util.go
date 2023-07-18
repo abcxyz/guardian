@@ -16,7 +16,11 @@
 package util
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
 	"sort"
+	"strings"
 
 	"golang.org/x/exp/maps"
 )
@@ -46,4 +50,33 @@ func GetSliceIntersection(a, b []string) []string {
 	sort.Strings(result)
 
 	return result
+}
+
+// ChildPathForCWD returns the child path with respect to the current working directory
+// or returns an error if the target directory is not a child of the current working directory.
+func ChildPath(base, target string) (string, error) {
+	absBase, err := filepath.Abs(base)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path for target directory %s: %w", target, err)
+	}
+
+	absTarget, err := filepath.Abs(target)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path for target directory %s: %w", target, err)
+	}
+
+	fmt.Printf("%s%s\n", absBase, absTarget)
+
+	if strings.TrimSpace(absBase) == strings.TrimSpace(absTarget) {
+		return "", nil
+	}
+
+	if !strings.HasPrefix(absTarget, absBase) {
+		return "", fmt.Errorf("%s is not a child of %s", absTarget, absBase)
+	}
+
+	trimmed := strings.TrimPrefix(absTarget, absBase)
+	trimmed = strings.TrimPrefix(trimmed, string(os.PathSeparator))
+
+	return trimmed, nil
 }

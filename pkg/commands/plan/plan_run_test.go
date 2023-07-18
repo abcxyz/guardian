@@ -32,60 +32,6 @@ import (
 	"github.com/sethvargo/go-githubactions"
 )
 
-func TestNormalizeWorkingDir(t *testing.T) {
-	t.Parallel()
-
-	cases := []struct {
-		name string
-		dir  string
-		exp  string
-		err  string
-	}{
-		{
-			name: "current_dir",
-			dir:  ".",
-			exp:  "",
-		},
-		{
-			name: "relative_current_dir",
-			dir:  "../plan",
-			exp:  "",
-		},
-		{
-			name: "child_dir",
-			dir:  "./testdata/test",
-			exp:  "testdata/test",
-		},
-		{
-			name: "empty",
-			dir:  "",
-			exp:  "",
-		},
-		{
-			name: "non_child_dir",
-			dir:  "../another",
-			err:  "working directory must be a child of the current directory",
-		},
-	}
-
-	for _, tc := range cases {
-		tc := tc
-
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			dir, err := normalizeWorkingDir(tc.dir)
-			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
-				t.Errorf(diff)
-			}
-
-			if got, want := dir, tc.exp; got != want {
-				t.Errorf("expected %s to be %s", got, want)
-			}
-		})
-	}
-}
-
 func TestPlan_Process(t *testing.T) {
 	t.Parallel()
 
@@ -120,7 +66,7 @@ func TestPlan_Process(t *testing.T) {
 			flagGitHubOwner:       "owner",
 			flagGitHubRepo:        "repo",
 			flagPullRequestNumber: 1,
-			flagWorkingDirectory:  "../../../testdata",
+			flagWorkingDirectory:  "testdata",
 			flagBucketName:        "my-bucket-name",
 			flagProtectLockfile:   true,
 			flagLockTimeout:       10 * time.Minute,
@@ -153,11 +99,11 @@ func TestPlan_Process(t *testing.T) {
 			expGitHubClientReqs: []*github.Request{
 				{
 					Name:   "CreateIssueComment",
-					Params: []any{"owner", "repo", int(1), "**`🔱 Guardian 🔱 PLAN`** - 🟨 Running for dir: `../../../testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
+					Params: []any{"owner", "repo", int(1), "**`🔱 Guardian 🔱 PLAN`** - 🟨 Running for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
 				},
 				{
 					Name:   "UpdateIssueComment",
-					Params: []any{"owner", "repo", int64(1), "**`🔱 Guardian 🔱 PLAN`** - 🟩 Successful for dir: `../../../testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]\n\n<details>\n<summary>Details</summary>\n\n```diff\n\nterraform show success with diff\n```\n</details>"},
+					Params: []any{"owner", "repo", int64(1), "**`🔱 Guardian 🔱 PLAN`** - 🟩 Successful for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]\n\n<details>\n<summary>Details</summary>\n\n```diff\n\nterraform show success with diff\n```\n</details>"},
 				},
 			},
 			expStorageClientReqs: []*storage.Request{
@@ -165,7 +111,7 @@ func TestPlan_Process(t *testing.T) {
 					Name: "UploadObject",
 					Params: []any{
 						"my-bucket-name",
-						"guardian-plans/owner/repo/1/../../../testdata/test-tfplan.binary",
+						"guardian-plans/owner/repo/1/testdata/test-tfplan.binary",
 						"this is a plan binary",
 					},
 				},
@@ -178,7 +124,7 @@ func TestPlan_Process(t *testing.T) {
 			flagGitHubOwner:       "owner",
 			flagGitHubRepo:        "repo",
 			flagPullRequestNumber: 2,
-			flagWorkingDirectory:  "../../../testdata",
+			flagWorkingDirectory:  "testdata",
 			flagBucketName:        "my-bucket-name",
 			flagProtectLockfile:   true,
 			flagLockTimeout:       10 * time.Minute,
@@ -211,11 +157,11 @@ func TestPlan_Process(t *testing.T) {
 			expGitHubClientReqs: []*github.Request{
 				{
 					Name:   "CreateIssueComment",
-					Params: []any{"owner", "repo", int(2), "**`🔱 Guardian 🔱 PLAN`** - 🟨 Running for dir: `../../../testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
+					Params: []any{"owner", "repo", int(2), "**`🔱 Guardian 🔱 PLAN`** - 🟨 Running for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
 				},
 				{
 					Name:   "UpdateIssueComment",
-					Params: []any{"owner", "repo", int64(1), "**`🔱 Guardian 🔱 PLAN`** - 🟦 No changes for dir: `../../../testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
+					Params: []any{"owner", "repo", int64(1), "**`🔱 Guardian 🔱 PLAN`** - 🟦 No changes for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
 				},
 			},
 		},
@@ -226,7 +172,7 @@ func TestPlan_Process(t *testing.T) {
 			flagGitHubOwner:       "owner",
 			flagGitHubRepo:        "repo",
 			flagPullRequestNumber: 3,
-			flagWorkingDirectory:  "../../../testdata",
+			flagWorkingDirectory:  "testdata",
 			flagBucketName:        "my-bucket-name",
 			flagProtectLockfile:   true,
 			flagLockTimeout:       10 * time.Minute,
@@ -264,7 +210,7 @@ func TestPlan_Process(t *testing.T) {
 			expGitHubClientReqs: []*github.Request{
 				{
 					Name:   "CreateIssueComment",
-					Params: []any{"owner", "repo", int(3), "**`🔱 Guardian 🔱 PLAN`** - 🟨 Running for dir: `../../../testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
+					Params: []any{"owner", "repo", int(3), "**`🔱 Guardian 🔱 PLAN`** - 🟨 Running for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
 				},
 				{
 					Name: "UpdateIssueComment",
@@ -272,7 +218,7 @@ func TestPlan_Process(t *testing.T) {
 						"owner",
 						"repo",
 						int64(1),
-						"**`🔱 Guardian 🔱 PLAN`** - 🟥 Failed for dir: `../../../testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]\n" +
+						"**`🔱 Guardian 🔱 PLAN`** - 🟥 Failed for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]\n" +
 							"\n" +
 							"<details>\n" +
 							"<summary>Error</summary>\n" +
@@ -310,7 +256,8 @@ func TestPlan_Process(t *testing.T) {
 			c := &PlanRunCommand{
 				cfg: tc.config,
 
-				planFilename: "test-tfplan.binary",
+				planChildPath: "testdata",
+				planFilename:  "test-tfplan.binary",
 
 				flagWorkingDirectory:  tc.flagWorkingDirectory,
 				flagPullRequestNumber: tc.flagPullRequestNumber,

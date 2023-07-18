@@ -47,7 +47,8 @@ type Issue struct {
 }
 
 type IssueComment struct {
-	ID int64
+	ID   int64
+	Body string
 }
 
 const (
@@ -77,7 +78,7 @@ type GitHub interface {
 	DeleteIssueComment(ctx context.Context, owner, repo string, id int64) error
 
 	// ListIssueComments lists existing comments for an issue or pull request.
-	ListIssueComments(ctx context.Context, owner, repo string, number int, opts *github.IssueListCommentsOptions) ([]*IssueComment, error)
+	ListIssueComments(ctx context.Context, owner, repo string, number int, opts *github.IssueListCommentsOptions) ([]*IssueComment, int, error)
 }
 
 var _ GitHub = (*GitHubClient)(nil)
@@ -142,7 +143,8 @@ func (g *GitHubClient) ListIssues(ctx context.Context, owner, repo string, opts 
 			}
 
 			for _, i := range issues {
-				uniqueResponses[*i.Number] = &Issue{Number: *i.Number}
+				number := i.GetNumber()
+				uniqueResponses[number] = &Issue{Number: number}
 			}
 			page = &resp.NextPage
 			return nil
@@ -186,7 +188,7 @@ func (g *GitHubClient) CreateIssue(ctx context.Context, owner, repo, title, body
 			return fmt.Errorf("failed to create issue: %w", err)
 		}
 
-		response = &Issue{Number: *issue.Number}
+		response = &Issue{Number: issue.GetNumber()}
 
 		return nil
 	}); err != nil {
@@ -231,7 +233,7 @@ func (g *GitHubClient) CreateIssueComment(ctx context.Context, owner, repo strin
 
 			return fmt.Errorf("failed to create pull-request/issue comment: %w", err)
 		}
-		response = &IssueComment{ID: *comment.ID}
+		response = &IssueComment{ID: comment.GetID()}
 		return nil
 	}); err != nil {
 		return nil, fmt.Errorf("failed to create pull-request/issue comment with retries: %w", err)
@@ -281,8 +283,9 @@ func (g *GitHubClient) DeleteIssueComment(ctx context.Context, owner, repo strin
 }
 
 // ListIssueComments lists existing comments for an issue or pull request.
-func (g *GitHubClient) ListIssueComments(ctx context.Context, owner, repo string, number int, opts *github.IssueListCommentsOptions) ([]*IssueComment, error) {
+func (g *GitHubClient) ListIssueComments(ctx context.Context, owner, repo string, number int, opts *github.IssueListCommentsOptions) ([]*IssueComment, int, error) {
 	var commentsResponse []*IssueComment
+	var nextPage int
 
 	if err := g.withRetries(ctx, func(ctx context.Context) error {
 		comments, resp, err := g.client.Issues.ListComments(ctx, owner, repo, number, opts)
@@ -294,15 +297,17 @@ func (g *GitHubClient) ListIssueComments(ctx context.Context, owner, repo string
 		}
 
 		for _, c := range comments {
-			commentsResponse = append(commentsResponse, &IssueComment{ID: *c.ID})
+			commentsResponse = append(commentsResponse, &IssueComment{ID: c.GetID(), Body: c.GetBody()})
 		}
+
+		nextPage = resp.NextPage
 
 		return nil
 	}); err != nil {
-		return nil, fmt.Errorf("failed to list pull request comments: %w", err)
+		return nil, 0, fmt.Errorf("failed to list pull request comments: %w", err)
 	}
 
-	return commentsResponse, nil
+	return commentsResponse, nextPage, nil
 }
 
 func (g *GitHubClient) withRetries(ctx context.Context, retryFunc retry.RetryFunc) error {

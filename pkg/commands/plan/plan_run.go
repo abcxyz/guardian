@@ -22,7 +22,6 @@ import (
 	"io"
 	"os"
 	"path"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -52,7 +51,8 @@ type PlanRunCommand struct {
 
 	cfg *Config
 
-	planFilename string
+	planChildPath string
+	planFilename  string
 
 	flags.GitHubFlags
 	flags.RetryFlags
@@ -140,20 +140,29 @@ func (c *PlanRunCommand) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("failed to parse flags: %w", err)
 	}
 
-	if c.planFilename == "" {
-		c.planFilename = "tfplan.binary"
-	}
-
-	dir, err := normalizeWorkingDir(c.flagWorkingDirectory)
-	if err != nil {
-		return fmt.Errorf("failed to normalize working directory: %w", err)
-	}
-	c.flagWorkingDirectory = dir
-
 	args = f.Args()
 	if len(args) > 0 {
 		return fmt.Errorf("unexpected arguments: %q", args)
 	}
+
+	if c.planFilename == "" {
+		c.planFilename = "tfplan.binary"
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get current working directory: %w", err)
+	}
+
+	if c.flagWorkingDirectory == "" {
+		c.flagWorkingDirectory = cwd
+	}
+
+	planChildPath, err := util.ChildPath(cwd, c.flagWorkingDirectory)
+	if err != nil {
+		return fmt.Errorf("failed to get child path for current working directory: %w", err)
+	}
+	c.planChildPath = planChildPath
 
 	c.actions = githubactions.New(githubactions.WithWriter(c.Stdout()))
 	actionsCtx, err := c.actions.Context()
@@ -189,33 +198,6 @@ func (c *PlanRunCommand) Run(ctx context.Context, args []string) error {
 	return c.Process(ctx)
 }
 
-func normalizeWorkingDir(dir string) (string, error) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return "", fmt.Errorf("failed to get current working directory: %w", err)
-	}
-
-	absPath, err := filepath.Abs(dir)
-	if err != nil {
-		return "", fmt.Errorf("failed to get absolute path for working directory: %w", err)
-	}
-
-	path, err := filepath.Rel(cwd, absPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to get relative path for working directory: %w", err)
-	}
-
-	if strings.HasPrefix(path, "../") {
-		return "", fmt.Errorf("working directory must be a child of the current directory")
-	}
-
-	if path == "." {
-		path = ""
-	}
-
-	return path, nil
-}
-
 // Process handles the main logic for the Guardian plan run process.
 func (c *PlanRunCommand) Process(ctx context.Context) error {
 	var merr error
@@ -230,7 +212,7 @@ func (c *PlanRunCommand) Process(ctx context.Context) error {
 		c.GitHubFlags.FlagGitHubOwner,
 		c.GitHubFlags.FlagGitHubRepo,
 		c.flagPullRequestNumber,
-		fmt.Sprintf("%s 🟨 Running for dir: `%s` %s", planCommentPrefix, c.flagWorkingDirectory, logURL),
+		fmt.Sprintf("%s 🟨 Running for dir: `%s` %s", planCommentPrefix, c.planChildPath, logURL),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create start comment: %w", err)
@@ -241,7 +223,7 @@ func (c *PlanRunCommand) Process(ctx context.Context) error {
 	if err != nil {
 		var comment strings.Builder
 
-		fmt.Fprintf(&comment, "%s 🟥 Failed for dir: `%s` %s\n\n<details>\n<summary>Error</summary>\n\n```\n\n%s\n```\n</details>", planCommentPrefix, c.flagWorkingDirectory, logURL, err)
+		fmt.Fprintf(&comment, "%s 🟥 Failed for dir: `%s` %s\n\n<details>\n<summary>Error</summary>\n\n```\n\n%s\n```\n</details>", planCommentPrefix, c.planChildPath, logURL, err)
 		if result.commentDetails != "" {
 			fmt.Fprintf(&comment, "\n\n<details>\n<summary>Details</summary>\n\n```diff\n\n%s\n```\n</details>", result.commentDetails)
 		}
@@ -250,7 +232,7 @@ func (c *PlanRunCommand) Process(ctx context.Context) error {
 			ctx,
 			c.GitHubFlags.FlagGitHubOwner,
 			c.GitHubFlags.FlagGitHubRepo,
-			startComment.GetID(),
+			startComment.ID,
 			comment.String(),
 		); commentErr != nil {
 			merr = errors.Join(merr, fmt.Errorf("failed to create plan error comment: %w", commentErr))
@@ -264,7 +246,7 @@ func (c *PlanRunCommand) Process(ctx context.Context) error {
 	if result.hasChanges {
 		var comment strings.Builder
 
-		fmt.Fprintf(&comment, "%s 🟩 Successful for dir: `%s` %s", planCommentPrefix, c.flagWorkingDirectory, logURL)
+		fmt.Fprintf(&comment, "%s 🟩 Successful for dir: `%s` %s", planCommentPrefix, c.planChildPath, logURL)
 		if result.commentDetails != "" {
 			fmt.Fprintf(&comment, "\n\n<details>\n<summary>Details</summary>\n\n```diff\n\n%s\n```\n</details>", result.commentDetails)
 		}
@@ -273,7 +255,7 @@ func (c *PlanRunCommand) Process(ctx context.Context) error {
 			ctx,
 			c.GitHubFlags.FlagGitHubOwner,
 			c.GitHubFlags.FlagGitHubRepo,
-			startComment.GetID(),
+			startComment.ID,
 			comment.String(),
 		); commentErr != nil {
 			merr = errors.Join(merr, fmt.Errorf("failed to create plan comment: %w", commentErr))
@@ -286,8 +268,8 @@ func (c *PlanRunCommand) Process(ctx context.Context) error {
 		ctx,
 		c.GitHubFlags.FlagGitHubOwner,
 		c.GitHubFlags.FlagGitHubRepo,
-		startComment.GetID(),
-		fmt.Sprintf("%s 🟦 No changes for dir: `%s` %s", planCommentPrefix, c.flagWorkingDirectory, logURL),
+		startComment.ID,
+		fmt.Sprintf("%s 🟦 No changes for dir: `%s` %s", planCommentPrefix, c.planChildPath, logURL),
 	); err != nil {
 		merr = errors.Join(merr, fmt.Errorf("failed to update plan comment: %w", err))
 	}
@@ -378,7 +360,7 @@ func (c *PlanRunCommand) handleTerraformPlan(ctx context.Context) (*RunResult, e
 
 	githubOutput := terraform.FormatOutputForGitHubDiff(stdout.String())
 
-	planFilePath := path.Join(c.flagWorkingDirectory, c.planFilename)
+	planFilePath := path.Join(c.planChildPath, c.planFilename)
 
 	planData, err := os.ReadFile(planFilePath)
 	if err != nil {

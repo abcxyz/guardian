@@ -17,6 +17,7 @@ package util
 import (
 	"testing"
 
+	"github.com/abcxyz/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -66,6 +67,54 @@ func TestGetSliceIntersection(t *testing.T) {
 			opts := []cmp.Option{}
 			if diff := cmp.Diff(v, tc.exp, opts...); diff != "" {
 				t.Errorf("got %#v, want %#v, diff (-got, +want): %v", v, tc.exp, diff)
+			}
+		})
+	}
+}
+
+func TestChildPath(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name   string
+		base   string
+		target string
+		exp    string
+		err    string
+	}{
+		{
+			name:   "success",
+			base:   ".",
+			target: "./terraform/project",
+			exp:    "terraform/project",
+		},
+		{
+			name:   "empty",
+			base:   "",
+			target: "",
+			exp:    "",
+		},
+		{
+			name:   "not_child_dir",
+			base:   "./terraform/project",
+			target: ".",
+			err:    "is not a child of",
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			d, err := ChildPath(tc.base, tc.target)
+			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
+				t.Errorf(diff)
+			}
+
+			if got, want := d, tc.exp; got != want {
+				t.Errorf("expected %s to be %s", got, want)
 			}
 		})
 	}

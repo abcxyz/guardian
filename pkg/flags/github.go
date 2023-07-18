@@ -30,7 +30,7 @@ func (g *GitHubFlags) AddFlags(set *cli.FlagSet) {
 
 	f.BoolVar(&cli.BoolVar{
 		Name:    "github-action",
-		EnvVar:  "GITHUB_ACTION",
+		EnvVar:  "GITHUB_ACTIONS",
 		Target:  &g.FlagGitHubAction,
 		Default: false,
 		Usage:   "Is this running as a GitHub action.",

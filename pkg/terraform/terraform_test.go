@@ -16,6 +16,8 @@ package terraform
 
 import (
 	"fmt"
+	"os"
+	"path"
 	"strings"
 	"testing"
 
@@ -97,27 +99,42 @@ first section !
 func TestGetEntrypointDirectories(t *testing.T) {
 	t.Parallel()
 
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	cases := []struct {
 		name string
-		dir  string
+		dirs []string
 		exp  []string
 		err  string
 	}{
 		{
 			name: "has_backend",
-			dir:  "../../terraform", // depend on test data in [REPO_ROOT]/terraform
-			exp:  []string{"../../terraform", "../../terraform/has-backend"},
+			dirs: []string{"testdata/backends"},
+			exp:  []string{path.Join(cwd, "testdata/backends/project1"), path.Join(cwd, "testdata/backends/project2")},
 		},
 		{
 			name: "no_backend",
-			dir:  "../../terraform/no-backend", // depend on test data in [REPO_ROOT]/terraform
+			dirs: []string{"testdata/no-backends"},
 			exp:  []string{},
 		},
 		{
 			name: "missing_directory",
-			dir:  "../../terraform/missing", // depend on test data in [REPO_ROOT]/terraform
+			dirs: []string{"testdata/missing"},
 			exp:  nil,
 			err:  "no such file or directory",
+		},
+		{
+			name: "empty",
+			dirs: []string{},
+			exp:  []string{},
+		},
+		{
+			name: "nil",
+			dirs: nil,
+			exp:  []string{},
 		},
 	}
 
@@ -127,7 +144,7 @@ func TestGetEntrypointDirectories(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			dirs, err := GetEntrypointDirectories(tc.dir)
+			dirs, err := GetEntrypointDirectories(tc.dirs)
 			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
 				t.Errorf(diff)
 			}

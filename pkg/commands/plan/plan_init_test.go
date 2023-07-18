@@ -42,15 +42,16 @@ func TestPlanInitProcess(t *testing.T) {
 		flagGitHubAction           bool
 		flagGitHubOwner            string
 		flagGitHubRepo             string
-		flagWorkingDirectory       string
 		flagPullRequestNumber      int
 		flagDestRef                string
 		flagSourceRef              string
 		flagDirectories            []string
 		flagDeleteOutdatedComments bool
+		flagJSON                   bool
 		flagMaxRetries             uint64
 		flagInitialRetryDelay      time.Duration
 		flagMaxRetryDelay          time.Duration
+		entrypoints                []string
 		config                     *Config
 		gitClient                  *git.MockGitClient
 		githubClient               *github.MockGitHubClient
@@ -62,15 +63,15 @@ func TestPlanInitProcess(t *testing.T) {
 		{
 			name:                       "success",
 			flagGitHubToken:            "github-token",
-			flagWorkingDirectory:       "../../../testdata",
 			flagDeleteOutdatedComments: true,
+			flagJSON:                   false,
 			flagGitHubAction:           true,
 			flagGitHubOwner:            "owner",
 			flagGitHubRepo:             "repo",
 			flagPullRequestNumber:      1,
 			flagDestRef:                "main",
 			flagSourceRef:              "ldap/feature",
-			flagDirectories:            []string{"dir1", "dir2"},
+			entrypoints:                []string{"dir1", "dir2"},
 			flagMaxRetries:             3,
 			flagInitialRetryDelay:      2 * time.Second,
 			flagMaxRetryDelay:          10 * time.Second,
@@ -92,15 +93,15 @@ func TestPlanInitProcess(t *testing.T) {
 		{
 			name:                       "skips_deleting_comments",
 			flagGitHubToken:            "github-token",
-			flagWorkingDirectory:       "../../../testdata",
 			flagDeleteOutdatedComments: false,
+			flagJSON:                   false,
 			flagGitHubAction:           true,
 			flagGitHubOwner:            "owner",
 			flagGitHubRepo:             "repo",
 			flagPullRequestNumber:      2,
 			flagDestRef:                "main",
 			flagSourceRef:              "ldap/feature",
-			flagDirectories:            []string{"dir3", "dir4"},
+			entrypoints:                []string{"dir3", "dir4"},
 			flagMaxRetries:             3,
 			flagInitialRetryDelay:      2 * time.Second,
 			flagMaxRetryDelay:          10 * time.Second,
@@ -115,9 +116,32 @@ func TestPlanInitProcess(t *testing.T) {
 			expStdout:           "dir3\ndir4",
 		},
 		{
+			name:                       "returns_json",
+			flagGitHubToken:            "github-token",
+			flagDeleteOutdatedComments: false,
+			flagJSON:                   true,
+			flagGitHubAction:           true,
+			flagGitHubOwner:            "owner",
+			flagGitHubRepo:             "repo",
+			flagPullRequestNumber:      3,
+			flagDestRef:                "main",
+			flagSourceRef:              "ldap/feature",
+			entrypoints:                []string{"dir5", "dir6"},
+			flagMaxRetries:             3,
+			flagInitialRetryDelay:      2 * time.Second,
+			flagMaxRetryDelay:          10 * time.Second,
+			config: &Config{
+				ServerURL:  "https://github.com",
+				RunID:      1,
+				RunAttempt: int64(1),
+			},
+			gitClient:    &git.MockGitClient{DiffResp: []string{"dir5", "dir6"}},
+			githubClient: &github.MockGitHubClient{},
+			expStdout:    "[\"dir5\",\"dir6\"]",
+		},
+		{
 			name:                       "errors",
 			flagGitHubToken:            "github-token",
-			flagWorkingDirectory:       "../../../testdata",
 			flagDeleteOutdatedComments: false,
 			flagGitHubAction:           true,
 			flagGitHubOwner:            "owner",
@@ -125,7 +149,7 @@ func TestPlanInitProcess(t *testing.T) {
 			flagPullRequestNumber:      2,
 			flagDestRef:                "main",
 			flagSourceRef:              "ldap/feature",
-			flagDirectories:            []string{"dir3", "dir4"},
+			entrypoints:                []string{"dir3", "dir4"},
 			flagMaxRetries:             3,
 			flagInitialRetryDelay:      2 * time.Second,
 			flagMaxRetryDelay:          10 * time.Second,
@@ -137,7 +161,6 @@ func TestPlanInitProcess(t *testing.T) {
 			gitClient:    &git.MockGitClient{DiffErr: fmt.Errorf("failed to run git diff")},
 			githubClient: &github.MockGitHubClient{},
 			err:          "failed to find git diff directories: failed to run git diff",
-			expStderr:    "ERROR: failed to find changed directories",
 		},
 	}
 
@@ -152,10 +175,13 @@ func TestPlanInitProcess(t *testing.T) {
 			c := &PlanInitCommand{
 				cfg: tc.config,
 
-				flagWorkingDirectory:       tc.flagWorkingDirectory,
+				workingDir:  "",
+				entrypoints: tc.entrypoints,
+
 				flagPullRequestNumber:      tc.flagPullRequestNumber,
 				flagDirectories:            tc.flagDirectories,
 				flagDeleteOutdatedComments: tc.flagDeleteOutdatedComments,
+				flagJSON:                   tc.flagJSON,
 				flagDestRef:                tc.flagDestRef,
 				flagSourceRef:              tc.flagSourceRef,
 				GitHubFlags: flags.GitHubFlags{
