@@ -164,6 +164,16 @@ func TestPlan_Process(t *testing.T) {
 					Params: []any{"owner", "repo", int64(1), "**`🔱 Guardian 🔱 PLAN`** - 🟦 No changes for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
 				},
 			},
+			expStorageClientReqs: []*storage.Request{
+				{
+					Name: "UploadObject",
+					Params: []any{
+						"my-bucket-name",
+						"guardian-plans/owner/repo/2/testdata/test-tfplan.binary",
+						"this is a plan binary",
+					},
+				},
+			},
 		},
 		{
 			name:                     "handles_error",
