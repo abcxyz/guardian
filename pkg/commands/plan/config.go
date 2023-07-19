@@ -21,7 +21,7 @@ import (
 // Config defines the of configuration required for running the plan action.
 type Config struct {
 	// GitHub context values
-	ServerURL  string
+	ServerURL  string // this value is used to generate URLs for creating links in pull request comments
 	RunID      int64
 	RunAttempt int64
 }

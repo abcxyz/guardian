@@ -105,35 +105,30 @@ func TestGetEntrypointDirectories(t *testing.T) {
 
 	cases := []struct {
 		name string
-		dirs []string
+		dir  string
 		exp  []string
 		err  string
 	}{
 		{
 			name: "has_backend",
-			dirs: []string{"testdata/backends"},
+			dir:  "testdata/backends",
 			exp:  []string{path.Join(cwd, "testdata/backends/project1"), path.Join(cwd, "testdata/backends/project2")},
 		},
 		{
 			name: "no_backend",
-			dirs: []string{"testdata/no-backends"},
+			dir:  "testdata/no-backends",
 			exp:  []string{},
 		},
 		{
 			name: "missing_directory",
-			dirs: []string{"testdata/missing"},
+			dir:  "testdata/missing",
 			exp:  nil,
 			err:  "no such file or directory",
 		},
 		{
 			name: "empty",
-			dirs: []string{},
-			exp:  []string{},
-		},
-		{
-			name: "nil",
-			dirs: nil,
-			exp:  []string{},
+			dir:  "",
+			err:  "no such file or directory",
 		},
 	}
 
@@ -143,7 +138,7 @@ func TestGetEntrypointDirectories(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			dirs, err := GetEntrypointDirectories(tc.dirs)
+			dirs, err := GetEntrypointDirectories(tc.dir)
 			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
 				t.Errorf(diff)
 			}

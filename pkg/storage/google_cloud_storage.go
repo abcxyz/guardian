@@ -242,16 +242,16 @@ func (s *GoogleCloudStorage) ObjectsWithName(ctx context.Context, bucket, filena
 // Option is an optional config value for the Google Cloud Storage.
 type Option func(*Config) *Config
 
-// WithInitialRetryDelay configures the initial delay time before sending a retry for the Google Cloud Storage Client.
-func WithInitialRetryDelay(initialRetryDelay time.Duration) Option {
+// WithRetryInitialDelay configures the initial delay time before sending a retry for the Google Cloud Storage Client.
+func WithRetryInitialDelay(initialRetryDelay time.Duration) Option {
 	return func(c *Config) *Config {
 		c.initialRetryDelay = initialRetryDelay
 		return c
 	}
 }
 
-// WithMaxRetryDelay configures the maximum delay time before sending a retry for the Google Cloud Storage Client.
-func WithMaxRetryDelay(maxRetryDelay time.Duration) Option {
+// WithRetryMaxDelay configures the maximum delay time before sending a retry for the Google Cloud Storage Client.
+func WithRetryMaxDelay(maxRetryDelay time.Duration) Option {
 	return func(c *Config) *Config {
 		c.maxRetryDelay = maxRetryDelay
 		return c

@@ -41,10 +41,9 @@ type Config struct {
 	maxRetryDelay     time.Duration
 }
 
-// Paging is the paging details for a list response.
-type Paging struct {
-	HasNextPage bool
-	NextPage    int
+// Pagination is the paging details for a list response.
+type Pagination struct {
+	NextPage int
 }
 
 // Issue is the GitHub Issue.
@@ -55,6 +54,11 @@ type Issue struct {
 type IssueComment struct {
 	ID   int64
 	Body string
+}
+
+type IssueCommentResponse struct {
+	Comments   []*IssueComment
+	Pagination *Pagination
 }
 
 const (
@@ -84,7 +88,7 @@ type GitHub interface {
 	DeleteIssueComment(ctx context.Context, owner, repo string, id int64) error
 
 	// ListIssueComments lists existing comments for an issue or pull request.
-	ListIssueComments(ctx context.Context, owner, repo string, number int, opts *github.IssueListCommentsOptions) ([]*IssueComment, *Paging, error)
+	ListIssueComments(ctx context.Context, owner, repo string, number int, opts *github.IssueListCommentsOptions) (*IssueCommentResponse, error)
 }
 
 var _ GitHub = (*GitHubClient)(nil)
@@ -289,14 +293,12 @@ func (g *GitHubClient) DeleteIssueComment(ctx context.Context, owner, repo strin
 }
 
 // ListIssueComments lists existing comments for an issue or pull request.
-func (g *GitHubClient) ListIssueComments(ctx context.Context, owner, repo string, number int, opts *github.IssueListCommentsOptions) ([]*IssueComment, *Paging, error) {
-	var commentsResponse []*IssueComment
-	paging := &Paging{
-		HasNextPage: false,
-	}
+func (g *GitHubClient) ListIssueComments(ctx context.Context, owner, repo string, number int, opts *github.IssueListCommentsOptions) (*IssueCommentResponse, error) {
+	var comments []*IssueComment
+	var pagination *Pagination
 
 	if err := g.withRetries(ctx, func(ctx context.Context) error {
-		comments, resp, err := g.client.Issues.ListComments(ctx, owner, repo, number, opts)
+		ghComments, resp, err := g.client.Issues.ListComments(ctx, owner, repo, number, opts)
 		if err != nil {
 			if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
 				return retry.RetryableError(err)
@@ -304,19 +306,20 @@ func (g *GitHubClient) ListIssueComments(ctx context.Context, owner, repo string
 			return fmt.Errorf("failed to list pull request comments: %w", err)
 		}
 
-		for _, c := range comments {
-			commentsResponse = append(commentsResponse, &IssueComment{ID: c.GetID(), Body: c.GetBody()})
+		for _, c := range ghComments {
+			comments = append(comments, &IssueComment{ID: c.GetID(), Body: c.GetBody()})
 		}
 
-		paging.NextPage = resp.NextPage
-		paging.HasNextPage = paging.NextPage != 0
+		if resp.NextPage != 0 {
+			pagination = &Pagination{NextPage: resp.NextPage}
+		}
 
 		return nil
 	}); err != nil {
-		return nil, nil, fmt.Errorf("failed to list pull request comments: %w", err)
+		return nil, fmt.Errorf("failed to list pull request comments: %w", err)
 	}
 
-	return commentsResponse, paging, nil
+	return &IssueCommentResponse{Comments: comments, Pagination: pagination}, nil
 }
 
 func (g *GitHubClient) withRetries(ctx context.Context, retryFunc retry.RetryFunc) error {

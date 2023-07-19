@@ -19,24 +19,24 @@ import "time"
 // Option is an optional config value for the GitHubClient.
 type Option func(*Config) *Config
 
-// WithMaxRetries configures the maximum number of retrys for the GitHub Client.
-func WithMaxRetries(maxRetries uint64) Option {
+// WithRetryMaxAttempts configures the maximum number of retry attempts for the GitHub Client.
+func WithRetryMaxAttempts(maxRetries uint64) Option {
 	return func(c *Config) *Config {
 		c.maxRetries = maxRetries
 		return c
 	}
 }
 
-// WithInitialRetryDelay configures the initial delay time before sending a retry for the GitHub Client.
-func WithInitialRetryDelay(initialRetryDelay time.Duration) Option {
+// WithRetryInitialDelay configures the initial delay time before sending a retry for the GitHub Client.
+func WithRetryInitialDelay(initialRetryDelay time.Duration) Option {
 	return func(c *Config) *Config {
 		c.initialRetryDelay = initialRetryDelay
 		return c
 	}
 }
 
-// WithMaxRetryDelay configures the maximum delay time before sending a retry for the GitHub Client.
-func WithMaxRetryDelay(maxRetryDelay time.Duration) Option {
+// WithRetryMaxDelay configures the maximum delay time before sending a retry for the GitHub Client.
+func WithRetryMaxDelay(maxRetryDelay time.Duration) Option {
 	return func(c *Config) *Config {
 		c.maxRetryDelay = maxRetryDelay
 		return c

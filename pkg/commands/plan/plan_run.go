@@ -18,6 +18,7 @@ package plan
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -51,17 +52,17 @@ type PlanRunCommand struct {
 
 	cfg *Config
 
+	directory     string
 	planChildPath string
 	planFilename  string
 
 	flags.GitHubFlags
 	flags.RetryFlags
 
-	flagWorkingDirectory  string
-	flagBucketName        string
-	flagPullRequestNumber int
-	flagProtectLockfile   bool
-	flagLockTimeout       time.Duration
+	flagBucketName           string
+	flagPullRequestNumber    int
+	flagAllowLockfileChanges bool
+	flagLockTimeout          time.Duration
 
 	actions         *githubactions.Action
 	githubClient    github.GitHub
@@ -73,12 +74,12 @@ type PlanRunCommand struct {
 }
 
 func (c *PlanRunCommand) Desc() string {
-	return `Run the Terraform plan for a directory.`
+	return `Run the Terraform plan for a directory`
 }
 
 func (c *PlanRunCommand) Help() string {
 	return `
-Usage: {{ COMMAND }} [options]
+Usage: {{ COMMAND }} [options] <dir>
 
   Run the Terraform plan for a directory.
 `
@@ -90,14 +91,7 @@ func (c *PlanRunCommand) Flags() *cli.FlagSet {
 	c.GitHubFlags.AddFlags(set)
 	c.RetryFlags.AddFlags(set)
 
-	f := set.NewSection("Command options")
-
-	f.StringVar(&cli.StringVar{
-		Name:    "working-directory",
-		Target:  &c.flagWorkingDirectory,
-		Example: "terraform",
-		Usage:   "The working directory for Guardian to execute commands in.",
-	})
+	f := set.NewSection("COMMAND OPTIONS")
 
 	f.IntVar(&cli.IntVar{
 		Name:    "pull-request-number",
@@ -114,8 +108,8 @@ func (c *PlanRunCommand) Flags() *cli.FlagSet {
 	})
 
 	f.BoolVar(&cli.BoolVar{
-		Name:    "protect-lockfile",
-		Target:  &c.flagProtectLockfile,
+		Name:    "allow-lockfile-changes",
+		Target:  &c.flagAllowLockfileChanges,
 		Default: true,
 		Example: "true",
 		Usage:   "Prevent modification of the Terraform lockfile.",
@@ -140,25 +134,23 @@ func (c *PlanRunCommand) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("failed to parse flags: %w", err)
 	}
 
-	args = f.Args()
-	if len(args) > 0 {
-		return fmt.Errorf("unexpected arguments: %q", args)
+	parsedArgs := f.Args()
+	if len(parsedArgs) != 1 {
+		return flag.ErrHelp
 	}
 
-	if c.planFilename == "" {
-		c.planFilename = "tfplan.binary"
+	dirAbs, err := util.PathEvalAbs(parsedArgs[0])
+	if err != nil {
+		return fmt.Errorf("failed to absolute path for directory: %w", err)
 	}
+	c.directory = dirAbs
 
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get current working directory: %w", err)
 	}
 
-	if c.flagWorkingDirectory == "" {
-		c.flagWorkingDirectory = cwd
-	}
-
-	planChildPath, err := util.ChildPath(cwd, c.flagWorkingDirectory)
+	planChildPath, err := util.ChildPath(cwd, c.directory)
 	if err != nil {
 		return fmt.Errorf("failed to get child path for current working directory: %w", err)
 	}
@@ -179,16 +171,16 @@ func (c *PlanRunCommand) Run(ctx context.Context, args []string) error {
 	c.githubClient = github.NewClient(
 		ctx,
 		c.GitHubFlags.FlagGitHubToken,
-		github.WithInitialRetryDelay(c.RetryFlags.FlagInitialRetryDelay),
-		github.WithMaxRetries(c.RetryFlags.FlagMaxRetries),
-		github.WithMaxRetryDelay(c.RetryFlags.FlagMaxRetryDelay),
+		github.WithRetryInitialDelay(c.RetryFlags.FlagRetryInitialDelay),
+		github.WithRetryMaxAttempts(c.RetryFlags.FlagRetryMaxAttempts),
+		github.WithRetryMaxDelay(c.RetryFlags.FlagRetryMaxDelay),
 	)
-	c.terraformClient = terraform.NewTerraformClient(c.flagWorkingDirectory)
+	c.terraformClient = terraform.NewTerraformClient(c.directory)
 
 	sc, err := storage.NewGoogleCloudStorage(
 		ctx,
-		storage.WithInitialRetryDelay(c.RetryFlags.FlagInitialRetryDelay),
-		storage.WithMaxRetryDelay(c.RetryFlags.FlagMaxRetryDelay),
+		storage.WithRetryInitialDelay(c.RetryFlags.FlagRetryInitialDelay),
+		storage.WithRetryMaxDelay(c.RetryFlags.FlagRetryMaxDelay),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create google cloud storage client: %w", err)
@@ -204,9 +196,13 @@ func (c *PlanRunCommand) Process(ctx context.Context) error {
 
 	c.Outf("Starting Guardian plan")
 
+	if c.planFilename == "" {
+		c.planFilename = "tfplan.binary"
+	}
+
 	logURL := fmt.Sprintf("[[logs](%s/%s/%s/actions/runs/%d/attempts/%d)]", c.cfg.ServerURL, c.GitHubFlags.FlagGitHubOwner, c.GitHubFlags.FlagGitHubRepo, c.cfg.RunID, c.cfg.RunAttempt)
 
-	c.Outf("Creating start comment...")
+	c.Outf("Creating start comment")
 	startComment, err := c.githubClient.CreateIssueComment(
 		ctx,
 		c.GitHubFlags.FlagGitHubOwner,
@@ -218,7 +214,7 @@ func (c *PlanRunCommand) Process(ctx context.Context) error {
 		return fmt.Errorf("failed to create start comment: %w", err)
 	}
 
-	c.Outf("Running Terraform commands...")
+	c.Outf("Running Terraform commands")
 	result, err := c.handleTerraformPlan(ctx)
 	if err != nil {
 		var comment strings.Builder
@@ -285,7 +281,7 @@ func (c *PlanRunCommand) handleTerraformPlan(ctx context.Context) (*RunResult, e
 	multiStderr := io.MultiWriter(c.Stderr(), &stderr)
 
 	lockfileMode := "none"
-	if c.flagProtectLockfile {
+	if !c.flagAllowLockfileChanges {
 		lockfileMode = "readonly"
 	}
 

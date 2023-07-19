@@ -25,6 +25,7 @@ import (
 	"regexp"
 	"sort"
 
+	"github.com/abcxyz/guardian/pkg/util"
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclparse"
 	"golang.org/x/exp/maps"
@@ -83,42 +84,40 @@ func NewTerraformClient(workingDir string) *TerraformClient {
 
 // GetEntrypointDirectories gets all the directories that have Terraform config
 // files containing a backend block to be used as an entrypoint module.
-func GetEntrypointDirectories(rootDirs []string) ([]string, error) {
+func GetEntrypointDirectories(rootDir string) ([]string, error) {
 	matches := make(map[string]struct{})
-	for _, dir := range rootDirs {
-		if err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
-			if err != nil {
-				return fmt.Errorf("failed to walk directory %s: %w", path, err)
-			}
-
-			if d.IsDir() {
-				return nil
-			}
-
-			if filepath.Ext(path) != ".tf" {
-				return nil
-			}
-
-			hasBackend, _, err := hasBackendConfig(path)
-			if err != nil {
-				return fmt.Errorf("failed to find terraform backend config: %w", err)
-			}
-
-			if !hasBackend {
-				return nil
-			}
-
-			absPath, err := filepath.Abs(filepath.Dir(path))
-			if err != nil {
-				return fmt.Errorf("failed to get absolute path for directory %s: %w", dir, err)
-			}
-
-			matches[absPath] = struct{}{}
-
-			return nil
-		}); err != nil {
-			return nil, fmt.Errorf("failed to find files: %w", err)
+	if err := filepath.WalkDir(rootDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return fmt.Errorf("failed to walk directory %s: %w", path, err)
 		}
+
+		if d.IsDir() {
+			return nil
+		}
+
+		if filepath.Ext(path) != ".tf" {
+			return nil
+		}
+
+		hasBackend, _, err := hasBackendConfig(path)
+		if err != nil {
+			return fmt.Errorf("failed to find terraform backend config: %w", err)
+		}
+
+		if !hasBackend {
+			return nil
+		}
+
+		absPath, err := util.PathEvalAbs(filepath.Dir(path))
+		if err != nil {
+			return fmt.Errorf("failed to get absolute path for directory %s: %w", rootDir, err)
+		}
+
+		matches[absPath] = struct{}{}
+
+		return nil
+	}); err != nil {
+		return nil, fmt.Errorf("failed to find files: %w", err)
 	}
 
 	dirs := maps.Keys(matches)

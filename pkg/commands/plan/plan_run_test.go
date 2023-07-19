@@ -38,41 +38,41 @@ func TestPlan_Process(t *testing.T) {
 	ctx := logging.WithLogger(context.Background(), logging.TestLogger(t))
 
 	cases := []struct {
-		name                  string
-		flagGitHubToken       string
-		flagGitHubAction      bool
-		flagGitHubOwner       string
-		flagGitHubRepo        string
-		flagPullRequestNumber int
-		flagWorkingDirectory  string
-		flagBucketName        string
-		flagProtectLockfile   bool
-		flagLockTimeout       time.Duration
-		flagMaxRetries        uint64
-		flagInitialRetryDelay time.Duration
-		flagMaxRetryDelay     time.Duration
-		config                *Config
-		terraformClient       *terraform.MockTerraformClient
-		err                   string
-		expGitHubClientReqs   []*github.Request
-		expStorageClientReqs  []*storage.Request
-		expStdout             string
-		expStderr             string
+		name                     string
+		directory                string
+		flagGitHubToken          string
+		flagIsGitHubActions      bool
+		flagGitHubOwner          string
+		flagGitHubRepo           string
+		flagPullRequestNumber    int
+		flagBucketName           string
+		flagAllowLockfileChanges bool
+		flagLockTimeout          time.Duration
+		flagRetryMaxAttempts     uint64
+		flagRetryInitialDelay    time.Duration
+		flagRetryMaxDelay        time.Duration
+		config                   *Config
+		terraformClient          *terraform.MockTerraformClient
+		err                      string
+		expGitHubClientReqs      []*github.Request
+		expStorageClientReqs     []*storage.Request
+		expStdout                string
+		expStderr                string
 	}{
 		{
-			name:                  "success_with_diff",
-			flagGitHubAction:      true,
-			flagGitHubToken:       "github-token",
-			flagGitHubOwner:       "owner",
-			flagGitHubRepo:        "repo",
-			flagPullRequestNumber: 1,
-			flagWorkingDirectory:  "testdata",
-			flagBucketName:        "my-bucket-name",
-			flagProtectLockfile:   true,
-			flagLockTimeout:       10 * time.Minute,
-			flagMaxRetries:        3,
-			flagInitialRetryDelay: 2 * time.Second,
-			flagMaxRetryDelay:     10 * time.Second,
+			name:                     "success_with_diff",
+			directory:                "testdata",
+			flagIsGitHubActions:      true,
+			flagGitHubToken:          "github-token",
+			flagGitHubOwner:          "owner",
+			flagGitHubRepo:           "repo",
+			flagPullRequestNumber:    1,
+			flagBucketName:           "my-bucket-name",
+			flagAllowLockfileChanges: true,
+			flagLockTimeout:          10 * time.Minute,
+			flagRetryMaxAttempts:     3,
+			flagRetryInitialDelay:    2 * time.Second,
+			flagRetryMaxDelay:        10 * time.Second,
 			config: &Config{
 				ServerURL:  "https://github.com",
 				RunID:      int64(100),
@@ -118,19 +118,19 @@ func TestPlan_Process(t *testing.T) {
 			},
 		},
 		{
-			name:                  "success_with_no_diff",
-			flagGitHubAction:      true,
-			flagGitHubToken:       "github-token",
-			flagGitHubOwner:       "owner",
-			flagGitHubRepo:        "repo",
-			flagPullRequestNumber: 2,
-			flagWorkingDirectory:  "testdata",
-			flagBucketName:        "my-bucket-name",
-			flagProtectLockfile:   true,
-			flagLockTimeout:       10 * time.Minute,
-			flagMaxRetries:        3,
-			flagInitialRetryDelay: 2 * time.Second,
-			flagMaxRetryDelay:     10 * time.Second,
+			name:                     "success_with_no_diff",
+			directory:                "testdata",
+			flagIsGitHubActions:      true,
+			flagGitHubToken:          "github-token",
+			flagGitHubOwner:          "owner",
+			flagGitHubRepo:           "repo",
+			flagPullRequestNumber:    2,
+			flagBucketName:           "my-bucket-name",
+			flagAllowLockfileChanges: true,
+			flagLockTimeout:          10 * time.Minute,
+			flagRetryMaxAttempts:     3,
+			flagRetryInitialDelay:    2 * time.Second,
+			flagRetryMaxDelay:        10 * time.Second,
 			config: &Config{
 				ServerURL:  "https://github.com",
 				RunID:      int64(100),
@@ -166,19 +166,19 @@ func TestPlan_Process(t *testing.T) {
 			},
 		},
 		{
-			name:                  "handles_error",
-			flagGitHubAction:      true,
-			flagGitHubToken:       "github-token",
-			flagGitHubOwner:       "owner",
-			flagGitHubRepo:        "repo",
-			flagPullRequestNumber: 3,
-			flagWorkingDirectory:  "testdata",
-			flagBucketName:        "my-bucket-name",
-			flagProtectLockfile:   true,
-			flagLockTimeout:       10 * time.Minute,
-			flagMaxRetries:        3,
-			flagInitialRetryDelay: 2 * time.Second,
-			flagMaxRetryDelay:     10 * time.Second,
+			name:                     "handles_error",
+			directory:                "testdata",
+			flagIsGitHubActions:      true,
+			flagGitHubToken:          "github-token",
+			flagGitHubOwner:          "owner",
+			flagGitHubRepo:           "repo",
+			flagPullRequestNumber:    3,
+			flagBucketName:           "my-bucket-name",
+			flagAllowLockfileChanges: true,
+			flagLockTimeout:          10 * time.Minute,
+			flagRetryMaxAttempts:     3,
+			flagRetryInitialDelay:    2 * time.Second,
+			flagRetryMaxDelay:        10 * time.Second,
 			config: &Config{
 				ServerURL:  "https://github.com",
 				RunID:      int64(100),
@@ -256,24 +256,24 @@ func TestPlan_Process(t *testing.T) {
 			c := &PlanRunCommand{
 				cfg: tc.config,
 
+				directory:     tc.directory,
 				planChildPath: "testdata",
 				planFilename:  "test-tfplan.binary",
 
-				flagWorkingDirectory:  tc.flagWorkingDirectory,
-				flagPullRequestNumber: tc.flagPullRequestNumber,
-				flagBucketName:        tc.flagBucketName,
-				flagProtectLockfile:   tc.flagProtectLockfile,
-				flagLockTimeout:       tc.flagLockTimeout,
+				flagPullRequestNumber:    tc.flagPullRequestNumber,
+				flagBucketName:           tc.flagBucketName,
+				flagAllowLockfileChanges: tc.flagAllowLockfileChanges,
+				flagLockTimeout:          tc.flagLockTimeout,
 				GitHubFlags: flags.GitHubFlags{
-					FlagGitHubToken:  tc.flagGitHubToken,
-					FlagGitHubAction: tc.flagGitHubAction,
-					FlagGitHubOwner:  tc.flagGitHubOwner,
-					FlagGitHubRepo:   tc.flagGitHubRepo,
+					FlagGitHubToken:     tc.flagGitHubToken,
+					FlagIsGitHubActions: tc.flagIsGitHubActions,
+					FlagGitHubOwner:     tc.flagGitHubOwner,
+					FlagGitHubRepo:      tc.flagGitHubRepo,
 				},
 				RetryFlags: flags.RetryFlags{
-					FlagMaxRetries:        tc.flagMaxRetries,
-					FlagInitialRetryDelay: tc.flagInitialRetryDelay,
-					FlagMaxRetryDelay:     tc.flagMaxRetryDelay,
+					FlagRetryMaxAttempts:  tc.flagRetryMaxAttempts,
+					FlagRetryInitialDelay: tc.flagRetryInitialDelay,
+					FlagRetryMaxDelay:     tc.flagRetryMaxDelay,
 				},
 				actions:         actions,
 				githubClient:    githubClient,

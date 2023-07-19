@@ -18,6 +18,7 @@ package plan
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"os"
 	"strings"
@@ -30,25 +31,31 @@ import (
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
 	gh "github.com/google/go-github/v53/github"
+	"golang.org/x/exp/maps"
 )
 
 var _ cli.Command = (*PlanInitCommand)(nil)
 
+// allowedFormats are the allowed format flags for this command.
+var allowedFormats = map[string]struct{}{
+	"json": {},
+	"text": {},
+}
+
 type PlanInitCommand struct {
 	cli.BaseCommand
 
-	workingDir  string
+	directory   string
 	entrypoints []string
 
 	flags.GitHubFlags
 	flags.RetryFlags
 
-	flagPullRequestNumber      int
-	flagDestRef                string
-	flagSourceRef              string
-	flagDirectories            []string
-	flagDeleteOutdatedComments bool
-	flagJSON                   bool
+	flagPullRequestNumber    int
+	flagDestRef              string
+	flagSourceRef            string
+	flagKeepOutdatedComments bool
+	flagFormat               string
 
 	gitClient    git.Git
 	githubClient github.GitHub
@@ -58,12 +65,12 @@ type PlanInitCommand struct {
 }
 
 func (c *PlanInitCommand) Desc() string {
-	return `Run the Terraform plan for a directory.`
+	return `Run the Terraform plan for a directory`
 }
 
 func (c *PlanInitCommand) Help() string {
 	return `
-Usage: {{ COMMAND }} [options]
+Usage: {{ COMMAND }} [options] <dir>
 
   Initialize Guardian for running the Terraform plan process.
 `
@@ -75,7 +82,7 @@ func (c *PlanInitCommand) Flags() *cli.FlagSet {
 	c.GitHubFlags.AddFlags(set)
 	c.RetryFlags.AddFlags(set)
 
-	f := set.NewSection("Command options")
+	f := set.NewSection("COMMAND OPTIONS")
 
 	f.IntVar(&cli.IntVar{
 		Name:    "pull-request-number",
@@ -98,116 +105,121 @@ func (c *PlanInitCommand) Flags() *cli.FlagSet {
 		Usage:   "The source GitHub ref name for finding file changes.",
 	})
 
-	f.StringSliceVar(&cli.StringSliceVar{
-		Name:    "directories",
-		Target:  &c.flagDirectories,
-		Example: "dir1,dir2,dir3",
-		Usage:   "The subset of directories to target for Terraform planning.",
+	f.BoolVar(&cli.BoolVar{
+		Name:   "keep-outdated-comments",
+		Target: &c.flagKeepOutdatedComments,
+		Usage:  "Keep outdated comments when Guardian plan is run multiple times for the same pull request.",
 	})
 
-	f.BoolVar(&cli.BoolVar{
-		Name:    "delete-outdated-comments",
-		Target:  &c.flagDeleteOutdatedComments,
-		Default: true,
-		Usage:   "Delete outdated comments when Guardian plan is run multiple times for the same pull request.",
-	})
-
-	f.BoolVar(&cli.BoolVar{
-		Name:    "json",
-		Target:  &c.flagJSON,
-		Default: false,
-		Usage:   "Print the output directories in JSON format.",
+	f.StringVar(&cli.StringVar{
+		Name:   "format",
+		Target: &c.flagFormat,
+		Usage:  fmt.Sprintf("The format to print the output directories. The supported formats are: %s.", strings.Join(maps.Keys(allowedFormats), ", ")),
 	})
 
 	return set
 }
 
 func (c *PlanInitCommand) Run(ctx context.Context, args []string) error {
-	logger := logging.FromContext(ctx)
-
 	f := c.Flags()
 	if err := f.Parse(args); err != nil {
 		return fmt.Errorf("failed to parse flags: %w", err)
 	}
 
-	args = f.Args()
-	if len(args) > 0 {
-		return fmt.Errorf("unexpected arguments: %q", args)
+	parsedArgs := f.Args()
+
+	if len(parsedArgs) != 1 {
+		return flag.ErrHelp
 	}
 
-	cwd, err := os.Getwd()
+	dirAbs, err := util.PathEvalAbs(parsedArgs[0])
 	if err != nil {
-		return fmt.Errorf("failed to get current working directory: %w", err)
+		return fmt.Errorf("failed to absolute path for directory: %w", err)
 	}
-	c.workingDir = cwd
+	c.directory = dirAbs
 
-	c.gitClient = git.NewGitClient(cwd)
+	c.gitClient = git.NewGitClient(c.directory)
 	c.githubClient = github.NewClient(
 		ctx,
 		c.GitHubFlags.FlagGitHubToken,
-		github.WithInitialRetryDelay(c.RetryFlags.FlagInitialRetryDelay),
-		github.WithMaxRetries(c.RetryFlags.FlagMaxRetries),
-		github.WithMaxRetryDelay(c.RetryFlags.FlagMaxRetryDelay),
+		github.WithRetryInitialDelay(c.RetryFlags.FlagRetryInitialDelay),
+		github.WithRetryMaxAttempts(c.RetryFlags.FlagRetryMaxAttempts),
+		github.WithRetryMaxDelay(c.RetryFlags.FlagRetryMaxDelay),
 	)
-
-	if len(c.flagDirectories) == 0 {
-		c.flagDirectories = append(c.flagDirectories, cwd)
-	}
-
-	logger.Debugln("finding entrypoint directories..")
-
-	dirs, err := terraform.GetEntrypointDirectories(c.flagDirectories)
-	if err != nil {
-		return fmt.Errorf("failed to find terraform directories: %w", err)
-	}
-
-	c.entrypoints = dirs
-	logger.Debugf("terraform entrypoint directories: %s", c.entrypoints)
 
 	return c.Process(ctx)
 }
 
-// Process handles the main logic for the Guardian plan init process.
+// Process handles the main logic for the Guardian init process.
 func (c *PlanInitCommand) Process(ctx context.Context) error {
-	logger := logging.FromContext(ctx)
-	logger.Debugln("starting Guardian plan init")
+	logger := logging.FromContext(ctx).
+		Named("init.process").
+		With("github_owner", c.GitHubFlags.FlagGitHubOwner).
+		With("github_repo", c.GitHubFlags.FlagGitHubOwner).
+		With("pull_request_number", c.flagPullRequestNumber)
 
-	if c.GitHubFlags.FlagGitHubAction && c.flagDeleteOutdatedComments {
-		logger.Debugln("removing outdated comments...")
+	logger.Debug("starting Guardian plan init")
+
+	if c.flagFormat == "" {
+		c.flagFormat = "text"
+	}
+
+	if _, ok := allowedFormats[c.flagFormat]; !ok {
+		return fmt.Errorf("invalid format flag: %s (supported formats are: %s)", c.flagFormat, strings.Join(maps.Keys(allowedFormats), ", "))
+	}
+
+	if c.GitHubFlags.FlagIsGitHubActions && !c.flagKeepOutdatedComments {
+		logger.Debug("removing outdated comments...")
 		if err := c.deleteOutdatedComments(ctx, c.GitHubFlags.FlagGitHubOwner, c.GitHubFlags.FlagGitHubRepo, c.flagPullRequestNumber); err != nil {
 			return fmt.Errorf("failed to delete outdated comments: %w", err)
 		}
 	}
 
+	logger.Debug("finding entrypoint directories")
+
+	dirs, err := terraform.GetEntrypointDirectories(c.directory)
+	if err != nil {
+		return fmt.Errorf("failed to find terraform directories: %w", err)
+	}
+
+	c.entrypoints = dirs
+	logger.Debugw("terraform entrypoint directories", "entrypoint_dirs", c.entrypoints)
+
 	diffDirs, err := c.gitClient.DiffDirsAbs(ctx, c.flagDestRef, c.flagSourceRef)
 	if err != nil {
 		return fmt.Errorf("failed to find git diff directories: %w", err)
 	}
-	logger.Debugf("changed directories: %+v", diffDirs)
+	logger.Debugw("computed directories", "directories", diffDirs)
 
 	targetDirs := util.GetSliceIntersection(c.entrypoints, diffDirs)
-	logger.Debugf("target directories: %+v", targetDirs)
+	logger.Debugw("target directories", "target_directories", targetDirs)
 
-	// convert to child path for output, using absolute path
-	// creates an ugly github workflow name
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get current working directory: %w", err)
+	}
+
+	// convert to child path for output
+	// using absolute path creates an ugly github workflow name
 	for k, dir := range targetDirs {
-		childPath, err := util.ChildPath(c.workingDir, dir)
+		childPath, err := util.ChildPath(cwd, dir)
 		if err != nil {
 			return fmt.Errorf("failed to get child path for: %w", err)
 		}
 		targetDirs[k] = childPath
 	}
 
-	if c.flagJSON {
-		outJSON, err := json.Marshal(targetDirs)
-		if err != nil {
+	switch v := strings.TrimSpace(strings.ToLower(c.flagFormat)); v {
+	case "json":
+		if err := json.NewEncoder(c.Stdout()).Encode(targetDirs); err != nil {
 			return fmt.Errorf("failed to create json string: %w", err)
 		}
-		c.Outf(string(outJSON))
-	} else {
+	case "text":
 		for _, dir := range targetDirs {
 			c.Outf("%s", dir)
 		}
+	default:
+		return fmt.Errorf("invalid format flag: %s (supported formats are: %s)", c.flagFormat, strings.Join(maps.Keys(allowedFormats), ", "))
 	}
 
 	return nil
@@ -220,23 +232,29 @@ func (c *PlanInitCommand) deleteOutdatedComments(ctx context.Context, owner, rep
 	}
 
 	for {
-		comments, paging, err := c.githubClient.ListIssueComments(ctx, owner, repo, number, listOpts)
+		response, err := c.githubClient.ListIssueComments(ctx, owner, repo, number, listOpts)
 		if err != nil {
 			return fmt.Errorf("failed to list comments: %w", err)
 		}
 
-		for _, comment := range comments {
-			if strings.HasPrefix(comment.Body, planCommentPrefix) {
-				if err := c.githubClient.DeleteIssueComment(ctx, owner, repo, comment.ID); err != nil {
-					return fmt.Errorf("failed to delete comment: %w", err)
-				}
+		if response.Comments == nil {
+			return nil
+		}
+
+		for _, comment := range response.Comments {
+			if !strings.HasPrefix(comment.Body, planCommentPrefix) {
+				continue
+			}
+
+			if err := c.githubClient.DeleteIssueComment(ctx, owner, repo, comment.ID); err != nil {
+				return fmt.Errorf("failed to delete comment: %w", err)
 			}
 		}
 
-		if !paging.HasNextPage {
+		if response.Pagination == nil {
 			break
 		}
-		listOpts.Page = paging.NextPage
+		listOpts.Page = response.Pagination.NextPage
 	}
 
 	return nil

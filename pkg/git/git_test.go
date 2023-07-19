@@ -39,25 +39,30 @@ func TestParseSortedDiffDirsAbs(t *testing.T) {
 	}{
 		{
 			name: "success",
-			value: `first/test.txt
-second/test.txt
-third/test.txt`,
-			exp: []string{path.Join(cwd, "first"), path.Join(cwd, "second"), path.Join(cwd, "third")},
+			value: `testdata/first/test.txt
+testdata/second/test.txt
+testdata/third/test.txt`,
+			exp: []string{
+				path.Join(cwd, "testdata/first"),
+				path.Join(cwd, "testdata/second"),
+				path.Join(cwd, "testdata/third"),
+			},
 		},
 		{
 			name:  "carriage_return_and_newline",
-			value: "foo/test.txt\r\nbar/test.txt\r\nbaz/test.txt",
-			exp:   []string{path.Join(cwd, "bar"), path.Join(cwd, "baz"), path.Join(cwd, "foo")},
+			value: "testdata/first/test.txt\r\ntestdata/third/test.txt\r\ntestdata/second/test.txt",
+			exp: []string{
+				path.Join(cwd, "testdata/first"),
+				path.Join(cwd, "testdata/second"),
+				path.Join(cwd, "testdata/third"),
+			},
 		},
 		{
-			name:  "sorts",
-			value: "foo/test.txt\nbar/test.txt\nbaz/test.txt",
-			exp:   []string{path.Join(cwd, "bar"), path.Join(cwd, "baz"), path.Join(cwd, "foo")},
-		},
-		{
-			name:  "handles_dirs",
-			value: "test/first\ntest/second",
-			exp:   []string{path.Join(cwd, "test")},
+			name: "handles_dirs",
+			value: `testdata/first
+testdata/second
+testdata/third`,
+			exp: []string{path.Join(cwd, "testdata")},
 		},
 		{
 			name:  "handles_empty",

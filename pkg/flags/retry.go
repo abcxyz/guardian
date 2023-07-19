@@ -23,35 +23,35 @@ import (
 // RetryFlags represent the shared retry flags among all commands.
 // Embed this struct into any commands that need retries.
 type RetryFlags struct {
-	FlagMaxRetries        uint64
-	FlagInitialRetryDelay time.Duration
-	FlagMaxRetryDelay     time.Duration
+	FlagRetryMaxAttempts  uint64
+	FlagRetryInitialDelay time.Duration
+	FlagRetryMaxDelay     time.Duration
 }
 
 func (r *RetryFlags) AddFlags(set *cli.FlagSet) {
-	f := set.NewSection("Retry options")
+	f := set.NewSection("RETRY OPTIONS")
 
 	f.Uint64Var(&cli.Uint64Var{
-		Name:    "max-retries",
-		Target:  &r.FlagMaxRetries,
+		Name:    "retry-max-attempts",
+		Target:  &r.FlagRetryMaxAttempts,
 		Default: uint64(3),
-		Example: "3",
+		Example: "1",
 		Usage:   "The maxinum number of attempts to retry any failures.",
 	})
 
 	f.DurationVar(&cli.DurationVar{
-		Name:    "initial-retry-delay",
-		Target:  &r.FlagInitialRetryDelay,
+		Name:    "retry-initial-delay",
+		Target:  &r.FlagRetryInitialDelay,
 		Default: 2 * time.Second,
-		Example: "2s",
+		Example: "10s",
 		Usage:   "The initial duration to wait before retrying any failures.",
 	})
 
 	f.DurationVar(&cli.DurationVar{
-		Name:    "max-retry-delay",
-		Target:  &r.FlagMaxRetryDelay,
+		Name:    "retry-max-delay",
+		Target:  &r.FlagRetryMaxDelay,
 		Default: 1 * time.Minute,
-		Example: "1m",
+		Example: "5m",
 		Usage:   "The maximum duration to wait before retrying any failures.",
 	})
 }

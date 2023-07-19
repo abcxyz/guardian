@@ -78,3 +78,18 @@ func ChildPath(base, target string) (string, error) {
 
 	return trimmed, nil
 }
+
+// PathEvalAbs returns the absolute path for a directory after evaluating symlinks.
+func PathEvalAbs(path string) (string, error) {
+	sym, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve symlinks for path: %w", err)
+	}
+
+	abs, err := filepath.Abs(sym)
+	if err != nil {
+		return "", fmt.Errorf("failed to compute absolute path: %w", err)
+	}
+
+	return abs, nil
+}

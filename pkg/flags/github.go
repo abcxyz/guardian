@@ -19,19 +19,19 @@ import "github.com/abcxyz/pkg/cli"
 // GitHubFlags represent the shared GitHub flags among all commands.
 // Embed this struct into any commands that interact with GitHub.
 type GitHubFlags struct {
-	FlagGitHubAction bool
-	FlagGitHubToken  string
-	FlagGitHubOwner  string
-	FlagGitHubRepo   string
+	FlagIsGitHubActions bool
+	FlagGitHubToken     string
+	FlagGitHubOwner     string
+	FlagGitHubRepo      string
 }
 
 func (g *GitHubFlags) AddFlags(set *cli.FlagSet) {
-	f := set.NewSection("GitHub options")
+	f := set.NewSection("GITHUB OPTIONS")
 
 	f.BoolVar(&cli.BoolVar{
-		Name:    "github-action",
+		Name:    "github-actions",
 		EnvVar:  "GITHUB_ACTIONS",
-		Target:  &g.FlagGitHubAction,
+		Target:  &g.FlagIsGitHubActions,
 		Default: false,
 		Usage:   "Is this running as a GitHub action.",
 	})
@@ -40,7 +40,7 @@ func (g *GitHubFlags) AddFlags(set *cli.FlagSet) {
 		Name:   "github-token",
 		EnvVar: "GITHUB_TOKEN",
 		Target: &g.FlagGitHubToken,
-		Usage:  "The GitHub access token to make GitHub API calls.",
+		Usage:  "The GitHub access token to make GitHub API calls. This value is automatically set on GitHub Actions.",
 	})
 
 	f.StringVar(&cli.StringVar{

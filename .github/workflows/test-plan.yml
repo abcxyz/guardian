@@ -64,22 +64,26 @@ jobs:
         id: 'init'
         env:
           GITHUB_TOKEN: '${{ github.token }}'
+          TERRAFORM_DIRECTORY: 'terraform'
           HEAD_REF: 'origin/${{ github.event.pull_request.head.ref }}'
           BASE_REF: 'origin/${{ github.event.pull_request.base.ref }}'
         run: |-
           DIRS=$(guardian plan init \
-            -directories=terraform \
-            -github-owner=${REPO_OWNER} \
-            -github-repo=${REPO_NAME} \
-            -pull-request-number=${PR_NUMBER} \
-            -source-ref=${HEAD_REF} \
-            -dest-ref=${BASE_REF} \
-            -json)
+            -github-owner="${REPO_OWNER}" \
+            -github-repo="${REPO_NAME}" \
+            -pull-request-number="${PR_NUMBER}" \
+            -source-ref="${HEAD_REF}" \
+            -dest-ref="${BASE_REF}" \
+            -format=json \
+            "${TERRAFORM_DIRECTORY}")
+
+          echo "Guardian Dirs: ${DIRS}"
 
           echo "directories=${DIRS}" >> $GITHUB_OUTPUT
 
   plan:
-    if: '${{ needs.init.outputs.directories != ''[]'' }}'
+    if: |
+      needs.init.outputs.directories != '[]'
     needs:
       - 'init'
     runs-on: 'ubuntu-latest'
@@ -137,11 +141,11 @@ jobs:
           BUCKET_NAME: '${{ vars.GUARDIAN_BUCKET_NAME }}'
         run: |-
           guardian plan run \
-            -working-directory=${WORKING_DIRECTORY} \
-            -bucket-name=${BUCKET_NAME} \
-            -github-owner=${REPO_OWNER} \
-            -github-repo=${REPO_NAME} \
-            -pull-request-number=${PR_NUMBER}
+            -bucket-name="${BUCKET_NAME}" \
+            -github-owner="${REPO_OWNER}" \
+            -github-repo="${REPO_NAME}" \
+            -pull-request-number="${PR_NUMBER}" \
+            "${WORKING_DIRECTORY}"
 
   plan_success:
     if: '${{ always() }}'

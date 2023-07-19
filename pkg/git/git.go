@@ -24,6 +24,7 @@ import (
 	"sort"
 
 	"github.com/abcxyz/guardian/pkg/child"
+	"github.com/abcxyz/guardian/pkg/util"
 	"golang.org/x/exp/maps"
 )
 
@@ -78,7 +79,7 @@ func parseSortedDiffDirsAbs(v string) ([]string, error) {
 		if len(line) > 0 {
 			dir := filepath.Dir(line)
 
-			path, err := filepath.Abs(dir)
+			path, err := util.PathEvalAbs(dir)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get absolute path for directory %s: %w", dir, err)
 			}
