@@ -337,10 +337,6 @@ func (c *PlanRunCommand) handleTerraformPlan(ctx context.Context) (*RunResult, e
 		return &RunResult{commentDetails: stderr.String()}, fmt.Errorf("failed to plan: %w", err)
 	}
 
-	if !hasChanges {
-		return &RunResult{hasChanges: hasChanges}, nil
-	}
-
 	c.actions.Group("Formatting plan output")
 
 	_, err = c.terraformClient.Show(ctx, multiStdout, multiStderr, &terraform.ShowOptions{File: util.Ptr(c.planFilename), NoColor: util.Ptr(true)})
