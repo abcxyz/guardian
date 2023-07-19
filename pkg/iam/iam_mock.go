@@ -29,12 +29,15 @@ type Request struct {
 }
 
 type MockIAMClient struct {
-	OrgErr      string
-	OrgData     []*assetinventory.AssetIAM
-	FolderErr   string
-	FolderData  []*assetinventory.AssetIAM
-	ProjectErr  string
-	ProjectData []*assetinventory.AssetIAM
+	OrgErr           string
+	OrgData          []*assetinventory.AssetIAM
+	FolderErr        string
+	FolderData       []*assetinventory.AssetIAM
+	ProjectErr       string
+	ProjectData      []*assetinventory.AssetIAM
+	RemoveOrgErr     string
+	RemoveFolderErr  string
+	RemoveProjectErr string
 }
 
 func (m *MockIAMClient) OrganizationIAM(ctx context.Context, organizationID string) ([]*assetinventory.AssetIAM, error) {
@@ -56,4 +59,25 @@ func (m *MockIAMClient) ProjectIAM(ctx context.Context, projectID string) ([]*as
 		return nil, fmt.Errorf("%s", m.ProjectErr)
 	}
 	return m.ProjectData, nil
+}
+
+func (m *MockIAMClient) RemoveOrganizationIAM(ctx context.Context, iamMember *assetinventory.AssetIAM) error {
+	if m.RemoveOrgErr != "" {
+		return fmt.Errorf("%s", m.RemoveOrgErr)
+	}
+	return nil
+}
+
+func (m *MockIAMClient) RemoveFolderIAM(ctx context.Context, iamMember *assetinventory.AssetIAM) error {
+	if m.RemoveFolderErr != "" {
+		return fmt.Errorf("%s", m.RemoveFolderErr)
+	}
+	return nil
+}
+
+func (m *MockIAMClient) RemoveProjectIAM(ctx context.Context, iamMember *assetinventory.AssetIAM) error {
+	if m.RemoveProjectErr != "" {
+		return fmt.Errorf("%s", m.RemoveProjectErr)
+	}
+	return nil
 }

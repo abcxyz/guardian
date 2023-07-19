@@ -67,7 +67,7 @@ func (c *IAMCleanupCommand) Flags() *cli.FlagSet {
 	f.StringVar(&cli.StringVar{
 		Name:    "iam-query",
 		Target:  &c.flagIAMQuery,
-		Example: "organizations/123456",
+		Example: "policy:abcxyz-aod-expiry",
 		Usage:   `The query to use to filter on IAM.`,
 	})
 	f.BoolVar(&cli.BoolVar{
@@ -118,7 +118,7 @@ func (c *IAMCleanupCommand) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("missing -scope")
 	}
 
-	iamCleaner, err := NewIAMCleaner(ctx, c.flagMaxConcurrentRequests)
+	iamCleaner, err := NewIAMCleaner(ctx, c.flagMaxConcurrentRequests, c.flagWorkingDirectory)
 	if err != nil {
 		return fmt.Errorf("failed to create iam cleaner: %w", err)
 	}

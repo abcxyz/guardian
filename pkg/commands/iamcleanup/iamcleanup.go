@@ -3,10 +3,10 @@ package iamcleanup
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"github.com/google/cel-go/cel"
 	rpcpb "google.golang.org/genproto/googleapis/rpc/context/attribute_context"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/abcxyz/guardian/pkg/assetinventory"
 	"github.com/abcxyz/guardian/pkg/iam"
@@ -51,21 +51,26 @@ func (c *IAMCleaner) Do(
 		return fmt.Errorf("failed to get iam: %w", err)
 	}
 
-	w := worker.New[*worker.Void](c.maxConcurrentRequests)
-	filteredIAMs := iams
+	logger.Debugw("got IAM",
+		"number_of_iam_memberships", len(iams),
+		"scope", scope,
+		"query", iamQuery)
 
-	env, err := cel.NewEnv(
-		cel.Types(&rpcpb.AttributeContext_Request{}),
-		cel.Variable("request",
-			cel.ObjectType("google.rpc.context.AttributeContext.Request"),
-		),
-	)
-	ast, issues := env.Compile(`name.startsWith("/groups/" + group)`)
-	if issues != nil && issues.Err() != nil {
-		log.Fatalf("type-check error: %s", issues.Err())
+	w := worker.New[*worker.Void](c.maxConcurrentRequests)
+	var expiredIAMs []*assetinventory.AssetIAM
+
+	for _, i := range iams {
+		expired, err := isIAMConditionExpressionExpired(ctx, i.Condition.Expression)
+		if err != nil {
+			logger.Warnw("Failed to parse expression (CEL) for IAM membership", "membership", i, "error", err)
+		} else if *expired {
+			expiredIAMs = append(expiredIAMs, i)
+		}
 	}
 
-	for _, i := range filteredIAMs {
+	logger.Debugw("Cleaning up expired IAM", "number_of_iam_memberships", len(expiredIAMs))
+
+	for _, i := range expiredIAMs {
 		iamMembership := i
 		if err := w.Do(ctx, func() (*worker.Void, error) {
 			if iamMembership.ResourceType == assetinventory.Organization {
@@ -86,10 +91,37 @@ func (c *IAMCleaner) Do(
 			return fmt.Errorf("failed to execute remove IAM task: %w", err)
 		}
 	}
-
-	logger.Debugw("got IAM",
-		"number_of_iam_memberships", len(iams),
-		"scope", scope,
-		"query", iamQuery)
 	return nil
+}
+
+func isIAMConditionExpressionExpired(ctx context.Context, expression string) (*bool, error) {
+	// Example: request.time < timestamp("2019-01-01T00:00:00Z")
+	env, err := cel.NewEnv(
+		cel.Types(&rpcpb.AttributeContext_Request{}),
+		cel.Variable("request",
+			cel.ObjectType("google.rpc.context.AttributeContext.Request"),
+		),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Expression (CEL) environment: %w", err)
+	}
+	ast, issues := env.Compile(expression)
+	if issues != nil && issues.Err() != nil {
+		return nil, fmt.Errorf("failed to compile Expression (CEL): %w", issues.Err())
+	}
+	program, err := env.Program(ast)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Expression (CEL) program: %w", err)
+	}
+	val, _, err := program.ContextEval(ctx, map[string]any{"request": &rpcpb.AttributeContext_Request{Time: timestamppb.Now()}})
+	if err != nil {
+		return nil, fmt.Errorf("failed to evaluate Expression (CEL): %w", err)
+	}
+	passed, ok := val.Value().(bool)
+	if !ok {
+		return nil, fmt.Errorf("failed to parse evaluation from Expression (CEL) with value: %s", val)
+	}
+	expired := !passed
+
+	return &expired, nil
 }

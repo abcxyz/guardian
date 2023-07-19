@@ -143,45 +143,45 @@ func (c *IAMClient) OrganizationIAM(ctx context.Context, organizationID string) 
 }
 
 // RemoveProjectIAM removes the given IAM policy membership.
-func (c *IAMClient) RemoveProjectIAM(ctx context.Context, projectIAMMember *assetinventory.AssetIAM) error {
+func (c *IAMClient) RemoveProjectIAM(ctx context.Context, iamMember *assetinventory.AssetIAM) error {
 	args := []string{
 		"projects", "remove-iam-policy-binding",
-		projectIAMMember.ResourceID,
-		fmt.Sprintf("--member=%s", projectIAMMember.Member),
-		fmt.Sprintf("--role=%s", projectIAMMember.Role),
+		iamMember.ResourceID,
+		fmt.Sprintf("--member=%s", iamMember.Member),
+		fmt.Sprintf("--role=%s", iamMember.Role),
 	}
 	if _, err := c.gcloud(ctx, args); err != nil {
-		return fmt.Errorf("failed to remove iam policy for project %s: %w", projectIAMMember.ResourceID, err)
+		return fmt.Errorf("failed to remove iam policy for project %s: %w", iamMember.ResourceID, err)
 	}
 
 	return nil
 }
 
 // RemoveFolderIAM removes the given IAM policy membership.
-func (c *IAMClient) RemoveFolderIAM(ctx context.Context, projectIAMMember *assetinventory.AssetIAM) error {
+func (c *IAMClient) RemoveFolderIAM(ctx context.Context, iamMember *assetinventory.AssetIAM) error {
 	args := []string{
 		"folders", "remove-iam-policy-binding",
-		projectIAMMember.ResourceID,
-		fmt.Sprintf("--member=%s", projectIAMMember.Member),
-		fmt.Sprintf("--role=%s", projectIAMMember.Role),
+		iamMember.ResourceID,
+		fmt.Sprintf("--member=%s", iamMember.Member),
+		fmt.Sprintf("--role=%s", iamMember.Role),
 	}
 	if _, err := c.gcloud(ctx, args); err != nil {
-		return fmt.Errorf("failed to remove iam policy for folder %s: %w", projectIAMMember.ResourceID, err)
+		return fmt.Errorf("failed to remove iam policy for folder %s: %w", iamMember.ResourceID, err)
 	}
 
 	return nil
 }
 
 // RemoveOrganizationIAM removes the given IAM policy membership.
-func (c *IAMClient) RemoveOrganizationIAM(ctx context.Context, projectIAMMember *assetinventory.AssetIAM) error {
+func (c *IAMClient) RemoveOrganizationIAM(ctx context.Context, iamMember *assetinventory.AssetIAM) error {
 	args := []string{
 		"organizations", "remove-iam-policy-binding",
-		projectIAMMember.ResourceID,
-		fmt.Sprintf("--member=%s", projectIAMMember.Member),
-		fmt.Sprintf("--role=%s", projectIAMMember.Role),
+		iamMember.ResourceID,
+		fmt.Sprintf("--member=%s", iamMember.Member),
+		fmt.Sprintf("--role=%s", iamMember.Role),
 	}
 	if _, err := c.gcloud(ctx, args); err != nil {
-		return fmt.Errorf("failed to remove iam policy for organization %s: %w", projectIAMMember.ResourceID, err)
+		return fmt.Errorf("failed to remove iam policy for organization %s: %w", iamMember.ResourceID, err)
 	}
 
 	return nil

@@ -6,6 +6,7 @@ require (
 	cloud.google.com/go/asset v1.14.1
 	cloud.google.com/go/storage v1.31.0
 	github.com/abcxyz/pkg v0.5.0
+	github.com/google/cel-go v0.17.0
 	github.com/google/go-cmp v0.5.9
 	github.com/google/go-github/v53 v53.2.0
 	github.com/googleapis/gax-go/v2 v2.12.0
@@ -15,6 +16,7 @@ require (
 	golang.org/x/exp v0.0.0-20230713183714-613f0c0eb8a1
 	golang.org/x/oauth2 v0.10.0
 	google.golang.org/api v0.132.0
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20230717213848-3f92550aa753
 	google.golang.org/protobuf v1.31.0
 )
 
@@ -29,6 +31,7 @@ require (
 	cloud.google.com/go/osconfig v1.12.1 // indirect
 	github.com/ProtonMail/go-crypto v0.0.0-20230717121422-5aa5874ade95 // indirect
 	github.com/agext/levenshtein v1.2.3 // indirect
+	github.com/antlr/antlr4/runtime/Go/antlr/v4 v4.0.0-20230305170008-8188dc5388df // indirect
 	github.com/apparentlymart/go-textseg/v13 v13.0.0 // indirect
 	github.com/benbjohnson/clock v1.3.5 // indirect
 	github.com/cloudflare/circl v1.3.3 // indirect
@@ -54,6 +57,7 @@ require (
 	github.com/segmentio/asm v1.2.0 // indirect
 	github.com/sethvargo/go-envconfig v0.9.0 // indirect
 	github.com/zclconf/go-cty v1.13.2 // indirect
+	github.com/stoewer/go-strcase v1.2.0 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
@@ -67,6 +71,5 @@ require (
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20230717213848-3f92550aa753 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20230717213848-3f92550aa753 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20230717213848-3f92550aa753 // indirect
 	google.golang.org/grpc v1.56.2 // indirect
 )
