@@ -54,10 +54,12 @@ jobs:
         id: 'dirs'
         uses: './.github/actions/directories'
         with:
+          terraform_directory: 'terraform'
           directories: '${{ inputs.directories }}'
 
   admin:
-    if: '${{ needs.init.outputs.directories != ''[]'' }}'
+    if: |
+      needs.init.outputs.directories != '[]'
     needs:
       - 'init'
     runs-on: 'ubuntu-latest'

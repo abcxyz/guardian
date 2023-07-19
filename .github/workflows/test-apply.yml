@@ -42,11 +42,13 @@ jobs:
       - name: 'Guardian Directories'
         id: 'dirs'
         uses: './.github/actions/directories'
-        # with:
-        # detect_apply_changes: 'true'
+        with:
+          terraform_directory: 'terraform'
+          # detect_apply_changes: 'true'
 
   apply:
-    if: '${{ needs.init.outputs.directories != ''[]'' }}'
+    if: |
+      needs.init.outputs.directories != '[]'
     needs:
       - 'init'
     runs-on: 'ubuntu-latest'

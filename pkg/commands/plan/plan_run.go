@@ -384,6 +384,8 @@ func (c *PlanRunCommand) handleUploadGuardianPlan(ctx context.Context, planFileP
 	metadata := make(map[string]string)
 	metadata["plan_exit_code"] = strconv.Itoa(planExitCode)
 
+	c.Outf("uploading plan file to gs://%s/%s", c.flagBucketName, guardianPlanName)
+
 	if err := c.storageClient.UploadObject(ctx, c.flagBucketName, guardianPlanName, planData,
 		storage.WithContentType("application/octet-stream"),
 		storage.WithMetadata(metadata),
