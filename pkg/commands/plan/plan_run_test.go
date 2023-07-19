@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/github"
 	"github.com/abcxyz/guardian/pkg/storage"
 	"github.com/abcxyz/guardian/pkg/terraform"
@@ -37,42 +38,45 @@ func TestPlan_Process(t *testing.T) {
 	ctx := logging.WithLogger(context.Background(), logging.TestLogger(t))
 
 	cases := []struct {
-		name                  string
-		flagGitHubToken       string
-		flagWorkingDirectory  string
-		flagBucketName        string
-		flagProtectLockfile   bool
-		flagLockTimeout       time.Duration
-		flagMaxRetries        uint64
-		flagInitialRetryDelay time.Duration
-		flagMaxRetryDelay     time.Duration
-		config                *Config
-		terraformClient       *terraform.MockTerraformClient
-		err                   string
-		expGitHubClientReqs   []*github.Request
-		expStorageClientReqs  []*storage.Request
-		expStdout             string
-		expStderr             string
+		name                     string
+		directory                string
+		flagGitHubToken          string
+		flagIsGitHubActions      bool
+		flagGitHubOwner          string
+		flagGitHubRepo           string
+		flagPullRequestNumber    int
+		flagBucketName           string
+		flagAllowLockfileChanges bool
+		flagLockTimeout          time.Duration
+		flagRetryMaxAttempts     uint64
+		flagRetryInitialDelay    time.Duration
+		flagRetryMaxDelay        time.Duration
+		config                   *Config
+		terraformClient          *terraform.MockTerraformClient
+		err                      string
+		expGitHubClientReqs      []*github.Request
+		expStorageClientReqs     []*storage.Request
+		expStdout                string
+		expStderr                string
 	}{
 		{
-			name:                  "success_with_diff",
-			flagGitHubToken:       "github-token",
-			flagWorkingDirectory:  "../../../testdata",
-			flagBucketName:        "my-bucket-name",
-			flagProtectLockfile:   true,
-			flagLockTimeout:       10 * time.Minute,
-			flagMaxRetries:        3,
-			flagInitialRetryDelay: 2 * time.Second,
-			flagMaxRetryDelay:     10 * time.Second,
+			name:                     "success_with_diff",
+			directory:                "testdata",
+			flagIsGitHubActions:      true,
+			flagGitHubToken:          "github-token",
+			flagGitHubOwner:          "owner",
+			flagGitHubRepo:           "repo",
+			flagPullRequestNumber:    1,
+			flagBucketName:           "my-bucket-name",
+			flagAllowLockfileChanges: true,
+			flagLockTimeout:          10 * time.Minute,
+			flagRetryMaxAttempts:     3,
+			flagRetryInitialDelay:    2 * time.Second,
+			flagRetryMaxDelay:        10 * time.Second,
 			config: &Config{
-				IsAction:          true,
-				EventName:         "pull_request_target",
-				RepositoryOwner:   "owner",
-				RepositoryName:    "repo",
-				PullRequestNumber: 1,
-				ServerURL:         "https://github.com",
-				RunID:             int64(100),
-				RunAttempt:        int64(1),
+				ServerURL:  "https://github.com",
+				RunID:      int64(100),
+				RunAttempt: int64(1),
 			},
 			terraformClient: &terraform.MockTerraformClient{
 				InitResponse: &terraform.MockTerraformResponse{
@@ -95,11 +99,11 @@ func TestPlan_Process(t *testing.T) {
 			expGitHubClientReqs: []*github.Request{
 				{
 					Name:   "CreateIssueComment",
-					Params: []any{"owner", "repo", int(1), "**`🔱 Guardian 🔱 PLAN`** - 🟨 Running for dir: `../../../testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
+					Params: []any{"owner", "repo", int(1), "**`🔱 Guardian 🔱 PLAN`** - 🟨 Running for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
 				},
 				{
 					Name:   "UpdateIssueComment",
-					Params: []any{"owner", "repo", int64(1), "**`🔱 Guardian 🔱 PLAN`** - 🟩 Successful for dir: `../../../testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]\n\n<details>\n<summary>Details</summary>\n\n```diff\n\nterraform show success with diff\n```\n</details>"},
+					Params: []any{"owner", "repo", int64(1), "**`🔱 Guardian 🔱 PLAN`** - 🟩 Successful for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]\n\n<details>\n<summary>Details</summary>\n\n```diff\n\nterraform show success with diff\n```\n</details>"},
 				},
 			},
 			expStorageClientReqs: []*storage.Request{
@@ -107,31 +111,30 @@ func TestPlan_Process(t *testing.T) {
 					Name: "UploadObject",
 					Params: []any{
 						"my-bucket-name",
-						"guardian-plans/owner/repo/1/../../../testdata/test-tfplan.binary",
+						"guardian-plans/owner/repo/1/testdata/test-tfplan.binary",
 						"this is a plan binary",
 					},
 				},
 			},
 		},
 		{
-			name:                  "success_with_no_diff",
-			flagGitHubToken:       "github-token",
-			flagWorkingDirectory:  "../../../testdata",
-			flagBucketName:        "my-bucket-name",
-			flagProtectLockfile:   true,
-			flagLockTimeout:       10 * time.Minute,
-			flagMaxRetries:        3,
-			flagInitialRetryDelay: 2 * time.Second,
-			flagMaxRetryDelay:     10 * time.Second,
+			name:                     "success_with_no_diff",
+			directory:                "testdata",
+			flagIsGitHubActions:      true,
+			flagGitHubToken:          "github-token",
+			flagGitHubOwner:          "owner",
+			flagGitHubRepo:           "repo",
+			flagPullRequestNumber:    2,
+			flagBucketName:           "my-bucket-name",
+			flagAllowLockfileChanges: true,
+			flagLockTimeout:          10 * time.Minute,
+			flagRetryMaxAttempts:     3,
+			flagRetryInitialDelay:    2 * time.Second,
+			flagRetryMaxDelay:        10 * time.Second,
 			config: &Config{
-				IsAction:          true,
-				EventName:         "pull_request_target",
-				RepositoryOwner:   "owner",
-				RepositoryName:    "repo",
-				PullRequestNumber: 2,
-				ServerURL:         "https://github.com",
-				RunID:             int64(100),
-				RunAttempt:        int64(1),
+				ServerURL:  "https://github.com",
+				RunID:      int64(100),
+				RunAttempt: int64(1),
 			},
 			terraformClient: &terraform.MockTerraformClient{
 				InitResponse: &terraform.MockTerraformResponse{
@@ -154,33 +157,32 @@ func TestPlan_Process(t *testing.T) {
 			expGitHubClientReqs: []*github.Request{
 				{
 					Name:   "CreateIssueComment",
-					Params: []any{"owner", "repo", int(2), "**`🔱 Guardian 🔱 PLAN`** - 🟨 Running for dir: `../../../testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
+					Params: []any{"owner", "repo", int(2), "**`🔱 Guardian 🔱 PLAN`** - 🟨 Running for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
 				},
 				{
 					Name:   "UpdateIssueComment",
-					Params: []any{"owner", "repo", int64(1), "**`🔱 Guardian 🔱 PLAN`** - 🟦 No changes for dir: `../../../testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
+					Params: []any{"owner", "repo", int64(1), "**`🔱 Guardian 🔱 PLAN`** - 🟦 No changes for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
 				},
 			},
 		},
 		{
-			name:                  "handles_error",
-			flagGitHubToken:       "github-token",
-			flagWorkingDirectory:  "../../../testdata",
-			flagBucketName:        "my-bucket-name",
-			flagProtectLockfile:   true,
-			flagLockTimeout:       10 * time.Minute,
-			flagMaxRetries:        3,
-			flagInitialRetryDelay: 2 * time.Second,
-			flagMaxRetryDelay:     10 * time.Second,
+			name:                     "handles_error",
+			directory:                "testdata",
+			flagIsGitHubActions:      true,
+			flagGitHubToken:          "github-token",
+			flagGitHubOwner:          "owner",
+			flagGitHubRepo:           "repo",
+			flagPullRequestNumber:    3,
+			flagBucketName:           "my-bucket-name",
+			flagAllowLockfileChanges: true,
+			flagLockTimeout:          10 * time.Minute,
+			flagRetryMaxAttempts:     3,
+			flagRetryInitialDelay:    2 * time.Second,
+			flagRetryMaxDelay:        10 * time.Second,
 			config: &Config{
-				IsAction:          true,
-				EventName:         "pull_request_target",
-				RepositoryOwner:   "owner",
-				RepositoryName:    "repo",
-				PullRequestNumber: 3,
-				ServerURL:         "https://github.com",
-				RunID:             int64(100),
-				RunAttempt:        int64(1),
+				ServerURL:  "https://github.com",
+				RunID:      int64(100),
+				RunAttempt: int64(1),
 			},
 			terraformClient: &terraform.MockTerraformClient{
 				InitResponse: &terraform.MockTerraformResponse{
@@ -208,7 +210,7 @@ func TestPlan_Process(t *testing.T) {
 			expGitHubClientReqs: []*github.Request{
 				{
 					Name:   "CreateIssueComment",
-					Params: []any{"owner", "repo", int(3), "**`🔱 Guardian 🔱 PLAN`** - 🟨 Running for dir: `../../../testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
+					Params: []any{"owner", "repo", int(3), "**`🔱 Guardian 🔱 PLAN`** - 🟨 Running for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
 				},
 				{
 					Name: "UpdateIssueComment",
@@ -216,7 +218,7 @@ func TestPlan_Process(t *testing.T) {
 						"owner",
 						"repo",
 						int64(1),
-						"**`🔱 Guardian 🔱 PLAN`** - 🟥 Failed for dir: `../../../testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]\n" +
+						"**`🔱 Guardian 🔱 PLAN`** - 🟥 Failed for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]\n" +
 							"\n" +
 							"<details>\n" +
 							"<summary>Error</summary>\n" +
@@ -251,20 +253,28 @@ func TestPlan_Process(t *testing.T) {
 			githubClient := &github.MockGitHubClient{}
 			storageClient := &storage.MockStorageClient{}
 
-			c := &PlanCommand{
+			c := &PlanRunCommand{
 				cfg: tc.config,
 
-				planFilename: "test-tfplan.binary",
+				directory:     tc.directory,
+				planChildPath: "testdata",
+				planFilename:  "test-tfplan.binary",
 
-				flagGitHubToken:       tc.flagGitHubToken,
-				flagWorkingDirectory:  tc.flagWorkingDirectory,
-				flagBucketName:        tc.flagBucketName,
-				flagProtectLockfile:   tc.flagProtectLockfile,
-				flagLockTimeout:       tc.flagLockTimeout,
-				flagMaxRetries:        tc.flagMaxRetries,
-				flagInitialRetryDelay: tc.flagInitialRetryDelay,
-				flagMaxRetryDelay:     tc.flagMaxRetryDelay,
-
+				flagPullRequestNumber:    tc.flagPullRequestNumber,
+				flagBucketName:           tc.flagBucketName,
+				flagAllowLockfileChanges: tc.flagAllowLockfileChanges,
+				flagLockTimeout:          tc.flagLockTimeout,
+				GitHubFlags: flags.GitHubFlags{
+					FlagGitHubToken:     tc.flagGitHubToken,
+					FlagIsGitHubActions: tc.flagIsGitHubActions,
+					FlagGitHubOwner:     tc.flagGitHubOwner,
+					FlagGitHubRepo:      tc.flagGitHubRepo,
+				},
+				RetryFlags: flags.RetryFlags{
+					FlagRetryMaxAttempts:  tc.flagRetryMaxAttempts,
+					FlagRetryInitialDelay: tc.flagRetryInitialDelay,
+					FlagRetryMaxDelay:     tc.flagRetryMaxDelay,
+				},
 				actions:         actions,
 				githubClient:    githubClient,
 				storageClient:   storageClient,

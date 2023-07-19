@@ -24,6 +24,7 @@ import (
 	"sort"
 
 	"github.com/abcxyz/guardian/pkg/child"
+	"github.com/abcxyz/guardian/pkg/util"
 	"golang.org/x/exp/maps"
 )
 
@@ -34,8 +35,8 @@ var newline = regexp.MustCompile("\r?\n")
 
 // Git defined the common git functionality.
 type Git interface {
-	// DiffDirs returns the directories changed using the git diff command
-	DiffDirs(ctx context.Context, baseRef, headRef string) ([]string, error)
+	// DiffDirsAbs returns the directories changed using the git diff command
+	DiffDirsAbs(ctx context.Context, baseRef, headRef string) ([]string, error)
 }
 
 // GitClient implements the git interface.
@@ -50,8 +51,9 @@ func NewGitClient(workingDir string) *GitClient {
 	}
 }
 
-// DiffDirs runs a git diff between two revisions and returns the sorted ist of directories with changes.
-func (g *GitClient) DiffDirs(ctx context.Context, baseRef, headRef string) ([]string, error) {
+// DiffDirsAbs runs a git diff between two revisions and returns the sorted list
+// of absolute directory paths that have changes.
+func (g *GitClient) DiffDirsAbs(ctx context.Context, ref1, ref2 string) ([]string, error) {
 	var stdout, stderr bytes.Buffer
 
 	_, err := child.Run(ctx, &child.RunConfig{
@@ -59,22 +61,30 @@ func (g *GitClient) DiffDirs(ctx context.Context, baseRef, headRef string) ([]st
 		Stderr:     &stderr,
 		WorkingDir: g.workingDir,
 		Command:    "git",
-		Args:       []string{"diff", "--name-only", fmt.Sprintf("%s..%s", baseRef, headRef)},
+		Args:       []string{"diff", fmt.Sprintf("%s..%s", ref1, ref2), "--name-only"},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to run git diff command: %w", err)
+		return nil, fmt.Errorf("failed to run git diff command: %w\n\n%s", err, stderr.String())
 	}
 
-	return parseSortedDiffDirs(stdout.String()), err
+	return parseSortedDiffDirsAbs(stdout.String())
 }
 
-// parseSortedDiffDirs splits a string at newlines and returns the sorted set of diff dirs.
-func parseSortedDiffDirs(v string) []string {
+// parseSortedDiffDirs splits a string at newlines and returns the sorted set of
+// absolute directory paths.
+func parseSortedDiffDirsAbs(v string) ([]string, error) {
 	matches := make(map[string]struct{})
 
 	for _, line := range newline.Split(v, -1) {
 		if len(line) > 0 {
-			matches[filepath.Dir(line)] = struct{}{}
+			dir := filepath.Dir(line)
+
+			path, err := util.PathEvalAbs(dir)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get absolute path for directory %s: %w", dir, err)
+			}
+
+			matches[path] = struct{}{}
 		}
 	}
 
@@ -82,5 +92,5 @@ func parseSortedDiffDirs(v string) []string {
 
 	sort.Strings(dirs)
 
-	return dirs
+	return dirs, nil
 }

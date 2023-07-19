@@ -25,6 +25,7 @@ import (
 	"regexp"
 	"sort"
 
+	"github.com/abcxyz/guardian/pkg/util"
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclparse"
 	"golang.org/x/exp/maps"
@@ -107,7 +108,12 @@ func GetEntrypointDirectories(rootDir string) ([]string, error) {
 			return nil
 		}
 
-		matches[filepath.Dir(path)] = struct{}{}
+		absPath, err := util.PathEvalAbs(filepath.Dir(path))
+		if err != nil {
+			return fmt.Errorf("failed to get absolute path for directory %s: %w", rootDir, err)
+		}
+
+		matches[absPath] = struct{}{}
 
 		return nil
 	}); err != nil {

@@ -16,7 +16,11 @@
 package util
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
 	"sort"
+	"strings"
 
 	"golang.org/x/exp/maps"
 )
@@ -30,8 +34,8 @@ func Ptr[T any](v T) *T {
 func GetSliceIntersection(a, b []string) []string {
 	intersection := make(map[string]any, 0)
 
-	// Even if slices were 100s or 1000s of records, the performance is negligible.
-	// Performance can be improved later if needed
+	// even if slices were 100s or 1000s of records, the performance is negligible
+	// performance can be improved later if needed
 	for _, outer := range a {
 		for _, inner := range b {
 			if outer == inner {
@@ -46,4 +50,46 @@ func GetSliceIntersection(a, b []string) []string {
 	sort.Strings(result)
 
 	return result
+}
+
+// ChildPath returns the child path with respect to the base directory
+// or returns an error if the target directory is not a child of the base directory.
+func ChildPath(base, target string) (string, error) {
+	absBase, err := filepath.Abs(base)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path for target directory %s: %w", target, err)
+	}
+
+	absTarget, err := filepath.Abs(target)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path for target directory %s: %w", target, err)
+	}
+
+	if strings.TrimSpace(absBase) == strings.TrimSpace(absTarget) {
+		return "", nil
+	}
+
+	if !strings.HasPrefix(absTarget, absBase) {
+		return "", fmt.Errorf("%s is not a child of %s", absTarget, absBase)
+	}
+
+	trimmed := strings.TrimPrefix(absTarget, absBase)
+	trimmed = strings.TrimPrefix(trimmed, string(os.PathSeparator))
+
+	return trimmed, nil
+}
+
+// PathEvalAbs returns the absolute path for a directory after evaluating symlinks.
+func PathEvalAbs(path string) (string, error) {
+	sym, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve symlinks for path: %w", err)
+	}
+
+	abs, err := filepath.Abs(sym)
+	if err != nil {
+		return "", fmt.Errorf("failed to compute absolute path: %w", err)
+	}
+
+	return abs, nil
 }

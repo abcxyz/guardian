@@ -17,6 +17,7 @@ package util
 import (
 	"testing"
 
+	"github.com/abcxyz/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -68,5 +69,77 @@ func TestGetSliceIntersection(t *testing.T) {
 				t.Errorf("got %#v, want %#v, diff (-got, +want): %v", v, tc.exp, diff)
 			}
 		})
+	}
+}
+
+func TestChildPath(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name   string
+		base   string
+		target string
+		exp    string
+		err    string
+	}{
+		{
+			name:   "success",
+			base:   ".",
+			target: "./terraform/project",
+			exp:    "terraform/project",
+		},
+		{
+			name:   "empty",
+			base:   "",
+			target: "",
+			exp:    "",
+		},
+		{
+			name:   "not_child_dir",
+			base:   "./terraform/project",
+			target: ".",
+			err:    "is not a child of",
+		},
+		{
+			name:   "path_with_spaces",
+			base:   ".",
+			target: "./terraform/    /project",
+			exp:    "terraform/    /project",
+		},
+		{
+			name:   "path_with_special_chars",
+			base:   ".",
+			target: "./terraform/!/&/@/#/$/%/^/&/*/(/)/_/+/project",
+			exp:    "terraform/!/&/@/#/$/%/^/&/*/(/)/_/+/project",
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			d, err := ChildPath(tc.base, tc.target)
+			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
+				t.Errorf(diff)
+			}
+
+			if got, want := d, tc.exp; got != want {
+				t.Errorf("expected %s to be %s", got, want)
+			}
+		})
+	}
+}
+
+func TestPathEvalAbs(t *testing.T) {
+	t.Parallel()
+
+	dir, err := PathEvalAbs(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dir == "" {
+		t.Errorf("expected dir to be defined")
 	}
 }
