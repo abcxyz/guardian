@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/abcxyz/guardian/pkg/flags"
@@ -194,7 +193,7 @@ func (c *PlanInitCommand) Process(ctx context.Context) error {
 	targetDirs := util.GetSliceIntersection(c.entrypoints, diffDirs)
 	logger.Debugw("target directories", "target_directories", targetDirs)
 
-	cwd, err := os.Getwd()
+	cwd, err := c.WorkingDir()
 	if err != nil {
 		return fmt.Errorf("failed to get current working directory: %w", err)
 	}

@@ -20,7 +20,7 @@ import (
 	"strings"
 
 	"github.com/abcxyz/pkg/logging"
-	"github.com/abcxyz/pkg/worker"
+	"github.com/abcxyz/pkg/workerpool"
 
 	"github.com/abcxyz/guardian/pkg/assetinventory"
 	"github.com/abcxyz/guardian/pkg/iam"
@@ -80,14 +80,17 @@ func (d *IAMDriftDetector) DetectDrift(
 	driftignoreFile string,
 ) (*IAMDrift, error) {
 	logger := logging.FromContext(ctx)
-	w := worker.New[*worker.Void](d.maxConcurrentRequests)
+	w := workerpool.New[*workerpool.Void](&workerpool.Config{
+		Concurrency: d.maxConcurrentRequests,
+		StopOnError: true,
+	})
 	// We differentiate between projects and folders here since we use them separately in
 	// downstream operations.
 	var folders []*assetinventory.HierarchyNode
 	var projects []*assetinventory.HierarchyNode
 	var buckets []string
 	var err error
-	if err := w.Do(ctx, func() (*worker.Void, error) {
+	if err := w.Do(ctx, func() (*workerpool.Void, error) {
 		folders, err = d.assetInventoryClient.HierarchyAssets(ctx, d.organizationID, assetinventory.FolderAssetType)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get folders: %w", err)
@@ -96,7 +99,7 @@ func (d *IAMDriftDetector) DetectDrift(
 	}); err != nil {
 		return nil, fmt.Errorf("failed to execute folder list task: %w", err)
 	}
-	if err := w.Do(ctx, func() (*worker.Void, error) {
+	if err := w.Do(ctx, func() (*workerpool.Void, error) {
 		projects, err = d.assetInventoryClient.HierarchyAssets(ctx, d.organizationID, assetinventory.ProjectAssetType)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get projects: %w", err)
@@ -105,7 +108,7 @@ func (d *IAMDriftDetector) DetectDrift(
 	}); err != nil {
 		return nil, fmt.Errorf("failed to execute project list task: %w", err)
 	}
-	if err := w.Do(ctx, func() (*worker.Void, error) {
+	if err := w.Do(ctx, func() (*workerpool.Void, error) {
 		buckets, err = d.assetInventoryClient.Buckets(ctx, d.organizationID, bucketQuery)
 		if err != nil {
 			return nil, fmt.Errorf("failed to determine terraform state GCS buckets: %w", err)
@@ -190,7 +193,10 @@ func (d *IAMDriftDetector) DetectDrift(
 // actualGCPIAM queries the GCP Asset Inventory and Resource Manager to determine the IAM settings on all resources.
 // Returns a map of asset URI to asset IAM.
 func (d *IAMDriftDetector) actualGCPIAM(ctx context.Context) (map[string]*iam.AssetIAM, error) {
-	w := worker.New[[]*iam.AssetIAM](d.maxConcurrentRequests)
+	w := workerpool.New[[]*iam.AssetIAM](&workerpool.Config{
+		Concurrency: d.maxConcurrentRequests,
+		StopOnError: true,
+	})
 	if err := w.Do(ctx, func() ([]*iam.AssetIAM, error) {
 		oIAM, err := d.iamClient.OrganizationIAM(ctx, d.organizationID)
 		if err != nil {
@@ -249,7 +255,10 @@ func (d *IAMDriftDetector) actualGCPIAM(ctx context.Context) (map[string]*iam.As
 // Returns a map of asset URI to asset IAM.
 func (d *IAMDriftDetector) terraformStateIAM(ctx context.Context, gcsBuckets []string) (map[string]*iam.AssetIAM, error) {
 	d.terraformParser.SetAssets(d.foldersByID, d.projectsByID)
-	w := worker.New[[]*iam.AssetIAM](d.maxConcurrentRequests)
+	w := workerpool.New[[]*iam.AssetIAM](&workerpool.Config{
+		Concurrency: d.maxConcurrentRequests,
+		StopOnError: true,
+	})
 	for _, b := range gcsBuckets {
 		bucket := b
 		if err := w.Do(ctx, func() ([]*iam.AssetIAM, error) {
