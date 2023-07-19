@@ -17,6 +17,8 @@ package iam
 import (
 	"context"
 	"fmt"
+
+	"github.com/abcxyz/guardian/pkg/assetinventory"
 )
 
 var _ IAM = (*MockIAMClient)(nil)
@@ -28,28 +30,28 @@ type Request struct {
 
 type MockIAMClient struct {
 	OrgErr      string
-	OrgData     []*AssetIAM
+	OrgData     []*assetinventory.AssetIAM
 	FolderErr   string
-	FolderData  []*AssetIAM
+	FolderData  []*assetinventory.AssetIAM
 	ProjectErr  string
-	ProjectData []*AssetIAM
+	ProjectData []*assetinventory.AssetIAM
 }
 
-func (m *MockIAMClient) OrganizationIAM(ctx context.Context, organizationID string) ([]*AssetIAM, error) {
+func (m *MockIAMClient) OrganizationIAM(ctx context.Context, organizationID string) ([]*assetinventory.AssetIAM, error) {
 	if m.OrgErr != "" {
 		return nil, fmt.Errorf("%s", m.OrgErr)
 	}
 	return m.OrgData, nil
 }
 
-func (m *MockIAMClient) FolderIAM(ctx context.Context, folderID string) ([]*AssetIAM, error) {
+func (m *MockIAMClient) FolderIAM(ctx context.Context, folderID string) ([]*assetinventory.AssetIAM, error) {
 	if m.FolderErr != "" {
 		return nil, fmt.Errorf("%s", m.FolderErr)
 	}
 	return m.FolderData, nil
 }
 
-func (m *MockIAMClient) ProjectIAM(ctx context.Context, projectID string) ([]*AssetIAM, error) {
+func (m *MockIAMClient) ProjectIAM(ctx context.Context, projectID string) ([]*assetinventory.AssetIAM, error) {
 	if m.ProjectErr != "" {
 		return nil, fmt.Errorf("%s", m.ProjectErr)
 	}

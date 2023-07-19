@@ -24,7 +24,6 @@ import (
 	"testing"
 
 	"github.com/abcxyz/guardian/pkg/assetinventory"
-	"github.com/abcxyz/guardian/pkg/iam"
 	"github.com/abcxyz/guardian/pkg/storage"
 	"github.com/google/go-cmp/cmp"
 )
@@ -107,7 +106,7 @@ func TestParser_ProcessStates(t *testing.T) {
 		name                   string
 		terraformStatefilename string
 		gcsURIs                []string
-		want                   []*iam.AssetIAM
+		want                   []*assetinventory.AssetIAM
 		wantErr                string
 		knownFolders           map[string]*assetinventory.HierarchyNode
 		knownProjects          map[string]*assetinventory.HierarchyNode
@@ -115,7 +114,7 @@ func TestParser_ProcessStates(t *testing.T) {
 		{
 			name:                   "success",
 			terraformStatefilename: "testdata/test_valid.tfstate",
-			want: []*iam.AssetIAM{
+			want: []*assetinventory.AssetIAM{
 				{
 					ResourceID:   "1231231",
 					ResourceType: "Organization",
@@ -154,7 +153,7 @@ func TestParser_ProcessStates(t *testing.T) {
 		{
 			name:                   "success_no_known_assets",
 			terraformStatefilename: "testdata/test_valid.tfstate",
-			want: []*iam.AssetIAM{
+			want: []*assetinventory.AssetIAM{
 				{
 					ResourceID:   "1231231",
 					ResourceType: "Organization",

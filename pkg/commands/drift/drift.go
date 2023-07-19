@@ -49,7 +49,7 @@ func NewIAMDriftDetector(ctx context.Context, organizationID string, maxConcurre
 		return nil, fmt.Errorf("failed to initialize assets client: %w", err)
 	}
 
-	iamClient, err := iam.NewClient(ctx)
+	iamClient, err := iam.NewClient(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize iam client: %w", err)
 	}
@@ -192,12 +192,12 @@ func (d *IAMDriftDetector) DetectDrift(
 
 // actualGCPIAM queries the GCP Asset Inventory and Resource Manager to determine the IAM settings on all resources.
 // Returns a map of asset URI to asset IAM.
-func (d *IAMDriftDetector) actualGCPIAM(ctx context.Context) (map[string]*iam.AssetIAM, error) {
-	w := workerpool.New[[]*iam.AssetIAM](&workerpool.Config{
+func (d *IAMDriftDetector) actualGCPIAM(ctx context.Context) (map[string]*assetinventory.AssetIAM, error) {
+	w := workerpool.New[[]*assetinventory.AssetIAM](&workerpool.Config{
 		Concurrency: d.maxConcurrentRequests,
 		StopOnError: true,
 	})
-	if err := w.Do(ctx, func() ([]*iam.AssetIAM, error) {
+	if err := w.Do(ctx, func() ([]*assetinventory.AssetIAM, error) {
 		oIAM, err := d.iamClient.OrganizationIAM(ctx, d.organizationID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get organization IAM for ID '%s': %w", d.organizationID, err)
@@ -209,7 +209,7 @@ func (d *IAMDriftDetector) actualGCPIAM(ctx context.Context) (map[string]*iam.As
 	for _, f := range d.foldersByID {
 		folderID := f.ID
 		folderName := f.Name
-		if err := w.Do(ctx, func() ([]*iam.AssetIAM, error) {
+		if err := w.Do(ctx, func() ([]*assetinventory.AssetIAM, error) {
 			fIAM, err := d.iamClient.FolderIAM(ctx, folderID)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get folder IAM for folder with ID '%s' and name '%s': %w", folderID, folderName, err)
@@ -222,7 +222,7 @@ func (d *IAMDriftDetector) actualGCPIAM(ctx context.Context) (map[string]*iam.As
 	for _, pr := range d.projectsByID {
 		projectID := pr.ID
 		projectName := pr.Name
-		if err := w.Do(ctx, func() ([]*iam.AssetIAM, error) {
+		if err := w.Do(ctx, func() ([]*assetinventory.AssetIAM, error) {
 			pIAM, err := d.iamClient.ProjectIAM(ctx, projectID)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get project IAM for project with ID '%s' and name '%s': %w", projectID, projectName, err)
@@ -238,7 +238,7 @@ func (d *IAMDriftDetector) actualGCPIAM(ctx context.Context) (map[string]*iam.As
 		return nil, fmt.Errorf("failed to execute GCP IAM tasks in parallel: %w", err)
 	}
 
-	gcpIAM := make(map[string]*iam.AssetIAM)
+	gcpIAM := make(map[string]*assetinventory.AssetIAM)
 	for _, r := range iamResults {
 		if err := r.Error; err != nil {
 			return nil, fmt.Errorf("failed to execute IAM task: %w", err)
@@ -253,15 +253,15 @@ func (d *IAMDriftDetector) actualGCPIAM(ctx context.Context) (map[string]*iam.As
 
 // terraformStateIAM locates all terraform state files in GCS buckets and parses them to find all IAM resources.
 // Returns a map of asset URI to asset IAM.
-func (d *IAMDriftDetector) terraformStateIAM(ctx context.Context, gcsBuckets []string) (map[string]*iam.AssetIAM, error) {
+func (d *IAMDriftDetector) terraformStateIAM(ctx context.Context, gcsBuckets []string) (map[string]*assetinventory.AssetIAM, error) {
 	d.terraformParser.SetAssets(d.foldersByID, d.projectsByID)
-	w := workerpool.New[[]*iam.AssetIAM](&workerpool.Config{
+	w := workerpool.New[[]*assetinventory.AssetIAM](&workerpool.Config{
 		Concurrency: d.maxConcurrentRequests,
 		StopOnError: true,
 	})
 	for _, b := range gcsBuckets {
 		bucket := b
-		if err := w.Do(ctx, func() ([]*iam.AssetIAM, error) {
+		if err := w.Do(ctx, func() ([]*assetinventory.AssetIAM, error) {
 			gcsURIs, err := d.terraformParser.StateFileURIs(ctx, []string{bucket})
 			if err != nil {
 				return nil, fmt.Errorf("failed to get terraform state file URIs: %w", err)
@@ -281,7 +281,7 @@ func (d *IAMDriftDetector) terraformStateIAM(ctx context.Context, gcsBuckets []s
 		return nil, fmt.Errorf("failed to execute terraform IAM tasks in parallel: %w", err)
 	}
 
-	tfIAM := make(map[string]*iam.AssetIAM)
+	tfIAM := make(map[string]*assetinventory.AssetIAM)
 	for _, r := range iamResults {
 		if err := r.Error; err != nil {
 			return nil, fmt.Errorf("failed to execute IAM task: %w", err)
@@ -296,7 +296,7 @@ func (d *IAMDriftDetector) terraformStateIAM(ctx context.Context, gcsBuckets []s
 
 // URI returns a canonical string identifier for the IAM entity.
 // This is used for diffing and as output to the user.
-func (d *IAMDriftDetector) URI(i *iam.AssetIAM) string {
+func (d *IAMDriftDetector) URI(i *assetinventory.AssetIAM) string {
 	role := strings.Replace(strings.Replace(i.Role, "organizations/", "", 1), fmt.Sprintf("%s/", d.organizationID), "", 1)
 	if i.ResourceType == assetinventory.Folder {
 		// Fallback to folder ID if we can not find the folder.
@@ -319,7 +319,7 @@ func (d *IAMDriftDetector) URI(i *iam.AssetIAM) string {
 
 // differenceMap finds the keys located in the left map that are missing in the right map.
 // We return a set so that we can do future comparisons easily with the result.
-func differenceMap(left, right map[string]*iam.AssetIAM) map[string]struct{} {
+func differenceMap(left, right map[string]*assetinventory.AssetIAM) map[string]struct{} {
 	found := make(map[string]struct{})
 	for key := range left {
 		if _, f := right[key]; !f {

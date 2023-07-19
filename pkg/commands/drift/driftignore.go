@@ -25,7 +25,6 @@ import (
 	"github.com/abcxyz/pkg/logging"
 
 	"github.com/abcxyz/guardian/pkg/assetinventory"
-	"github.com/abcxyz/guardian/pkg/iam"
 )
 
 type ignoredAssets struct {
@@ -103,8 +102,8 @@ func filterDefaultURIs(uris map[string]struct{}) map[string]struct{} {
 }
 
 // filterIgnored removes any asset iam that is in the ignored assets.
-func filterIgnored(values map[string]*iam.AssetIAM, ignored *ignoredAssets) map[string]*iam.AssetIAM {
-	filtered := make(map[string]*iam.AssetIAM)
+func filterIgnored(values map[string]*assetinventory.AssetIAM, ignored *ignoredAssets) map[string]*assetinventory.AssetIAM {
+	filtered := make(map[string]*assetinventory.AssetIAM)
 	for k, a := range values {
 		if _, ok := ignored.roles[roleURI(a)]; ok {
 			continue
@@ -238,6 +237,6 @@ func mergeSets(setA, setB map[string]struct{}) {
 	}
 }
 
-func roleURI(a *iam.AssetIAM) string {
+func roleURI(a *assetinventory.AssetIAM) string {
 	return fmt.Sprintf("/%s/%s", a.Role, a.Member)
 }

@@ -47,6 +47,27 @@ var resourceNameIDPattern = regexp.MustCompile(`\/\/cloudresourcemanager\.google
 // resourceNamePattern is a Regex pattern used to parse name from the resource Name.
 var resourceNamePattern = regexp.MustCompile(`\/\/cloudresourcemanager\.googleapis\.com\/(?:folders|organizations|projects)\/(.*)`)
 
+type IAMCondition struct {
+	// The title of the IAM condition.
+	Title string
+	// The conditional expression describing when to apply the IAM policy.
+	Expression string
+}
+
+// AssetIAM represents the IAM of a GCP resource (e.g binding/policy/membership of GCP Project, Folder, Org).
+type AssetIAM struct {
+	// The ID of the resource (e.g. Project ID, Folder ID, Org ID).
+	ResourceID string
+	// The type of the resource (e.g. Project, Folder, Org).
+	ResourceType string
+	// The IAM membership (e.g. group:my-group@google.com).
+	Member string
+	// The role (e.g. roles/owner).
+	Role string
+	// The condition set on the iam.
+	Condition *IAMCondition
+}
+
 // HierarchyNode represents a node in the GCP Resource Hierarchy.
 // Example: Organization, Folder, or Project.
 type HierarchyNode struct {
@@ -85,6 +106,8 @@ type AssetInventory interface {
 	Buckets(ctx context.Context, organizationID, query string) ([]string, error)
 	// HierarchyAssets returns the projects or folders in a given organization.
 	HierarchyAssets(ctx context.Context, organizationID, assetType string) ([]*HierarchyNode, error)
+	// IAM returns all IAM that matches the given query.
+	IAM(ctx context.Context, scope, query string) ([]*AssetIAM, error)
 }
 
 type AssetInventoryClient struct {
@@ -101,6 +124,43 @@ func NewClient(ctx context.Context) (*AssetInventoryClient, error) {
 	return &AssetInventoryClient{
 		assetClient: client,
 	}, nil
+}
+
+// IAM returns all IAM that matches the given query.
+func (c *AssetInventoryClient) IAM(ctx context.Context, scope, query string) ([]*AssetIAM, error) {
+	// gcloud asset search-all-iam-policies \
+	// --query="$QUERY"
+	// --scope="$SCOPE"
+	req := &assetpb.SearchAllIamPoliciesRequest{
+		Scope: scope,
+		Query: query,
+	}
+	it := c.assetClient.SearchAllIamPolicies(ctx, req)
+	var results []*AssetIAM
+	for {
+		resource, err := it.Next()
+		if errors.Is(err, iterator.Done) {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to iterate assets: %w", err)
+		}
+		for _, b := range resource.Policy.Bindings {
+			for _, m := range b.Members {
+				results = append(results, &AssetIAM{
+					Member:       m,
+					Role:         b.Role,
+					ResourceID:   "", // TODO: extract ResourceID
+					ResourceType: "", // TODO: extract ResourceID
+					Condition: &IAMCondition{
+						Title:      b.Condition.Title,
+						Expression: b.Condition.Expression,
+					},
+				})
+			}
+		}
+	}
+	return results, nil
 }
 
 // Buckets returns all GCS Buckets in the organization that matches the given query.

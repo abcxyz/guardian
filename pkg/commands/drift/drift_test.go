@@ -48,31 +48,31 @@ var (
 		ParentID:   folder.ID,
 		ParentType: assetinventory.Folder,
 	}
-	orgGroupBrowser = &iam.AssetIAM{
+	orgGroupBrowser = &assetinventory.AssetIAM{
 		ResourceID:   "1231231",
 		ResourceType: "Organization",
 		Member:       "group:my-group@google.com",
 		Role:         "roles/browser",
 	}
-	orgSABrowser = &iam.AssetIAM{
+	orgSABrowser = &assetinventory.AssetIAM{
 		ResourceID:   "1231231",
 		ResourceType: "Organization",
 		Member:       "serviceAccount:my-service-account@my-project.iam.gserviceaccount.com",
 		Role:         "roles/browser",
 	}
-	orgUserBrowser = &iam.AssetIAM{
+	orgUserBrowser = &assetinventory.AssetIAM{
 		ResourceID:   "1231231",
 		ResourceType: "Organization",
 		Member:       "user:dcreey@google.com",
 		Role:         "roles/browser",
 	}
-	folderViewer = &iam.AssetIAM{
+	folderViewer = &assetinventory.AssetIAM{
 		ResourceID:   "123123123123",
 		ResourceType: "Folder",
 		Member:       "group:my-group@google.com",
 		Role:         "roles/viewer",
 	}
-	projectAdmin = &iam.AssetIAM{
+	projectAdmin = &assetinventory.AssetIAM{
 		ResourceID:   "1231232222",
 		ResourceType: "Project",
 		Member:       "serviceAccount:my-service-account@my-project.iam.gserviceaccount.com",
@@ -101,9 +101,9 @@ func TestDrift_DetectDrift(t *testing.T) {
 				BucketsData:      []string{bucket},
 			},
 			iamClient: &iam.MockIAMClient{
-				OrgData:     []*iam.AssetIAM{orgSABrowser, orgGroupBrowser, orgUserBrowser},
-				FolderData:  []*iam.AssetIAM{folderViewer},
-				ProjectData: []*iam.AssetIAM{projectAdmin},
+				OrgData:     []*assetinventory.AssetIAM{orgSABrowser, orgGroupBrowser, orgUserBrowser},
+				FolderData:  []*assetinventory.AssetIAM{folderViewer},
+				ProjectData: []*assetinventory.AssetIAM{projectAdmin},
 			},
 			want: &IAMDrift{
 				ClickOpsChanges:         map[string]struct{}{},
@@ -119,9 +119,9 @@ func TestDrift_DetectDrift(t *testing.T) {
 				BucketsData:      []string{bucket},
 			},
 			iamClient: &iam.MockIAMClient{
-				OrgData:     []*iam.AssetIAM{orgSABrowser, orgGroupBrowser, orgUserBrowser},
-				FolderData:  []*iam.AssetIAM{folderViewer},
-				ProjectData: []*iam.AssetIAM{projectAdmin},
+				OrgData:     []*assetinventory.AssetIAM{orgSABrowser, orgGroupBrowser, orgUserBrowser},
+				FolderData:  []*assetinventory.AssetIAM{folderViewer},
+				ProjectData: []*assetinventory.AssetIAM{projectAdmin},
 			},
 			want: &IAMDrift{
 				ClickOpsChanges: map[string]struct{}{
@@ -143,9 +143,9 @@ func TestDrift_DetectDrift(t *testing.T) {
 				BucketsData:      []string{bucket},
 			},
 			iamClient: &iam.MockIAMClient{
-				OrgData:     []*iam.AssetIAM{},
-				FolderData:  []*iam.AssetIAM{},
-				ProjectData: []*iam.AssetIAM{},
+				OrgData:     []*assetinventory.AssetIAM{},
+				FolderData:  []*assetinventory.AssetIAM{},
+				ProjectData: []*assetinventory.AssetIAM{},
 			},
 			want: &IAMDrift{
 				ClickOpsChanges: map[string]struct{}{},
