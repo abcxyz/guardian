@@ -30,15 +30,12 @@ import (
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
 	gh "github.com/google/go-github/v53/github"
-	"github.com/sethvargo/go-githubactions"
 )
 
 var _ cli.Command = (*PlanInitCommand)(nil)
 
 type PlanInitCommand struct {
 	cli.BaseCommand
-
-	cfg *Config
 
 	workingDir  string
 	entrypoints []string
@@ -53,7 +50,6 @@ type PlanInitCommand struct {
 	flagDeleteOutdatedComments bool
 	flagJSON                   bool
 
-	actions      *githubactions.Action
 	gitClient    git.Git
 	githubClient github.GitHub
 
@@ -139,18 +135,6 @@ func (c *PlanInitCommand) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("unexpected arguments: %q", args)
 	}
 
-	c.actions = githubactions.New(githubactions.WithWriter(c.Stdout()))
-	actionsCtx, err := c.actions.Context()
-	if err != nil {
-		return fmt.Errorf("failed to load github context: %w", err)
-	}
-
-	c.cfg = &Config{}
-	if err := c.cfg.MapGitHubContext(actionsCtx); err != nil {
-		return fmt.Errorf("failed to load github context: %w", err)
-	}
-	logger.Debugw("loaded configuration", "config", c.cfg)
-
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get current working directory: %w", err)
@@ -204,6 +188,16 @@ func (c *PlanInitCommand) Process(ctx context.Context) error {
 	targetDirs := util.GetSliceIntersection(c.entrypoints, diffDirs)
 	logger.Debugf("target directories: %+v", targetDirs)
 
+	// convert to child path for output, using absolute path
+	// creates an ugly github workflow name
+	for k, dir := range targetDirs {
+		childPath, err := util.ChildPath(c.workingDir, dir)
+		if err != nil {
+			return fmt.Errorf("failed to get child path for: %w", err)
+		}
+		targetDirs[k] = childPath
+	}
+
 	if c.flagJSON {
 		outJSON, err := json.Marshal(targetDirs)
 		if err != nil {
@@ -226,7 +220,7 @@ func (c *PlanInitCommand) deleteOutdatedComments(ctx context.Context, owner, rep
 	}
 
 	for {
-		comments, nextPage, err := c.githubClient.ListIssueComments(ctx, owner, repo, number, listOpts)
+		comments, paging, err := c.githubClient.ListIssueComments(ctx, owner, repo, number, listOpts)
 		if err != nil {
 			return fmt.Errorf("failed to list comments: %w", err)
 		}
@@ -239,10 +233,10 @@ func (c *PlanInitCommand) deleteOutdatedComments(ctx context.Context, owner, rep
 			}
 		}
 
-		if nextPage == 0 {
+		if !paging.HasNextPage {
 			break
 		}
-		listOpts.Page = nextPage
+		listOpts.Page = paging.NextPage
 	}
 
 	return nil

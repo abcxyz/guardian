@@ -15,7 +15,6 @@
 package terraform
 
 import (
-	"fmt"
 	"os"
 	"path"
 	"strings"
@@ -190,9 +189,6 @@ func TestHasBackendConfig(t *testing.T) {
 			t.Parallel()
 
 			found, _, err := hasBackendConfig(tc.file)
-
-			fmt.Printf("%+v", err)
-
 			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
 				t.Errorf(diff)
 			}

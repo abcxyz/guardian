@@ -28,7 +28,6 @@ import (
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
-	"github.com/sethvargo/go-githubactions"
 )
 
 func TestPlanInitProcess(t *testing.T) {
@@ -170,12 +169,13 @@ func TestPlanInitProcess(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			actions := githubactions.New(githubactions.WithWriter(os.Stdout))
+			cwd, err := os.Getwd()
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			c := &PlanInitCommand{
-				cfg: tc.config,
-
-				workingDir:  "",
+				workingDir:  cwd,
 				entrypoints: tc.entrypoints,
 
 				flagPullRequestNumber:      tc.flagPullRequestNumber,
@@ -196,14 +196,13 @@ func TestPlanInitProcess(t *testing.T) {
 					FlagMaxRetryDelay:     tc.flagMaxRetryDelay,
 				},
 
-				actions:      actions,
 				gitClient:    tc.gitClient,
 				githubClient: tc.githubClient,
 			}
 
 			_, stdout, stderr := c.Pipe()
 
-			err := c.Process(ctx)
+			err = c.Process(ctx)
 			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
 				t.Errorf(diff)
 			}

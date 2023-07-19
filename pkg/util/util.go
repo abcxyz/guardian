@@ -34,8 +34,8 @@ func Ptr[T any](v T) *T {
 func GetSliceIntersection(a, b []string) []string {
 	intersection := make(map[string]any, 0)
 
-	// Even if slices were 100s or 1000s of records, the performance is negligible.
-	// Performance can be improved later if needed
+	// even if slices were 100s or 1000s of records, the performance is negligible
+	// performance can be improved later if needed
 	for _, outer := range a {
 		for _, inner := range b {
 			if outer == inner {
@@ -52,8 +52,8 @@ func GetSliceIntersection(a, b []string) []string {
 	return result
 }
 
-// ChildPathForCWD returns the child path with respect to the current working directory
-// or returns an error if the target directory is not a child of the current working directory.
+// ChildPath returns the child path with respect to the base directory
+// or returns an error if the target directory is not a child of the base directory.
 func ChildPath(base, target string) (string, error) {
 	absBase, err := filepath.Abs(base)
 	if err != nil {
@@ -64,8 +64,6 @@ func ChildPath(base, target string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to get absolute path for target directory %s: %w", target, err)
 	}
-
-	fmt.Printf("%s%s\n", absBase, absTarget)
 
 	if strings.TrimSpace(absBase) == strings.TrimSpace(absTarget) {
 		return "", nil

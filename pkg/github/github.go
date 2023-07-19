@@ -41,6 +41,12 @@ type Config struct {
 	maxRetryDelay     time.Duration
 }
 
+// Paging is the paging details for a list response.
+type Paging struct {
+	HasNextPage bool
+	NextPage    int
+}
+
 // Issue is the GitHub Issue.
 type Issue struct {
 	Number int
@@ -78,7 +84,7 @@ type GitHub interface {
 	DeleteIssueComment(ctx context.Context, owner, repo string, id int64) error
 
 	// ListIssueComments lists existing comments for an issue or pull request.
-	ListIssueComments(ctx context.Context, owner, repo string, number int, opts *github.IssueListCommentsOptions) ([]*IssueComment, int, error)
+	ListIssueComments(ctx context.Context, owner, repo string, number int, opts *github.IssueListCommentsOptions) ([]*IssueComment, *Paging, error)
 }
 
 var _ GitHub = (*GitHubClient)(nil)
@@ -283,9 +289,11 @@ func (g *GitHubClient) DeleteIssueComment(ctx context.Context, owner, repo strin
 }
 
 // ListIssueComments lists existing comments for an issue or pull request.
-func (g *GitHubClient) ListIssueComments(ctx context.Context, owner, repo string, number int, opts *github.IssueListCommentsOptions) ([]*IssueComment, int, error) {
+func (g *GitHubClient) ListIssueComments(ctx context.Context, owner, repo string, number int, opts *github.IssueListCommentsOptions) ([]*IssueComment, *Paging, error) {
 	var commentsResponse []*IssueComment
-	var nextPage int
+	paging := &Paging{
+		HasNextPage: false,
+	}
 
 	if err := g.withRetries(ctx, func(ctx context.Context) error {
 		comments, resp, err := g.client.Issues.ListComments(ctx, owner, repo, number, opts)
@@ -300,14 +308,15 @@ func (g *GitHubClient) ListIssueComments(ctx context.Context, owner, repo string
 			commentsResponse = append(commentsResponse, &IssueComment{ID: c.GetID(), Body: c.GetBody()})
 		}
 
-		nextPage = resp.NextPage
+		paging.NextPage = resp.NextPage
+		paging.HasNextPage = paging.NextPage != 0
 
 		return nil
 	}); err != nil {
-		return nil, 0, fmt.Errorf("failed to list pull request comments: %w", err)
+		return nil, nil, fmt.Errorf("failed to list pull request comments: %w", err)
 	}
 
-	return commentsResponse, nextPage, nil
+	return commentsResponse, paging, nil
 }
 
 func (g *GitHubClient) withRetries(ctx context.Context, retryFunc retry.RetryFunc) error {
