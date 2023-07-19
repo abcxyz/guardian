@@ -224,7 +224,7 @@ func TestPlanInitProcess(t *testing.T) {
 
 			_, stdout, stderr := c.Pipe()
 
-			err = c.Process(ctx)
+			err := c.Process(ctx)
 			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
 				t.Errorf(diff)
 			}

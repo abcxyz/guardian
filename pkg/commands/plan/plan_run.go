@@ -145,7 +145,7 @@ func (c *PlanRunCommand) Run(ctx context.Context, args []string) error {
 	}
 	c.directory = dirAbs
 
-	cwd, err := os.Getwd()
+	cwd, err := c.WorkingDir()
 	if err != nil {
 		return fmt.Errorf("failed to get current working directory: %w", err)
 	}
