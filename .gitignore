@@ -1,12 +1,34 @@
-### IDE related and tmp files ###
+# Log file
+*.log
+
+### Visual Studio Code IDEA ###
+.vscode
+coverage.out
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+.factorypath
+.settings
+
+### Other IDE related and tmp files ###
 bazel-*
 *~
 .idea/
-.vscode/
-.DS_Store
 *.swp
 .history
 tmp/
+
+# Go workspace file
+go.work
+
+### macOS ###
+# General
+.DS_Store
+.AppleDouble
+.LSOverride
 
 ### Terraform related ###
 # Local .terraform directories
@@ -17,6 +39,9 @@ tmp/
 *.tfstate.*
 !test*.tfstate
 !test*.tfstate.*
+
+#.tfvars files
+*.tfvars
 
 # terraform plan files
 **/plan.out
@@ -29,3 +54,7 @@ override.tf
 override.tf.json
 *_override.tf
 *_override.tf.json
+
+# Binary files
+bin/
+dist/
