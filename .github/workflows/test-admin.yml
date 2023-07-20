@@ -39,7 +39,7 @@ permissions:
 
 # only one admin should run at a time
 concurrency:
-  group: '${{ github.workflow_ref }}'
+  group: '${{ github.workflow }}'
 
 jobs:
   init:

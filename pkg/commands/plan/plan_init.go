@@ -44,8 +44,7 @@ var allowedFormats = map[string]struct{}{
 type PlanInitCommand struct {
 	cli.BaseCommand
 
-	directory   string
-	entrypoints []string
+	directory string
 
 	flags.GitHubFlags
 	flags.RetryFlags
@@ -54,6 +53,7 @@ type PlanInitCommand struct {
 	flagDestRef              string
 	flagSourceRef            string
 	flagKeepOutdatedComments bool
+	flagSkipDetectChanges    bool
 	flagFormat               string
 
 	gitClient    git.Git
@@ -69,7 +69,7 @@ func (c *PlanInitCommand) Desc() string {
 
 func (c *PlanInitCommand) Help() string {
 	return `
-Usage: {{ COMMAND }} [options] <dir>
+Usage: {{ COMMAND }} [options] <directory>
 
   Initialize Guardian for running the Terraform plan process.
 `
@@ -102,6 +102,12 @@ func (c *PlanInitCommand) Flags() *cli.FlagSet {
 		Target:  &c.flagSourceRef,
 		Example: "ref-name",
 		Usage:   "The source GitHub ref name for finding file changes.",
+	})
+
+	f.BoolVar(&cli.BoolVar{
+		Name:   "skip-detect-changes",
+		Target: &c.flagSkipDetectChanges,
+		Usage:  "Skip detecting file changes and run for all entrypoint directories.",
 	})
 
 	f.BoolVar(&cli.BoolVar{
@@ -176,23 +182,34 @@ func (c *PlanInitCommand) Process(ctx context.Context) error {
 
 	logger.Debug("finding entrypoint directories")
 
-	dirs, err := terraform.GetEntrypointDirectories(c.directory)
+	entrypointDirs, err := terraform.GetEntrypointDirectories(c.directory)
 	if err != nil {
 		return fmt.Errorf("failed to find terraform directories: %w", err)
 	}
+	logger.Debugw("terraform entrypoint directories", "entrypoint_dirs", entrypointDirs)
 
-	c.entrypoints = dirs
-	logger.Debugw("terraform entrypoint directories", "entrypoint_dirs", c.entrypoints)
+	if !c.flagSkipDetectChanges {
+		logger.Debug("finding git diff directories")
 
-	diffDirs, err := c.gitClient.DiffDirsAbs(ctx, c.flagDestRef, c.flagSourceRef)
-	if err != nil {
-		return fmt.Errorf("failed to find git diff directories: %w", err)
+		diffDirs, err := c.gitClient.DiffDirsAbs(ctx, c.flagDestRef, c.flagSourceRef)
+		if err != nil {
+			return fmt.Errorf("failed to find git diff directories: %w", err)
+		}
+		logger.Debugw("git diff directories", "directories", diffDirs)
+
+		entrypointDirs = util.GetSliceIntersection(entrypointDirs, diffDirs)
 	}
-	logger.Debugw("computed directories", "directories", diffDirs)
 
-	targetDirs := util.GetSliceIntersection(c.entrypoints, diffDirs)
-	logger.Debugw("target directories", "target_directories", targetDirs)
+	logger.Debugw("target directories", "target_directories", entrypointDirs)
 
+	if err := c.writeOutput(entrypointDirs); err != nil {
+		return fmt.Errorf("failed to write output: %w", err)
+	}
+	return nil
+}
+
+// writeOutput writes the command output.
+func (c *PlanInitCommand) writeOutput(dirs []string) error {
 	cwd, err := c.WorkingDir()
 	if err != nil {
 		return fmt.Errorf("failed to get current working directory: %w", err)
@@ -200,21 +217,21 @@ func (c *PlanInitCommand) Process(ctx context.Context) error {
 
 	// convert to child path for output
 	// using absolute path creates an ugly github workflow name
-	for k, dir := range targetDirs {
+	for k, dir := range dirs {
 		childPath, err := util.ChildPath(cwd, dir)
 		if err != nil {
 			return fmt.Errorf("failed to get child path for: %w", err)
 		}
-		targetDirs[k] = childPath
+		dirs[k] = childPath
 	}
 
 	switch v := strings.TrimSpace(strings.ToLower(c.flagFormat)); v {
 	case "json":
-		if err := json.NewEncoder(c.Stdout()).Encode(targetDirs); err != nil {
+		if err := json.NewEncoder(c.Stdout()).Encode(dirs); err != nil {
 			return fmt.Errorf("failed to create json string: %w", err)
 		}
 	case "text":
-		for _, dir := range targetDirs {
+		for _, dir := range dirs {
 			c.Outf("%s", dir)
 		}
 	default:
