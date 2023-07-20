@@ -19,12 +19,14 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"google.golang.org/api/cloudresourcemanager/v3"
 
 	"github.com/abcxyz/guardian/pkg/assetinventory"
 	"github.com/abcxyz/guardian/pkg/child"
 	"github.com/abcxyz/pkg/logging"
+	"github.com/sethvargo/go-retry"
 )
 
 // IAM defines the common gcp iam functionality.
@@ -45,8 +47,20 @@ type IAM interface {
 
 type IAMClient struct {
 	crmService *cloudresourcemanager.Service
+	cfg        *Config
 	workingDir *string
 }
+
+// Config is the config values for the IAM client.
+type Config struct {
+	maxRetries        uint64
+	initialRetryDelay time.Duration
+	maxRetryDelay     time.Duration
+}
+
+const (
+	concurrentPolicyErrMessage = "is the subject of a conflict: There were concurrent policy changes"
+)
 
 // NewClient creates a new iam client.
 func NewClient(ctx context.Context, workingDir *string) (*IAMClient, error) {
@@ -55,8 +69,15 @@ func NewClient(ctx context.Context, workingDir *string) (*IAMClient, error) {
 		return nil, fmt.Errorf("failed to initialize cloudresourcemanager service: %w", err)
 	}
 
+	cfg := &Config{
+		maxRetries:        3,
+		initialRetryDelay: 1 * time.Second,
+		maxRetryDelay:     20 * time.Second,
+	}
+
 	return &IAMClient{
 		crmService: crm,
+		cfg:        cfg,
 		workingDir: workingDir,
 	}, nil
 }
@@ -145,6 +166,7 @@ func (c *IAMClient) OrganizationIAM(ctx context.Context, organizationID string) 
 
 // RemoveProjectIAM removes the given IAM policy membership.
 func (c *IAMClient) RemoveProjectIAM(ctx context.Context, iamMember *assetinventory.AssetIAM) error {
+	// The Golang API does not support IAM removal on projects yet.
 	args := []string{
 		"projects", "remove-iam-policy-binding",
 		iamMember.ResourceID,
@@ -163,8 +185,9 @@ func (c *IAMClient) RemoveProjectIAM(ctx context.Context, iamMember *assetinvent
 
 // RemoveFolderIAM removes the given IAM policy membership.
 func (c *IAMClient) RemoveFolderIAM(ctx context.Context, iamMember *assetinventory.AssetIAM) error {
+	// The Golang API does not support IAM removal on folders yet.
 	args := []string{
-		"folders", "remove-iam-policy-binding",
+		"resource-manager", "folders", "remove-iam-policy-binding",
 		iamMember.ResourceID,
 		fmt.Sprintf("--member=%s", iamMember.Member),
 		fmt.Sprintf("--role=%s", iamMember.Role),
@@ -181,6 +204,7 @@ func (c *IAMClient) RemoveFolderIAM(ctx context.Context, iamMember *assetinvento
 
 // RemoveOrganizationIAM removes the given IAM policy membership.
 func (c *IAMClient) RemoveOrganizationIAM(ctx context.Context, iamMember *assetinventory.AssetIAM) error {
+	// The Golang API does not support IAM removal on organizations yet.
 	args := []string{
 		"organizations", "remove-iam-policy-binding",
 		iamMember.ResourceID,
@@ -202,18 +226,40 @@ func (c *IAMClient) gcloud(ctx context.Context, args []string) (int, error) {
 	logger := logging.FromContext(ctx)
 	stdout := bytes.NewBufferString("")
 	stderr := bytes.NewBufferString("")
-	exitCode, err := child.Run(ctx, &child.RunConfig{
-		Stdout:     stdout,
-		Stderr:     stderr,
-		WorkingDir: *c.workingDir,
-		Command:    "gcloud",
-		Args:       args,
-	})
-	logger.Debugw("gcloud command executed", "args", args, "stdout", stdout)
-	if err != nil {
-		return exitCode, fmt.Errorf("failed to execute gcloud command: %w, \n\n %v", err, stderr)
+	var exitCode int
+	if err := c.withRetries(ctx, func(ctx context.Context) error {
+		c, err := child.Run(ctx, &child.RunConfig{
+			Stdout:     stdout,
+			Stderr:     stderr,
+			WorkingDir: *c.workingDir,
+			Command:    "gcloud",
+			Args:       args,
+		})
+		exitCode = c
+		logger.Debugw("gcloud command executed", "args", args, "stdout", stdout)
+		if err != nil {
+			fmt.Println("ERROR:", strings.Contains(err.Error(), concurrentPolicyErrMessage))
+			if strings.Contains(err.Error(), concurrentPolicyErrMessage) {
+				return retry.RetryableError(err)
+			}
+			return fmt.Errorf("gcloud command failed with exit code %d: %w, \n\n %v", exitCode, err, stderr)
+		}
+		return nil
+	}); err != nil {
+		return exitCode, fmt.Errorf("failed to execute gcloud command with retries: %w", err)
 	}
 	return exitCode, nil
+}
+
+func (c *IAMClient) withRetries(ctx context.Context, retryFunc retry.RetryFunc) error {
+	backoff := retry.NewFibonacci(c.cfg.initialRetryDelay)
+	backoff = retry.WithMaxRetries(c.cfg.maxRetries, backoff)
+	backoff = retry.WithCappedDuration(c.cfg.maxRetryDelay, backoff)
+
+	if err := retry.Do(ctx, backoff, retryFunc); err != nil {
+		return fmt.Errorf("failed to execute retriable function: %w", err)
+	}
+	return nil
 }
 
 func conditionString(condition assetinventory.IAMCondition) string {

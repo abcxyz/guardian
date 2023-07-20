@@ -67,41 +67,37 @@ func (c *IAMCleaner) Do(
 
 	logger.Debugw("got IAM", "number_of_iam_memberships", len(iams), "scope", scope, "query", iamQuery)
 
-	w := workerpool.New[*workerpool.Void](&workerpool.Config{
-		Concurrency: c.maxConcurrentRequests,
-		StopOnError: true,
-	})
-	var iamsToDelete []*assetinventory.AssetIAM
-
+	// We group by URI to confirm we only delete 1 ResourceID/Member combination at a single time.
+	// Multiple concurrent requests to delete IAM for a particular ResourceID/Member result in a conflict.
+	var iamsToDelete map[string][]*assetinventory.AssetIAM
 	if evaluateCondition {
-		for _, i := range iams {
-			passed, err := evaluateIAMConditionExpression(ctx, i.Condition.Expression)
-			if err != nil {
-				logger.Warnw("Failed to parse expression (CEL) for IAM membership", "membership", i, "error", err)
-			} else if !*passed {
-				iamsToDelete = append(iamsToDelete, i)
-			}
-		}
+		iamsToDelete = groupByURI(filterByEvaluation(ctx, iams))
 	} else {
-		iamsToDelete = iams
+		groupByURI(iams)
 	}
 
 	logger.Debugw("Cleaning up IAM", "number_of_iam_memberships_to_remove", len(iamsToDelete))
 
-	for _, i := range iamsToDelete {
-		iamMembership := i
+	w := workerpool.New[*workerpool.Void](&workerpool.Config{
+		Concurrency: c.maxConcurrentRequests,
+		StopOnError: true,
+	})
+	for _, is := range iamsToDelete {
+		iamMemberships := is
 		if err := w.Do(ctx, func() (*workerpool.Void, error) {
-			if iamMembership.ResourceType == assetinventory.Organization {
-				if err := c.iamClient.RemoveOrganizationIAM(ctx, iamMembership); err != nil {
-					return nil, fmt.Errorf("failed to remove org IAM: %w", err)
-				}
-			} else if iamMembership.ResourceType == assetinventory.Folder {
-				if err := c.iamClient.RemoveFolderIAM(ctx, iamMembership); err != nil {
-					return nil, fmt.Errorf("failed to remove folder IAM: %w", err)
-				}
-			} else if iamMembership.ResourceType == assetinventory.Project {
-				if err := c.iamClient.RemoveProjectIAM(ctx, iamMembership); err != nil {
-					return nil, fmt.Errorf("failed to remove project IAM: %w", err)
+			for _, iamMembership := range iamMemberships {
+				if iamMembership.ResourceType == assetinventory.Organization {
+					if err := c.iamClient.RemoveOrganizationIAM(ctx, iamMembership); err != nil {
+						return nil, fmt.Errorf("failed to remove org IAM: %w", err)
+					}
+				} else if iamMembership.ResourceType == assetinventory.Folder {
+					if err := c.iamClient.RemoveFolderIAM(ctx, iamMembership); err != nil {
+						return nil, fmt.Errorf("failed to remove folder IAM: %w", err)
+					}
+				} else if iamMembership.ResourceType == assetinventory.Project {
+					if err := c.iamClient.RemoveProjectIAM(ctx, iamMembership); err != nil {
+						return nil, fmt.Errorf("failed to remove project IAM: %w", err)
+					}
 				}
 			}
 			return nil, nil
@@ -116,6 +112,20 @@ func (c *IAMCleaner) Do(
 	logger.Debugw("Successfully deleted IAM", "number_of_iam_memberships_removed", len(iamsToDelete))
 
 	return nil
+}
+
+func filterByEvaluation(ctx context.Context, iams []*assetinventory.AssetIAM) []*assetinventory.AssetIAM {
+	logger := logging.FromContext(ctx)
+	var filteredResults []*assetinventory.AssetIAM
+	for _, i := range iams {
+		passed, err := evaluateIAMConditionExpression(ctx, i.Condition.Expression)
+		if err != nil {
+			logger.Warnw("Failed to parse expression (CEL) for IAM membership", "membership", i, "error", err)
+		} else if !*passed {
+			filteredResults = append(filteredResults, i)
+		}
+	}
+	return filteredResults
 }
 
 func evaluateIAMConditionExpression(ctx context.Context, expression string) (*bool, error) {
@@ -147,4 +157,20 @@ func evaluateIAMConditionExpression(ctx context.Context, expression string) (*bo
 	}
 
 	return &passed, nil
+}
+
+func groupByURI(iams []*assetinventory.AssetIAM) map[string][]*assetinventory.AssetIAM {
+	groupedIAMs := make(map[string][]*assetinventory.AssetIAM)
+	for _, i := range iams {
+		uri := uriNoRole(i)
+		if _, ok := groupedIAMs[uri]; !ok {
+			groupedIAMs[uri] = []*assetinventory.AssetIAM{}
+		}
+		groupedIAMs[uri] = append(groupedIAMs[uri], i)
+	}
+	return groupedIAMs
+}
+
+func uriNoRole(iamMember *assetinventory.AssetIAM) string {
+	return fmt.Sprintf("%s/%s/%s", iamMember.ResourceType, iamMember.ResourceID, iamMember.Member)
 }
