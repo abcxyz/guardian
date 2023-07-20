@@ -52,6 +52,8 @@ type IAMCondition struct {
 	Title string
 	// The conditional expression describing when to apply the IAM policy.
 	Expression string
+	// The description of the IAM condition.
+	Description string
 }
 
 // AssetIAM represents the IAM of a GCP resource (e.g binding/policy/membership of GCP Project, Folder, Org).
@@ -145,16 +147,31 @@ func (c *AssetInventoryClient) IAM(ctx context.Context, scope, query string) ([]
 		if err != nil {
 			return nil, fmt.Errorf("failed to iterate assets: %w", err)
 		}
+
+		var resourceID string
+		var resourceType string
+		if resource.Project != "" {
+			resourceID = strings.TrimPrefix(resource.Project, "projects/")
+			resourceType = Project
+		} else if len(resource.Folders) > 0 {
+			resourceID = strings.TrimPrefix(resource.Folders[0], "folders/")
+			resourceType = Folder
+		} else {
+			resourceID = strings.TrimPrefix(resource.Organization, "organizations/")
+			resourceType = Organization
+		}
+
 		for _, b := range resource.Policy.Bindings {
 			for _, m := range b.Members {
 				results = append(results, &AssetIAM{
 					Member:       m,
 					Role:         b.Role,
-					ResourceID:   "", // TODO: extract ResourceID
-					ResourceType: "", // TODO: extract ResourceID
+					ResourceID:   resourceID,
+					ResourceType: resourceType,
 					Condition: &IAMCondition{
-						Title:      b.Condition.Title,
-						Expression: b.Condition.Expression,
+						Title:       b.Condition.Title,
+						Expression:  b.Condition.Expression,
+						Description: b.Condition.Description,
 					},
 				})
 			}

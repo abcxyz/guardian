@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strings"
 
 	"google.golang.org/api/cloudresourcemanager/v3"
 
@@ -150,6 +151,9 @@ func (c *IAMClient) RemoveProjectIAM(ctx context.Context, iamMember *assetinvent
 		fmt.Sprintf("--member=%s", iamMember.Member),
 		fmt.Sprintf("--role=%s", iamMember.Role),
 	}
+	if iamMember.Condition != nil {
+		args = append(args, fmt.Sprintf("--condition=%s", conditionString(*iamMember.Condition)))
+	}
 	if _, err := c.gcloud(ctx, args); err != nil {
 		return fmt.Errorf("failed to remove iam policy for project %s: %w", iamMember.ResourceID, err)
 	}
@@ -164,6 +168,9 @@ func (c *IAMClient) RemoveFolderIAM(ctx context.Context, iamMember *assetinvento
 		iamMember.ResourceID,
 		fmt.Sprintf("--member=%s", iamMember.Member),
 		fmt.Sprintf("--role=%s", iamMember.Role),
+	}
+	if iamMember.Condition != nil {
+		args = append(args, fmt.Sprintf("--condition=%s", conditionString(*iamMember.Condition)))
 	}
 	if _, err := c.gcloud(ctx, args); err != nil {
 		return fmt.Errorf("failed to remove iam policy for folder %s: %w", iamMember.ResourceID, err)
@@ -180,6 +187,9 @@ func (c *IAMClient) RemoveOrganizationIAM(ctx context.Context, iamMember *asseti
 		fmt.Sprintf("--member=%s", iamMember.Member),
 		fmt.Sprintf("--role=%s", iamMember.Role),
 	}
+	if iamMember.Condition != nil {
+		args = append(args, fmt.Sprintf("--condition=%s", conditionString(*iamMember.Condition)))
+	}
 	if _, err := c.gcloud(ctx, args); err != nil {
 		return fmt.Errorf("failed to remove iam policy for organization %s: %w", iamMember.ResourceID, err)
 	}
@@ -192,7 +202,7 @@ func (c *IAMClient) gcloud(ctx context.Context, args []string) (int, error) {
 	logger := logging.FromContext(ctx)
 	stdout := bytes.NewBufferString("")
 	stderr := bytes.NewBufferString("")
-	exitCode, err := child.Run(ctx, &child.RunConfig{ //nolint:wrapcheck
+	exitCode, err := child.Run(ctx, &child.RunConfig{
 		Stdout:     stdout,
 		Stderr:     stderr,
 		WorkingDir: *c.workingDir,
@@ -204,4 +214,15 @@ func (c *IAMClient) gcloud(ctx context.Context, args []string) (int, error) {
 		return exitCode, fmt.Errorf("failed to execute gcloud command: %w, \n\n %v", err, stderr)
 	}
 	return exitCode, nil
+}
+
+func conditionString(condition assetinventory.IAMCondition) string {
+	parts := []string{fmt.Sprintf("expression=%s", condition.Expression)}
+	if condition.Title != "" {
+		parts = append(parts, fmt.Sprintf("title=%s", condition.Title))
+	}
+	if condition.Description != "" {
+		parts = append(parts, fmt.Sprintf("description=%s", condition.Description))
+	}
+	return strings.Join(parts, ",")
 }

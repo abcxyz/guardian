@@ -23,7 +23,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-func Test_isIAMConditionExpressionExpired(t *testing.T) {
+func Test_evaluateIAMConditionExpression(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
@@ -35,12 +35,12 @@ func Test_isIAMConditionExpressionExpired(t *testing.T) {
 		{
 			name:       "success_expired",
 			expression: "request.time < timestamp('2019-01-01T00:00:00Z')",
-			want:       util.Ptr(true),
+			want:       util.Ptr(false),
 		},
 		{
 			name:       "success_not_expired",
 			expression: "request.time < timestamp('3024-01-01T00:00:00Z')",
-			want:       util.Ptr(false),
+			want:       util.Ptr(true),
 		},
 		{
 			name:          "failed_to_parse",
@@ -55,7 +55,7 @@ func Test_isIAMConditionExpressionExpired(t *testing.T) {
 			t.Parallel()
 
 			// Run test.
-			got, gotErr := isIAMConditionExpressionExpired(context.Background(), tc.expression)
+			got, gotErr := evaluateIAMConditionExpression(context.Background(), tc.expression)
 			if diff := testutil.DiffErrString(gotErr, tc.wantErrSubstr); diff != "" {
 				t.Errorf("Process(%+v) got unexpected error substring: %v", tc.name, diff)
 			}

@@ -34,7 +34,7 @@ type IAMCleanupCommand struct {
 
 	flagScope                 string
 	flagIAMQuery              string
-	flagExpiredOnly           bool
+	flagEvaluateCondition     bool
 	flagMaxConcurrentRequests int64
 	flagWorkingDirectory      string
 }
@@ -71,11 +71,14 @@ func (c *IAMCleanupCommand) Flags() *cli.FlagSet {
 		Usage:   `The query to use to filter on IAM.`,
 	})
 	f.BoolVar(&cli.BoolVar{
-		Name:    "expired-only",
-		Target:  &c.flagExpiredOnly,
+		Name:    "evaluate-condition",
+		Target:  &c.flagEvaluateCondition,
 		Example: "false",
-		Usage:   `Whether or not to delete only IAM with time-based conditions that have expired. Defaults to true.`,
 		Default: true,
+		Usage: `Whether or not to evaluate the IAM Condition Expression and only delete
+		those IAM with false evaluation. Defaults to true.
+		Example: An IAM condition with expression 'request.time < timestamp("2019-01-01T00:00:00Z")'
+		will evaluate to false and the IAM will be deleted.`,
 	})
 	f.Int64Var(&cli.Int64Var{
 		Name:    "max-conncurrent-requests",
@@ -122,7 +125,7 @@ func (c *IAMCleanupCommand) Run(ctx context.Context, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create iam cleaner: %w", err)
 	}
-	if err := iamCleaner.Do(ctx, c.flagScope, c.flagIAMQuery, c.flagExpiredOnly); err != nil {
+	if err := iamCleaner.Do(ctx, c.flagScope, c.flagIAMQuery, c.flagEvaluateCondition); err != nil {
 		return fmt.Errorf("failed to cleanup iam: %w", err)
 	}
 

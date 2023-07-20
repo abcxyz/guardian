@@ -57,7 +57,7 @@ func (c *IAMCleaner) Do(
 	ctx context.Context,
 	scope string,
 	iamQuery string,
-	expiredOnly bool,
+	evaluateCondition bool,
 ) error {
 	logger := logging.FromContext(ctx)
 	iams, err := c.assetInventoryClient.IAM(ctx, scope, iamQuery)
@@ -65,29 +65,30 @@ func (c *IAMCleaner) Do(
 		return fmt.Errorf("failed to get iam: %w", err)
 	}
 
-	logger.Debugw("got IAM",
-		"number_of_iam_memberships", len(iams),
-		"scope", scope,
-		"query", iamQuery)
+	logger.Debugw("got IAM", "number_of_iam_memberships", len(iams), "scope", scope, "query", iamQuery)
 
 	w := workerpool.New[*workerpool.Void](&workerpool.Config{
 		Concurrency: c.maxConcurrentRequests,
 		StopOnError: true,
 	})
-	var expiredIAMs []*assetinventory.AssetIAM
+	var iamsToDelete []*assetinventory.AssetIAM
 
-	for _, i := range iams {
-		expired, err := isIAMConditionExpressionExpired(ctx, i.Condition.Expression)
-		if err != nil {
-			logger.Warnw("Failed to parse expression (CEL) for IAM membership", "membership", i, "error", err)
-		} else if *expired {
-			expiredIAMs = append(expiredIAMs, i)
+	if evaluateCondition {
+		for _, i := range iams {
+			passed, err := evaluateIAMConditionExpression(ctx, i.Condition.Expression)
+			if err != nil {
+				logger.Warnw("Failed to parse expression (CEL) for IAM membership", "membership", i, "error", err)
+			} else if !*passed {
+				iamsToDelete = append(iamsToDelete, i)
+			}
 		}
+	} else {
+		iamsToDelete = iams
 	}
 
-	logger.Debugw("Cleaning up expired IAM", "number_of_iam_memberships", len(expiredIAMs))
+	logger.Debugw("Cleaning up IAM", "number_of_iam_memberships_to_remove", len(iamsToDelete))
 
-	for _, i := range expiredIAMs {
+	for _, i := range iamsToDelete {
 		iamMembership := i
 		if err := w.Do(ctx, func() (*workerpool.Void, error) {
 			if iamMembership.ResourceType == assetinventory.Organization {
@@ -108,10 +109,16 @@ func (c *IAMCleaner) Do(
 			return fmt.Errorf("failed to execute remove IAM task: %w", err)
 		}
 	}
+	if _, err := w.Done(ctx); err != nil {
+		return fmt.Errorf("failed to execute IAM Removal tasks in parallel: %w", err)
+	}
+
+	logger.Debugw("Successfully deleted IAM", "number_of_iam_memberships_removed", len(iamsToDelete))
+
 	return nil
 }
 
-func isIAMConditionExpressionExpired(ctx context.Context, expression string) (*bool, error) {
+func evaluateIAMConditionExpression(ctx context.Context, expression string) (*bool, error) {
 	// Example: request.time < timestamp("2019-01-01T00:00:00Z")
 	env, err := cel.NewEnv(
 		cel.Types(&rpcpb.AttributeContext_Request{}),
@@ -138,7 +145,6 @@ func isIAMConditionExpressionExpired(ctx context.Context, expression string) (*b
 	if !ok {
 		return nil, fmt.Errorf("failed to parse evaluation from Expression (CEL) with value: %s", val)
 	}
-	expired := !passed
 
-	return &expired, nil
+	return &passed, nil
 }
