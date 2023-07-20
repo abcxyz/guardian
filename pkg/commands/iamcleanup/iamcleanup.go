@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"github.com/google/cel-go/cel"
+	"golang.org/x/exp/slices"
 	rpcpb "google.golang.org/genproto/googleapis/rpc/context/attribute_context"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -33,6 +34,8 @@ type IAMCleaner struct {
 	iamClient             iam.IAM
 	maxConcurrentRequests int64
 }
+
+var allowedRequestFieldsInCoditionExpression = []string{"time"}
 
 func NewIAMCleaner(ctx context.Context, maxConcurrentRequests int64, workingDirectory string) (*IAMCleaner, error) {
 	assetInventoryClient, err := assetinventory.NewClient(ctx)
@@ -145,6 +148,12 @@ func evaluateIAMConditionExpression(ctx context.Context, expression string) (*bo
 	ast, issues := env.Compile(expression)
 	if issues != nil && issues.Err() != nil {
 		return nil, fmt.Errorf("failed to compile Expression (CEL): %w", issues.Err())
+	}
+	for _, arg := range ast.Expr().GetCallExpr().Args {
+		if arg.GetSelectExpr() != nil && !slices.Contains(allowedRequestFieldsInCoditionExpression, arg.GetSelectExpr().Field) {
+			return nil, fmt.Errorf("unsupported field '%s' in Condition Expression. Allowed Request fields: '%s'",
+				arg.GetSelectExpr().Field, allowedRequestFieldsInCoditionExpression)
+		}
 	}
 	program, err := env.Program(ast)
 	if err != nil {
