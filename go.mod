@@ -56,8 +56,8 @@ require (
 	github.com/posener/script v1.2.0 // indirect
 	github.com/segmentio/asm v1.2.0 // indirect
 	github.com/sethvargo/go-envconfig v0.9.0 // indirect
-	github.com/zclconf/go-cty v1.13.2 // indirect
 	github.com/stoewer/go-strcase v1.2.0 // indirect
+	github.com/zclconf/go-cty v1.13.2 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect

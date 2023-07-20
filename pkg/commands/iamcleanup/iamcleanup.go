@@ -25,7 +25,7 @@ import (
 	"github.com/abcxyz/guardian/pkg/assetinventory"
 	"github.com/abcxyz/guardian/pkg/iam"
 	"github.com/abcxyz/pkg/logging"
-	"github.com/abcxyz/pkg/worker"
+	"github.com/abcxyz/pkg/workerpool"
 )
 
 type IAMCleaner struct {
@@ -70,7 +70,10 @@ func (c *IAMCleaner) Do(
 		"scope", scope,
 		"query", iamQuery)
 
-	w := worker.New[*worker.Void](c.maxConcurrentRequests)
+	w := workerpool.New[*workerpool.Void](&workerpool.Config{
+		Concurrency: c.maxConcurrentRequests,
+		StopOnError: true,
+	})
 	var expiredIAMs []*assetinventory.AssetIAM
 
 	for _, i := range iams {
@@ -86,7 +89,7 @@ func (c *IAMCleaner) Do(
 
 	for _, i := range expiredIAMs {
 		iamMembership := i
-		if err := w.Do(ctx, func() (*worker.Void, error) {
+		if err := w.Do(ctx, func() (*workerpool.Void, error) {
 			if iamMembership.ResourceType == assetinventory.Organization {
 				if err := c.iamClient.RemoveOrganizationIAM(ctx, iamMembership); err != nil {
 					return nil, fmt.Errorf("failed to remove org IAM: %w", err)
