@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package iamcleanup provides the functionality to cleanup IAM memberships.
 package iamcleanup
 
 import (
@@ -26,6 +27,7 @@ import (
 
 var _ cli.Command = (*IAMCleanupCommand)(nil)
 
+// IAMCleanupCommand is a subcommand for Guardian that enables cleaning up IAM.
 type IAMCleanupCommand struct {
 	cli.BaseCommand
 

@@ -27,6 +27,7 @@ import (
 
 var _ cli.Command = (*DetectIamDriftCommand)(nil)
 
+// IAMCleanupCommand is a subcommand for Guardian that enables detecting IAM drift.
 type DetectIamDriftCommand struct {
 	cli.BaseCommand
 
