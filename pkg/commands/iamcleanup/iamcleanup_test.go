@@ -47,6 +47,11 @@ func Test_evaluateIAMConditionExpression(t *testing.T) {
 			expression:    "request.made_up_time_arg < timestamp('3024-01-01T00:00:00Z')",
 			wantErrSubstr: "failed to compile Expression",
 		},
+		{
+			name:          "failed_to_parse",
+			expression:    "request.path == '/admin'",
+			wantErrSubstr: "unsupported field 'path' in Condition Expression",
+		},
 	}
 	for _, tc := range cases {
 		tc := tc
