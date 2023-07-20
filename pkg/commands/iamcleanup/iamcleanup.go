@@ -73,10 +73,10 @@ func (c *IAMCleaner) Do(
 	if evaluateCondition {
 		iamsToDelete = groupByURI(filterByEvaluation(ctx, iams))
 	} else {
-		groupByURI(iams)
+		iamsToDelete = groupByURI(iams)
 	}
 
-	logger.Debugw("Cleaning up IAM", "number_of_iam_memberships_to_remove", len(iamsToDelete))
+	logger.Debugw("Cleaning up IAM", "number_of_iam_memberships_to_remove", countAll(iamsToDelete))
 
 	w := workerpool.New[*workerpool.Void](&workerpool.Config{
 		Concurrency: c.maxConcurrentRequests,
@@ -86,18 +86,21 @@ func (c *IAMCleaner) Do(
 		iamMemberships := is
 		if err := w.Do(ctx, func() (*workerpool.Void, error) {
 			for _, iamMembership := range iamMemberships {
-				if iamMembership.ResourceType == assetinventory.Organization {
+				switch iamMembership.ResourceType {
+				case assetinventory.Organization:
 					if err := c.iamClient.RemoveOrganizationIAM(ctx, iamMembership); err != nil {
 						return nil, fmt.Errorf("failed to remove org IAM: %w", err)
 					}
-				} else if iamMembership.ResourceType == assetinventory.Folder {
+				case assetinventory.Folder:
 					if err := c.iamClient.RemoveFolderIAM(ctx, iamMembership); err != nil {
 						return nil, fmt.Errorf("failed to remove folder IAM: %w", err)
 					}
-				} else if iamMembership.ResourceType == assetinventory.Project {
+				case assetinventory.Project:
 					if err := c.iamClient.RemoveProjectIAM(ctx, iamMembership); err != nil {
 						return nil, fmt.Errorf("failed to remove project IAM: %w", err)
 					}
+				default:
+					return nil, fmt.Errorf("unable to remove membership for unsupported resource type %s", iamMembership.ResourceType)
 				}
 			}
 			return nil, nil
@@ -173,4 +176,12 @@ func groupByURI(iams []*assetinventory.AssetIAM) map[string][]*assetinventory.As
 
 func uriNoRole(iamMember *assetinventory.AssetIAM) string {
 	return fmt.Sprintf("%s/%s/%s", iamMember.ResourceType, iamMember.ResourceID, iamMember.Member)
+}
+
+func countAll(iamsByURI map[string][]*assetinventory.AssetIAM) int {
+	cnt := 0
+	for _, iams := range iamsByURI {
+		cnt += len(iams)
+	}
+	return cnt
 }
