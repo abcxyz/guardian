@@ -45,10 +45,10 @@ type IAM interface {
 	RemoveProjectIAM(ctx context.Context, projectIAMMember *assetinventory.AssetIAM) error
 }
 
+// IAMClient exposes GCP IAM functionality.
 type IAMClient struct {
 	crmService *cloudresourcemanager.Service
 	cfg        *Config
-	workingDir *string
 }
 
 // Config is the config values for the IAM client.
@@ -63,7 +63,7 @@ const (
 )
 
 // NewClient creates a new iam client.
-func NewClient(ctx context.Context, workingDir *string) (*IAMClient, error) {
+func NewClient(ctx context.Context) (*IAMClient, error) {
 	crm, err := cloudresourcemanager.NewService(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize cloudresourcemanager service: %w", err)
@@ -78,7 +78,6 @@ func NewClient(ctx context.Context, workingDir *string) (*IAMClient, error) {
 	return &IAMClient{
 		crmService: crm,
 		cfg:        cfg,
-		workingDir: workingDir,
 	}, nil
 }
 
@@ -231,14 +230,13 @@ func (c *IAMClient) gcloud(ctx context.Context, args []string) (int, error) {
 		c, err := child.Run(ctx, &child.RunConfig{
 			Stdout:     stdout,
 			Stderr:     stderr,
-			WorkingDir: *c.workingDir,
+			WorkingDir: "",
 			Command:    "gcloud",
 			Args:       args,
 		})
 		exitCode = c
 		logger.Debugw("gcloud command executed", "args", args, "stdout", stdout)
 		if err != nil {
-			fmt.Println("ERROR:", strings.Contains(err.Error(), concurrentPolicyErrMessage))
 			if strings.Contains(err.Error(), concurrentPolicyErrMessage) {
 				return retry.RetryableError(err)
 			}

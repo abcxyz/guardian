@@ -49,7 +49,7 @@ func NewIAMDriftDetector(ctx context.Context, organizationID string, maxConcurre
 		return nil, fmt.Errorf("failed to initialize assets client: %w", err)
 	}
 
-	iamClient, err := iam.NewClient(ctx, nil)
+	iamClient, err := iam.NewClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize iam client: %w", err)
 	}

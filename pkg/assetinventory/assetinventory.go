@@ -47,6 +47,7 @@ var resourceNameIDPattern = regexp.MustCompile(`\/\/cloudresourcemanager\.google
 // resourceNamePattern is a Regex pattern used to parse name from the resource Name.
 var resourceNamePattern = regexp.MustCompile(`\/\/cloudresourcemanager\.googleapis\.com\/(?:folders|organizations|projects)\/(.*)`)
 
+// IAMCondition represents the IAM Condition for an IAM binding.
 type IAMCondition struct {
 	// The title of the IAM condition.
 	Title string
@@ -112,6 +113,7 @@ type AssetInventory interface {
 	IAM(ctx context.Context, scope, query string) ([]*AssetIAM, error)
 }
 
+// AssetInventoryClient exposes GCP Asset Inventory functionality.
 type AssetInventoryClient struct {
 	assetClient *asset.Client
 }

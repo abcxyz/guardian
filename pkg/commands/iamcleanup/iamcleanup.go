@@ -37,13 +37,13 @@ type IAMCleaner struct {
 
 var allowedRequestFieldsInCoditionExpression = []string{"time"}
 
-func NewIAMCleaner(ctx context.Context, maxConcurrentRequests int64, workingDirectory string) (*IAMCleaner, error) {
+func NewIAMCleaner(ctx context.Context, maxConcurrentRequests int64) (*IAMCleaner, error) {
 	assetInventoryClient, err := assetinventory.NewClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize assets client: %w", err)
 	}
 
-	iamClient, err := iam.NewClient(ctx, &workingDirectory)
+	iamClient, err := iam.NewClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize iam client: %w", err)
 	}

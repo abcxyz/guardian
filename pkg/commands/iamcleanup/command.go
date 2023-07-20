@@ -34,11 +34,10 @@ type IAMCleanupCommand struct {
 	// testFlagSetOpts is only used for testing.
 	testFlagSetOpts []cli.Option
 
-	flagScope                 string
-	flagIAMQuery              string
-	flagEvaluateCondition     bool
-	flagMaxConcurrentRequests int64
-	flagWorkingDirectory      string
+	flagScope                    string
+	flagIAMQuery                 string
+	flagDisableEvaluateCondition bool
+	flagMaxConcurrentRequests    int64
 }
 
 func (c *IAMCleanupCommand) Desc() string {
@@ -73,28 +72,21 @@ func (c *IAMCleanupCommand) Flags() *cli.FlagSet {
 		Usage:   `The query to use to filter on IAM.`,
 	})
 	f.BoolVar(&cli.BoolVar{
-		Name:    "evaluate-condition",
-		Target:  &c.flagEvaluateCondition,
-		Example: "false",
-		Default: true,
+		Name:    "disable-evaluate-condition",
+		Target:  &c.flagDisableEvaluateCondition,
+		Example: "true",
+		Default: false,
 		Usage: `Whether or not to evaluate the IAM Condition Expression and only delete
-		those IAM with false evaluation. Defaults to true.
+		those IAM with false evaluation. Defaults to false.
 		Example: An IAM condition with expression 'request.time < timestamp("2019-01-01T00:00:00Z")'
 		will evaluate to false and the IAM will be deleted.`,
 	})
 	f.Int64Var(&cli.Int64Var{
 		Name:    "max-conncurrent-requests",
 		Target:  &c.flagMaxConcurrentRequests,
-		Example: "10",
+		Example: "2",
 		Usage:   `The maximum number of concurrent requests allowed at any time to GCP.`,
 		Default: 10,
-	})
-	f.StringVar(&cli.StringVar{
-		Name:    "working-directory",
-		Target:  &c.flagWorkingDirectory,
-		Example: "terraform",
-		EnvVar:  "INPUTS_WORKING_DIRECTORY",
-		Usage:   "The working directory for Guardian to execute commands in.",
 	})
 
 	return set
@@ -123,11 +115,11 @@ func (c *IAMCleanupCommand) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("missing -scope")
 	}
 
-	iamCleaner, err := NewIAMCleaner(ctx, c.flagMaxConcurrentRequests, c.flagWorkingDirectory)
+	iamCleaner, err := NewIAMCleaner(ctx, c.flagMaxConcurrentRequests)
 	if err != nil {
 		return fmt.Errorf("failed to create iam cleaner: %w", err)
 	}
-	if err := iamCleaner.Do(ctx, c.flagScope, c.flagIAMQuery, c.flagEvaluateCondition); err != nil {
+	if err := iamCleaner.Do(ctx, c.flagScope, c.flagIAMQuery, !c.flagDisableEvaluateCondition); err != nil {
 		return fmt.Errorf("failed to cleanup iam: %w", err)
 	}
 
