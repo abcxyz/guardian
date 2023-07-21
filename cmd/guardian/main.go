@@ -24,6 +24,7 @@ import (
 
 	"github.com/abcxyz/guardian/internal/version"
 	"github.com/abcxyz/guardian/pkg/commands/drift"
+	"github.com/abcxyz/guardian/pkg/commands/iamcleanup"
 	"github.com/abcxyz/guardian/pkg/commands/plan"
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
@@ -59,6 +60,9 @@ var rootCmd = func() cli.Command {
 			// },
 			"detect-iam-drift": func() cli.Command {
 				return &drift.DetectIamDriftCommand{}
+			},
+			"iam-cleanup": func() cli.Command {
+				return &iamcleanup.IAMCleanupCommand{}
 			},
 		},
 	}

@@ -27,11 +27,20 @@ type Request struct {
 }
 
 type MockAssetInventoryClient struct {
-	BucketsErr       string
+	IAMData          []*AssetIAM
+	IAMErr           string
 	BucketsData      []string
+	BucketsErr       string
 	AssetFolderData  []*HierarchyNode
 	AssetProjectData []*HierarchyNode
 	AssetErr         string
+}
+
+func (m *MockAssetInventoryClient) IAM(ctx context.Context, scope, query string) ([]*AssetIAM, error) {
+	if m.IAMErr != "" {
+		return nil, fmt.Errorf("%s", m.IAMErr)
+	}
+	return m.IAMData, nil
 }
 
 func (m *MockAssetInventoryClient) Buckets(ctx context.Context, organizationID, query string) ([]string, error) {

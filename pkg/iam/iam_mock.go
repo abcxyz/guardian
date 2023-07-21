@@ -17,6 +17,8 @@ package iam
 import (
 	"context"
 	"fmt"
+
+	"github.com/abcxyz/guardian/pkg/assetinventory"
 )
 
 var _ IAM = (*MockIAMClient)(nil)
@@ -27,31 +29,55 @@ type Request struct {
 }
 
 type MockIAMClient struct {
-	OrgErr      string
-	OrgData     []*AssetIAM
-	FolderErr   string
-	FolderData  []*AssetIAM
-	ProjectErr  string
-	ProjectData []*AssetIAM
+	OrgErr           string
+	OrgData          []*assetinventory.AssetIAM
+	FolderErr        string
+	FolderData       []*assetinventory.AssetIAM
+	ProjectErr       string
+	ProjectData      []*assetinventory.AssetIAM
+	RemoveOrgErr     string
+	RemoveFolderErr  string
+	RemoveProjectErr string
 }
 
-func (m *MockIAMClient) OrganizationIAM(ctx context.Context, organizationID string) ([]*AssetIAM, error) {
+func (m *MockIAMClient) OrganizationIAM(ctx context.Context, organizationID string) ([]*assetinventory.AssetIAM, error) {
 	if m.OrgErr != "" {
 		return nil, fmt.Errorf("%s", m.OrgErr)
 	}
 	return m.OrgData, nil
 }
 
-func (m *MockIAMClient) FolderIAM(ctx context.Context, folderID string) ([]*AssetIAM, error) {
+func (m *MockIAMClient) FolderIAM(ctx context.Context, folderID string) ([]*assetinventory.AssetIAM, error) {
 	if m.FolderErr != "" {
 		return nil, fmt.Errorf("%s", m.FolderErr)
 	}
 	return m.FolderData, nil
 }
 
-func (m *MockIAMClient) ProjectIAM(ctx context.Context, projectID string) ([]*AssetIAM, error) {
+func (m *MockIAMClient) ProjectIAM(ctx context.Context, projectID string) ([]*assetinventory.AssetIAM, error) {
 	if m.ProjectErr != "" {
 		return nil, fmt.Errorf("%s", m.ProjectErr)
 	}
 	return m.ProjectData, nil
+}
+
+func (m *MockIAMClient) RemoveOrganizationIAM(ctx context.Context, iamMember *assetinventory.AssetIAM) error {
+	if m.RemoveOrgErr != "" {
+		return fmt.Errorf("%s", m.RemoveOrgErr)
+	}
+	return nil
+}
+
+func (m *MockIAMClient) RemoveFolderIAM(ctx context.Context, iamMember *assetinventory.AssetIAM) error {
+	if m.RemoveFolderErr != "" {
+		return fmt.Errorf("%s", m.RemoveFolderErr)
+	}
+	return nil
+}
+
+func (m *MockIAMClient) RemoveProjectIAM(ctx context.Context, iamMember *assetinventory.AssetIAM) error {
+	if m.RemoveProjectErr != "" {
+		return fmt.Errorf("%s", m.RemoveProjectErr)
+	}
+	return nil
 }

@@ -27,6 +27,7 @@ import (
 
 var _ cli.Command = (*DetectIamDriftCommand)(nil)
 
+// DetectIamDriftCommand is a subcommand for Guardian that enables detecting IAM drift.
 type DetectIamDriftCommand struct {
 	cli.BaseCommand
 
@@ -70,12 +71,14 @@ func (c *DetectIamDriftCommand) Flags() *cli.FlagSet {
 		Example: "123435456456",
 		Usage:   `The Google Cloud organization ID for which to detect drift.`,
 	})
+
 	f.StringVar(&cli.StringVar{
 		Name:    "gcs-bucket-query",
 		Target:  &c.flagGCSBucketQuery,
 		Example: "labels.terraform:*",
 		Usage:   `The label to use to find GCS buckets with Terraform statefiles.`,
 	})
+
 	f.StringVar(&cli.StringVar{
 		Name:    "driftignore-file",
 		Target:  &c.flagDriftignoreFile,
@@ -83,6 +86,7 @@ func (c *DetectIamDriftCommand) Flags() *cli.FlagSet {
 		Usage:   `The driftignore file to use which contains values to ignore.`,
 		Default: ".driftignore",
 	})
+
 	f.Int64Var(&cli.Int64Var{
 		Name:    "max-conncurrent-requests",
 		Target:  &c.flagMaxConcurrentRequests,
@@ -90,6 +94,7 @@ func (c *DetectIamDriftCommand) Flags() *cli.FlagSet {
 		Usage:   `The maximum number of concurrent requests allowed at any time to GCP.`,
 		Default: 10,
 	})
+
 	f.BoolVar(&cli.BoolVar{
 		Name:    "skip-github-issue",
 		Target:  &c.flagSkipGitHubIssue,
@@ -97,29 +102,34 @@ func (c *DetectIamDriftCommand) Flags() *cli.FlagSet {
 		Usage:   `Whether or not to create a GitHub Issue when a drift is detected.`,
 		Default: false,
 	})
+
 	f.StringVar(&cli.StringVar{
 		Name:   "github-token",
 		Target: &c.flagGitHubToken,
 		Usage:  `The github token to use to authenticate to create & manage GitHub Issues.`,
 		EnvVar: "GITHUB_TOKEN",
 	})
+
 	f.StringVar(&cli.StringVar{
 		Name:   "github-owner",
 		Target: &c.flagGitHubOwner,
 		Usage:  `The github token to use to authenticate to create & manage GitHub Issues.`,
 	})
+
 	f.StringVar(&cli.StringVar{
 		Name:    "github-repo",
 		Target:  &c.flagGitHubRepo,
 		Example: "guardian",
 		Usage:   `The github token to use to authenticate to create & manage GitHub Issues.`,
 	})
+
 	f.StringSliceVar(&cli.StringSliceVar{
 		Name:    "github-issue-assignees",
 		Target:  &c.flagGitHubIssueAssignees,
 		Example: "dcreey",
 		Usage:   `The assignees to assign to for any created GitHub Issues.`,
 	})
+
 	f.StringSliceVar(&cli.StringSliceVar{
 		Name:    "github-issue-labels",
 		Target:  &c.flagGitHubIssueLabels,
@@ -127,6 +137,7 @@ func (c *DetectIamDriftCommand) Flags() *cli.FlagSet {
 		Usage:   `The labels to use on any created GitHub Issues.`,
 		Default: []string{"guardian-iam-drift"},
 	})
+
 	f.StringVar(&cli.StringVar{
 		Name:    "github-comment-message-append",
 		Target:  &c.flagGitHubCommentMessageAppend,

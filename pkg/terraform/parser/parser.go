@@ -23,7 +23,6 @@ import (
 	"strings"
 
 	"github.com/abcxyz/guardian/pkg/assetinventory"
-	"github.com/abcxyz/guardian/pkg/iam"
 	"github.com/abcxyz/guardian/pkg/storage"
 )
 
@@ -32,8 +31,10 @@ const (
 	// This shouldn't happen but it is theoretically possible especially if there is a race condition between
 	// fetching the projects & folders and querying for terraform state.
 	UnknownParentID = "UNKNOWN_PARENT_ID"
+
 	// UnknownParentType is used when we cannot find an asset parent. See UnknownParentID.
 	UnknownParentType = "UNKNOWN_PARENT_TYPE"
+
 	// Default max size for a terraform statefile is 512 MB.
 	defaultTerraformStateFileSizeLimit = 512 * 1024 * 1024 // 512 MB
 )
@@ -62,10 +63,12 @@ type TerraformState struct {
 type Terraform interface {
 	// SetAssets sets the assets to use for GCP asset lookup.
 	SetAssets(gcpFolders, gcpProjects map[string]*assetinventory.HierarchyNode)
+
 	// StateFileURIs returns the URIs of terraform state files located in the given GCS buckets.
 	StateFileURIs(ctx context.Context, gcsBuckets []string) ([]string, error)
+
 	// ProcessStates returns the IAM permissions stored in the given state files.
-	ProcessStates(ctx context.Context, gcsUris []string) ([]*iam.AssetIAM, error)
+	ProcessStates(ctx context.Context, gcsUris []string) ([]*assetinventory.AssetIAM, error)
 }
 
 type TerraformParser struct {
@@ -115,8 +118,8 @@ func (p *TerraformParser) StateFileURIs(ctx context.Context, gcsBuckets []string
 }
 
 // ProcessStates finds all IAM in memberships, bindings, or policies in the given terraform state files.
-func (p *TerraformParser) ProcessStates(ctx context.Context, gcsUris []string) ([]*iam.AssetIAM, error) {
-	var iams []*iam.AssetIAM
+func (p *TerraformParser) ProcessStates(ctx context.Context, gcsUris []string) ([]*assetinventory.AssetIAM, error) {
+	var iams []*assetinventory.AssetIAM
 	for _, uri := range gcsUris {
 		var state TerraformState
 		bucket, name, err := storage.SplitObjectURI(uri)
@@ -137,8 +140,8 @@ func (p *TerraformParser) ProcessStates(ctx context.Context, gcsUris []string) (
 	return iams, nil
 }
 
-func (p *TerraformParser) parseTerraformStateIAM(state TerraformState) []*iam.AssetIAM {
-	var iams []*iam.AssetIAM
+func (p *TerraformParser) parseTerraformStateIAM(state TerraformState) []*assetinventory.AssetIAM {
+	var iams []*assetinventory.AssetIAM
 	for _, r := range state.Resources {
 		if strings.Contains(r.Type, "google_organization_iam_binding") {
 			iams = append(iams, p.parseIAMBindingForOrg(r.Instances)...)
@@ -159,11 +162,11 @@ func (p *TerraformParser) parseTerraformStateIAM(state TerraformState) []*iam.As
 	return iams
 }
 
-func (p *TerraformParser) parseIAMBindingForOrg(instances []ResourceInstance) []*iam.AssetIAM {
-	var iams []*iam.AssetIAM
+func (p *TerraformParser) parseIAMBindingForOrg(instances []ResourceInstance) []*assetinventory.AssetIAM {
+	var iams []*assetinventory.AssetIAM
 	for _, i := range instances {
 		for _, m := range i.Attributes.Members {
-			iams = append(iams, &iam.AssetIAM{
+			iams = append(iams, &assetinventory.AssetIAM{
 				Member:       m,
 				Role:         i.Attributes.Role,
 				ResourceID:   p.OrganizationID,
@@ -174,13 +177,13 @@ func (p *TerraformParser) parseIAMBindingForOrg(instances []ResourceInstance) []
 	return iams
 }
 
-func (p *TerraformParser) parseIAMBindingForFolder(instances []ResourceInstance) []*iam.AssetIAM {
-	var iams []*iam.AssetIAM
+func (p *TerraformParser) parseIAMBindingForFolder(instances []ResourceInstance) []*assetinventory.AssetIAM {
+	var iams []*assetinventory.AssetIAM
 	for _, i := range instances {
 		for _, m := range i.Attributes.Members {
 			folderID := strings.TrimPrefix(i.Attributes.Folder, "folders/")
 			parentID, parentType := p.maybeFindGCPAssetIDAndType(folderID)
-			iams = append(iams, &iam.AssetIAM{
+			iams = append(iams, &assetinventory.AssetIAM{
 				Member:       m,
 				Role:         i.Attributes.Role,
 				ResourceID:   parentID,
@@ -191,12 +194,12 @@ func (p *TerraformParser) parseIAMBindingForFolder(instances []ResourceInstance)
 	return iams
 }
 
-func (p *TerraformParser) parseIAMBindingForProject(instances []ResourceInstance) []*iam.AssetIAM {
-	var iams []*iam.AssetIAM
+func (p *TerraformParser) parseIAMBindingForProject(instances []ResourceInstance) []*assetinventory.AssetIAM {
+	var iams []*assetinventory.AssetIAM
 	for _, i := range instances {
 		for _, m := range i.Attributes.Members {
 			parentID, parentType := p.maybeFindGCPAssetIDAndType(i.Attributes.Project)
-			iams = append(iams, &iam.AssetIAM{
+			iams = append(iams, &assetinventory.AssetIAM{
 				Member:       m,
 				Role:         i.Attributes.Role,
 				ResourceID:   parentID,
@@ -207,10 +210,10 @@ func (p *TerraformParser) parseIAMBindingForProject(instances []ResourceInstance
 	return iams
 }
 
-func (p *TerraformParser) parseIAMMemberForOrg(instances []ResourceInstance) []*iam.AssetIAM {
-	iams := make([]*iam.AssetIAM, len(instances))
+func (p *TerraformParser) parseIAMMemberForOrg(instances []ResourceInstance) []*assetinventory.AssetIAM {
+	iams := make([]*assetinventory.AssetIAM, len(instances))
 	for x, i := range instances {
-		iams[x] = &iam.AssetIAM{
+		iams[x] = &assetinventory.AssetIAM{
 			Member:       i.Attributes.Member,
 			Role:         i.Attributes.Role,
 			ResourceID:   p.OrganizationID,
@@ -220,12 +223,12 @@ func (p *TerraformParser) parseIAMMemberForOrg(instances []ResourceInstance) []*
 	return iams
 }
 
-func (p *TerraformParser) parseIAMMemberForFolder(instances []ResourceInstance) []*iam.AssetIAM {
-	iams := make([]*iam.AssetIAM, len(instances))
+func (p *TerraformParser) parseIAMMemberForFolder(instances []ResourceInstance) []*assetinventory.AssetIAM {
+	iams := make([]*assetinventory.AssetIAM, len(instances))
 	for x, i := range instances {
 		folderID := strings.TrimPrefix(i.Attributes.Folder, "folders/")
 		parentID, parentType := p.maybeFindGCPAssetIDAndType(folderID)
-		iams[x] = &iam.AssetIAM{
+		iams[x] = &assetinventory.AssetIAM{
 			Member:       i.Attributes.Member,
 			Role:         i.Attributes.Role,
 			ResourceID:   parentID,
@@ -235,11 +238,11 @@ func (p *TerraformParser) parseIAMMemberForFolder(instances []ResourceInstance) 
 	return iams
 }
 
-func (p *TerraformParser) parseIAMMemberForProject(instances []ResourceInstance) []*iam.AssetIAM {
-	iams := make([]*iam.AssetIAM, len(instances))
+func (p *TerraformParser) parseIAMMemberForProject(instances []ResourceInstance) []*assetinventory.AssetIAM {
+	iams := make([]*assetinventory.AssetIAM, len(instances))
 	for x, i := range instances {
 		parentID, parentType := p.maybeFindGCPAssetIDAndType(i.Attributes.Project)
-		iams[x] = &iam.AssetIAM{
+		iams[x] = &assetinventory.AssetIAM{
 			Member:       i.Attributes.Member,
 			Role:         i.Attributes.Role,
 			ResourceID:   parentID,
