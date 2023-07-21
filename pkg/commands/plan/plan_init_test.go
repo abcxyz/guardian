@@ -21,7 +21,6 @@ import (
 	"path"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/git"
@@ -44,7 +43,6 @@ func TestPlanInitProcess(t *testing.T) {
 	cases := []struct {
 		name                     string
 		directory                string
-		flagGitHubToken          string
 		flagIsGitHubActions      bool
 		flagGitHubOwner          string
 		flagGitHubRepo           string
@@ -52,10 +50,8 @@ func TestPlanInitProcess(t *testing.T) {
 		flagDestRef              string
 		flagSourceRef            string
 		flagKeepOutdatedComments bool
+		flagSkipDetectChanges    bool
 		flagFormat               string
-		flagRetryMaxAttempts     uint64
-		flagRetryInitialDelay    time.Duration
-		flagRetryMaxDelay        time.Duration
 		gitClient                *git.MockGitClient
 		err                      string
 		expGitHubClientReqs      []*github.Request
@@ -63,19 +59,14 @@ func TestPlanInitProcess(t *testing.T) {
 		expStderr                string
 	}{
 		{
-			name:                     "success",
-			directory:                "testdata",
-			flagGitHubToken:          "github-token",
-			flagKeepOutdatedComments: false,
-			flagIsGitHubActions:      true,
-			flagGitHubOwner:          "owner",
-			flagGitHubRepo:           "repo",
-			flagPullRequestNumber:    1,
-			flagDestRef:              "main",
-			flagSourceRef:            "ldap/feature",
-			flagRetryMaxAttempts:     3,
-			flagRetryInitialDelay:    2 * time.Second,
-			flagRetryMaxDelay:        10 * time.Second,
+			name:                  "success",
+			directory:             "testdata",
+			flagIsGitHubActions:   true,
+			flagGitHubOwner:       "owner",
+			flagGitHubRepo:        "repo",
+			flagPullRequestNumber: 1,
+			flagDestRef:           "main",
+			flagSourceRef:         "ldap/feature",
 			expGitHubClientReqs: []*github.Request{
 				{
 					Name:   "ListIssueComments",
@@ -93,7 +84,6 @@ func TestPlanInitProcess(t *testing.T) {
 		{
 			name:                     "skips_deleting_comments",
 			directory:                "testdata",
-			flagGitHubToken:          "github-token",
 			flagKeepOutdatedComments: true,
 			flagFormat:               "text",
 			flagIsGitHubActions:      true,
@@ -102,9 +92,6 @@ func TestPlanInitProcess(t *testing.T) {
 			flagPullRequestNumber:    2,
 			flagDestRef:              "main",
 			flagSourceRef:            "ldap/feature",
-			flagRetryMaxAttempts:     3,
-			flagRetryInitialDelay:    2 * time.Second,
-			flagRetryMaxDelay:        10 * time.Second,
 			gitClient: &git.MockGitClient{
 				DiffResp: []string{
 					path.Join(cwd, "testdata/backends/project1"),
@@ -117,7 +104,6 @@ func TestPlanInitProcess(t *testing.T) {
 		{
 			name:                  "returns_json",
 			directory:             "testdata",
-			flagGitHubToken:       "github-token",
 			flagFormat:            "json",
 			flagIsGitHubActions:   true,
 			flagGitHubOwner:       "owner",
@@ -125,9 +111,6 @@ func TestPlanInitProcess(t *testing.T) {
 			flagPullRequestNumber: 3,
 			flagDestRef:           "main",
 			flagSourceRef:         "ldap/feature",
-			flagRetryMaxAttempts:  3,
-			flagRetryInitialDelay: 2 * time.Second,
-			flagRetryMaxDelay:     10 * time.Second,
 			expGitHubClientReqs: []*github.Request{
 				{
 					Name:   "ListIssueComments",
@@ -145,17 +128,13 @@ func TestPlanInitProcess(t *testing.T) {
 		{
 			name:                  "invalid_format",
 			directory:             "testdata",
-			flagGitHubToken:       "github-token",
-			flagFormat:            "yaml",
 			flagIsGitHubActions:   true,
 			flagGitHubOwner:       "owner",
 			flagGitHubRepo:        "repo",
 			flagPullRequestNumber: 3,
 			flagDestRef:           "main",
 			flagSourceRef:         "ldap/feature",
-			flagRetryMaxAttempts:  3,
-			flagRetryInitialDelay: 2 * time.Second,
-			flagRetryMaxDelay:     10 * time.Second,
+			flagFormat:            "yaml",
 			gitClient: &git.MockGitClient{
 				DiffResp: []string{
 					path.Join(cwd, "testdata/backends/project1"),
@@ -165,18 +144,33 @@ func TestPlanInitProcess(t *testing.T) {
 			err: "invalid format flag: yaml",
 		},
 		{
+			name:                  "skips_detect_changes",
+			directory:             "testdata",
+			flagIsGitHubActions:   true,
+			flagGitHubOwner:       "owner",
+			flagGitHubRepo:        "repo",
+			flagPullRequestNumber: 1,
+			flagDestRef:           "main",
+			flagSourceRef:         "ldap/feature",
+			flagSkipDetectChanges: true,
+			expGitHubClientReqs: []*github.Request{
+				{
+					Name:   "ListIssueComments",
+					Params: []any{"owner", "repo", 1},
+				},
+			},
+			gitClient: &git.MockGitClient{},
+			expStdout: "testdata/backends/project1\ntestdata/backends/project2",
+		},
+		{
 			name:                  "errors",
 			directory:             "testdata",
-			flagGitHubToken:       "github-token",
 			flagIsGitHubActions:   true,
 			flagGitHubOwner:       "owner",
 			flagGitHubRepo:        "repo",
 			flagPullRequestNumber: 2,
 			flagDestRef:           "main",
 			flagSourceRef:         "ldap/feature",
-			flagRetryMaxAttempts:  3,
-			flagRetryInitialDelay: 2 * time.Second,
-			flagRetryMaxDelay:     10 * time.Second,
 			expGitHubClientReqs: []*github.Request{
 				{
 					Name:   "ListIssueComments",
@@ -206,16 +200,11 @@ func TestPlanInitProcess(t *testing.T) {
 				flagFormat:               tc.flagFormat,
 				flagDestRef:              tc.flagDestRef,
 				flagSourceRef:            tc.flagSourceRef,
+				flagSkipDetectChanges:    tc.flagSkipDetectChanges,
 				GitHubFlags: flags.GitHubFlags{
-					FlagGitHubToken:     tc.flagGitHubToken,
 					FlagIsGitHubActions: tc.flagIsGitHubActions,
 					FlagGitHubOwner:     tc.flagGitHubOwner,
 					FlagGitHubRepo:      tc.flagGitHubRepo,
-				},
-				RetryFlags: flags.RetryFlags{
-					FlagRetryMaxAttempts:  tc.flagRetryMaxAttempts,
-					FlagRetryInitialDelay: tc.flagRetryInitialDelay,
-					FlagRetryMaxDelay:     tc.flagRetryMaxDelay,
 				},
 
 				gitClient:    tc.gitClient,

@@ -32,15 +32,79 @@ import (
 	"github.com/sethvargo/go-githubactions"
 )
 
+var terraformNoDiffMock = &terraform.MockTerraformClient{
+	InitResponse: &terraform.MockTerraformResponse{
+		Stdout:   "terraform init success",
+		ExitCode: 0,
+	},
+	ValidateResponse: &terraform.MockTerraformResponse{
+		Stdout:   "terraform validate success",
+		ExitCode: 0,
+	},
+	PlanResponse: &terraform.MockTerraformResponse{
+		Stdout:   "terraform plan success - no diff",
+		ExitCode: 0,
+	},
+	ShowResponse: &terraform.MockTerraformResponse{
+		Stdout:   "terraform show success - no diff",
+		ExitCode: 0,
+	},
+}
+
+var terraformDiffMock = &terraform.MockTerraformClient{
+	InitResponse: &terraform.MockTerraformResponse{
+		Stdout:   "terraform init success with diff",
+		ExitCode: 0,
+	},
+	ValidateResponse: &terraform.MockTerraformResponse{
+		Stdout:   "terraform validate success with diff",
+		ExitCode: 0,
+	},
+	PlanResponse: &terraform.MockTerraformResponse{
+		Stdout:   "terraform plan success with diff",
+		ExitCode: 2,
+	},
+	ShowResponse: &terraform.MockTerraformResponse{
+		Stdout:   "terraform show success with diff",
+		ExitCode: 0,
+	},
+}
+
+var terraformErrorMock = &terraform.MockTerraformClient{
+	InitResponse: &terraform.MockTerraformResponse{
+		Stdout:   "terraform init output",
+		Stderr:   "terraform init failed",
+		ExitCode: 1,
+		Err:      fmt.Errorf("failed to run terraform init"),
+	},
+	ValidateResponse: &terraform.MockTerraformResponse{
+		Stdout:   "terraform validate success",
+		ExitCode: 0,
+	},
+	PlanResponse: &terraform.MockTerraformResponse{
+		Stdout:   "terraform plan success - no diff",
+		ExitCode: 0,
+	},
+	ShowResponse: &terraform.MockTerraformResponse{
+		Stdout:   "terraform show success - no diff",
+		ExitCode: 0,
+	},
+}
+
 func TestPlan_Process(t *testing.T) {
 	t.Parallel()
 
 	ctx := logging.WithLogger(context.Background(), logging.TestLogger(t))
 
+	defaultConfig := &Config{
+		ServerURL:  "https://github.com",
+		RunID:      int64(100),
+		RunAttempt: int64(1),
+	}
+
 	cases := []struct {
 		name                     string
 		directory                string
-		flagGitHubToken          string
 		flagIsGitHubActions      bool
 		flagGitHubOwner          string
 		flagGitHubRepo           string
@@ -48,9 +112,6 @@ func TestPlan_Process(t *testing.T) {
 		flagBucketName           string
 		flagAllowLockfileChanges bool
 		flagLockTimeout          time.Duration
-		flagRetryMaxAttempts     uint64
-		flagRetryInitialDelay    time.Duration
-		flagRetryMaxDelay        time.Duration
 		config                   *Config
 		terraformClient          *terraform.MockTerraformClient
 		err                      string
@@ -63,39 +124,14 @@ func TestPlan_Process(t *testing.T) {
 			name:                     "success_with_diff",
 			directory:                "testdata",
 			flagIsGitHubActions:      true,
-			flagGitHubToken:          "github-token",
 			flagGitHubOwner:          "owner",
 			flagGitHubRepo:           "repo",
 			flagPullRequestNumber:    1,
 			flagBucketName:           "my-bucket-name",
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
-			flagRetryMaxAttempts:     3,
-			flagRetryInitialDelay:    2 * time.Second,
-			flagRetryMaxDelay:        10 * time.Second,
-			config: &Config{
-				ServerURL:  "https://github.com",
-				RunID:      int64(100),
-				RunAttempt: int64(1),
-			},
-			terraformClient: &terraform.MockTerraformClient{
-				InitResponse: &terraform.MockTerraformResponse{
-					Stdout:   "terraform init success with diff",
-					ExitCode: 0,
-				},
-				ValidateResponse: &terraform.MockTerraformResponse{
-					Stdout:   "terraform validate success with diff",
-					ExitCode: 0,
-				},
-				PlanResponse: &terraform.MockTerraformResponse{
-					Stdout:   "terraform plan success with diff",
-					ExitCode: 2,
-				},
-				ShowResponse: &terraform.MockTerraformResponse{
-					Stdout:   "terraform show success with diff",
-					ExitCode: 0,
-				},
-			},
+			config:                   defaultConfig,
+			terraformClient:          terraformDiffMock,
 			expGitHubClientReqs: []*github.Request{
 				{
 					Name:   "CreateIssueComment",
@@ -121,39 +157,14 @@ func TestPlan_Process(t *testing.T) {
 			name:                     "success_with_no_diff",
 			directory:                "testdata",
 			flagIsGitHubActions:      true,
-			flagGitHubToken:          "github-token",
 			flagGitHubOwner:          "owner",
 			flagGitHubRepo:           "repo",
 			flagPullRequestNumber:    2,
 			flagBucketName:           "my-bucket-name",
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
-			flagRetryMaxAttempts:     3,
-			flagRetryInitialDelay:    2 * time.Second,
-			flagRetryMaxDelay:        10 * time.Second,
-			config: &Config{
-				ServerURL:  "https://github.com",
-				RunID:      int64(100),
-				RunAttempt: int64(1),
-			},
-			terraformClient: &terraform.MockTerraformClient{
-				InitResponse: &terraform.MockTerraformResponse{
-					Stdout:   "terraform init success",
-					ExitCode: 0,
-				},
-				ValidateResponse: &terraform.MockTerraformResponse{
-					Stdout:   "terraform validate success",
-					ExitCode: 0,
-				},
-				PlanResponse: &terraform.MockTerraformResponse{
-					Stdout:   "terraform plan success - no diff",
-					ExitCode: 0,
-				},
-				ShowResponse: &terraform.MockTerraformResponse{
-					Stdout:   "terraform show success - no diff",
-					ExitCode: 0,
-				},
-			},
+			config:                   defaultConfig,
+			terraformClient:          terraformNoDiffMock,
 			expGitHubClientReqs: []*github.Request{
 				{
 					Name:   "CreateIssueComment",
@@ -176,47 +187,43 @@ func TestPlan_Process(t *testing.T) {
 			},
 		},
 		{
+			name:                     "skips_comments",
+			directory:                "testdata",
+			flagIsGitHubActions:      false,
+			flagGitHubOwner:          "owner",
+			flagGitHubRepo:           "repo",
+			flagPullRequestNumber:    2,
+			flagBucketName:           "my-bucket-name",
+			flagAllowLockfileChanges: true,
+			flagLockTimeout:          10 * time.Minute,
+			config:                   defaultConfig,
+			terraformClient:          terraformNoDiffMock,
+			expStorageClientReqs: []*storage.Request{
+				{
+					Name: "UploadObject",
+					Params: []any{
+						"my-bucket-name",
+						"guardian-plans/owner/repo/2/testdata/test-tfplan.binary",
+						"this is a plan binary",
+					},
+				},
+			},
+		},
+		{
 			name:                     "handles_error",
 			directory:                "testdata",
 			flagIsGitHubActions:      true,
-			flagGitHubToken:          "github-token",
 			flagGitHubOwner:          "owner",
 			flagGitHubRepo:           "repo",
 			flagPullRequestNumber:    3,
 			flagBucketName:           "my-bucket-name",
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
-			flagRetryMaxAttempts:     3,
-			flagRetryInitialDelay:    2 * time.Second,
-			flagRetryMaxDelay:        10 * time.Second,
-			config: &Config{
-				ServerURL:  "https://github.com",
-				RunID:      int64(100),
-				RunAttempt: int64(1),
-			},
-			terraformClient: &terraform.MockTerraformClient{
-				InitResponse: &terraform.MockTerraformResponse{
-					Stdout:   "terraform init output",
-					Stderr:   "terraform init failed",
-					ExitCode: 1,
-					Err:      fmt.Errorf("failed to run terraform init"),
-				},
-				ValidateResponse: &terraform.MockTerraformResponse{
-					Stdout:   "terraform validate success",
-					ExitCode: 0,
-				},
-				PlanResponse: &terraform.MockTerraformResponse{
-					Stdout:   "terraform plan success - no diff",
-					ExitCode: 0,
-				},
-				ShowResponse: &terraform.MockTerraformResponse{
-					Stdout:   "terraform show success - no diff",
-					ExitCode: 0,
-				},
-			},
-			expStdout: "terraform init output",
-			expStderr: "terraform init failed",
-			err:       "failed to run Guardian plan: failed to initialize: failed to run terraform init",
+			config:                   defaultConfig,
+			terraformClient:          terraformErrorMock,
+			expStdout:                "terraform init output",
+			expStderr:                "terraform init failed",
+			err:                      "failed to run Guardian plan: failed to initialize: failed to run terraform init",
 			expGitHubClientReqs: []*github.Request{
 				{
 					Name:   "CreateIssueComment",
@@ -275,15 +282,9 @@ func TestPlan_Process(t *testing.T) {
 				flagAllowLockfileChanges: tc.flagAllowLockfileChanges,
 				flagLockTimeout:          tc.flagLockTimeout,
 				GitHubFlags: flags.GitHubFlags{
-					FlagGitHubToken:     tc.flagGitHubToken,
 					FlagIsGitHubActions: tc.flagIsGitHubActions,
 					FlagGitHubOwner:     tc.flagGitHubOwner,
 					FlagGitHubRepo:      tc.flagGitHubRepo,
-				},
-				RetryFlags: flags.RetryFlags{
-					FlagRetryMaxAttempts:  tc.flagRetryMaxAttempts,
-					FlagRetryInitialDelay: tc.flagRetryInitialDelay,
-					FlagRetryMaxDelay:     tc.flagRetryMaxDelay,
 				},
 				actions:         actions,
 				githubClient:    githubClient,
