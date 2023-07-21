@@ -30,15 +30,24 @@ import (
 const (
 	// Organization Node Type.
 	Organization = "Organization"
+
 	// Folder Node Type.
 	Folder = "Folder"
+
 	// Project Node Type.
 	Project = "Project"
 
+	// OrganizationAssetType represent the org asset type used in the cloud resource manager api.
 	OrganizationAssetType = "cloudresourcemanager.googleapis.com/Organization"
-	FolderAssetType       = "cloudresourcemanager.googleapis.com/Folder"
-	ProjectAssetType      = "cloudresourcemanager.googleapis.com/Project"
-	BucketAssetType       = "storage.googleapis.com/Bucket"
+
+	// FolderAssetType represent the folder asset type used in the cloud resource manager api.
+	FolderAssetType = "cloudresourcemanager.googleapis.com/Folder"
+
+	// ProjectAssetType represent the project asset type used in the cloud resource manager api.
+	ProjectAssetType = "cloudresourcemanager.googleapis.com/Project"
+
+	// BucketAssetType represent the bucket asset type used in the cloud resource manager api.
+	BucketAssetType = "storage.googleapis.com/Bucket"
 )
 
 // resourceNameIDPattern is a Regex pattern used to parse ID from the resource ParentFullResourceName.
@@ -49,50 +58,62 @@ var resourceNamePattern = regexp.MustCompile(`\/\/cloudresourcemanager\.googleap
 
 // IAMCondition represents the IAM Condition for an IAM binding.
 type IAMCondition struct {
-	// The title of the IAM condition.
+	// Title is the name of the IAM condition.
 	Title string
-	// The conditional expression describing when to apply the IAM policy.
+
+	// Expression describing when to apply the IAM policy.
 	Expression string
-	// The description of the IAM condition.
+
+	// Description of the IAM condition.
 	Description string
 }
 
 // AssetIAM represents the IAM of a GCP resource (e.g binding/policy/membership of GCP Project, Folder, Org).
 type AssetIAM struct {
-	// The ID of the resource (e.g. Project ID, Folder ID, Org ID).
+	// ResourceID is the ID of the resource (e.g. Project ID, Folder ID, Org ID).
 	ResourceID string
-	// The type of the resource (e.g. Project, Folder, Org).
+
+	// ResourceType is the type of the resource (e.g. Project, Folder, Org).
 	ResourceType string
-	// The IAM membership (e.g. group:my-group@google.com).
+
+	// Member is the IAM membership (e.g. group:my-group@google.com).
 	Member string
-	// The role (e.g. roles/owner).
+
+	// Role is the role of the IAM binding (e.g. roles/owner).
 	Role string
-	// The condition set on the iam.
+
+	// Condition is the condition set on the iam.
 	Condition *IAMCondition
 }
 
 // HierarchyNode represents a node in the GCP Resource Hierarchy.
 // Example: Organization, Folder, or Project.
 type HierarchyNode struct {
-	// The unique identifier of the GCP Organization, Folder, or Project
+	// ID is the unique identifier of the GCP Organization, Folder, or Project
 	// Example: 123123423423
 	ID string
-	// The unique string name of the Organization, Folder, or Project.
+
+	// Name is the unique string name of the Organization, Folder, or Project.
 	// Example: my-project-1234
 	Name string
-	// The unique identifier of the Folder or Organization this Folder or Project resides in.
+
+	// ParentID is the unique identifier of the Folder or Organization this Folder or Project resides in.
 	ParentID string
-	// The type of the parent node. Either Folder or Organization.
+
+	// ParentType is the type of the parent node. Either Folder or Organization.
 	ParentType string
-	// The type of node. Either Folder or Organization or Project
+
+	// NodeType is the type of node. Either Folder or Organization or Project
 	NodeType string
 }
 
 // HierarchyNodeWithChildren represents a node in the GCP Resource Hierarchy and all of its children.
 type HierarchyNodeWithChildren struct {
 	*HierarchyNode
+
 	// ProjectIDs contains the set of all projects that are immediate children of this node.
 	ProjectIDs []string
+
 	// FolderIDs contains the set of all folders that are immediate children of this node.
 	FolderIDs []string
 }
@@ -107,8 +128,10 @@ type HierarchyGraph struct {
 type AssetInventory interface {
 	// Buckets returns the GCS Buckets matching a given query.
 	Buckets(ctx context.Context, organizationID, query string) ([]string, error)
+
 	// HierarchyAssets returns the projects or folders in a given organization.
 	HierarchyAssets(ctx context.Context, organizationID, assetType string) ([]*HierarchyNode, error)
+
 	// IAM returns all IAM that matches the given query.
 	IAM(ctx context.Context, scope, query string) ([]*AssetIAM, error)
 }

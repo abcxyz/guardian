@@ -65,22 +65,24 @@ func (c *IAMCleanupCommand) Flags() *cli.FlagSet {
 		Usage: `The scope to cleanup IAM for - organizations/123456 will cleanup all 
 		IAM matching your query in the organization and all folders and projects beneath it.`,
 	})
+
 	f.StringVar(&cli.StringVar{
 		Name:    "iam-query",
 		Target:  &c.flagIAMQuery,
 		Example: "policy:abcxyz-aod-expiry",
 		Usage:   `The query to use to filter on IAM.`,
 	})
+
 	f.BoolVar(&cli.BoolVar{
 		Name:    "disable-evaluate-condition",
 		Target:  &c.flagDisableEvaluateCondition,
 		Example: "true",
-		Default: false,
 		Usage: `Whether or not to evaluate the IAM Condition Expression and only delete
 		those IAM with false evaluation. Defaults to false.
 		Example: An IAM condition with expression 'request.time < timestamp("2019-01-01T00:00:00Z")'
 		will evaluate to false and the IAM will be deleted.`,
 	})
+
 	f.Int64Var(&cli.Int64Var{
 		Name:    "max-conncurrent-requests",
 		Target:  &c.flagMaxConcurrentRequests,

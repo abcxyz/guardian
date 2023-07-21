@@ -31,8 +31,10 @@ const (
 	// This shouldn't happen but it is theoretically possible especially if there is a race condition between
 	// fetching the projects & folders and querying for terraform state.
 	UnknownParentID = "UNKNOWN_PARENT_ID"
+
 	// UnknownParentType is used when we cannot find an asset parent. See UnknownParentID.
 	UnknownParentType = "UNKNOWN_PARENT_TYPE"
+
 	// Default max size for a terraform statefile is 512 MB.
 	defaultTerraformStateFileSizeLimit = 512 * 1024 * 1024 // 512 MB
 )
@@ -61,8 +63,10 @@ type TerraformState struct {
 type Terraform interface {
 	// SetAssets sets the assets to use for GCP asset lookup.
 	SetAssets(gcpFolders, gcpProjects map[string]*assetinventory.HierarchyNode)
+
 	// StateFileURIs returns the URIs of terraform state files located in the given GCS buckets.
 	StateFileURIs(ctx context.Context, gcsBuckets []string) ([]string, error)
+
 	// ProcessStates returns the IAM permissions stored in the given state files.
 	ProcessStates(ctx context.Context, gcsUris []string) ([]*assetinventory.AssetIAM, error)
 }
