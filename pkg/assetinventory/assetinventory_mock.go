@@ -16,7 +16,6 @@ package assetinventory
 
 import (
 	"context"
-	"fmt"
 )
 
 var _ AssetInventory = (*MockAssetInventoryClient)(nil)
@@ -28,31 +27,31 @@ type Request struct {
 
 type MockAssetInventoryClient struct {
 	IAMData          []*AssetIAM
-	IAMErr           string
+	IAMErr           error
 	BucketsData      []string
-	BucketsErr       string
+	BucketsErr       error
 	AssetFolderData  []*HierarchyNode
 	AssetProjectData []*HierarchyNode
-	AssetErr         string
+	AssetErr         error
 }
 
 func (m *MockAssetInventoryClient) IAM(ctx context.Context, scope, query string) ([]*AssetIAM, error) {
-	if m.IAMErr != "" {
-		return nil, fmt.Errorf("%s", m.IAMErr)
+	if m.IAMErr != nil {
+		return nil, m.IAMErr
 	}
 	return m.IAMData, nil
 }
 
 func (m *MockAssetInventoryClient) Buckets(ctx context.Context, organizationID, query string) ([]string, error) {
-	if m.BucketsErr != "" {
-		return nil, fmt.Errorf("%s", m.BucketsErr)
+	if m.BucketsErr != nil {
+		return nil, m.BucketsErr
 	}
 	return m.BucketsData, nil
 }
 
 func (m *MockAssetInventoryClient) HierarchyAssets(ctx context.Context, organizationID, assetType string) ([]*HierarchyNode, error) {
-	if m.AssetErr != "" {
-		return nil, fmt.Errorf("%s", m.BucketsErr)
+	if m.AssetErr != nil {
+		return nil, m.BucketsErr
 	}
 	if assetType == FolderAssetType {
 		return m.AssetFolderData, nil
