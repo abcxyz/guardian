@@ -36,24 +36,6 @@ type IAMCleaner struct {
 
 var allowedRequestFieldsInCoditionExpression = map[string]struct{}{"time": {}}
 
-func NewIAMCleaner(ctx context.Context, maxConcurrentRequests int64) (*IAMCleaner, error) {
-	assetInventoryClient, err := assetinventory.NewClient(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize assets client: %w", err)
-	}
-
-	iamClient, err := iam.NewClient(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize iam client: %w", err)
-	}
-
-	return &IAMCleaner{
-		assetInventoryClient,
-		iamClient,
-		maxConcurrentRequests,
-	}, nil
-}
-
 // Do finds all IAM matching the given scope and query and deletes them.
 func (c *IAMCleaner) Do(
 	ctx context.Context,
