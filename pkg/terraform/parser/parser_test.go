@@ -211,10 +211,14 @@ func TestParser_ProcessStates(t *testing.T) {
 			if err != nil {
 				t.Errorf("ProcessStates() failed to read json file %v", err)
 			}
+			var downloadErr error
+			if tc.wantErr != "" {
+				downloadErr = fmt.Errorf(tc.wantErr)
+			}
 
 			gcsClient := &storage.MockStorageClient{
 				DownloadData: string(data),
-				DownloadErr:  fmt.Errorf(tc.wantErr),
+				DownloadErr:  downloadErr,
 			}
 			p := &TerraformParser{GCS: gcsClient, OrganizationID: orgID}
 
