@@ -58,9 +58,6 @@ type PlanInitCommand struct {
 
 	gitClient    git.Git
 	githubClient github.GitHub
-
-	// testFlagSetOpts is only used for testing.
-	testFlagSetOpts []cli.Option
 }
 
 func (c *PlanInitCommand) Desc() string {
@@ -76,7 +73,7 @@ Usage: {{ COMMAND }} [options] <directory>
 }
 
 func (c *PlanInitCommand) Flags() *cli.FlagSet {
-	set := cli.NewFlagSet(c.testFlagSetOpts...)
+	set := c.NewFlagSet()
 
 	c.GitHubFlags.AddFlags(set)
 	c.RetryFlags.AddFlags(set)
