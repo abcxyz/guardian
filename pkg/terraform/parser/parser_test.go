@@ -55,7 +55,7 @@ func TestParser_StateFileURIs(t *testing.T) {
 		{
 			name: "failure",
 			gcsClient: &storage.MockStorageClient{
-				ListObjectErr: "Failed cause 404",
+				ListObjectErr: fmt.Errorf("Failed cause 404"),
 			},
 			gcsBuckets: []string{"my-bucket-123"},
 			wantErr:    "Failed cause 404",
@@ -214,7 +214,7 @@ func TestParser_ProcessStates(t *testing.T) {
 
 			gcsClient := &storage.MockStorageClient{
 				DownloadData: string(data),
-				DownloadErr:  tc.wantErr,
+				DownloadErr:  fmt.Errorf(tc.wantErr),
 			}
 			p := &TerraformParser{GCS: gcsClient, OrganizationID: orgID}
 

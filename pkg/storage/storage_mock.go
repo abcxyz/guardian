@@ -17,7 +17,6 @@ package storage
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"sync"
 )
@@ -33,14 +32,14 @@ type MockStorageClient struct {
 	reqMu sync.Mutex
 	Reqs  []*Request
 
-	UploadErr      string
+	UploadErr      error
 	DownloadData   string
-	DownloadErr    string
+	DownloadErr    error
 	Metadata       map[string]string
-	MetadataErr    string
-	DeleteErr      string
+	MetadataErr    error
+	DeleteErr      error
 	ListObjectURIs []string
-	ListObjectErr  string
+	ListObjectErr  error
 }
 
 type BufferReadCloser struct {
@@ -57,8 +56,8 @@ func (m *MockStorageClient) UploadObject(ctx context.Context, bucket, name strin
 		Params: []any{bucket, name, string(contents)},
 	})
 
-	if m.UploadErr != "" {
-		return fmt.Errorf("%s", m.UploadErr)
+	if m.UploadErr != nil {
+		return m.UploadErr
 	}
 	return nil
 }
@@ -71,8 +70,8 @@ func (m *MockStorageClient) DownloadObject(ctx context.Context, bucket, name str
 		Params: []any{bucket, name},
 	})
 
-	if m.DownloadErr != "" {
-		return nil, fmt.Errorf("%s", m.DownloadErr)
+	if m.DownloadErr != nil {
+		return nil, m.DownloadErr
 	}
 	return &BufferReadCloser{bytes.NewBufferString(m.DownloadData)}, nil
 }
@@ -85,8 +84,8 @@ func (m *MockStorageClient) ObjectMetadata(ctx context.Context, bucket, name str
 		Params: []any{bucket, name},
 	})
 
-	if m.MetadataErr != "" {
-		return nil, fmt.Errorf("%s", m.MetadataErr)
+	if m.MetadataErr != nil {
+		return nil, m.MetadataErr
 	}
 
 	metadata := make(map[string]string, 0)
@@ -105,15 +104,15 @@ func (m *MockStorageClient) DeleteObject(ctx context.Context, bucket, name strin
 		Params: []any{bucket, name},
 	})
 
-	if m.DeleteErr != "" {
-		return fmt.Errorf("%s", m.DeleteErr)
+	if m.DeleteErr != nil {
+		return m.DeleteErr
 	}
 	return nil
 }
 
 func (m *MockStorageClient) ObjectsWithName(ctx context.Context, bucket, filename string) ([]string, error) {
-	if m.ListObjectErr != "" {
-		return nil, fmt.Errorf("%s", m.ListObjectErr)
+	if m.ListObjectErr != nil {
+		return nil, m.ListObjectErr
 	}
 	return m.ListObjectURIs, nil
 }

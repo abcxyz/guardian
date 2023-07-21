@@ -16,7 +16,6 @@ package iam
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/abcxyz/guardian/pkg/assetinventory"
 )
@@ -29,55 +28,55 @@ type Request struct {
 }
 
 type MockIAMClient struct {
-	OrgErr           string
+	OrgErr           error
 	OrgData          []*assetinventory.AssetIAM
-	FolderErr        string
+	FolderErr        error
 	FolderData       []*assetinventory.AssetIAM
-	ProjectErr       string
+	ProjectErr       error
 	ProjectData      []*assetinventory.AssetIAM
-	RemoveOrgErr     string
-	RemoveFolderErr  string
-	RemoveProjectErr string
+	RemoveOrgErr     error
+	RemoveFolderErr  error
+	RemoveProjectErr error
 }
 
 func (m *MockIAMClient) OrganizationIAM(ctx context.Context, organizationID string) ([]*assetinventory.AssetIAM, error) {
-	if m.OrgErr != "" {
-		return nil, fmt.Errorf("%s", m.OrgErr)
+	if m.OrgErr != nil {
+		return nil, m.OrgErr
 	}
 	return m.OrgData, nil
 }
 
 func (m *MockIAMClient) FolderIAM(ctx context.Context, folderID string) ([]*assetinventory.AssetIAM, error) {
-	if m.FolderErr != "" {
-		return nil, fmt.Errorf("%s", m.FolderErr)
+	if m.FolderErr != nil {
+		return nil, m.FolderErr
 	}
 	return m.FolderData, nil
 }
 
 func (m *MockIAMClient) ProjectIAM(ctx context.Context, projectID string) ([]*assetinventory.AssetIAM, error) {
-	if m.ProjectErr != "" {
-		return nil, fmt.Errorf("%s", m.ProjectErr)
+	if m.ProjectErr != nil {
+		return nil, m.ProjectErr
 	}
 	return m.ProjectData, nil
 }
 
 func (m *MockIAMClient) RemoveOrganizationIAM(ctx context.Context, iamMember *assetinventory.AssetIAM) error {
-	if m.RemoveOrgErr != "" {
-		return fmt.Errorf("%s", m.RemoveOrgErr)
+	if m.RemoveOrgErr != nil {
+		return m.RemoveOrgErr
 	}
 	return nil
 }
 
 func (m *MockIAMClient) RemoveFolderIAM(ctx context.Context, iamMember *assetinventory.AssetIAM) error {
-	if m.RemoveFolderErr != "" {
-		return fmt.Errorf("%s", m.RemoveFolderErr)
+	if m.RemoveFolderErr != nil {
+		return m.RemoveFolderErr
 	}
 	return nil
 }
 
 func (m *MockIAMClient) RemoveProjectIAM(ctx context.Context, iamMember *assetinventory.AssetIAM) error {
-	if m.RemoveProjectErr != "" {
-		return fmt.Errorf("%s", m.RemoveProjectErr)
+	if m.RemoveProjectErr != nil {
+		return m.RemoveProjectErr
 	}
 	return nil
 }

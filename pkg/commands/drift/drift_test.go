@@ -20,7 +20,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"testing"
 
 	"github.com/abcxyz/guardian/pkg/assetinventory"
@@ -90,7 +89,6 @@ func TestDrift_DetectDrift(t *testing.T) {
 		iamClient              iam.IAM
 		gcsBuckets             []string
 		want                   *IAMDrift
-		wantErr                string
 	}{
 		{
 			name:                   "success_no_drift",
@@ -186,8 +184,8 @@ func TestDrift_DetectDrift(t *testing.T) {
 			}
 
 			got, err := d.DetectDrift(ctx, "bucket-query", ".driftignore-not-exist")
-			if tc.wantErr != "" && !strings.Contains(err.Error(), tc.wantErr) {
-				t.Errorf("DetectDrift() failed to get error %s", tc.wantErr)
+			if err != nil {
+				t.Errorf("DetectDrift() returned error: %v", err)
 			}
 			if diff := cmp.Diff(tc.want, got); diff != "" {
 				t.Errorf("DetectDrift() returned diff (-want +got):\n%s", diff)
