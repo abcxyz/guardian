@@ -193,6 +193,12 @@ func (c *PlanRunCommand) Run(ctx context.Context, args []string) error {
 
 // Process handles the main logic for the Guardian plan run process.
 func (c *PlanRunCommand) Process(ctx context.Context) error {
+	logger := logging.FromContext(ctx).
+		Named("plan_run.process").
+		With("github_owner", c.GitHubFlags.FlagGitHubOwner).
+		With("github_repo", c.GitHubFlags.FlagGitHubOwner).
+		With("pull_request_number", c.flagPullRequestNumber)
+
 	var merr error
 
 	c.Outf("Starting Guardian plan")
@@ -202,6 +208,7 @@ func (c *PlanRunCommand) Process(ctx context.Context) error {
 	}
 
 	c.gitHubLogURL = fmt.Sprintf("[[logs](%s/%s/%s/actions/runs/%d/attempts/%d)]", c.cfg.ServerURL, c.GitHubFlags.FlagGitHubOwner, c.GitHubFlags.FlagGitHubRepo, c.cfg.RunID, c.cfg.RunAttempt)
+	logger.Debugw("computed github log url", "github_log_url", c.gitHubLogURL)
 
 	startComment, err := c.createStartCommentForActions(ctx)
 	if err != nil {
@@ -225,7 +232,7 @@ func (c *PlanRunCommand) createStartCommentForActions(ctx context.Context) (*git
 	logger := logging.FromContext(ctx)
 
 	if !c.GitHubFlags.FlagIsGitHubActions {
-		logger.Debugw("skipping start comment", "github-action", c.GitHubFlags.FlagIsGitHubActions)
+		logger.Debugw("skipping start comment", "is_github_action", c.GitHubFlags.FlagIsGitHubActions)
 		return nil, nil
 	}
 
@@ -249,7 +256,7 @@ func (c *PlanRunCommand) updateResultCommentForActions(ctx context.Context, star
 	logger := logging.FromContext(ctx)
 
 	if !c.GitHubFlags.FlagIsGitHubActions {
-		logger.Debugw("skipping update result comment", "github-action", c.GitHubFlags.FlagIsGitHubActions)
+		logger.Debugw("skipping update result comment", "is_github_action", c.GitHubFlags.FlagIsGitHubActions)
 		return nil
 	}
 
@@ -322,92 +329,60 @@ func (c *PlanRunCommand) handleTerraformPlan(ctx context.Context) (*RunResult, e
 		lockfileMode = "readonly"
 	}
 
-	initMsg := "Initializing Terraform"
-	if c.GitHubFlags.FlagIsGitHubActions {
-		c.actions.Group(initMsg)
-	} else {
-		c.Outf(initMsg)
-	}
-
-	if _, err := c.terraformClient.Init(
-		ctx,
-		c.Stdout(),
-		multiStderr,
-		&terraform.InitOptions{
+	if err := c.withActionsOutGroup("Initializing Terraform", func() error {
+		_, err := c.terraformClient.Init(ctx, c.Stdout(), multiStderr, &terraform.InitOptions{
 			Input:       util.Ptr(false),
 			NoColor:     util.Ptr(true),
 			Lockfile:    util.Ptr(lockfileMode),
 			LockTimeout: util.Ptr(c.flagLockTimeout.String()),
-		}); err != nil {
+		})
+		return err //nolint:wrapcheck // Want passthrough
+	}); err != nil {
 		return &RunResult{commentDetails: stderr.String()}, fmt.Errorf("failed to initialize: %w", err)
 	}
 
 	stderr.Reset()
 
-	if c.GitHubFlags.FlagIsGitHubActions {
-		c.actions.EndGroup()
-	}
-
-	validateMsg := "Validating Terraform"
-	if c.GitHubFlags.FlagIsGitHubActions {
-		c.actions.Group(validateMsg)
-	} else {
-		c.Outf(validateMsg)
-	}
-
-	if _, err := c.terraformClient.Validate(
-		ctx,
-		c.Stdout(),
-		multiStderr,
-		&terraform.ValidateOptions{NoColor: util.Ptr(true)},
-	); err != nil {
+	if err := c.withActionsOutGroup("Validating Terraform", func() error {
+		_, err := c.terraformClient.Validate(ctx, c.Stdout(), multiStderr, &terraform.ValidateOptions{NoColor: util.Ptr(true)})
+		return err //nolint:wrapcheck // Want passthrough
+	}); err != nil {
 		return &RunResult{commentDetails: stderr.String()}, fmt.Errorf("failed to validate: %w", err)
 	}
 
 	stderr.Reset()
 
-	if c.GitHubFlags.FlagIsGitHubActions {
-		c.actions.EndGroup()
-	}
+	var hasChanges bool
+	var planExitCode int
 
-	planMsg := "Running Terraform plan"
-	if c.GitHubFlags.FlagIsGitHubActions {
-		c.actions.Group(planMsg)
-	} else {
-		c.Outf(planMsg)
-	}
+	if err := c.withActionsOutGroup("Running Terraform plan", func() error {
+		exitCode, err := c.terraformClient.Plan(ctx, c.Stdout(), multiStderr, &terraform.PlanOptions{
+			Out:              util.Ptr(c.planFilename),
+			Input:            util.Ptr(false),
+			NoColor:          util.Ptr(true),
+			DetailedExitcode: util.Ptr(true),
+			LockTimeout:      util.Ptr(c.flagLockTimeout.String()),
+		})
 
-	planExitCode, err := c.terraformClient.Plan(ctx, c.Stdout(), multiStderr, &terraform.PlanOptions{
-		Out:              util.Ptr(c.planFilename),
-		Input:            util.Ptr(false),
-		NoColor:          util.Ptr(true),
-		DetailedExitcode: util.Ptr(true),
-		LockTimeout:      util.Ptr(c.flagLockTimeout.String()),
-	})
+		planExitCode = exitCode
+		// use the detailed exitcode from terraform to determine if there is a diff
+		// 0 - success, no diff  1 - failed   2 - success, diff
+		hasChanges = planExitCode == 2
 
-	stderr.Reset()
-
-	if c.GitHubFlags.FlagIsGitHubActions {
-		c.actions.EndGroup()
-	}
-
-	// use the detailed exitcode from terraform to determine if there is a diff
-	// 0 - success, no diff  1 - failed   2 - success, diff
-	hasChanges := planExitCode == 2
-
-	if err != nil && !hasChanges {
+		return err //nolint:wrapcheck // Want passthrough
+	}); err != nil && !hasChanges {
 		return &RunResult{commentDetails: stderr.String()}, fmt.Errorf("failed to plan: %w", err)
 	}
 
-	formatMsg := "Formatting plan output"
-	if c.GitHubFlags.FlagIsGitHubActions {
-		c.actions.Group(formatMsg)
-	} else {
-		c.Outf(formatMsg)
-	}
+	stderr.Reset()
 
-	_, err = c.terraformClient.Show(ctx, multiStdout, multiStderr, &terraform.ShowOptions{File: util.Ptr(c.planFilename), NoColor: util.Ptr(true)})
-	if err != nil {
+	if err := c.withActionsOutGroup("Formatting plan output", func() error {
+		_, err := c.terraformClient.Show(ctx, multiStdout, multiStderr, &terraform.ShowOptions{
+			File:    util.Ptr(c.planFilename),
+			NoColor: util.Ptr(true),
+		})
+		return err //nolint:wrapcheck // Want passthrough
+	}); err != nil {
 		return &RunResult{
 			commentDetails: stderr.String(),
 			hasChanges:     hasChanges,
@@ -416,20 +391,13 @@ func (c *PlanRunCommand) handleTerraformPlan(ctx context.Context) (*RunResult, e
 
 	stderr.Reset()
 
-	if c.GitHubFlags.FlagIsGitHubActions {
-		c.actions.EndGroup()
-	}
-
 	githubOutput := terraform.FormatOutputForGitHubDiff(stdout.String())
 
 	planFilePath := path.Join(c.planChildPath, c.planFilename)
 
 	planData, err := os.ReadFile(planFilePath)
 	if err != nil {
-		return &RunResult{
-				hasChanges: hasChanges,
-			},
-			fmt.Errorf("failed to read plan binary: %w", err)
+		return &RunResult{hasChanges: hasChanges}, fmt.Errorf("failed to read plan binary: %w", err)
 	}
 
 	bucketObjectPath := fmt.Sprintf("guardian-plans/%s/%s/%d/%s", c.GitHubFlags.FlagGitHubOwner, c.GitHubFlags.FlagGitHubRepo, c.flagPullRequestNumber, planFilePath)
@@ -445,6 +413,19 @@ func (c *PlanRunCommand) handleTerraformPlan(ctx context.Context) (*RunResult, e
 		commentDetails: githubOutput,
 		hasChanges:     hasChanges,
 	}, nil
+}
+
+// withActionsOutGroup runs a function and ensures it is wrapped in GitHub actions
+// grouping syntax. If this is not in an action, output is printed without grouping syntax.
+func (c *PlanRunCommand) withActionsOutGroup(msg string, fn func() error) error {
+	if c.GitHubFlags.FlagIsGitHubActions {
+		c.actions.Group(msg)
+		defer c.actions.EndGroup()
+	} else {
+		c.Outf(msg)
+	}
+
+	return fn()
 }
 
 // handleUploadGuardianPlan uploads the Guardian plan binary to the configured Guardian storage bucket.

@@ -158,7 +158,7 @@ func (c *PlanInitCommand) Run(ctx context.Context, args []string) error {
 // Process handles the main logic for the Guardian init process.
 func (c *PlanInitCommand) Process(ctx context.Context) error {
 	logger := logging.FromContext(ctx).
-		Named("init.process").
+		Named("plan_init.process").
 		With("github_owner", c.GitHubFlags.FlagGitHubOwner).
 		With("github_repo", c.GitHubFlags.FlagGitHubOwner).
 		With("pull_request_number", c.flagPullRequestNumber)
