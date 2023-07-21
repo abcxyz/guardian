@@ -44,7 +44,7 @@ jobs:
         uses: './.github/actions/directories'
         with:
           terraform_directory: 'terraform'
-          # detect_apply_changes: 'true'
+          detect_apply_changes: 'true'
 
   apply:
     if: |
