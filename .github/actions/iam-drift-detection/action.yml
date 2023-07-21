@@ -81,7 +81,7 @@ runs:
             EXTRA_ARGS+=(-github-issue-assignees="$ISSUE_ASSIGNEES")
         fi
         DRIFTIGNORE_FILE="$(pwd)/.driftignore"
-        diff_snippet="$(guardian detect-iam-drift \
+        diff_snippet="$(guardian iam detect-drift \
           -organization-id="$ORGANIZATION_ID" \
           -gcs-bucket-query="$GCS_BUCKET_LABEL" \
           -github-token="$GITHUB_TOKEN" \

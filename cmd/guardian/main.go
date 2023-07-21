@@ -58,11 +58,19 @@ var rootCmd = func() cli.Command {
 			// "apply": func() cli.Command {
 			// 	return &ApplyCommand{}
 			// },
-			"detect-iam-drift": func() cli.Command {
-				return &drift.DetectIamDriftCommand{}
-			},
-			"iam-cleanup": func() cli.Command {
-				return &iamcleanup.IAMCleanupCommand{}
+			"iam": func() cli.Command {
+				return &cli.RootCommand{
+					Name:        "iam",
+					Description: "Perform operations related to iam",
+					Commands: map[string]cli.CommandFactory{
+						"detect-drift": func() cli.Command {
+							return &drift.DetectIamDriftCommand{}
+						},
+						"cleanup": func() cli.Command {
+							return &iamcleanup.IAMCleanupCommand{}
+						},
+					},
+				}
 			},
 		},
 	}
