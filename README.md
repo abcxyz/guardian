@@ -6,6 +6,26 @@ Guardian is a Terraform actuation and enforcement tool using GitHub actions.
 
 **This is not an official Google product.**
 
+## Installation
+
+There are two options for installing Guardian:
+
+- As a single-static binary from the [releases page](https://github.com/abcxyz/guardian/releases)
+
+  Example:
+
+  ```shell
+  curl -sSL https://github.com/abcxyz/guardian/releases/download/v1.0.0/guardian_1.0.0_linux_amd64.tar.gz | tar -xzv
+  ```
+
+  > NOTE: The Guardian binary will need to be placed in your `$PATH`
+
+- From source using Go
+
+  ```shell
+  go install github.com/abcxyz/guardian/cmd/guardian@latest
+  ```
+
 ## Developer workflow
 
 - Create a PR to propose terraform changes

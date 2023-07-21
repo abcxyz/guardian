@@ -1,0 +1,78 @@
+# Copyright 2023 The Authors (see AUTHORS file)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: 'Setup Guardian'
+
+description: |-
+  Use this action to setup the Guardian binary for use within a GitHub workflow.
+
+inputs:
+  guardian_version:
+    description: 'The version of the Guardian CLI to install.'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: 'Cache Guardian'
+      id: 'cache-guardian'
+      uses: 'actions/cache@8492260343ad570701412c2f464a5877dc76bace' # ratchet:actions/cache@v2
+      with:
+        path: '~/.guardian'
+        key: 'guardian_${{ inputs.guardian_version }}'
+
+    - name: 'Generate URL'
+      shell: 'bash'
+      run: |-
+        if [ "${RUNNER_ARCH}" = "X86" ]; then
+          ARCH="amd64"
+        elif [ "${RUNNER_ARCH}" = "ARM64" ]; then
+          ARCH="arm64"
+        else
+          echo "::error ::Unsupport arch ${RUNNER_ARCH}"
+          exit 1
+        fi
+
+        if [ "${RUNNER_OS}" = "Linux" ]; then
+          OS="linux"
+        elif [ "${RUNNER_OS}" = "macOS" ]; then
+          OS="darwmin"
+        else
+          echo "::error ::Unsupport os ${RUNNER_OS}"
+          exit 1
+        fi
+
+        RELEASE_URL="https://github.com/abcxyz/guardian/releases/download/v${GUARDIAN_VERSION}/guardian_${GUARDIAN_VERSION}_darwin_arm64.tar.gz"
+        echo "RELEASE_URL=${RELEASE_URL}" >> $GITHUB_ENV
+
+    - name: 'Install Guardian'
+      if: |
+        steps.cache-guardian.outputs.cache-hit != 'true'
+      shell: 'bash'
+      env:
+        GUARDIAN_VERSION: '${{ inputs.guardian_version }}'
+      run: |-
+        mkdir ~/.guardian
+        cd ~/.guardian
+        curl -sSL "${RELEASE_URL}" | tar xz guardian
+
+    - name: 'Add Guardian to path'
+      shell: 'bash'
+      run: |-
+        echo "${HOME}/.guardian/guardian" >> $GITHUB_PATH
+
+    - name: 'Guardian version'
+      shell: 'bash'
+      run: |-
+        guardian -version
