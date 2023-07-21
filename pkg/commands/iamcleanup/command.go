@@ -23,6 +23,9 @@ import (
 	"github.com/abcxyz/pkg/logging"
 
 	"github.com/abcxyz/guardian/internal/version"
+	"github.com/abcxyz/guardian/pkg/assetinventory"
+	"github.com/abcxyz/guardian/pkg/flags"
+	"github.com/abcxyz/guardian/pkg/iam"
 )
 
 var _ cli.Command = (*IAMCleanupCommand)(nil)
@@ -33,6 +36,8 @@ type IAMCleanupCommand struct {
 
 	// testFlagSetOpts is only used for testing.
 	testFlagSetOpts []cli.Option
+
+	flags.RetryFlags
 
 	flagScope                    string
 	flagIAMQuery                 string
@@ -54,6 +59,8 @@ Usage: {{ COMMAND }} [options]
 
 func (c *IAMCleanupCommand) Flags() *cli.FlagSet {
 	set := cli.NewFlagSet(c.testFlagSetOpts...)
+
+	c.RetryFlags.AddFlags(set)
 
 	// Command options
 	f := set.NewSection("COMMAND OPTIONS")
@@ -117,7 +124,26 @@ func (c *IAMCleanupCommand) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("missing -scope")
 	}
 
-	iamCleaner, err := NewIAMCleaner(ctx, c.flagMaxConcurrentRequests)
+	assetInventoryClient, err := assetinventory.NewClient(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to initialize assets client: %w", err)
+	}
+
+	iamClient, err := iam.NewClient(
+		ctx,
+		iam.WithRetryInitialDelay(c.RetryFlags.FlagRetryInitialDelay),
+		iam.WithRetryMaxAttempts(c.RetryFlags.FlagRetryMaxAttempts),
+		iam.WithRetryMaxDelay(c.RetryFlags.FlagRetryMaxDelay))
+	if err != nil {
+		return fmt.Errorf("failed to initialize iam client: %w", err)
+	}
+
+	iamCleaner := &IAMCleaner{
+		assetInventoryClient,
+		iamClient,
+		c.flagMaxConcurrentRequests,
+	}
+
 	if err != nil {
 		return fmt.Errorf("failed to create iam cleaner: %w", err)
 	}

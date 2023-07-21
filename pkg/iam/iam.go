@@ -67,7 +67,7 @@ type Config struct {
 }
 
 // NewClient creates a new iam client.
-func NewClient(ctx context.Context) (*IAMClient, error) {
+func NewClient(ctx context.Context, opts ...Option) (*IAMClient, error) {
 	crm, err := cloudresourcemanager.NewService(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize cloudresourcemanager service: %w", err)
@@ -77,6 +77,12 @@ func NewClient(ctx context.Context) (*IAMClient, error) {
 		maxRetries:        3,
 		initialRetryDelay: 1 * time.Second,
 		maxRetryDelay:     20 * time.Second,
+	}
+
+	for _, opt := range opts {
+		if opt != nil {
+			cfg = opt(cfg)
+		}
 	}
 
 	return &IAMClient{
