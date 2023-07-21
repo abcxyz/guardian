@@ -31,9 +31,6 @@ var _ cli.Command = (*DetectIamDriftCommand)(nil)
 type DetectIamDriftCommand struct {
 	cli.BaseCommand
 
-	// testFlagSetOpts is only used for testing.
-	testFlagSetOpts []cli.Option
-
 	flagOrganizationID             string
 	flagGCSBucketQuery             string
 	flagDriftignoreFile            string
@@ -60,7 +57,7 @@ Usage: {{ COMMAND }} [options]
 }
 
 func (c *DetectIamDriftCommand) Flags() *cli.FlagSet {
-	set := cli.NewFlagSet(c.testFlagSetOpts...)
+	set := c.NewFlagSet()
 
 	// Command options
 	f := set.NewSection("COMMAND OPTIONS")

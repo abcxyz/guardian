@@ -34,9 +34,6 @@ var _ cli.Command = (*IAMCleanupCommand)(nil)
 type IAMCleanupCommand struct {
 	cli.BaseCommand
 
-	// testFlagSetOpts is only used for testing.
-	testFlagSetOpts []cli.Option
-
 	flags.RetryFlags
 
 	flagScope                    string
@@ -58,7 +55,7 @@ Usage: {{ COMMAND }} [options]
 }
 
 func (c *IAMCleanupCommand) Flags() *cli.FlagSet {
-	set := cli.NewFlagSet(c.testFlagSetOpts...)
+	set := c.NewFlagSet()
 
 	c.RetryFlags.AddFlags(set)
 
@@ -69,7 +66,7 @@ func (c *IAMCleanupCommand) Flags() *cli.FlagSet {
 		Name:    "scope",
 		Target:  &c.flagScope,
 		Example: "123435456456",
-		Usage: `The scope to cleanup IAM for - organizations/123456 will cleanup all 
+		Usage: `The scope to cleanup IAM for - organizations/123456 will cleanup all
 		IAM matching your query in the organization and all folders and projects beneath it.`,
 	})
 

@@ -69,9 +69,6 @@ type PlanRunCommand struct {
 	githubClient    github.GitHub
 	storageClient   storage.Storage
 	terraformClient terraform.Terraform
-
-	// testFlagSetOpts is only used for testing.
-	testFlagSetOpts []cli.Option
 }
 
 func (c *PlanRunCommand) Desc() string {
@@ -87,7 +84,7 @@ Usage: {{ COMMAND }} [options] <directory>
 }
 
 func (c *PlanRunCommand) Flags() *cli.FlagSet {
-	set := cli.NewFlagSet(c.testFlagSetOpts...)
+	set := c.NewFlagSet()
 
 	c.GitHubFlags.AddFlags(set)
 	c.RetryFlags.AddFlags(set)
