@@ -29,7 +29,7 @@ type InitCommand struct {
 
 // Desc provides a short, one-line description of the command.
 func (c *InitCommand) Desc() string {
-	return "Determine the working directories to run terraform apply on."
+	return "Initialize Guardian for running the Terraform apply process"
 }
 
 // Help is the long-form help output to include usage instructions and flag
@@ -38,7 +38,7 @@ func (c *InitCommand) Help() string {
 	return `
 Usage: {{ COMMAND }} [options] <dir>
 
-	Determine the working directories to run terraform apply on.
+	Initialize Guardian for running the Terraform apply process.
 `
 }
 
