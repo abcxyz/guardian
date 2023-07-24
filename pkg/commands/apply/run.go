@@ -21,27 +21,27 @@ import (
 	"github.com/abcxyz/pkg/cli"
 )
 
-// InitCommand is a subcommand of apply and implements the cli.Command interface.
-// It provides the working directories to run terraform apply on.
-type InitCommand struct {
+// RunCommand is a subcommand of apply and implements the cli.Command interface.
+// It performs terraform apply on the given working directory.
+type RunCommand struct {
 	cli.BaseCommand
 }
 
 // Desc provides a short, one-line description of the command.
-func (c *InitCommand) Desc() string {
-	return "Initialize Guardian for running the Terraform apply process"
+func (c *RunCommand) Desc() string {
+	return "Run the Terraform apply for a directory"
 }
 
 // Help is the long-form help output to include usage instructions and flag
 // information.
-func (c *InitCommand) Help() string {
+func (c *RunCommand) Help() string {
 	return `
 Usage: {{ COMMAND }} [options] <directory>
 
-	Initialize Guardian for running the Terraform apply process.
+	Run the Terraform apply for a directory.
 `
 }
 
-func (c *InitCommand) Run(ctx context.Context, args []string) error {
+func (c *RunCommand) Run(ctx context.Context, args []string) error {
 	return nil
 }

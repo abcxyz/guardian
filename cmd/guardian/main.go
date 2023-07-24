@@ -61,8 +61,8 @@ var rootCmd = func() cli.Command {
 					Name:        "apply",
 					Description: "Perform operations related to Terraform apply",
 					Commands: map[string]cli.CommandFactory{
-						"init": func() cli.Command {
-							return &apply.InitCommand{}
+						"run": func() cli.Command {
+							return &apply.RunCommand{}
 						},
 					},
 				}
