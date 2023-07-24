@@ -30,9 +30,11 @@ runs:
       uses: 'actions/cache@8492260343ad570701412c2f464a5877dc76bace' # ratchet:actions/cache@v2
       with:
         path: '~/.guardian'
-        key: 'guardian_${{ inputs.guardian_version }}'
+        key: '${{ runner.os }}_${{ runner.arch }}_guardian_${{ inputs.guardian_version }}'
 
     - name: 'Generate URL'
+      if: |
+        steps.cache-guardian.outputs.cache-hit != 'true'
       shell: 'bash'
       run: |-
         if [ "${RUNNER_ARCH}" = "X86" ]; then
@@ -40,20 +42,20 @@ runs:
         elif [ "${RUNNER_ARCH}" = "ARM64" ]; then
           ARCH="arm64"
         else
-          echo "::error ::Unsupport arch ${RUNNER_ARCH}"
+          echo "::error ::Unsupported architecture ${RUNNER_ARCH}"
           exit 1
         fi
 
         if [ "${RUNNER_OS}" = "Linux" ]; then
           OS="linux"
         elif [ "${RUNNER_OS}" = "macOS" ]; then
-          OS="darwmin"
+          OS="darmin"
         else
-          echo "::error ::Unsupport os ${RUNNER_OS}"
+          echo "::error ::Unsupported operating system ${RUNNER_OS}"
           exit 1
         fi
 
-        RELEASE_URL="https://github.com/abcxyz/guardian/releases/download/v${GUARDIAN_VERSION}/guardian_${GUARDIAN_VERSION}_darwin_arm64.tar.gz"
+        RELEASE_URL="https://github.com/abcxyz/guardian/releases/download/v${GUARDIAN_VERSION}/guardian_${GUARDIAN_VERSION}_${OS}_${ARCH}.tar.gz"
         echo "RELEASE_URL=${RELEASE_URL}" >> $GITHUB_ENV
 
     - name: 'Install Guardian'
