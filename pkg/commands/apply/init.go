@@ -36,7 +36,7 @@ func (c *InitCommand) Desc() string {
 // information.
 func (c *InitCommand) Help() string {
 	return `
-Usage: {{ COMMAND }} [options] <dir>
+Usage: {{ COMMAND }} [options] <directory>
 
 	Initialize Guardian for running the Terraform apply process.
 `
