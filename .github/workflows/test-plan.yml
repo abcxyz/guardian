@@ -68,13 +68,14 @@ jobs:
           HEAD_REF: 'origin/${{ github.event.pull_request.head.ref }}'
           BASE_REF: 'origin/${{ github.event.pull_request.base.ref }}'
         run: |-
-          DIRS=$(guardian plan init \
+          DIRS=$(guardian init \
             -github-owner="${REPO_OWNER}" \
             -github-repo="${REPO_NAME}" \
             -pull-request-number="${PR_NUMBER}" \
             -source-ref="${HEAD_REF}" \
             -dest-ref="${BASE_REF}" \
             -format=json \
+            -delete-outdated-plan-comments \
             "${TERRAFORM_DIRECTORY}")
 
           echo "Guardian Dirs: ${DIRS}"

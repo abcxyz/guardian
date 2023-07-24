@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package plan provide the Terraform planning functionality for Guardian.
-package plan
+// Package initialize provides the initialization functionality for Guardian.
+package initialize
 
 import (
 	"context"
@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/abcxyz/guardian/pkg/commands/plan"
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/git"
 	"github.com/abcxyz/guardian/pkg/github"
@@ -33,7 +34,7 @@ import (
 	"golang.org/x/exp/maps"
 )
 
-var _ cli.Command = (*PlanInitCommand)(nil)
+var _ cli.Command = (*InitCommand)(nil)
 
 // allowedFormats are the allowed format flags for this command.
 var allowedFormats = map[string]struct{}{
@@ -41,7 +42,7 @@ var allowedFormats = map[string]struct{}{
 	"text": {},
 }
 
-type PlanInitCommand struct {
+type InitCommand struct {
 	cli.BaseCommand
 
 	directory string
@@ -49,22 +50,22 @@ type PlanInitCommand struct {
 	flags.GitHubFlags
 	flags.RetryFlags
 
-	flagPullRequestNumber    int
-	flagDestRef              string
-	flagSourceRef            string
-	flagKeepOutdatedComments bool
-	flagSkipDetectChanges    bool
-	flagFormat               string
+	flagPullRequestNumber          int
+	flagDestRef                    string
+	flagSourceRef                  string
+	flagDeleteOutdatedPlanComments bool
+	flagSkipDetectChanges          bool
+	flagFormat                     string
 
 	gitClient    git.Git
 	githubClient github.GitHub
 }
 
-func (c *PlanInitCommand) Desc() string {
+func (c *InitCommand) Desc() string {
 	return `Run the Terraform plan for a directory`
 }
 
-func (c *PlanInitCommand) Help() string {
+func (c *InitCommand) Help() string {
 	return `
 Usage: {{ COMMAND }} [options] <directory>
 
@@ -72,7 +73,7 @@ Usage: {{ COMMAND }} [options] <directory>
 `
 }
 
-func (c *PlanInitCommand) Flags() *cli.FlagSet {
+func (c *InitCommand) Flags() *cli.FlagSet {
 	set := c.NewFlagSet()
 
 	c.GitHubFlags.AddFlags(set)
@@ -108,9 +109,9 @@ func (c *PlanInitCommand) Flags() *cli.FlagSet {
 	})
 
 	f.BoolVar(&cli.BoolVar{
-		Name:   "keep-outdated-comments",
-		Target: &c.flagKeepOutdatedComments,
-		Usage:  "Keep outdated comments when Guardian plan is run multiple times for the same pull request.",
+		Name:   "delete-outdated-plan-comments",
+		Target: &c.flagDeleteOutdatedPlanComments,
+		Usage:  "Delete outdated plan comments when Guardian plan is run multiple times for the same pull request.",
 	})
 
 	f.StringVar(&cli.StringVar{
@@ -122,7 +123,7 @@ func (c *PlanInitCommand) Flags() *cli.FlagSet {
 	return set
 }
 
-func (c *PlanInitCommand) Run(ctx context.Context, args []string) error {
+func (c *InitCommand) Run(ctx context.Context, args []string) error {
 	f := c.Flags()
 	if err := f.Parse(args); err != nil {
 		return fmt.Errorf("failed to parse flags: %w", err)
@@ -153,9 +154,9 @@ func (c *PlanInitCommand) Run(ctx context.Context, args []string) error {
 }
 
 // Process handles the main logic for the Guardian init process.
-func (c *PlanInitCommand) Process(ctx context.Context) error {
+func (c *InitCommand) Process(ctx context.Context) error {
 	logger := logging.FromContext(ctx).
-		Named("plan_init.process").
+		Named("init.process").
 		With("github_owner", c.GitHubFlags.FlagGitHubOwner).
 		With("github_repo", c.GitHubFlags.FlagGitHubOwner).
 		With("pull_request_number", c.flagPullRequestNumber)
@@ -170,9 +171,9 @@ func (c *PlanInitCommand) Process(ctx context.Context) error {
 		return fmt.Errorf("invalid format flag: %s (supported formats are: %s)", c.flagFormat, strings.Join(maps.Keys(allowedFormats), ", "))
 	}
 
-	if c.GitHubFlags.FlagIsGitHubActions && !c.flagKeepOutdatedComments {
+	if c.GitHubFlags.FlagIsGitHubActions && c.flagDeleteOutdatedPlanComments {
 		logger.Debug("removing outdated comments...")
-		if err := c.deleteOutdatedComments(ctx, c.GitHubFlags.FlagGitHubOwner, c.GitHubFlags.FlagGitHubRepo, c.flagPullRequestNumber); err != nil {
+		if err := c.deleteOutdatedPlanComments(ctx, c.GitHubFlags.FlagGitHubOwner, c.GitHubFlags.FlagGitHubRepo, c.flagPullRequestNumber); err != nil {
 			return fmt.Errorf("failed to delete outdated comments: %w", err)
 		}
 	}
@@ -206,7 +207,7 @@ func (c *PlanInitCommand) Process(ctx context.Context) error {
 }
 
 // writeOutput writes the command output.
-func (c *PlanInitCommand) writeOutput(dirs []string) error {
+func (c *InitCommand) writeOutput(dirs []string) error {
 	cwd, err := c.WorkingDir()
 	if err != nil {
 		return fmt.Errorf("failed to get current working directory: %w", err)
@@ -239,7 +240,7 @@ func (c *PlanInitCommand) writeOutput(dirs []string) error {
 }
 
 // deleteOutdatedComments deletes the pull request comments from previous Guardian plan runs.
-func (c *PlanInitCommand) deleteOutdatedComments(ctx context.Context, owner, repo string, number int) error {
+func (c *InitCommand) deleteOutdatedPlanComments(ctx context.Context, owner, repo string, number int) error {
 	listOpts := &gh.IssueListCommentsOptions{
 		ListOptions: gh.ListOptions{PerPage: 100},
 	}
@@ -255,7 +256,7 @@ func (c *PlanInitCommand) deleteOutdatedComments(ctx context.Context, owner, rep
 		}
 
 		for _, comment := range response.Comments {
-			if !strings.HasPrefix(comment.Body, planCommentPrefix) {
+			if !strings.HasPrefix(comment.Body, plan.CommentPrefix) {
 				continue
 			}
 
