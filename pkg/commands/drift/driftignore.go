@@ -59,6 +59,7 @@ var defaultURIFilterPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`container.serviceAgent\/serviceAccount:service-(?:\d*)@container-engine-robot.iam.gserviceaccount.com`),
 	regexp.MustCompile(`containeranalysis.ServiceAgent\/serviceAccount:service-(?:\d*)@container-analysis.iam.gserviceaccount.com`),
 	regexp.MustCompile(`containerregistry.ServiceAgent\/serviceAccount:service-(?:\d*)@containerregistry.iam.gserviceaccount.com`),
+	regexp.MustCompile(`containerscanning.ServiceAgent\/serviceAccount:service-(?:\d*)@gcp-sa-containerscanning.iam.gserviceaccount.com`),
 	regexp.MustCompile(`containerthreatdetection.serviceAgent\/serviceAccount:service-(?:\d*)@gcp-sa-ktd-control.iam.gserviceaccount.com`),
 	regexp.MustCompile(`dataflow.serviceAgent\/serviceAccount:service-(?:\d*)@dataflow-service-producer-prod.iam.gserviceaccount.com`),
 	regexp.MustCompile(`editor\/serviceAccount:(?:\d*)-compute@developer.gserviceaccount.com`),
