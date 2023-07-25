@@ -5,7 +5,7 @@ go 1.20
 require (
 	cloud.google.com/go/asset v1.14.1
 	cloud.google.com/go/storage v1.31.0
-	github.com/abcxyz/pkg v0.5.1-0.20230721174654-25e01be35e38
+	github.com/abcxyz/pkg v0.5.1-0.20230724202741-7ad5bd201d22
 	github.com/google/cel-go v0.17.0
 	github.com/google/go-cmp v0.5.9
 	github.com/google/go-github/v53 v53.2.0
