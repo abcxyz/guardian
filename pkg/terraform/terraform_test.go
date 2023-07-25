@@ -20,6 +20,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/abcxyz/guardian/pkg/util"
 	"github.com/abcxyz/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
 )
@@ -106,18 +107,21 @@ func TestGetEntrypointDirectories(t *testing.T) {
 	cases := []struct {
 		name string
 		dir  string
-		exp  []string
+		exp  []*TerraformEntrypoint
 		err  string
 	}{
 		{
 			name: "has_backend",
 			dir:  "testdata/backends",
-			exp:  []string{path.Join(cwd, "testdata/backends/project1"), path.Join(cwd, "testdata/backends/project2")},
+			exp: []*TerraformEntrypoint{
+				{Path: path.Join(cwd, "testdata/backends/project1"), BackendFile: path.Join(cwd, "testdata/backends/project1/terraform.tf")},
+				{Path: path.Join(cwd, "testdata/backends/project2"), BackendFile: path.Join(cwd, "testdata/backends/project2/terraform.tf")},
+			},
 		},
 		{
 			name: "no_backend",
 			dir:  "testdata/no-backends",
-			exp:  []string{},
+			exp:  []*TerraformEntrypoint{},
 		},
 		{
 			name: "missing_directory",
@@ -190,6 +194,51 @@ func TestHasBackendConfig(t *testing.T) {
 
 			if got, want := found, tc.exp; got != want {
 				t.Errorf("expected %t to be %t", got, want)
+			}
+		})
+	}
+}
+
+func TestParseBackendConfig(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name string
+		file string
+		want *TerraformBackendConfig
+		err  string
+	}{
+		{
+			name: "has_backend",
+			file: "../../terraform/terraform.tf", // depend on test data in [REPO_ROOT]/terraform
+			want: &TerraformBackendConfig{GCSBucket: util.Ptr("guardian-i-terraform-state-576047"), Prefix: util.Ptr("state/test")},
+		},
+		{
+			name: "no_backend",
+			file: "../../terraform/main.tf", // depend on test data in [REPO_ROOT]/terraform
+			want: nil,
+		},
+		{
+			name: "missing_file",
+			file: "../../terraform/missing.tf", // depend on test data in [REPO_ROOT]/terraform
+			want: nil,
+			err:  "failed to read file: ../../terraform/missing.tf",
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, _, err := ParseBackendConfig(tc.file)
+			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
+				t.Errorf(diff)
+			}
+
+			if diff := cmp.Diff(tc.want, got); diff != "" {
+				t.Errorf("StateFileURIs() returned diff (-want +got):\n%s", diff)
 			}
 		})
 	}

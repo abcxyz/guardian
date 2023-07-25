@@ -24,6 +24,7 @@ import (
 
 	"github.com/abcxyz/guardian/internal/version"
 	"github.com/abcxyz/guardian/pkg/commands/drift"
+	"github.com/abcxyz/guardian/pkg/commands/drift/statefiles"
 	"github.com/abcxyz/guardian/pkg/commands/iamcleanup"
 	"github.com/abcxyz/guardian/pkg/commands/initialize"
 	"github.com/abcxyz/guardian/pkg/commands/plan"
@@ -69,6 +70,17 @@ var rootCmd = func() cli.Command {
 						},
 						"cleanup": func() cli.Command {
 							return &iamcleanup.IAMCleanupCommand{}
+						},
+					},
+				}
+			},
+			"drift": func() cli.Command {
+				return &cli.RootCommand{
+					Name:        "drift",
+					Description: "Perform operations related to drift",
+					Commands: map[string]cli.CommandFactory{
+						"statefiles": func() cli.Command {
+							return &statefiles.DriftStatefilesCommand{}
 						},
 					},
 				}

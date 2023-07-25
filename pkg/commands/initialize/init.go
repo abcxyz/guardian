@@ -181,11 +181,17 @@ func (c *InitCommand) Process(ctx context.Context) error {
 
 	logger.Debug("finding entrypoint directories")
 
-	entrypointDirs, err := terraform.GetEntrypointDirectories(c.directory)
+	entrypoints, err := terraform.GetEntrypointDirectories(c.directory)
 	if err != nil {
 		return fmt.Errorf("failed to find terraform directories: %w", err)
 	}
-	logger.Debugw("terraform entrypoint directories", "entrypoint_dirs", entrypointDirs)
+
+	entrypointDirs := make([]string, 0, len(entrypoints))
+	for _, e := range entrypoints {
+		entrypointDirs = append(entrypointDirs, e.Path)
+	}
+
+	logger.Debugw("terraform entrypoint directories", "entrypoint_dirs", entrypoints)
 
 	if !c.flagSkipDetectChanges {
 		logger.Debug("finding git diff directories")

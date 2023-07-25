@@ -17,6 +17,7 @@ package drift
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/abcxyz/pkg/logging"
@@ -169,8 +170,8 @@ func (d *IAMDriftDetector) DetectDrift(
 	clickOpsChanges := differenceMap(gcpIAMNoIgnored, tfIAMNoIgnored)
 	missingTerraformChanges := differenceMap(tfIAMNoIgnored, gcpIAMNoIgnored)
 
-	clickOpsNoIgnoredChanges := differenceSet(clickOpsChanges, ignored.iamAssets)
-	missingTerraformNoIgnoredChanges := differenceSet(missingTerraformChanges, ignored.iamAssets)
+	clickOpsNoIgnoredChanges := DifferenceSet(clickOpsChanges, ignored.iamAssets)
+	missingTerraformNoIgnoredChanges := DifferenceSet(missingTerraformChanges, ignored.iamAssets)
 
 	clickOpsNoDefaultIgnoredChanges := filterDefaultURIs(clickOpsNoIgnoredChanges)
 	missingTerraformNoDefaultIgnoredChanges := filterDefaultURIs(missingTerraformNoIgnoredChanges)
@@ -329,9 +330,9 @@ func differenceMap(left, right map[string]*assetinventory.AssetIAM) map[string]s
 	return found
 }
 
-// differenceSet finds the keys located in the left set that are missing in the right set.
+// DifferenceSet finds the keys located in the left set that are missing in the right set.
 // We return a set so that we can do future comparisons easily with the result.
-func differenceSet(left, right map[string]struct{}) map[string]struct{} {
+func DifferenceSet(left, right map[string]struct{}) map[string]struct{} {
 	found := make(map[string]struct{})
 	for key := range left {
 		if _, f := right[key]; !f {
@@ -339,4 +340,14 @@ func differenceSet(left, right map[string]struct{}) map[string]struct{} {
 		}
 	}
 	return found
+}
+
+// Keys returns the sorted keys in the map.
+func Keys(m map[string]struct{}) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
