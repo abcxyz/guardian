@@ -196,7 +196,7 @@ func (c *InitCommand) Process(ctx context.Context) error {
 		}
 		logger.Debugw("git diff directories", "directories", diffDirs)
 
-		entrypointDirs = sets.Intersect(entrypointDirs, diffDirs)
+		entrypointDirs = sets.IntersectStable(entrypointDirs, diffDirs)
 	}
 
 	logger.Debugw("target directories", "target_directories", entrypointDirs)
