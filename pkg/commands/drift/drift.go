@@ -17,10 +17,10 @@ package drift
 import (
 	"context"
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/abcxyz/pkg/logging"
+	"github.com/abcxyz/pkg/sets"
 	"github.com/abcxyz/pkg/workerpool"
 
 	"github.com/abcxyz/guardian/pkg/assetinventory"
@@ -167,11 +167,11 @@ func (d *IAMDriftDetector) DetectDrift(
 		"number_of_entries", len(tfIAM),
 		"number_of_ignored_entries", len(tfIAM)-len(tfIAMNoIgnored))
 
-	clickOpsChanges := differenceMap(gcpIAMNoIgnored, tfIAMNoIgnored)
-	missingTerraformChanges := differenceMap(tfIAMNoIgnored, gcpIAMNoIgnored)
+	clickOpsChanges := KeySet(sets.SubtractMapKeys(gcpIAMNoIgnored, tfIAMNoIgnored))
+	missingTerraformChanges := KeySet(sets.SubtractMapKeys(tfIAMNoIgnored, gcpIAMNoIgnored))
 
-	clickOpsNoIgnoredChanges := DifferenceSet(clickOpsChanges, ignored.iamAssets)
-	missingTerraformNoIgnoredChanges := DifferenceSet(missingTerraformChanges, ignored.iamAssets)
+	clickOpsNoIgnoredChanges := sets.SubtractMapKeys(clickOpsChanges, ignored.iamAssets)
+	missingTerraformNoIgnoredChanges := sets.SubtractMapKeys(missingTerraformChanges, ignored.iamAssets)
 
 	clickOpsNoDefaultIgnoredChanges := filterDefaultURIs(clickOpsNoIgnoredChanges)
 	missingTerraformNoDefaultIgnoredChanges := filterDefaultURIs(missingTerraformNoIgnoredChanges)
@@ -318,36 +318,11 @@ func (d *IAMDriftDetector) URI(i *assetinventory.AssetIAM) string {
 	}
 }
 
-// differenceMap finds the keys located in the left map that are missing in the right map.
-// We return a set so that we can do future comparisons easily with the result.
-func differenceMap(left, right map[string]*assetinventory.AssetIAM) map[string]struct{} {
-	found := make(map[string]struct{})
-	for key := range left {
-		if _, f := right[key]; !f {
-			found[key] = struct{}{}
-		}
-	}
-	return found
-}
-
-// DifferenceSet finds the keys located in the left set that are missing in the right set.
-// We return a set so that we can do future comparisons easily with the result.
-func DifferenceSet(left, right map[string]struct{}) map[string]struct{} {
-	found := make(map[string]struct{})
-	for key := range left {
-		if _, f := right[key]; !f {
-			found[key] = struct{}{}
-		}
-	}
-	return found
-}
-
-// Keys returns the sorted keys in the map.
-func Keys(m map[string]struct{}) []string {
-	keys := make([]string, 0, len(m))
+// KeySet returns the keys in the map.
+func KeySet[K comparable, V any](m map[K]V) map[K]struct{} {
+	keys := make(map[K]struct{}, len(m))
 	for k := range m {
-		keys = append(keys, k)
+		keys[k] = struct{}{}
 	}
-	sort.Strings(keys)
 	return keys
 }

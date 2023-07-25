@@ -21,6 +21,7 @@ import (
 
 	"github.com/abcxyz/guardian/pkg/github"
 	githubAPI "github.com/google/go-github/v53/github"
+	"golang.org/x/exp/maps"
 )
 
 const (
@@ -96,14 +97,14 @@ func closeIssues(ctx context.Context, token, owner, repo string, labels []string
 func driftMessage(drift *IAMDrift) string {
 	var msg strings.Builder
 	if len(drift.ClickOpsChanges) > 0 {
-		uris := Keys(drift.ClickOpsChanges)
+		uris := maps.Keys(drift.ClickOpsChanges)
 		msg.WriteString(fmt.Sprintf("Found Click Ops Changes \n> %s", strings.Join(uris, "\n> ")))
 		if len(drift.MissingTerraformChanges) > 0 {
 			msg.WriteString("\n\n")
 		}
 	}
 	if len(drift.MissingTerraformChanges) > 0 {
-		uris := Keys(drift.MissingTerraformChanges)
+		uris := maps.Keys(drift.MissingTerraformChanges)
 		msg.WriteString(fmt.Sprintf("Found Missing Terraform Changes \n> %s", strings.Join(uris, "\n> ")))
 	}
 	return msg.String()

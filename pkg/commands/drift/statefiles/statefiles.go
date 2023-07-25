@@ -17,19 +17,20 @@ package statefiles
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"strings"
 
-	"github.com/abcxyz/guardian/pkg/commands/drift"
 	"github.com/abcxyz/guardian/pkg/flags"
-	"github.com/abcxyz/guardian/pkg/git"
 	"github.com/abcxyz/guardian/pkg/github"
 	"github.com/abcxyz/guardian/pkg/terraform"
 	"github.com/abcxyz/guardian/pkg/terraform/parser"
 	"github.com/abcxyz/guardian/pkg/util"
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
+	"github.com/abcxyz/pkg/sets"
+	"golang.org/x/exp/maps"
 )
 
 var _ cli.Command = (*DriftStatefilesCommand)(nil)
@@ -44,7 +45,6 @@ type DriftStatefilesCommand struct {
 
 	flagGCSBucket string
 
-	gitClient       git.Git
 	githubClient    github.GitHub
 	terraformParser parser.Terraform
 }
@@ -97,7 +97,7 @@ func (c *DriftStatefilesCommand) Run(ctx context.Context, args []string) error {
 	}
 	c.directory = dirAbs
 
-	c.gitClient = git.NewGitClient(c.directory)
+	// TODO: Create github issue.
 	c.githubClient = github.NewClient(
 		ctx,
 		c.GitHubFlags.FlagGitHubToken,
@@ -135,16 +135,22 @@ func (c *DriftStatefilesCommand) Process(ctx context.Context) error {
 
 	expectedURIs := make([]string, 0, len(entrypointBackendFiles))
 	gcsBuckets := make([]string, 0, len(entrypointBackendFiles))
+	var errs []error
 	for _, f := range entrypointBackendFiles {
-		config, _, err := terraform.ParseBackendConfig(f)
+		config, _, err := terraform.ExtractBackendConfig(f)
 		if err != nil {
-			return fmt.Errorf("failed to parse Terraform backend config: %w", err)
+			errs = append(errs, fmt.Errorf("failed to parse Terraform backend config: %w", err))
+			continue
 		}
 		if config.GCSBucket == nil || *config.GCSBucket == "" {
-			return fmt.Errorf("unsupported backend type for terraform config at %s - only gcs backends are supported", f)
+			errs = append(errs, fmt.Errorf("unsupported backend type for terraform config at %s - only gcs backends are supported", f))
+			continue
 		}
 		gcsBuckets = append(gcsBuckets, *config.GCSBucket)
 		expectedURIs = append(expectedURIs, fmt.Sprintf("gs://%s/%s/default.tfstate", *config.GCSBucket, *config.Prefix))
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("failed to determine statefile gcs URIs: %w", errors.Join(errs...))
 	}
 
 	gcsBucket := c.flagGCSBucket
@@ -168,8 +174,8 @@ func (c *DriftStatefilesCommand) Process(ctx context.Context) error {
 		return fmt.Errorf("failed to determine state file URIs for gcs bucket %s: %w", gcsBucket, err)
 	}
 
-	statefilesNotInRemote := drift.DifferenceSet(Set(expectedURIs), Set(gotURIs))
-	statefilesNotInLocal := drift.DifferenceSet(Set(gotURIs), Set(expectedURIs))
+	statefilesNotInRemote := sets.SubtractMapKeys(Set(expectedURIs), Set(gotURIs))
+	statefilesNotInLocal := sets.SubtractMapKeys(Set(gotURIs), Set(expectedURIs))
 
 	changesDetected := len(statefilesNotInRemote) > 0 || len(statefilesNotInLocal) > 0
 	m := driftMessage(statefilesNotInRemote, statefilesNotInLocal)
@@ -191,14 +197,14 @@ func Set(values []string) map[string]struct{} {
 func driftMessage(statefilesNotInRemote, statefilesNotInLocal map[string]struct{}) string {
 	var msg strings.Builder
 	if len(statefilesNotInRemote) > 0 {
-		uris := drift.Keys(statefilesNotInRemote)
+		uris := maps.Keys(statefilesNotInRemote)
 		msg.WriteString(fmt.Sprintf("Found state locally that are not in remote \n> %s", strings.Join(uris, "\n> ")))
 		if len(statefilesNotInLocal) > 0 {
 			msg.WriteString("\n\n")
 		}
 	}
 	if len(statefilesNotInLocal) > 0 {
-		uris := drift.Keys(statefilesNotInLocal)
+		uris := maps.Keys(statefilesNotInLocal)
 		msg.WriteString(fmt.Sprintf("Found statefiles in remote that are not in local \n> %s", strings.Join(uris, "\n> ")))
 	}
 	return msg.String()

@@ -199,7 +199,7 @@ func TestHasBackendConfig(t *testing.T) {
 	}
 }
 
-func TestParseBackendConfig(t *testing.T) {
+func TestExtractBackendConfig(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
@@ -222,7 +222,7 @@ func TestParseBackendConfig(t *testing.T) {
 			name: "missing_file",
 			file: "../../terraform/missing.tf", // depend on test data in [REPO_ROOT]/terraform
 			want: nil,
-			err:  "failed to read file: ../../terraform/missing.tf",
+			err:  "failed to read file: open ../../terraform/missing.tf: no such file or directory",
 		},
 	}
 
@@ -232,7 +232,57 @@ func TestParseBackendConfig(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, _, err := ParseBackendConfig(tc.file)
+			got, _, err := ExtractBackendConfig(tc.file)
+			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
+				t.Errorf(diff)
+			}
+
+			if diff := cmp.Diff(tc.want, got); diff != "" {
+				t.Errorf("StateFileURIs() returned diff (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func Test_extractBackendConfig(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name string
+		data []byte
+		want *TerraformBackendConfig
+		err  string
+	}{
+		{
+			name: "gcs_backend",
+			data: []byte(`
+				terraform {
+				  backend "gcs" {
+					bucket = "guardian-i-terraform-state-576047"
+					prefix = "state/test"
+				  }
+				}`),
+			want: &TerraformBackendConfig{GCSBucket: util.Ptr("guardian-i-terraform-state-576047"), Prefix: util.Ptr("state/test")},
+		},
+		{
+			name: "local_backend",
+			data: []byte(`
+			terraform {
+			  backend "local" {
+				path = "/tmp/my/made/up/path"
+			  }
+			}`),
+			want: &TerraformBackendConfig{},
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, _, err := extractBackendConfig(tc.data, "filename.tf")
 			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
 				t.Errorf(diff)
 			}

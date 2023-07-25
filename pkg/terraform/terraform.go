@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"regexp"
 
@@ -171,18 +172,26 @@ func hasBackendConfig(path string) (bool, hcl.Diagnostics, error) {
 	return false, diags, nil
 }
 
-// ParseBackendConfig extracts the backend configuration from the backend block.
-func ParseBackendConfig(path string) (*TerraformBackendConfig, hcl.Diagnostics, error) {
+// ExtractBackendConfig extracts the backend configuration from the backend block.
+func ExtractBackendConfig(path string) (*TerraformBackendConfig, hcl.Diagnostics, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to read file: %w", err)
+	}
+	return extractBackendConfig(b, path)
+}
+
+func extractBackendConfig(contents []byte, filename string) (*TerraformBackendConfig, hcl.Diagnostics, error) {
 	var diags hcl.Diagnostics
 
 	parser := hclparse.NewParser()
-	file, d := parser.ParseHCLFile(path)
+	file, d := parser.ParseHCL(contents, filename)
 	diags = append(diags, d...)
 
 	if d.HasErrors() {
 		for _, diag := range d {
-			if diag.Summary == "Failed to read file" {
-				return nil, d, fmt.Errorf("failed to read file: %s", path)
+			if diag.Summary == "Failed to parse file" {
+				return nil, d, fmt.Errorf("failed to read file: %s", filename)
 			}
 		}
 	}
