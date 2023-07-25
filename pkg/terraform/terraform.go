@@ -24,6 +24,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 
 	"github.com/abcxyz/guardian/pkg/util"
 	"github.com/hashicorp/hcl/v2"
@@ -136,6 +137,9 @@ func GetEntrypointDirectories(rootDir string) ([]*TerraformEntrypoint, error) {
 	}
 
 	entrypoints := maps.Values(matches)
+	sort.Slice(entrypoints, func(i, j int) bool {
+		return entrypoints[i].Path < entrypoints[j].Path
+	})
 
 	return entrypoints, nil
 }
