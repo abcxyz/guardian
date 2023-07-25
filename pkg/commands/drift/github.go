@@ -17,6 +17,7 @@ package drift
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/abcxyz/guardian/pkg/github"
@@ -98,6 +99,7 @@ func driftMessage(drift *IAMDrift) string {
 	var msg strings.Builder
 	if len(drift.ClickOpsChanges) > 0 {
 		uris := maps.Keys(drift.ClickOpsChanges)
+		sort.Strings(uris)
 		msg.WriteString(fmt.Sprintf("Found Click Ops Changes \n> %s", strings.Join(uris, "\n> ")))
 		if len(drift.MissingTerraformChanges) > 0 {
 			msg.WriteString("\n\n")
@@ -105,6 +107,7 @@ func driftMessage(drift *IAMDrift) string {
 	}
 	if len(drift.MissingTerraformChanges) > 0 {
 		uris := maps.Keys(drift.MissingTerraformChanges)
+		sort.Strings(uris)
 		msg.WriteString(fmt.Sprintf("Found Missing Terraform Changes \n> %s", strings.Join(uris, "\n> ")))
 	}
 	return msg.String()

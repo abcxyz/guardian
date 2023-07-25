@@ -20,6 +20,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/abcxyz/guardian/pkg/flags"
@@ -198,6 +199,7 @@ func driftMessage(statefilesNotInRemote, statefilesNotInLocal map[string]struct{
 	var msg strings.Builder
 	if len(statefilesNotInRemote) > 0 {
 		uris := maps.Keys(statefilesNotInRemote)
+		sort.Strings(uris)
 		msg.WriteString(fmt.Sprintf("Found state locally that are not in remote \n> %s", strings.Join(uris, "\n> ")))
 		if len(statefilesNotInLocal) > 0 {
 			msg.WriteString("\n\n")
@@ -205,6 +207,7 @@ func driftMessage(statefilesNotInRemote, statefilesNotInLocal map[string]struct{
 	}
 	if len(statefilesNotInLocal) > 0 {
 		uris := maps.Keys(statefilesNotInLocal)
+		sort.Strings(uris)
 		msg.WriteString(fmt.Sprintf("Found statefiles in remote that are not in local \n> %s", strings.Join(uris, "\n> ")))
 	}
 	return msg.String()
