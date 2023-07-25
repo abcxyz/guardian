@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package plan
+package initialize
 
 import (
 	"context"
@@ -30,7 +30,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-func TestPlanInitProcess(t *testing.T) {
+func TestInitProcess(t *testing.T) {
 	t.Parallel()
 
 	ctx := logging.WithLogger(context.Background(), logging.TestLogger(t))
@@ -41,22 +41,22 @@ func TestPlanInitProcess(t *testing.T) {
 	}
 
 	cases := []struct {
-		name                     string
-		directory                string
-		flagIsGitHubActions      bool
-		flagGitHubOwner          string
-		flagGitHubRepo           string
-		flagPullRequestNumber    int
-		flagDestRef              string
-		flagSourceRef            string
-		flagKeepOutdatedComments bool
-		flagSkipDetectChanges    bool
-		flagFormat               string
-		gitClient                *git.MockGitClient
-		err                      string
-		expGitHubClientReqs      []*github.Request
-		expStdout                string
-		expStderr                string
+		name                           string
+		directory                      string
+		flagIsGitHubActions            bool
+		flagGitHubOwner                string
+		flagGitHubRepo                 string
+		flagPullRequestNumber          int
+		flagDestRef                    string
+		flagSourceRef                  string
+		flagDeleteOutdatedPlanComments bool
+		flagSkipDetectChanges          bool
+		flagFormat                     string
+		gitClient                      *git.MockGitClient
+		err                            string
+		expGitHubClientReqs            []*github.Request
+		expStdout                      string
+		expStderr                      string
 	}{
 		{
 			name:                  "success",
@@ -67,31 +67,6 @@ func TestPlanInitProcess(t *testing.T) {
 			flagPullRequestNumber: 1,
 			flagDestRef:           "main",
 			flagSourceRef:         "ldap/feature",
-			expGitHubClientReqs: []*github.Request{
-				{
-					Name:   "ListIssueComments",
-					Params: []any{"owner", "repo", 1},
-				},
-			},
-			gitClient: &git.MockGitClient{
-				DiffResp: []string{
-					path.Join(cwd, "testdata/backends/project1"),
-					path.Join(cwd, "testdata/backends/project2"),
-				},
-			},
-			expStdout: "testdata/backends/project1\ntestdata/backends/project2",
-		},
-		{
-			name:                     "skips_deleting_comments",
-			directory:                "testdata",
-			flagKeepOutdatedComments: true,
-			flagFormat:               "text",
-			flagIsGitHubActions:      true,
-			flagGitHubOwner:          "owner",
-			flagGitHubRepo:           "repo",
-			flagPullRequestNumber:    2,
-			flagDestRef:              "main",
-			flagSourceRef:            "ldap/feature",
 			gitClient: &git.MockGitClient{
 				DiffResp: []string{
 					path.Join(cwd, "testdata/backends/project1"),
@@ -100,6 +75,31 @@ func TestPlanInitProcess(t *testing.T) {
 			},
 			expGitHubClientReqs: nil,
 			expStdout:           "testdata/backends/project1\ntestdata/backends/project2",
+		},
+		{
+			name:                           "deletes_outdated_plan_comments",
+			directory:                      "testdata",
+			flagDeleteOutdatedPlanComments: true,
+			flagFormat:                     "text",
+			flagIsGitHubActions:            true,
+			flagGitHubOwner:                "owner",
+			flagGitHubRepo:                 "repo",
+			flagPullRequestNumber:          2,
+			flagDestRef:                    "main",
+			flagSourceRef:                  "ldap/feature",
+			gitClient: &git.MockGitClient{
+				DiffResp: []string{
+					path.Join(cwd, "testdata/backends/project1"),
+					path.Join(cwd, "testdata/backends/project2"),
+				},
+			},
+			expGitHubClientReqs: []*github.Request{
+				{
+					Name:   "ListIssueComments",
+					Params: []any{"owner", "repo", 2},
+				},
+			},
+			expStdout: "testdata/backends/project1\ntestdata/backends/project2",
 		},
 		{
 			name:                  "returns_json",
@@ -111,19 +111,14 @@ func TestPlanInitProcess(t *testing.T) {
 			flagPullRequestNumber: 3,
 			flagDestRef:           "main",
 			flagSourceRef:         "ldap/feature",
-			expGitHubClientReqs: []*github.Request{
-				{
-					Name:   "ListIssueComments",
-					Params: []any{"owner", "repo", 3},
-				},
-			},
 			gitClient: &git.MockGitClient{
 				DiffResp: []string{
 					path.Join(cwd, "testdata/backends/project1"),
 					path.Join(cwd, "testdata/backends/project2"),
 				},
 			},
-			expStdout: "[\"testdata/backends/project1\",\"testdata/backends/project2\"]",
+			expGitHubClientReqs: nil,
+			expStdout:           "[\"testdata/backends/project1\",\"testdata/backends/project2\"]",
 		},
 		{
 			name:                  "invalid_format",
@@ -153,14 +148,9 @@ func TestPlanInitProcess(t *testing.T) {
 			flagDestRef:           "main",
 			flagSourceRef:         "ldap/feature",
 			flagSkipDetectChanges: true,
-			expGitHubClientReqs: []*github.Request{
-				{
-					Name:   "ListIssueComments",
-					Params: []any{"owner", "repo", 1},
-				},
-			},
-			gitClient: &git.MockGitClient{},
-			expStdout: "testdata/backends/project1\ntestdata/backends/project2",
+			gitClient:             &git.MockGitClient{},
+			expGitHubClientReqs:   nil,
+			expStdout:             "testdata/backends/project1\ntestdata/backends/project2",
 		},
 		{
 			name:                  "errors",
@@ -171,16 +161,11 @@ func TestPlanInitProcess(t *testing.T) {
 			flagPullRequestNumber: 2,
 			flagDestRef:           "main",
 			flagSourceRef:         "ldap/feature",
-			expGitHubClientReqs: []*github.Request{
-				{
-					Name:   "ListIssueComments",
-					Params: []any{"owner", "repo", 2},
-				},
-			},
 			gitClient: &git.MockGitClient{
 				DiffErr: fmt.Errorf("failed to run git diff"),
 			},
-			err: "failed to find git diff directories: failed to run git diff",
+			expGitHubClientReqs: nil,
+			err:                 "failed to find git diff directories: failed to run git diff",
 		},
 	}
 
@@ -192,15 +177,15 @@ func TestPlanInitProcess(t *testing.T) {
 
 			githubClient := &github.MockGitHubClient{}
 
-			c := &PlanInitCommand{
+			c := &InitCommand{
 				directory: tc.directory,
 
-				flagPullRequestNumber:    tc.flagPullRequestNumber,
-				flagKeepOutdatedComments: tc.flagKeepOutdatedComments,
-				flagFormat:               tc.flagFormat,
-				flagDestRef:              tc.flagDestRef,
-				flagSourceRef:            tc.flagSourceRef,
-				flagSkipDetectChanges:    tc.flagSkipDetectChanges,
+				flagPullRequestNumber:          tc.flagPullRequestNumber,
+				flagDeleteOutdatedPlanComments: tc.flagDeleteOutdatedPlanComments,
+				flagFormat:                     tc.flagFormat,
+				flagDestRef:                    tc.flagDestRef,
+				flagSourceRef:                  tc.flagSourceRef,
+				flagSkipDetectChanges:          tc.flagSkipDetectChanges,
 				GitHubFlags: flags.GitHubFlags{
 					FlagIsGitHubActions: tc.flagIsGitHubActions,
 					FlagGitHubOwner:     tc.flagGitHubOwner,
