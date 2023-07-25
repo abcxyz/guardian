@@ -114,8 +114,8 @@ func TestGetEntrypointDirectories(t *testing.T) {
 			name: "has_backend",
 			dir:  "testdata/backends",
 			exp: []*TerraformEntrypoint{
-				{Path: path.Join(cwd, "testdata/backends/project1"), BackendFile: path.Join(cwd, "testdata/backends/project1/terraform.tf")},
-				{Path: path.Join(cwd, "testdata/backends/project2"), BackendFile: path.Join(cwd, "testdata/backends/project2/terraform.tf")},
+				{Path: path.Join(cwd, "testdata/backends/project1"), BackendFile: path.Join(cwd, "testdata/backends/project1/main.tf")},
+				{Path: path.Join(cwd, "testdata/backends/project2"), BackendFile: path.Join(cwd, "testdata/backends/project2/main.tf")},
 			},
 		},
 		{

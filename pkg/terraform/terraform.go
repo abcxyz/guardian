@@ -119,14 +119,14 @@ func GetEntrypointDirectories(rootDir string) ([]*TerraformEntrypoint, error) {
 			return nil
 		}
 
-		absPath, err := util.PathEvalAbs(filepath.Dir(path))
+		absPath, err := util.PathEvalAbs(path)
 		if err != nil {
 			return fmt.Errorf("failed to get absolute path for directory %s: %w", rootDir, err)
 		}
 
 		matches[absPath] = &TerraformEntrypoint{
-			Path:        absPath,
-			BackendFile: path,
+			Path:        filepath.Dir(absPath),
+			BackendFile: absPath,
 		}
 
 		return nil
