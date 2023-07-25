@@ -30,6 +30,7 @@ import (
 	"github.com/abcxyz/guardian/pkg/util"
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
+	"github.com/abcxyz/pkg/sets"
 	gh "github.com/google/go-github/v53/github"
 	"golang.org/x/exp/maps"
 )
@@ -195,7 +196,7 @@ func (c *InitCommand) Process(ctx context.Context) error {
 		}
 		logger.Debugw("git diff directories", "directories", diffDirs)
 
-		entrypointDirs = util.GetSliceIntersection(entrypointDirs, diffDirs)
+		entrypointDirs = sets.IntersectStable(entrypointDirs, diffDirs)
 	}
 
 	logger.Debugw("target directories", "target_directories", entrypointDirs)

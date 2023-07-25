@@ -18,59 +18,7 @@ import (
 	"testing"
 
 	"github.com/abcxyz/pkg/testutil"
-	"github.com/google/go-cmp/cmp"
 )
-
-func TestGetSliceIntersection(t *testing.T) {
-	t.Parallel()
-
-	cases := []struct {
-		name string
-		a    []string
-		b    []string
-		exp  []string
-	}{
-		{
-			name: "success",
-			a:    []string{"a", "b", "c", "d"},
-			b:    []string{"b", "c"},
-			exp:  []string{"b", "c"},
-		},
-		{
-			name: "sorts",
-			a:    []string{"d", "c", "b", "a"},
-			b:    []string{"a", "d"},
-			exp:  []string{"a", "d"},
-		},
-		{
-			name: "handles_empty",
-			a:    []string{"d", "d", "c", "d", "b", "a"},
-			b:    []string{},
-			exp:  []string{},
-		},
-		{
-			name: "exclude_duplicates",
-			a:    []string{"d", "d", "c", "d", "b", "a"},
-			b:    []string{"a", "d", "a", "d"},
-			exp:  []string{"a", "d"},
-		},
-	}
-
-	for _, tc := range cases {
-		tc := tc
-
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			v := GetSliceIntersection(tc.a, tc.b)
-
-			opts := []cmp.Option{}
-			if diff := cmp.Diff(v, tc.exp, opts...); diff != "" {
-				t.Errorf("got %#v, want %#v, diff (-got, +want): %v", v, tc.exp, diff)
-			}
-		})
-	}
-}
 
 func TestChildPath(t *testing.T) {
 	t.Parallel()

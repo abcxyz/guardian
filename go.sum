@@ -23,8 +23,8 @@ cloud.google.com/go/storage v1.31.0/go.mod h1:81ams1PrhW16L4kF7qg+4mTq7SRs5HsbDT
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/ProtonMail/go-crypto v0.0.0-20230717121422-5aa5874ade95 h1:KLq8BE0KwCL+mmXnjLWEAOYO+2l2AE4YMmqG1ZpZHBs=
 github.com/ProtonMail/go-crypto v0.0.0-20230717121422-5aa5874ade95/go.mod h1:EjAoLdwvbIOoOQr3ihjnSoLZRtE8azugULFRteWMNc0=
-github.com/abcxyz/pkg v0.5.1-0.20230721174654-25e01be35e38 h1:cx7WvxX4z+pdg8MUayPYA62Om4Zap2qsSyhSPi7vwVg=
-github.com/abcxyz/pkg v0.5.1-0.20230721174654-25e01be35e38/go.mod h1:r0w4o6uRL1LVTB/uhjKDW+pD1yOZ9YReHQXYgzYcFXM=
+github.com/abcxyz/pkg v0.5.1-0.20230724202741-7ad5bd201d22 h1:aBf0HqtLelO1MhAE5+4TOVU1GxyEJiv50Uv95AsMCS0=
+github.com/abcxyz/pkg v0.5.1-0.20230724202741-7ad5bd201d22/go.mod h1:r0w4o6uRL1LVTB/uhjKDW+pD1yOZ9YReHQXYgzYcFXM=
 github.com/agext/levenshtein v1.2.3 h1:YB2fHEn0UJagG8T1rrWknE3ZQzWM06O8AMAatNn7lmo=
 github.com/agext/levenshtein v1.2.3/go.mod h1:JEDfjyjHDjOF/1e4FlBE/PkbqA9OfWu2ki2W0IB5558=
 github.com/antihax/optional v1.0.0/go.mod h1:uupD/76wgC+ih3iEmQUL+0Ugr19nfwCT1kdvxnR2qWY=
