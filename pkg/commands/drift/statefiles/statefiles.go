@@ -31,7 +31,6 @@ import (
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/sets"
-	"golang.org/x/exp/maps"
 )
 
 var _ cli.Command = (*DriftStatefilesCommand)(nil)
@@ -175,8 +174,10 @@ func (c *DriftStatefilesCommand) Process(ctx context.Context) error {
 		return fmt.Errorf("failed to determine state file URIs for gcs bucket %s: %w", gcsBucket, err)
 	}
 
-	statefilesNotInRemote := sets.SubtractMapKeys(Set(expectedURIs), Set(gotURIs))
-	statefilesNotInLocal := sets.SubtractMapKeys(Set(gotURIs), Set(expectedURIs))
+	statefilesNotInRemote := sets.Subtract(expectedURIs, gotURIs)
+	statefilesNotInLocal := sets.Subtract(gotURIs, expectedURIs)
+	sort.Strings(statefilesNotInRemote)
+	sort.Strings(statefilesNotInLocal)
 
 	changesDetected := len(statefilesNotInRemote) > 0 || len(statefilesNotInLocal) > 0
 	m := driftMessage(statefilesNotInRemote, statefilesNotInLocal)
@@ -195,20 +196,16 @@ func Set(values []string) map[string]struct{} {
 	return set
 }
 
-func driftMessage(statefilesNotInRemote, statefilesNotInLocal map[string]struct{}) string {
+func driftMessage(statefilesNotInRemote, statefilesNotInLocal []string) string {
 	var msg strings.Builder
 	if len(statefilesNotInRemote) > 0 {
-		uris := maps.Keys(statefilesNotInRemote)
-		sort.Strings(uris)
-		msg.WriteString(fmt.Sprintf("Found state locally that are not in remote \n> %s", strings.Join(uris, "\n> ")))
+		msg.WriteString(fmt.Sprintf("Found state locally that are not in remote \n> %s", strings.Join(statefilesNotInRemote, "\n> ")))
 		if len(statefilesNotInLocal) > 0 {
 			msg.WriteString("\n\n")
 		}
 	}
 	if len(statefilesNotInLocal) > 0 {
-		uris := maps.Keys(statefilesNotInLocal)
-		sort.Strings(uris)
-		msg.WriteString(fmt.Sprintf("Found statefiles in remote that are not in local \n> %s", strings.Join(uris, "\n> ")))
+		msg.WriteString(fmt.Sprintf("Found statefiles in remote that are not in local \n> %s", strings.Join(statefilesNotInLocal, "\n> ")))
 	}
 	return msg.String()
 }
