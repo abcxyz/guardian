@@ -85,9 +85,9 @@ var defaultURIFilterPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`websecurityscanner.serviceAgent\/serviceAccount:service-(?:\d*)@gcp-sa-websecurityscanner.iam.gserviceaccount.com`),
 }
 
-func filterDefaultURIs(uris map[string]struct{}) map[string]struct{} {
-	result := make(map[string]struct{})
-	for uri := range uris {
+func filterDefaultURIs(uris []string) []string {
+	result := []string{}
+	for _, uri := range uris {
 		found := false
 		for _, re := range defaultURIFilterPatterns {
 			matches := re.FindStringSubmatch(uri)
@@ -96,7 +96,7 @@ func filterDefaultURIs(uris map[string]struct{}) map[string]struct{} {
 			}
 		}
 		if !found {
-			result[uri] = struct{}{}
+			result = append(result, uri)
 		}
 	}
 	return result

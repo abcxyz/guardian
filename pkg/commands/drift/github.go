@@ -17,12 +17,10 @@ package drift
 import (
 	"context"
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/abcxyz/guardian/pkg/github"
 	githubAPI "github.com/google/go-github/v53/github"
-	"golang.org/x/exp/maps"
 )
 
 const (
@@ -98,17 +96,13 @@ func closeIssues(ctx context.Context, token, owner, repo string, labels []string
 func driftMessage(drift *IAMDrift) string {
 	var msg strings.Builder
 	if len(drift.ClickOpsChanges) > 0 {
-		uris := maps.Keys(drift.ClickOpsChanges)
-		sort.Strings(uris)
-		msg.WriteString(fmt.Sprintf("Found Click Ops Changes \n> %s", strings.Join(uris, "\n> ")))
+		msg.WriteString(fmt.Sprintf("Found Click Ops Changes \n> %s", strings.Join(drift.ClickOpsChanges, "\n> ")))
 		if len(drift.MissingTerraformChanges) > 0 {
 			msg.WriteString("\n\n")
 		}
 	}
 	if len(drift.MissingTerraformChanges) > 0 {
-		uris := maps.Keys(drift.MissingTerraformChanges)
-		sort.Strings(uris)
-		msg.WriteString(fmt.Sprintf("Found Missing Terraform Changes \n> %s", strings.Join(uris, "\n> ")))
+		msg.WriteString(fmt.Sprintf("Found Missing Terraform Changes \n> %s", strings.Join(drift.MissingTerraformChanges, "\n> ")))
 	}
 	return msg.String()
 }

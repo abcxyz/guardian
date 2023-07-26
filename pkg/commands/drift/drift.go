@@ -17,11 +17,13 @@ package drift
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/sets"
 	"github.com/abcxyz/pkg/workerpool"
+	"golang.org/x/exp/maps"
 
 	"github.com/abcxyz/guardian/pkg/assetinventory"
 	"github.com/abcxyz/guardian/pkg/iam"
@@ -30,8 +32,8 @@ import (
 
 // IAMDrift represents the detected iam drift in a gcp org.
 type IAMDrift struct {
-	ClickOpsChanges         map[string]struct{}
-	MissingTerraformChanges map[string]struct{}
+	ClickOpsChanges         []string
+	MissingTerraformChanges []string
 }
 
 type IAMDriftDetector struct {
@@ -167,14 +169,16 @@ func (d *IAMDriftDetector) DetectDrift(
 		"number_of_entries", len(tfIAM),
 		"number_of_ignored_entries", len(tfIAM)-len(tfIAMNoIgnored))
 
-	clickOpsChanges := KeySet(sets.SubtractMapKeys(gcpIAMNoIgnored, tfIAMNoIgnored))
-	missingTerraformChanges := KeySet(sets.SubtractMapKeys(tfIAMNoIgnored, gcpIAMNoIgnored))
+	clickOpsChanges := sets.SubtractMapKeys(gcpIAMNoIgnored, tfIAMNoIgnored)
+	missingTerraformChanges := sets.SubtractMapKeys(tfIAMNoIgnored, gcpIAMNoIgnored)
 
-	clickOpsNoIgnoredChanges := sets.SubtractMapKeys(clickOpsChanges, ignored.iamAssets)
-	missingTerraformNoIgnoredChanges := sets.SubtractMapKeys(missingTerraformChanges, ignored.iamAssets)
+	clickOpsNoIgnoredChanges := sets.Subtract(maps.Keys(clickOpsChanges), maps.Keys(ignored.iamAssets))
+	missingTerraformNoIgnoredChanges := sets.Subtract(maps.Keys(missingTerraformChanges), maps.Keys(ignored.iamAssets))
 
 	clickOpsNoDefaultIgnoredChanges := filterDefaultURIs(clickOpsNoIgnoredChanges)
 	missingTerraformNoDefaultIgnoredChanges := filterDefaultURIs(missingTerraformNoIgnoredChanges)
+	sort.Strings(clickOpsNoDefaultIgnoredChanges)
+	sort.Strings(missingTerraformNoDefaultIgnoredChanges)
 
 	logger.Debugw("found click ops changes",
 		"number_of_in_scope_changes", len(clickOpsNoDefaultIgnoredChanges),
@@ -316,13 +320,4 @@ func (d *IAMDriftDetector) URI(i *assetinventory.AssetIAM) string {
 	} else {
 		return fmt.Sprintf("/organizations/%s/%s/%s", d.organizationID, role, i.Member)
 	}
-}
-
-// KeySet returns the keys in the map.
-func KeySet[K comparable, V any](m map[K]V) map[K]struct{} {
-	keys := make(map[K]struct{}, len(m))
-	for k := range m {
-		keys[k] = struct{}{}
-	}
-	return keys
 }
