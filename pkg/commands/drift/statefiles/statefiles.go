@@ -61,8 +61,8 @@ type DriftStatefilesCommand struct {
 
 	flagGCSBucket string
 
-	githubClient    github.GitHub
 	terraformParser parser.Terraform
+	issueService    drift.GitHubDriftIssueService
 }
 
 func (c *DriftStatefilesCommand) Desc() string {
@@ -114,14 +114,13 @@ func (c *DriftStatefilesCommand) Run(ctx context.Context, args []string) error {
 	}
 	c.directory = dirAbs
 
-	// TODO: Create github issue.
-	c.githubClient = github.NewClient(
-		ctx,
-		c.GitHubFlags.FlagGitHubToken,
-		github.WithRetryInitialDelay(c.RetryFlags.FlagRetryInitialDelay),
-		github.WithRetryMaxAttempts(c.RetryFlags.FlagRetryMaxAttempts),
-		github.WithRetryMaxDelay(c.RetryFlags.FlagRetryMaxDelay),
-	)
+	c.issueService = drift.GitHubDriftIssueService{
+		GH:         github.NewClient(ctx, c.GitHubFlags.FlagGitHubToken),
+		Owner:      c.GitHubFlags.FlagGitHubOwner,
+		Repo:       c.GitHubFlags.FlagGitHubRepo,
+		IssueTitle: issueTitle,
+		IssueBody:  issueBody,
+	}
 	c.terraformParser, err = parser.NewTerraformParser(ctx, "")
 	if err != nil {
 		return fmt.Errorf("failed to create terraform parser: %w", err)
@@ -208,19 +207,12 @@ func (c *DriftStatefilesCommand) Process(ctx context.Context) error {
 	if c.DriftIssueFlags.FlagGitHubCommentMessageAppend != "" {
 		m = strings.Join([]string{m, c.DriftIssueFlags.FlagGitHubCommentMessageAppend}, "\n\n")
 	}
-	issueService := &drift.GitHubDriftIssueService{
-		GH:         github.NewClient(ctx, c.GitHubFlags.FlagGitHubToken),
-		Owner:      c.GitHubFlags.FlagGitHubOwner,
-		Repo:       c.GitHubFlags.FlagGitHubRepo,
-		IssueTitle: issueTitle,
-		IssueBody:  issueBody,
-	}
 	if changesDetected {
-		if err := issueService.CreateOrUpdateIssue(ctx, c.DriftIssueFlags.FlagGitHubIssueAssignees, c.DriftIssueFlags.FlagGitHubIssueLabels, m); err != nil {
+		if err := c.issueService.CreateOrUpdateIssue(ctx, c.DriftIssueFlags.FlagGitHubIssueAssignees, c.DriftIssueFlags.FlagGitHubIssueLabels, m); err != nil {
 			return fmt.Errorf("failed to create or update GitHub Issue: %w", err)
 		}
 	} else {
-		if err := issueService.CloseIssues(ctx, c.DriftIssueFlags.FlagGitHubIssueLabels); err != nil {
+		if err := c.issueService.CloseIssues(ctx, c.DriftIssueFlags.FlagGitHubIssueLabels); err != nil {
 			return fmt.Errorf("failed to close GitHub Issues: %w", err)
 		}
 	}
