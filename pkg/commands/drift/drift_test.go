@@ -104,8 +104,8 @@ func TestDrift_DetectDrift(t *testing.T) {
 				ProjectData: []*assetinventory.AssetIAM{projectAdmin},
 			},
 			want: &IAMDrift{
-				ClickOpsChanges:         map[string]struct{}{},
-				MissingTerraformChanges: map[string]struct{}{},
+				ClickOpsChanges:         []string{},
+				MissingTerraformChanges: []string{},
 			},
 		},
 		{
@@ -122,14 +122,14 @@ func TestDrift_DetectDrift(t *testing.T) {
 				ProjectData: []*assetinventory.AssetIAM{projectAdmin},
 			},
 			want: &IAMDrift{
-				ClickOpsChanges: map[string]struct{}{
-					"/organizations/1231231/folders/123123123123/roles/viewer/group:my-group@google.com":                                                  {},
-					"/organizations/1231231/projects/my-project/roles/compute.admin/serviceAccount:my-service-account@my-project.iam.gserviceaccount.com": {},
-					"/organizations/1231231/roles/browser/group:my-group@google.com":                                                                      {},
-					"/organizations/1231231/roles/browser/serviceAccount:my-service-account@my-project.iam.gserviceaccount.com":                           {},
-					"/organizations/1231231/roles/browser/user:dcreey@google.com":                                                                         {},
+				ClickOpsChanges: []string{
+					"/organizations/1231231/folders/123123123123/roles/viewer/group:my-group@google.com",
+					"/organizations/1231231/projects/my-project/roles/compute.admin/serviceAccount:my-service-account@my-project.iam.gserviceaccount.com",
+					"/organizations/1231231/roles/browser/group:my-group@google.com",
+					"/organizations/1231231/roles/browser/serviceAccount:my-service-account@my-project.iam.gserviceaccount.com",
+					"/organizations/1231231/roles/browser/user:dcreey@google.com",
 				},
-				MissingTerraformChanges: map[string]struct{}{},
+				MissingTerraformChanges: []string{},
 			},
 		},
 		{
@@ -146,13 +146,13 @@ func TestDrift_DetectDrift(t *testing.T) {
 				ProjectData: []*assetinventory.AssetIAM{},
 			},
 			want: &IAMDrift{
-				ClickOpsChanges: map[string]struct{}{},
-				MissingTerraformChanges: map[string]struct{}{
-					"/organizations/1231231/folders/123123123123/roles/viewer/group:my-group@google.com":                                                  {},
-					"/organizations/1231231/projects/my-project/roles/compute.admin/serviceAccount:my-service-account@my-project.iam.gserviceaccount.com": {},
-					"/organizations/1231231/roles/browser/group:my-group@google.com":                                                                      {},
-					"/organizations/1231231/roles/browser/serviceAccount:my-service-account@my-project.iam.gserviceaccount.com":                           {},
-					"/organizations/1231231/roles/browser/user:dcreey@google.com":                                                                         {},
+				ClickOpsChanges: []string{},
+				MissingTerraformChanges: []string{
+					"/organizations/1231231/folders/123123123123/roles/viewer/group:my-group@google.com",
+					"/organizations/1231231/projects/my-project/roles/compute.admin/serviceAccount:my-service-account@my-project.iam.gserviceaccount.com",
+					"/organizations/1231231/roles/browser/group:my-group@google.com",
+					"/organizations/1231231/roles/browser/serviceAccount:my-service-account@my-project.iam.gserviceaccount.com",
+					"/organizations/1231231/roles/browser/user:dcreey@google.com",
 				},
 			},
 		},

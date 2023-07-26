@@ -17,7 +17,6 @@ package drift
 import (
 	"context"
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/abcxyz/guardian/pkg/github"
@@ -97,25 +96,13 @@ func closeIssues(ctx context.Context, token, owner, repo string, labels []string
 func driftMessage(drift *IAMDrift) string {
 	var msg strings.Builder
 	if len(drift.ClickOpsChanges) > 0 {
-		uris := keys(drift.ClickOpsChanges)
-		msg.WriteString(fmt.Sprintf("Found Click Ops Changes \n> %s", strings.Join(uris, "\n> ")))
+		msg.WriteString(fmt.Sprintf("Found Click Ops Changes \n> %s", strings.Join(drift.ClickOpsChanges, "\n> ")))
 		if len(drift.MissingTerraformChanges) > 0 {
 			msg.WriteString("\n\n")
 		}
 	}
 	if len(drift.MissingTerraformChanges) > 0 {
-		uris := keys(drift.MissingTerraformChanges)
-		msg.WriteString(fmt.Sprintf("Found Missing Terraform Changes \n> %s", strings.Join(uris, "\n> ")))
+		msg.WriteString(fmt.Sprintf("Found Missing Terraform Changes \n> %s", strings.Join(drift.MissingTerraformChanges, "\n> ")))
 	}
 	return msg.String()
-}
-
-// keys returns the sorted keys in the map.
-func keys(m map[string]struct{}) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	return keys
 }
