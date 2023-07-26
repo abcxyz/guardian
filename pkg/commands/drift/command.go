@@ -23,25 +23,37 @@ import (
 	"github.com/abcxyz/pkg/logging"
 
 	"github.com/abcxyz/guardian/internal/version"
+	driftflags "github.com/abcxyz/guardian/pkg/commands/drift/flags"
+	"github.com/abcxyz/guardian/pkg/flags"
+	"github.com/abcxyz/guardian/pkg/github"
 )
 
 var _ cli.Command = (*DetectIamDriftCommand)(nil)
+
+const (
+	issueTitle = "IAM drift detected"
+	issueBody  = `We've detected a drift between your submitted IAM policies and actual
+        IAM policies.
+
+        See the comment(s) below to see details of the drift
+
+        Please determine which parts are correct, and submit updated
+        terraform config and/or remove the extra policies.
+
+        Re-run drift detection manually once complete to verify all diffs are properly resolved.`
+)
 
 // DetectIamDriftCommand is a subcommand for Guardian that enables detecting IAM drift.
 type DetectIamDriftCommand struct {
 	cli.BaseCommand
 
-	flagOrganizationID             string
-	flagGCSBucketQuery             string
-	flagDriftignoreFile            string
-	flagMaxConcurrentRequests      int64
-	flagSkipGitHubIssue            bool
-	flagGitHubToken                string
-	flagGitHubOwner                string
-	flagGitHubRepo                 string
-	flagGitHubIssueLabels          []string
-	flagGitHubIssueAssignees       []string
-	flagGitHubCommentMessageAppend string
+	flags.GitHubFlags
+	driftflags.DriftIssueFlags
+
+	flagOrganizationID        string
+	flagGCSBucketQuery        string
+	flagDriftignoreFile       string
+	flagMaxConcurrentRequests int64
 }
 
 func (c *DetectIamDriftCommand) Desc() string {
@@ -58,6 +70,9 @@ Usage: {{ COMMAND }} [options]
 
 func (c *DetectIamDriftCommand) Flags() *cli.FlagSet {
 	set := c.NewFlagSet()
+
+	c.GitHubFlags.AddFlags(set)
+	c.DriftIssueFlags.AddFlags(set, "guardian-iam-drift")
 
 	// Command options
 	f := set.NewSection("COMMAND OPTIONS")
@@ -90,56 +105,6 @@ func (c *DetectIamDriftCommand) Flags() *cli.FlagSet {
 		Example: "10",
 		Usage:   `The maximum number of concurrent requests allowed at any time to GCP.`,
 		Default: 10,
-	})
-
-	f.BoolVar(&cli.BoolVar{
-		Name:    "skip-github-issue",
-		Target:  &c.flagSkipGitHubIssue,
-		Example: "true",
-		Usage:   `Whether or not to create a GitHub Issue when a drift is detected.`,
-		Default: false,
-	})
-
-	f.StringVar(&cli.StringVar{
-		Name:   "github-token",
-		Target: &c.flagGitHubToken,
-		Usage:  `The github token to use to authenticate to create & manage GitHub Issues.`,
-		EnvVar: "GITHUB_TOKEN",
-	})
-
-	f.StringVar(&cli.StringVar{
-		Name:   "github-owner",
-		Target: &c.flagGitHubOwner,
-		Usage:  `The github token to use to authenticate to create & manage GitHub Issues.`,
-	})
-
-	f.StringVar(&cli.StringVar{
-		Name:    "github-repo",
-		Target:  &c.flagGitHubRepo,
-		Example: "guardian",
-		Usage:   `The github token to use to authenticate to create & manage GitHub Issues.`,
-	})
-
-	f.StringSliceVar(&cli.StringSliceVar{
-		Name:    "github-issue-assignees",
-		Target:  &c.flagGitHubIssueAssignees,
-		Example: "dcreey",
-		Usage:   `The assignees to assign to for any created GitHub Issues.`,
-	})
-
-	f.StringSliceVar(&cli.StringSliceVar{
-		Name:    "github-issue-labels",
-		Target:  &c.flagGitHubIssueLabels,
-		Example: "guardian-iam-drift",
-		Usage:   `The labels to use on any created GitHub Issues.`,
-		Default: []string{"guardian-iam-drift"},
-	})
-
-	f.StringVar(&cli.StringVar{
-		Name:    "github-comment-message-append",
-		Target:  &c.flagGitHubCommentMessageAppend,
-		Example: "@dcreey, @my-org/my-team",
-		Usage:   `Any arbitrary string message to append to the drift GitHub comment.`,
 	})
 
 	return set
@@ -184,21 +149,42 @@ func (c *DetectIamDriftCommand) Run(ctx context.Context, args []string) error {
 		c.Outf(m)
 	}
 
-	if c.flagSkipGitHubIssue {
+	if c.DriftIssueFlags.FlagSkipGitHubIssue {
 		return nil
 	}
-	if c.flagGitHubCommentMessageAppend != "" {
-		m = strings.Join([]string{m, c.flagGitHubCommentMessageAppend}, "\n\n")
+	if c.DriftIssueFlags.FlagGitHubCommentMessageAppend != "" {
+		m = strings.Join([]string{m, c.DriftIssueFlags.FlagGitHubCommentMessageAppend}, "\n\n")
+	}
+	issueService := &GitHubDriftIssueService{
+		GH:         github.NewClient(ctx, c.GitHubFlags.FlagGitHubToken),
+		Owner:      c.GitHubFlags.FlagGitHubOwner,
+		Repo:       c.GitHubFlags.FlagGitHubRepo,
+		IssueTitle: issueTitle,
+		IssueBody:  issueBody,
 	}
 	if changesDetected {
-		if err := createOrUpdateIssue(ctx, c.flagGitHubToken, c.flagGitHubOwner, c.flagGitHubRepo, c.flagGitHubIssueAssignees, c.flagGitHubIssueLabels, m); err != nil {
+		if err := issueService.CreateOrUpdateIssue(ctx, c.DriftIssueFlags.FlagGitHubIssueAssignees, c.DriftIssueFlags.FlagGitHubIssueLabels, m); err != nil {
 			return fmt.Errorf("failed to create or update GitHub Issue: %w", err)
 		}
 	} else {
-		if err := closeIssues(ctx, c.flagGitHubToken, c.flagGitHubOwner, c.flagGitHubRepo, c.flagGitHubIssueLabels); err != nil {
+		if err := issueService.CloseIssues(ctx, c.DriftIssueFlags.FlagGitHubIssueLabels); err != nil {
 			return fmt.Errorf("failed to close GitHub Issues: %w", err)
 		}
 	}
 
 	return nil
+}
+
+func driftMessage(drift *IAMDrift) string {
+	var msg strings.Builder
+	if len(drift.ClickOpsChanges) > 0 {
+		msg.WriteString(fmt.Sprintf("Found Click Ops Changes \n> %s", strings.Join(drift.ClickOpsChanges, "\n> ")))
+		if len(drift.MissingTerraformChanges) > 0 {
+			msg.WriteString("\n\n")
+		}
+	}
+	if len(drift.MissingTerraformChanges) > 0 {
+		msg.WriteString(fmt.Sprintf("Found Missing Terraform Changes \n> %s", strings.Join(drift.MissingTerraformChanges, "\n> ")))
+	}
+	return msg.String()
 }

@@ -23,6 +23,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/abcxyz/guardian/pkg/commands/drift"
+	driftflags "github.com/abcxyz/guardian/pkg/commands/drift/flags"
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/github"
 	"github.com/abcxyz/guardian/pkg/terraform"
@@ -35,6 +37,19 @@ import (
 
 var _ cli.Command = (*DriftStatefilesCommand)(nil)
 
+const (
+	issueTitle = "Terraform statefile drift detected"
+	issueBody  = `We've detected a drift between the statefiles stored in your GCS bucket and the
+        ones referenced in your backend config blocks.
+
+        See the comment(s) below to see details of the drift
+
+        Please determine which parts are correct, and delete or rename any unused statefiles
+        in your GCS bucket.
+
+        Re-run drift detection manually once complete to verify all diffs are properly resolved.`
+)
+
 type DriftStatefilesCommand struct {
 	cli.BaseCommand
 
@@ -42,6 +57,7 @@ type DriftStatefilesCommand struct {
 
 	flags.GitHubFlags
 	flags.RetryFlags
+	driftflags.DriftIssueFlags
 
 	flagGCSBucket string
 
@@ -66,6 +82,7 @@ func (c *DriftStatefilesCommand) Flags() *cli.FlagSet {
 
 	c.GitHubFlags.AddFlags(set)
 	c.RetryFlags.AddFlags(set)
+	c.DriftIssueFlags.AddFlags(set, "guardian-statefile-drift")
 
 	f := set.NewSection("COMMAND OPTIONS")
 
@@ -183,6 +200,29 @@ func (c *DriftStatefilesCommand) Process(ctx context.Context) error {
 	m := driftMessage(statefilesNotInRemote, statefilesNotInLocal)
 	if changesDetected {
 		c.Outf(m)
+	}
+
+	if c.DriftIssueFlags.FlagSkipGitHubIssue {
+		return nil
+	}
+	if c.DriftIssueFlags.FlagGitHubCommentMessageAppend != "" {
+		m = strings.Join([]string{m, c.DriftIssueFlags.FlagGitHubCommentMessageAppend}, "\n\n")
+	}
+	issueService := &drift.GitHubDriftIssueService{
+		GH:         github.NewClient(ctx, c.GitHubFlags.FlagGitHubToken),
+		Owner:      c.GitHubFlags.FlagGitHubOwner,
+		Repo:       c.GitHubFlags.FlagGitHubRepo,
+		IssueTitle: issueTitle,
+		IssueBody:  issueBody,
+	}
+	if changesDetected {
+		if err := issueService.CreateOrUpdateIssue(ctx, c.DriftIssueFlags.FlagGitHubIssueAssignees, c.DriftIssueFlags.FlagGitHubIssueLabels, m); err != nil {
+			return fmt.Errorf("failed to create or update GitHub Issue: %w", err)
+		}
+	} else {
+		if err := issueService.CloseIssues(ctx, c.DriftIssueFlags.FlagGitHubIssueLabels); err != nil {
+			return fmt.Errorf("failed to close GitHub Issues: %w", err)
+		}
 	}
 
 	return nil
