@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package plan
+package initialize
 
 import (
 	"errors"
@@ -21,30 +21,19 @@ import (
 	"github.com/sethvargo/go-githubactions"
 )
 
-// Config defines the of configuration required for running the plan action.
+// Config defines the of configuration required for running Guardian in GitHub workflows.
 type Config struct {
 	// GitHub context values
-	ServerURL  string // this value is used to generate URLs for creating links in pull request comments
-	RunID      int64
-	RunAttempt int64
+	Actor string
 }
 
-// MapGitHubContext maps values from the GitHub context to the PlanConfig.
+// MapGitHubContext maps values from the GitHub context to the Config.
 func (c *Config) MapGitHubContext(context *githubactions.GitHubContext) error {
 	var merr error
-	c.ServerURL = context.ServerURL
-	if c.ServerURL == "" {
-		merr = errors.Join(merr, fmt.Errorf("GITHUB_SERVER_URL is required"))
-	}
 
-	c.RunID = context.RunID
-	if c.RunID == 0 {
-		merr = errors.Join(merr, fmt.Errorf("GITHUB_RUN_ID is required"))
-	}
-
-	c.RunAttempt = context.RunAttempt
-	if c.RunAttempt == 0 {
-		merr = errors.Join(merr, fmt.Errorf("GITHUB_RUN_ATTEMPT is required"))
+	c.Actor = context.Actor
+	if c.Actor == "" {
+		merr = errors.Join(merr, fmt.Errorf("GITHUB_ACTOR is required"))
 	}
 
 	return merr

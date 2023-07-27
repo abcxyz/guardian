@@ -89,6 +89,10 @@ type GitHub interface {
 
 	// ListIssueComments lists existing comments for an issue or pull request.
 	ListIssueComments(ctx context.Context, owner, repo string, number int, opts *github.IssueListCommentsOptions) (*IssueCommentResponse, error)
+
+	// RepoUserPermissionLevel gets the repository permission level for a user. The possible permissions values
+	// are admin, write, read, none.
+	RepoUserPermissionLevel(ctx context.Context, owner, repo, user string) (string, error)
 }
 
 var _ GitHub = (*GitHubClient)(nil)
@@ -320,6 +324,30 @@ func (g *GitHubClient) ListIssueComments(ctx context.Context, owner, repo string
 	}
 
 	return &IssueCommentResponse{Comments: comments, Pagination: pagination}, nil
+}
+
+// RepoUserPermissionLevel gets the repository permission level for a user. The possible permissions values
+// are admin, write, read, none.
+func (g *GitHubClient) RepoUserPermissionLevel(ctx context.Context, owner, repo, user string) (string, error) {
+	var permissionLevel string
+
+	if err := g.withRetries(ctx, func(ctx context.Context) error {
+		ghPermissionLevel, resp, err := g.client.Repositories.GetPermissionLevel(ctx, owner, repo, user)
+		if err != nil {
+			if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
+				return retry.RetryableError(err)
+			}
+			return fmt.Errorf("failed to get repository permission level: %w", err)
+		}
+
+		permissionLevel = ghPermissionLevel.GetPermission()
+
+		return nil
+	}); err != nil {
+		return "", fmt.Errorf("failed to get repository permission level: %w", err)
+	}
+
+	return permissionLevel, nil
 }
 
 func (g *GitHubClient) withRetries(ctx context.Context, retryFunc retry.RetryFunc) error {

@@ -39,6 +39,8 @@ type MockGitHubClient struct {
 	UpdateIssueCommentsErr error
 	DeleteIssueCommentsErr error
 	ListIssueCommentsErr   error
+	RepoPermissionLevelErr error
+	RepoPermissionLevel    string
 }
 
 func (m *MockGitHubClient) ListIssues(ctx context.Context, owner, repo string, opts *github.IssueListByRepoOptions) ([]*Issue, error) {
@@ -143,4 +145,19 @@ func (m *MockGitHubClient) ListIssueComments(ctx context.Context, owner, repo st
 	}
 
 	return &IssueCommentResponse{}, nil
+}
+
+func (m *MockGitHubClient) RepoUserPermissionLevel(ctx context.Context, owner, repo, user string) (string, error) {
+	m.reqMu.Lock()
+	defer m.reqMu.Unlock()
+	m.Reqs = append(m.Reqs, &Request{
+		Name:   "RepoUserPermissionLevel",
+		Params: []any{owner, repo, user},
+	})
+
+	if m.RepoPermissionLevelErr != nil {
+		return "", m.RepoPermissionLevelErr
+	}
+
+	return m.RepoPermissionLevel, nil
 }

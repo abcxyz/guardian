@@ -29,6 +29,7 @@ import (
 	"github.com/abcxyz/guardian/pkg/commands/iamcleanup"
 	"github.com/abcxyz/guardian/pkg/commands/initialize"
 	"github.com/abcxyz/guardian/pkg/commands/plan"
+	"github.com/abcxyz/guardian/pkg/commands/run"
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
 )
@@ -93,6 +94,9 @@ var rootCmd = func() cli.Command {
 						},
 					},
 				}
+			},
+			"run": func() cli.Command {
+				return &run.RunCommand{}
 			},
 		},
 	}

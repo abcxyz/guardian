@@ -28,6 +28,7 @@ import (
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
+	"github.com/sethvargo/go-githubactions"
 )
 
 func TestInitProcess(t *testing.T) {
@@ -42,6 +43,7 @@ func TestInitProcess(t *testing.T) {
 
 	cases := []struct {
 		name                           string
+		config                         *Config
 		directory                      string
 		flagIsGitHubActions            bool
 		flagGitHubOwner                string
@@ -52,6 +54,7 @@ func TestInitProcess(t *testing.T) {
 		flagDeleteOutdatedPlanComments bool
 		flagSkipDetectChanges          bool
 		flagFormat                     string
+		flagRequiredPermissions        []string
 		gitClient                      *git.MockGitClient
 		err                            string
 		expGitHubClientReqs            []*github.Request
@@ -153,6 +156,29 @@ func TestInitProcess(t *testing.T) {
 			expStdout:             "testdata/backends/project1\ntestdata/backends/project2",
 		},
 		{
+			name:                    "requires_permissions",
+			config:                  &Config{Actor: "testuser"},
+			directory:               "testdata",
+			flagIsGitHubActions:     true,
+			flagGitHubOwner:         "owner",
+			flagGitHubRepo:          "repo",
+			flagPullRequestNumber:   1,
+			flagDestRef:             "main",
+			flagSourceRef:           "ldap/feature",
+			flagRequiredPermissions: []string{"admin"},
+			flagSkipDetectChanges:   true,
+			gitClient:               &git.MockGitClient{},
+			expGitHubClientReqs: []*github.Request{
+				{
+					Name:   "RepoUserPermissionLevel",
+					Params: []any{"owner", "repo", "testuser"},
+				},
+			},
+			err:       "testuser does not have the required permissions to run this command.\n\nRequired permissions are [\"admin\"]",
+			expStdout: "",
+			expStderr: "",
+		},
+		{
 			name:                  "errors",
 			directory:             "testdata",
 			flagIsGitHubActions:   true,
@@ -175,10 +201,14 @@ func TestInitProcess(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			githubClient := &github.MockGitHubClient{}
+			actions := githubactions.New(githubactions.WithWriter(os.Stdout))
+			githubClient := &github.MockGitHubClient{
+				RepoPermissionLevel: "read",
+			}
 
 			c := &InitCommand{
 				directory: tc.directory,
+				cfg:       tc.config,
 
 				flagPullRequestNumber:          tc.flagPullRequestNumber,
 				flagDeleteOutdatedPlanComments: tc.flagDeleteOutdatedPlanComments,
@@ -186,12 +216,13 @@ func TestInitProcess(t *testing.T) {
 				flagDestRef:                    tc.flagDestRef,
 				flagSourceRef:                  tc.flagSourceRef,
 				flagSkipDetectChanges:          tc.flagSkipDetectChanges,
+				flagRequiredPermissions:        tc.flagRequiredPermissions,
 				GitHubFlags: flags.GitHubFlags{
 					FlagIsGitHubActions: tc.flagIsGitHubActions,
 					FlagGitHubOwner:     tc.flagGitHubOwner,
 					FlagGitHubRepo:      tc.flagGitHubRepo,
 				},
-
+				actions:      actions,
 				gitClient:    tc.gitClient,
 				githubClient: githubClient,
 			}

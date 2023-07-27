@@ -213,7 +213,7 @@ func (c *PlanRunCommand) Process(ctx context.Context) error {
 	}
 
 	c.Outf("Running Terraform commands")
-	result, err := c.handleTerraformPlan(ctx)
+	result, err := c.terraformPlan(ctx)
 	if err != nil {
 		merr = errors.Join(merr, fmt.Errorf("failed to run Guardian plan: %w", err))
 	}
@@ -314,9 +314,9 @@ func (c *PlanRunCommand) updateResultCommentForActions(ctx context.Context, star
 	return nil
 }
 
-// handleTerraformPlan runs the required Terraform commands for a full run of
+// terraformPlan runs the required Terraform commands for a full run of
 // a Guardian plan using the Terraform CLI.
-func (c *PlanRunCommand) handleTerraformPlan(ctx context.Context) (*RunResult, error) {
+func (c *PlanRunCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 	var stdout, stderr strings.Builder
 	multiStdout := io.MultiWriter(c.Stdout(), &stdout)
 	multiStderr := io.MultiWriter(c.Stderr(), &stderr)
@@ -400,7 +400,7 @@ func (c *PlanRunCommand) handleTerraformPlan(ctx context.Context) (*RunResult, e
 	bucketObjectPath := fmt.Sprintf("guardian-plans/%s/%s/%d/%s", c.GitHubFlags.FlagGitHubOwner, c.GitHubFlags.FlagGitHubRepo, c.flagPullRequestNumber, planFilePath)
 	c.Outf("Uploading plan file to gs://%s/%s", c.flagBucketName, bucketObjectPath)
 
-	if err := c.handleUploadGuardianPlan(ctx, bucketObjectPath, planData, planExitCode); err != nil {
+	if err := c.uploadGuardianPlan(ctx, bucketObjectPath, planData, planExitCode); err != nil {
 		return &RunResult{hasChanges: hasChanges}, fmt.Errorf("failed to upload plan data: %w", err)
 	}
 
@@ -425,8 +425,8 @@ func (c *PlanRunCommand) withActionsOutGroup(msg string, fn func() error) error 
 	return fn()
 }
 
-// handleUploadGuardianPlan uploads the Guardian plan binary to the configured Guardian storage bucket.
-func (c *PlanRunCommand) handleUploadGuardianPlan(ctx context.Context, path string, data []byte, exitCode int) error {
+// uploadGuardianPlan uploads the Guardian plan binary to the configured Guardian storage bucket.
+func (c *PlanRunCommand) uploadGuardianPlan(ctx context.Context, path string, data []byte, exitCode int) error {
 	metadata := make(map[string]string)
 	metadata["plan_exit_code"] = strconv.Itoa(exitCode)
 
