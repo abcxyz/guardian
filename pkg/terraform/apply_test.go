@@ -41,7 +41,6 @@ func TestApplyArgsFromOptions(t *testing.T) {
 				NoColor:         util.Ptr(true),
 			},
 			exp: []string{
-				"apply",
 				"-auto-approve",
 				"-compact-warnings",
 				"-lock=true",
@@ -63,7 +62,6 @@ func TestApplyArgsFromOptions(t *testing.T) {
 				NoColor:         util.Ptr(false),
 			},
 			exp: []string{
-				"apply",
 				"-lock=false",
 				"-lock-timeout=10m",
 				"-input=false",
@@ -73,12 +71,12 @@ func TestApplyArgsFromOptions(t *testing.T) {
 		{
 			name: "empty",
 			opts: &ApplyOptions{},
-			exp:  []string{"apply"},
+			exp:  []string{},
 		},
 		{
 			name: "nil",
 			opts: nil,
-			exp:  []string{"apply"},
+			exp:  []string{},
 		},
 	}
 

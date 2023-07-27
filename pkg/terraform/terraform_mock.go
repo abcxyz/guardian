@@ -81,3 +81,12 @@ func (m *MockTerraformClient) Show(ctx context.Context, stdout, stderr io.Writer
 	}
 	return 0, nil
 }
+
+func (m *MockTerraformClient) Run(ctx context.Context, stdout, stderr io.Writer, subcommand string, args ...string) (int, error) {
+	if m.ShowResponse != nil {
+		stdout.Write([]byte(m.ShowResponse.Stdout))
+		stderr.Write([]byte(m.ShowResponse.Stderr))
+		return m.ShowResponse.ExitCode, m.ShowResponse.Err
+	}
+	return 0, nil
+}

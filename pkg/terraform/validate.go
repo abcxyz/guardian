@@ -17,8 +17,6 @@ package terraform
 import (
 	"context"
 	"io"
-
-	"github.com/abcxyz/guardian/pkg/child"
 )
 
 // ValidateOptions are the set of options for running a terraform validate.
@@ -29,9 +27,7 @@ type ValidateOptions struct {
 
 // validateArgsFromOptions generated the terrafrom validate arguments from the provided options.
 func validateArgsFromOptions(opts *ValidateOptions) []string {
-	args := make([]string, 0, 3) // 3 potential args to be added
-
-	args = append(args, "validate")
+	args := make([]string, 0, 2) // 2 potential args to be added
 
 	if opts == nil {
 		return args
@@ -50,11 +46,5 @@ func validateArgsFromOptions(opts *ValidateOptions) []string {
 
 // Validate runs the terraform validate command.
 func (t *TerraformClient) Validate(ctx context.Context, stdout, stderr io.Writer, opts *ValidateOptions) (int, error) {
-	return child.Run(ctx, &child.RunConfig{ //nolint:wrapcheck
-		Stdout:     stdout,
-		Stderr:     stderr,
-		WorkingDir: t.workingDir,
-		Command:    "terraform",
-		Args:       validateArgsFromOptions(opts),
-	})
+	return t.Run(ctx, stdout, stderr, "validate", validateArgsFromOptions(opts)...)
 }
