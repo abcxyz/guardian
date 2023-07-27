@@ -21,12 +21,14 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
 
 	"github.com/abcxyz/guardian/pkg/util"
 	"github.com/hashicorp/hcl/v2"
+	"github.com/hashicorp/hcl/v2/gohcl"
 	"github.com/hashicorp/hcl/v2/hclparse"
 	"golang.org/x/exp/maps"
 )
@@ -75,6 +77,17 @@ type TerraformResponse struct {
 	ExitCode int
 }
 
+// TerraformBackendConfig represents the terraform backend config block.
+type TerraformBackendConfig struct {
+	GCSBucket *string `hcl:"bucket,attr"`
+	Prefix    *string `hcl:"prefix,attr"`
+}
+
+type TerraformEntrypoint struct {
+	Path        string
+	BackendFile string
+}
+
 // NewTerraformClient creates a new Terraform client.
 func NewTerraformClient(workingDir string) *TerraformClient {
 	return &TerraformClient{
@@ -84,8 +97,8 @@ func NewTerraformClient(workingDir string) *TerraformClient {
 
 // GetEntrypointDirectories gets all the directories that have Terraform config
 // files containing a backend block to be used as an entrypoint module.
-func GetEntrypointDirectories(rootDir string) ([]string, error) {
-	matches := make(map[string]struct{})
+func GetEntrypointDirectories(rootDir string) ([]*TerraformEntrypoint, error) {
+	matches := make(map[string]*TerraformEntrypoint)
 	if err := filepath.WalkDir(rootDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return fmt.Errorf("failed to walk directory %s: %w", path, err)
@@ -108,23 +121,27 @@ func GetEntrypointDirectories(rootDir string) ([]string, error) {
 			return nil
 		}
 
-		absPath, err := util.PathEvalAbs(filepath.Dir(path))
+		absPath, err := util.PathEvalAbs(path)
 		if err != nil {
 			return fmt.Errorf("failed to get absolute path for directory %s: %w", rootDir, err)
 		}
 
-		matches[absPath] = struct{}{}
+		matches[absPath] = &TerraformEntrypoint{
+			Path:        filepath.Dir(absPath),
+			BackendFile: absPath,
+		}
 
 		return nil
 	}); err != nil {
 		return nil, fmt.Errorf("failed to find files: %w", err)
 	}
 
-	dirs := maps.Keys(matches)
+	entrypoints := maps.Values(matches)
+	sort.Slice(entrypoints, func(i, j int) bool {
+		return entrypoints[i].Path < entrypoints[j].Path
+	})
 
-	sort.Strings(dirs)
-
-	return dirs, nil
+	return entrypoints, nil
 }
 
 // hasBackendConfig tests a Terraform config file for the existence of a backend block.
@@ -157,6 +174,49 @@ func hasBackendConfig(path string) (bool, hcl.Diagnostics, error) {
 	}
 
 	return false, diags, nil
+}
+
+// ExtractBackendConfig extracts the backend configuration from the backend block.
+func ExtractBackendConfig(path string) (*TerraformBackendConfig, hcl.Diagnostics, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to read file: %w", err)
+	}
+	return extractBackendConfig(b, path)
+}
+
+func extractBackendConfig(contents []byte, filename string) (*TerraformBackendConfig, hcl.Diagnostics, error) {
+	var diags hcl.Diagnostics
+
+	parser := hclparse.NewParser()
+	file, d := parser.ParseHCL(contents, filename)
+	diags = append(diags, d...)
+
+	if d.HasErrors() {
+		for _, diag := range d {
+			if diag.Summary == "Failed to parse file" {
+				return nil, d, fmt.Errorf("failed to read file: %s", filename)
+			}
+		}
+	}
+
+	rootBlocks, _, d := file.Body.PartialContent(RootSchema)
+	diags = append(diags, d...)
+
+	for _, terraformBlock := range rootBlocks.Blocks.OfType("terraform") {
+		content, _, d := terraformBlock.Body.PartialContent(TerraformSchema)
+		diags = append(diags, d...)
+
+		innerBlocks := content.Blocks.OfType("backend")
+		if len(innerBlocks) > 0 {
+			c := &TerraformBackendConfig{}
+			d := gohcl.DecodeBody(innerBlocks[0].Body, nil, c)
+			diags = append(diags, d...)
+			return c, diags, nil
+		}
+	}
+
+	return nil, diags, nil
 }
 
 // FormatOutputForGitHubDiff formats the Terraform diff output for use with

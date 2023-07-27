@@ -37,7 +37,7 @@ import (
 	"github.com/sethvargo/go-githubactions"
 )
 
-const planCommentPrefix = "**`🔱 Guardian 🔱 PLAN`** -"
+const CommentPrefix = "**`🔱 Guardian 🔱 PLAN`** -"
 
 var _ cli.Command = (*PlanRunCommand)(nil)
 
@@ -240,7 +240,7 @@ func (c *PlanRunCommand) createStartCommentForActions(ctx context.Context) (*git
 		c.GitHubFlags.FlagGitHubOwner,
 		c.GitHubFlags.FlagGitHubRepo,
 		c.flagPullRequestNumber,
-		fmt.Sprintf("%s 🟨 Running for dir: `%s` %s", planCommentPrefix, c.planChildPath, c.gitHubLogURL),
+		fmt.Sprintf("%s 🟨 Running for dir: `%s` %s", CommentPrefix, c.planChildPath, c.gitHubLogURL),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create start comment: %w", err)
@@ -262,7 +262,7 @@ func (c *PlanRunCommand) updateResultCommentForActions(ctx context.Context, star
 	if resulErr != nil {
 		var comment strings.Builder
 
-		fmt.Fprintf(&comment, "%s 🟥 Failed for dir: `%s` %s\n\n<details>\n<summary>Error</summary>\n\n```\n\n%s\n```\n</details>", planCommentPrefix, c.planChildPath, c.gitHubLogURL, resulErr)
+		fmt.Fprintf(&comment, "%s 🟥 Failed for dir: `%s` %s\n\n<details>\n<summary>Error</summary>\n\n```\n\n%s\n```\n</details>", CommentPrefix, c.planChildPath, c.gitHubLogURL, resulErr)
 		if result.commentDetails != "" {
 			fmt.Fprintf(&comment, "\n\n<details>\n<summary>Details</summary>\n\n```diff\n\n%s\n```\n</details>", result.commentDetails)
 		}
@@ -283,7 +283,7 @@ func (c *PlanRunCommand) updateResultCommentForActions(ctx context.Context, star
 	if result.hasChanges {
 		var comment strings.Builder
 
-		fmt.Fprintf(&comment, "%s 🟩 Successful for dir: `%s` %s", planCommentPrefix, c.planChildPath, c.gitHubLogURL)
+		fmt.Fprintf(&comment, "%s 🟩 Successful for dir: `%s` %s", CommentPrefix, c.planChildPath, c.gitHubLogURL)
 		if result.commentDetails != "" {
 			fmt.Fprintf(&comment, "\n\n<details>\n<summary>Details</summary>\n\n```diff\n\n%s\n```\n</details>", result.commentDetails)
 		}
@@ -306,7 +306,7 @@ func (c *PlanRunCommand) updateResultCommentForActions(ctx context.Context, star
 		c.GitHubFlags.FlagGitHubOwner,
 		c.GitHubFlags.FlagGitHubRepo,
 		startComment.ID,
-		fmt.Sprintf("%s 🟦 No changes for dir: `%s` %s", planCommentPrefix, c.planChildPath, c.gitHubLogURL),
+		fmt.Sprintf("%s 🟦 No changes for dir: `%s` %s", CommentPrefix, c.planChildPath, c.gitHubLogURL),
 	); err != nil {
 		return fmt.Errorf("failed to update plan comment: %w", err)
 	}

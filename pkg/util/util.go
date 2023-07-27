@@ -19,37 +19,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
-
-	"golang.org/x/exp/maps"
 )
 
 // Ptr returns the pointer of a given value.
 func Ptr[T any](v T) *T {
 	return &v
-}
-
-// GetSliceIntersection returns the intersection between two slices.
-func GetSliceIntersection(a, b []string) []string {
-	intersection := make(map[string]any, 0)
-
-	// even if slices were 100s or 1000s of records, the performance is negligible
-	// performance can be improved later if needed
-	for _, outer := range a {
-		for _, inner := range b {
-			if outer == inner {
-				intersection[outer] = struct{}{}
-				break
-			}
-		}
-	}
-
-	result := maps.Keys(intersection)
-
-	sort.Strings(result)
-
-	return result
 }
 
 // ChildPath returns the child path with respect to the base directory

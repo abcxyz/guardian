@@ -25,7 +25,9 @@ import (
 	"github.com/abcxyz/guardian/internal/version"
 	"github.com/abcxyz/guardian/pkg/commands/apply"
 	"github.com/abcxyz/guardian/pkg/commands/drift"
+	"github.com/abcxyz/guardian/pkg/commands/drift/statefiles"
 	"github.com/abcxyz/guardian/pkg/commands/iamcleanup"
+	"github.com/abcxyz/guardian/pkg/commands/initialize"
 	"github.com/abcxyz/guardian/pkg/commands/plan"
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
@@ -42,14 +44,14 @@ var rootCmd = func() cli.Command {
 		Name:    "guardian",
 		Version: version.HumanVersion,
 		Commands: map[string]cli.CommandFactory{
+			"init": func() cli.Command {
+				return &initialize.InitCommand{}
+			},
 			"plan": func() cli.Command {
 				return &cli.RootCommand{
 					Name:        "plan",
 					Description: "Perform operations related to Terraform planning",
 					Commands: map[string]cli.CommandFactory{
-						"init": func() cli.Command {
-							return &plan.PlanInitCommand{}
-						},
 						"run": func() cli.Command {
 							return &plan.PlanRunCommand{}
 						},
@@ -77,6 +79,17 @@ var rootCmd = func() cli.Command {
 						},
 						"cleanup": func() cli.Command {
 							return &iamcleanup.IAMCleanupCommand{}
+						},
+					},
+				}
+			},
+			"drift": func() cli.Command {
+				return &cli.RootCommand{
+					Name:        "drift",
+					Description: "Perform operations related to drift",
+					Commands: map[string]cli.CommandFactory{
+						"statefiles": func() cli.Command {
+							return &statefiles.DriftStatefilesCommand{}
 						},
 					},
 				}
