@@ -18,8 +18,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-
-	"github.com/abcxyz/guardian/pkg/child"
 )
 
 // PlanOptions are the set of options for running a terraform plan.
@@ -36,8 +34,6 @@ type PlanOptions struct {
 // planArgsFromOptions generated the terrafrom plan arguments from the provided options.
 func planArgsFromOptions(opts *PlanOptions) []string {
 	args := make([]string, 0, 7) // 7 potential args to be added
-
-	args = append(args, "plan")
 
 	if opts == nil {
 		return args
@@ -76,11 +72,5 @@ func planArgsFromOptions(opts *PlanOptions) []string {
 
 // Plan runs the Terraform plan command.
 func (t *TerraformClient) Plan(ctx context.Context, stdout, stderr io.Writer, opts *PlanOptions) (int, error) {
-	return child.Run(ctx, &child.RunConfig{ //nolint:wrapcheck
-		Stdout:     stdout,
-		Stderr:     stderr,
-		WorkingDir: t.workingDir,
-		Command:    "terraform",
-		Args:       planArgsFromOptions(opts),
-	})
+	return t.Run(ctx, stdout, stderr, "plan", planArgsFromOptions(opts)...)
 }

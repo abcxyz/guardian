@@ -40,7 +40,6 @@ func TestInitArgsFromOptions(t *testing.T) {
 				NoColor:     util.Ptr(true),
 			},
 			exp: []string{
-				"init",
 				"-backend=true",
 				"-input=true",
 				"-no-color",
@@ -60,7 +59,6 @@ func TestInitArgsFromOptions(t *testing.T) {
 				NoColor:     util.Ptr(false),
 			},
 			exp: []string{
-				"init",
 				"-backend=false",
 				"-input=false",
 				"-lock=false",
@@ -71,12 +69,12 @@ func TestInitArgsFromOptions(t *testing.T) {
 		{
 			name: "empty",
 			opts: &InitOptions{},
-			exp:  []string{"init"},
+			exp:  []string{},
 		},
 		{
 			name: "nil",
 			opts: nil,
-			exp:  []string{"init"},
+			exp:  []string{},
 		},
 	}
 

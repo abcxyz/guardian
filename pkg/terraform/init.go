@@ -18,8 +18,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-
-	"github.com/abcxyz/guardian/pkg/child"
 )
 
 // InitOptions are the set of options for running a terraform init.
@@ -34,9 +32,7 @@ type InitOptions struct {
 
 // initArgsFromOptions generated the terrafrom init arguments from the provided options.
 func initArgsFromOptions(opts *InitOptions) []string {
-	args := make([]string, 0, 7) // 7 potential args to be added
-
-	args = append(args, "init")
+	args := make([]string, 0, 6) // 6 potential args to be added
 
 	if opts == nil {
 		return args
@@ -71,11 +67,5 @@ func initArgsFromOptions(opts *InitOptions) []string {
 
 // Init runs the terraform init command.
 func (t *TerraformClient) Init(ctx context.Context, stdout, stderr io.Writer, opts *InitOptions) (int, error) {
-	return child.Run(ctx, &child.RunConfig{ //nolint:wrapcheck
-		Stdout:     stdout,
-		Stderr:     stderr,
-		WorkingDir: t.workingDir,
-		Command:    "terraform",
-		Args:       initArgsFromOptions(opts),
-	})
+	return t.Run(ctx, stdout, stderr, "init", initArgsFromOptions(opts)...)
 }

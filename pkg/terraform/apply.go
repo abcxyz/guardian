@@ -18,8 +18,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-
-	"github.com/abcxyz/guardian/pkg/child"
 )
 
 // ApplyOptions are the set of options for running a terraform apply.
@@ -35,9 +33,7 @@ type ApplyOptions struct {
 
 // applyArgsFromOptions generated the terrafrom apply arguments from the provided options.
 func applyArgsFromOptions(opts *ApplyOptions) []string {
-	args := make([]string, 0, 9) // 9 potential args to be added
-
-	args = append(args, "apply")
+	args := make([]string, 0, 7) // 7 potential args to be added
 
 	if opts == nil {
 		return args
@@ -76,11 +72,5 @@ func applyArgsFromOptions(opts *ApplyOptions) []string {
 
 // Apply runs the Terraform apply command.
 func (t *TerraformClient) Apply(ctx context.Context, stdout, stderr io.Writer, opts *ApplyOptions) (int, error) {
-	return child.Run(ctx, &child.RunConfig{ //nolint:wrapcheck
-		Stdout:     stdout,
-		Stderr:     stderr,
-		WorkingDir: t.workingDir,
-		Command:    "terraform",
-		Args:       applyArgsFromOptions(opts),
-	})
+	return t.Run(ctx, stdout, stderr, "apply", applyArgsFromOptions(opts)...)
 }

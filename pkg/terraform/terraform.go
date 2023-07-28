@@ -45,6 +45,26 @@ var (
 			`((\-(\/\+)*)|(\+(\/\-)*)|(!))`) // match characters to swap whitespace for git diff (+, +/-, -, -/+, !)
 )
 
+// InitRequiredCommands are the Terraform commands that
+// require terraform init to be run first.
+var InitRequiredCommands = map[string]struct{}{
+	"validate":  {},
+	"plan":      {},
+	"apply":     {},
+	"destroy":   {},
+	"console":   {},
+	"graph":     {},
+	"import":    {},
+	"output":    {},
+	"providers": {},
+	"refresh":   {},
+	"show":      {},
+	"state":     {},
+	"taint":     {},
+	"untaint":   {},
+	"workspace": {},
+}
+
 var _ Terraform = (*TerraformClient)(nil)
 
 // Terraform is the interface for working with the Terraform CLI.
@@ -63,6 +83,9 @@ type Terraform interface {
 
 	// Show runs the terraform show command.
 	Show(context.Context, io.Writer, io.Writer, *ShowOptions) (int, error)
+
+	// Run runs a terraform command.
+	Run(context.Context, io.Writer, io.Writer, string, ...string) (int, error)
 }
 
 // TerraformClient implements the Terraform interface.

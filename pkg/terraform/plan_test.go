@@ -41,7 +41,6 @@ func TestPlanArgsFromOptions(t *testing.T) {
 				Out:              util.Ptr("outfile"),
 			},
 			exp: []string{
-				"plan",
 				"-compact-warnings",
 				"-detailed-exitcode",
 				"-no-color",
@@ -63,7 +62,6 @@ func TestPlanArgsFromOptions(t *testing.T) {
 				Out:              util.Ptr("outfile"),
 			},
 			exp: []string{
-				"plan",
 				"-input=false",
 				"-lock=false",
 				"-lock-timeout=10m",
@@ -73,12 +71,12 @@ func TestPlanArgsFromOptions(t *testing.T) {
 		{
 			name: "empty",
 			opts: &PlanOptions{},
-			exp:  []string{"plan"},
+			exp:  []string{},
 		},
 		{
 			name: "nil",
 			opts: nil,
-			exp:  []string{"plan"},
+			exp:  []string{},
 		},
 	}
 

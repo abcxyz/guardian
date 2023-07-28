@@ -37,7 +37,6 @@ func TestShowArgsFromOptions(t *testing.T) {
 				JSON:    util.Ptr(true),
 			},
 			exp: []string{
-				"show",
 				"-no-color",
 				"-json",
 				"filename",
@@ -50,17 +49,17 @@ func TestShowArgsFromOptions(t *testing.T) {
 				NoColor: util.Ptr(false),
 				JSON:    util.Ptr(false),
 			},
-			exp: []string{"show", "filename"},
+			exp: []string{"filename"},
 		},
 		{
 			name: "empty",
 			opts: &ShowOptions{},
-			exp:  []string{"show"},
+			exp:  []string{},
 		},
 		{
 			name: "nil",
 			opts: nil,
-			exp:  []string{"show"},
+			exp:  []string{},
 		},
 	}
 

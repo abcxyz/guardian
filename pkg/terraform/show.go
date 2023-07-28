@@ -17,8 +17,6 @@ package terraform
 import (
 	"context"
 	"io"
-
-	"github.com/abcxyz/guardian/pkg/child"
 )
 
 // ShowOptions are the set of options for running a terraform show.
@@ -30,9 +28,7 @@ type ShowOptions struct {
 
 // showArgsFromOptions generated the terrafrom show arguments from the provided options.
 func showArgsFromOptions(opts *ShowOptions) []string {
-	args := make([]string, 0, 4) // 4 potential args to be added
-
-	args = append(args, "show")
+	args := make([]string, 0, 3) // 3 potential args to be added
 
 	if opts == nil {
 		return args
@@ -55,11 +51,5 @@ func showArgsFromOptions(opts *ShowOptions) []string {
 
 // Show runs the Terraform show command.
 func (t *TerraformClient) Show(ctx context.Context, stdout, stderr io.Writer, opts *ShowOptions) (int, error) {
-	return child.Run(ctx, &child.RunConfig{ //nolint:wrapcheck
-		Stdout:     stdout,
-		Stderr:     stderr,
-		WorkingDir: t.workingDir,
-		Command:    "terraform",
-		Args:       showArgsFromOptions(opts),
-	})
+	return t.Run(ctx, stdout, stderr, "show", showArgsFromOptions(opts)...)
 }
