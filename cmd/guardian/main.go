@@ -23,6 +23,7 @@ import (
 	"syscall"
 
 	"github.com/abcxyz/guardian/internal/version"
+	"github.com/abcxyz/guardian/pkg/commands/apply"
 	"github.com/abcxyz/guardian/pkg/commands/drift"
 	"github.com/abcxyz/guardian/pkg/commands/drift/statefiles"
 	"github.com/abcxyz/guardian/pkg/commands/iamcleanup"
@@ -57,9 +58,17 @@ var rootCmd = func() cli.Command {
 					},
 				}
 			},
-			// "apply": func() cli.Command {
-			// 	return &ApplyCommand{}
-			// },
+			"apply": func() cli.Command {
+				return &cli.RootCommand{
+					Name:        "apply",
+					Description: "Perform operations related to Terraform apply",
+					Commands: map[string]cli.CommandFactory{
+						"run": func() cli.Command {
+							return &apply.RunCommand{}
+						},
+					},
+				}
+			},
 			"iam": func() cli.Command {
 				return &cli.RootCommand{
 					Name:        "iam",
