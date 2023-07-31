@@ -155,13 +155,13 @@ func (c *DetectIamDriftCommand) Run(ctx context.Context, args []string) error {
 	if c.DriftIssueFlags.FlagGitHubCommentMessageAppend != "" {
 		m = strings.Join([]string{m, c.DriftIssueFlags.FlagGitHubCommentMessageAppend}, "\n\n")
 	}
-	issueService := &GitHubDriftIssueService{
-		GH:         github.NewClient(ctx, c.GitHubFlags.FlagGitHubToken),
-		Owner:      c.GitHubFlags.FlagGitHubOwner,
-		Repo:       c.GitHubFlags.FlagGitHubRepo,
-		IssueTitle: issueTitle,
-		IssueBody:  issueBody,
-	}
+	issueService := NewGitHubDriftIssueService(
+		github.NewClient(ctx, c.GitHubFlags.FlagGitHubToken),
+		c.GitHubFlags.FlagGitHubOwner,
+		c.GitHubFlags.FlagGitHubRepo,
+		issueTitle,
+		issueBody,
+	)
 	if changesDetected {
 		if err := issueService.CreateOrUpdateIssue(ctx, c.DriftIssueFlags.FlagGitHubIssueAssignees, c.DriftIssueFlags.FlagGitHubIssueLabels, m); err != nil {
 			return fmt.Errorf("failed to create or update GitHub Issue: %w", err)
