@@ -63,7 +63,7 @@ runs:
             owner: context.repo.owner,
             repo: context.repo.repo,
             issue_number: context.issue.number,
-            body: `**\`🔱 Guardian 🔱\`** - 🟨 **\`PLAN\`** Running for dir: \`${{inputs.working_directory}}\` [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }})]`,
+            body: `**\`🔱 Guardian 🔱 PLAN\`** - 🟨 Running for dir: \`${{inputs.working_directory}}\` [[logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }})]`,
           });
           return prComment.id;
 
@@ -236,7 +236,7 @@ runs:
             owner: context.repo.owner,
             repo: context.repo.repo,
             comment_id: process.env.COMMENT_ID,
-            body: `**\`🔱 Guardian 🔱\`** - 🟥 **\`PLAN\`** Failed for dir: \`${process.env.WORKING_DIRECTORY}\` [[logs](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}/attempts/${process.env.GITHUB_RUN_ATTEMPT})]
+            body: `**\`🔱 Guardian 🔱 PLAN\`** - 🟥 Failed for dir: \`${process.env.WORKING_DIRECTORY}\` [[logs](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}/attempts/${process.env.GITHUB_RUN_ATTEMPT})]
           <details>
           <summary>Details</summary>\n
           \`\`\`diff\n
@@ -278,7 +278,7 @@ runs:
             owner: context.repo.owner,
             repo: context.repo.repo,
             comment_id: process.env.COMMENT_ID,
-            body: `**\`🔱 Guardian 🔱\`** - 🟩 **\`PLAN\`** Successful for dir: \`${process.env.WORKING_DIRECTORY}\` [[logs](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}/attempts/${process.env.GITHUB_RUN_ATTEMPT})]
+            body: `**\`🔱 Guardian 🔱 PLAN\`** - 🟩 Successful for dir: \`${process.env.WORKING_DIRECTORY}\` [[logs](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}/attempts/${process.env.GITHUB_RUN_ATTEMPT})]
 
           <details>
           <summary>Diff</summary>\n
