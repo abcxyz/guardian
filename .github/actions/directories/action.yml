@@ -15,7 +15,6 @@
 name: 'Guardian Directories'
 description: |-
   Use this action to get a list of the Terraform directories to use with Guardian for your repository. Guardian will find and use all directories that contain a Terraform backend as an allowlist.
-
 inputs:
   terraform_directory:
     description: 'A sub-directory for all Terraform files. This value defaults to the root of the repository.'
@@ -33,12 +32,10 @@ inputs:
     description: 'Use the respository default branch HEAD and HEAD~1 to get all file changes to determine the directories run Guardian Apply commands for.'
     required: false
     default: 'false'
-
 outputs:
   directories:
     description: 'The directories with Terraform changes as configured by the action input.'
     value: '${{ steps.plan_dirs.outputs.dirs || steps.apply_dirs.outputs.dirs || steps.dirs.outputs.dirs }}'
-
 runs:
   using: 'composite'
   steps:
@@ -70,7 +67,6 @@ runs:
 
         echo "dirs=$OUTPUT_DIRS"
         echo "dirs=$OUTPUT_DIRS" >> $GITHUB_OUTPUT
-
     - name: 'Get Plan Directories'
       if: '${{ inputs.detect_plan_changes == ''true'' }}'
       id: 'plan_dirs'
@@ -128,7 +124,6 @@ runs:
 
         echo "dirs=$OUTPUT_DIRS"
         echo "dirs=$OUTPUT_DIRS" >> $GITHUB_OUTPUT
-
     - name: 'Get Apply Directories'
       if: '${{ inputs.detect_apply_changes == ''true'' }}'
       id: 'apply_dirs'

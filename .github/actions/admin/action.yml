@@ -15,7 +15,6 @@
 name: 'Guardian Admin'
 description: |-
   Use this action to run Terraform commands as the Terraform service account. This action can only be run by respository administrators.
-
 inputs:
   command:
     description: 'COMMAND - The Terraform command to run including any arguments (this value is appended to the terraform command).'
@@ -45,7 +44,6 @@ inputs:
     description: 'The duration Terraform should wait to obtain a lock when running commands that modify state.'
     required: false
     default: '10m'
-
 runs:
   using: 'composite'
   steps:
@@ -58,7 +56,6 @@ runs:
       run: |-
         echo "::error ::Guardian Admin can only be run from the default branch ($DEFAULT_BRANCH)."
         exit 1
-
     - name: 'Validate Admin Permission'
       if: '${{ contains(fromJSON(''["true", "True", "TRUE", "1", "T", "t"]''), inputs.require_admin) }}'
       shell: 'bash'
@@ -71,7 +68,6 @@ runs:
           echo "::error ::Actor @$GITHUB_ACTOR does not have admin permission to perform these operations."
           exit 1
         fi
-
     - name: 'Checkout PR'
       if: '${{ inputs.number != '''' }}'
       shell: 'bash'
@@ -80,16 +76,14 @@ runs:
         NUMBER: '${{ inputs.number }}'
       run: |-
         gh pr checkout $NUMBER
-
     - name: 'Setup Terraform'
-      uses: 'abcxyz/secure-setup-terraform@78e3f2fdfb7ebf59ce42141f6dd93bdd65bf04ed' # ratchet:abcxyz/secure-setup-terraform@v0.2.5
+      uses: 'abcxyz/secure-setup-terraform@eba2f9ad6a23da76d4e5996fe1c2850cc8ca92d9' # ratchet:abcxyz/secure-setup-terraform@main
       with:
         terraform_version: '${{ inputs.terraform_version }}'
         terraform_module_location: './${{ inputs.working_directory }}'
         terraform_lockfile_location: './${{ inputs.working_directory }}'
         protect_lockfile: '${{ inputs.protect_lockfile }}'
         terraform_wrapper: false
-
     - name: 'Terraform Init'
       # only if inputs.terraform_init is a truthy value
       if: '${{ contains(fromJSON(''["true", "True", "TRUE", "1", "T", "t"]''), inputs.terraform_init) }}'
@@ -99,7 +93,6 @@ runs:
         TF_IN_AUTOMATION: 'true'
       run: |-
         terraform init -input=false
-
     - name: 'Run Command'
       shell: 'bash'
       working-directory: '${{ inputs.working_directory }}'

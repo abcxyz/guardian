@@ -15,7 +15,6 @@
 name: 'Guardian Plan'
 description: |-
   Use this action to run a Terraform Plan process for pull requests.
-
 inputs:
   working_directory:
     description: 'The working directory for Guardian to execute commands in.'
@@ -43,7 +42,6 @@ inputs:
     description: 'The max retry delay in seconds when handling failures.'
     required: false
     default: '60'
-
 runs:
   using: 'composite'
   steps:
@@ -54,10 +52,9 @@ runs:
         OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
       run: |-
         echo "Unknown error, see logs for details." > $OUT_FILENAME
-
     - name: 'Start Comment'
       id: 'comment'
-      uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
+      uses: 'actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410' # ratchet:actions/github-script@v6
       with:
         github-token: '${{ github.token }}'
         retries: '${{ inputs.max_retries }}'
@@ -71,14 +68,13 @@ runs:
           return prComment.id;
 
     - name: 'Setup Terraform'
-      uses: 'abcxyz/secure-setup-terraform@78e3f2fdfb7ebf59ce42141f6dd93bdd65bf04ed' # ratchet:abcxyz/secure-setup-terraform@v0.2.5
+      uses: 'abcxyz/secure-setup-terraform@eba2f9ad6a23da76d4e5996fe1c2850cc8ca92d9' # ratchet:abcxyz/secure-setup-terraform@main
       with:
         terraform_version: '${{ inputs.terraform_version }}'
         terraform_module_location: './${{ inputs.working_directory }}'
         terraform_lockfile_location: './${{ inputs.working_directory }}'
         protect_lockfile: '${{ inputs.protect_lockfile }}'
         terraform_wrapper: false
-
     - name: 'Terraform Format'
       shell: 'bash'
       working-directory: '${{ inputs.working_directory }}'
@@ -88,7 +84,6 @@ runs:
       run: |-
         echo "# Terraform Format" > $OUT_FILENAME
         terraform fmt -check -diff -recursive 2>&1 | tee -a $OUT_FILENAME
-
     - name: 'Terraform Init'
       shell: 'bash'
       working-directory: '${{ inputs.working_directory }}'
@@ -98,7 +93,6 @@ runs:
       run: |-
         echo "# Terraform Init" > $OUT_FILENAME
         terraform init -input=false -no-color 2>&1 | tee -a $OUT_FILENAME
-
     - name: 'Terraform Validate'
       shell: 'bash'
       working-directory: '${{ inputs.working_directory }}'
@@ -108,7 +102,6 @@ runs:
       run: |-
         echo "# Terraform Validate" > $OUT_FILENAME
         terraform validate -no-color 2>&1 | tee -a $OUT_FILENAME
-
     - name: 'Terraform Plan'
       shell: 'bash'
       working-directory: '${{ inputs.working_directory }}'
@@ -132,7 +125,6 @@ runs:
         fi
 
         exit 0
-
     - name: 'Terraform Show'
       shell: 'bash'
       working-directory: '${{ inputs.working_directory }}'
@@ -142,7 +134,6 @@ runs:
       run: |-
         echo "# Terraform Show" > $OUT_FILENAME
         terraform show -no-color tfplan.binary 2>&1 | tee -a $OUT_FILENAME
-
     - name: 'GitHub Format'
       shell: 'bash'
       working-directory: '${{ inputs.working_directory }}'
@@ -151,7 +142,6 @@ runs:
       run: |-
         sed -i -E 's|^([[:space:]]*)([~])|\1\!|g' $OUT_FILENAME
         sed -i -E 's|^([[:space:]]*)([-+\!])|\2\1|g' $OUT_FILENAME
-
     - name: 'Create Success File'
       shell: 'bash'
       working-directory: '${{ inputs.working_directory }}'
@@ -160,19 +150,16 @@ runs:
         SUCCESS_FILENAME: 'success_${{ github.run_id }}_${{ github.run_attempt }}.txt'
       run: |-
         cp $OUT_FILENAME ${{ env.SUCCESS_FILENAME }}
-
     - name: 'Setup Node'
-      uses: 'actions/setup-node@64ed1c7eab4cce3362f8c340dee64e5eaeef8f7c' # ratchet:actions/setup-node@v3
+      uses: 'actions/setup-node@e33196f7422957bea03ed53f6fbb155025ffc7b8' # ratchet:actions/setup-node@v3
       with:
         node-version: '16'
-
     - name: 'Install Google Cloud Storage SDK'
       shell: 'bash'
       run: |-
         npm install @google-cloud/storage@~6.9.5
-
     - name: 'Upload Plan File'
-      uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
+      uses: 'actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410' # ratchet:actions/github-script@v6
       env:
         OUT_FILEPATH: '${{ inputs.working_directory }}/out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
         GUARDIAN_PLAN_PREFIX: 'guardian-plans/${{ github.repository }}/${{ github.event.pull_request.number }}/${{ inputs.working_directory }}'
@@ -220,7 +207,6 @@ runs:
             core.error(errString);
             core.setFailed("Failed to upload plan file");
           }
-
     - name: 'Ensure Outfile'
       if: '${{ failure() }}'
       shell: 'bash'
@@ -229,10 +215,9 @@ runs:
         OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
       run: |-
         touch $OUT_FILENAME
-
     - name: 'Failure Comment'
       if: '${{ failure() }}'
-      uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
+      uses: 'actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410' # ratchet:actions/github-script@v6
       env:
         COMMENT_ID: '${{ steps.comment.outputs.result }}'
         OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
@@ -262,7 +247,7 @@ runs:
 
     - name: 'Success Comment'
       if: '${{ success() }}'
-      uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
+      uses: 'actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410' # ratchet:actions/github-script@v6
       env:
         COMMENT_ID: '${{ steps.comment.outputs.result }}'
         PLAN_EXIT_CODE: '${{ env.PLAN_EXIT_CODE }}'
