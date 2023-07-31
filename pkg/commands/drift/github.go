@@ -23,11 +23,15 @@ import (
 )
 
 type GitHubDriftIssueService struct {
-	GH         *github.GitHubClient
-	Owner      string
-	Repo       string
-	IssueTitle string
-	IssueBody  string
+	gh         *github.GitHubClient
+	owner      string
+	repo       string
+	issueTitle string
+	issueBody  string
+}
+
+func NewGitHubDriftIssueService(gh *github.GitHubClient, owner, repo, issueTitle, issueBody string) *GitHubDriftIssueService {
+	return &GitHubDriftIssueService{gh, owner, repo, issueTitle, issueBody}
 }
 
 func (s *GitHubDriftIssueService) CreateOrUpdateIssue(ctx context.Context, assignees, labels []string, message string) error {
@@ -36,27 +40,27 @@ func (s *GitHubDriftIssueService) CreateOrUpdateIssue(ctx context.Context, assig
 		return fmt.Errorf("invalid argument - at least one 'label' must be provided")
 	}
 
-	issues, err := s.GH.ListIssues(ctx, s.Owner, s.Repo, &githubAPI.IssueListByRepoOptions{
+	issues, err := s.gh.ListIssues(ctx, s.owner, s.repo, &githubAPI.IssueListByRepoOptions{
 		Labels: labels,
 		State:  github.Open,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to list GitHub issues for %s/%s: %w", s.Owner, s.Repo, err)
+		return fmt.Errorf("failed to list GitHub issues for %s/%s: %w", s.owner, s.repo, err)
 	}
 
 	var issueNumber int
 	if len(issues) == 0 {
-		issue, err := s.GH.CreateIssue(ctx, s.Owner, s.Repo, issueTitle, issueBody, assignees, labels)
+		issue, err := s.gh.CreateIssue(ctx, s.owner, s.repo, issueTitle, issueBody, assignees, labels)
 		if err != nil {
-			return fmt.Errorf("failed to create GitHub issue for %s/%s with assignees %s and labels %s: %w", s.Owner, s.Repo, assignees, labels, err)
+			return fmt.Errorf("failed to create GitHub issue for %s/%s with assignees %s and labels %s: %w", s.owner, s.repo, assignees, labels, err)
 		}
 		issueNumber = issue.Number
 	} else {
 		issueNumber = issues[0].Number
 	}
 
-	if _, err := s.GH.CreateIssueComment(ctx, s.Owner, s.Repo, issueNumber, message); err != nil {
-		return fmt.Errorf("failed to comment on issue %s/%s %d: %w", s.Owner, s.Repo, issueNumber, err)
+	if _, err := s.gh.CreateIssueComment(ctx, s.owner, s.repo, issueNumber, message); err != nil {
+		return fmt.Errorf("failed to comment on issue %s/%s %d: %w", s.owner, s.repo, issueNumber, err)
 	}
 
 	return nil
@@ -67,19 +71,19 @@ func (s *GitHubDriftIssueService) CloseIssues(ctx context.Context, labels []stri
 	if len(labels) == 0 {
 		return fmt.Errorf("invalid argument - at least one 'label' must be provided")
 	}
-	issues, err := s.GH.ListIssues(ctx, s.Owner, s.Repo, &githubAPI.IssueListByRepoOptions{
+	issues, err := s.gh.ListIssues(ctx, s.owner, s.repo, &githubAPI.IssueListByRepoOptions{
 		Labels: labels,
 		State:  github.Open,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to list GitHub issues for %s/%s: %w", s.Owner, s.Repo, err)
+		return fmt.Errorf("failed to list GitHub issues for %s/%s: %w", s.owner, s.repo, err)
 	}
 	for _, issueToClose := range issues {
-		if _, err := s.GH.CreateIssueComment(ctx, s.Owner, s.Repo, issueToClose.Number, "Drift Resolved."); err != nil {
-			return fmt.Errorf("failed to comment on issue %s/%s %d: %w", s.Owner, s.Repo, issueToClose.Number, err)
+		if _, err := s.gh.CreateIssueComment(ctx, s.owner, s.repo, issueToClose.Number, "Drift Resolved."); err != nil {
+			return fmt.Errorf("failed to comment on issue %s/%s %d: %w", s.owner, s.repo, issueToClose.Number, err)
 		}
-		if err := s.GH.CloseIssue(ctx, s.Owner, s.Repo, issueToClose.Number); err != nil {
-			return fmt.Errorf("failed to close GitHub issue for %s/%s %d: %w", s.Owner, s.Repo, issueToClose.Number, err)
+		if err := s.gh.CloseIssue(ctx, s.owner, s.repo, issueToClose.Number); err != nil {
+			return fmt.Errorf("failed to close GitHub issue for %s/%s %d: %w", s.owner, s.repo, issueToClose.Number, err)
 		}
 	}
 	return nil

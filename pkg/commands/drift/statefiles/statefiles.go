@@ -62,7 +62,7 @@ type DriftStatefilesCommand struct {
 	flagGCSBucket string
 
 	terraformParser parser.Terraform
-	issueService    drift.GitHubDriftIssueService
+	issueService    *drift.GitHubDriftIssueService
 }
 
 func (c *DriftStatefilesCommand) Desc() string {
@@ -114,13 +114,13 @@ func (c *DriftStatefilesCommand) Run(ctx context.Context, args []string) error {
 	}
 	c.directory = dirAbs
 
-	c.issueService = drift.GitHubDriftIssueService{
-		GH:         github.NewClient(ctx, c.GitHubFlags.FlagGitHubToken),
-		Owner:      c.GitHubFlags.FlagGitHubOwner,
-		Repo:       c.GitHubFlags.FlagGitHubRepo,
-		IssueTitle: issueTitle,
-		IssueBody:  issueBody,
-	}
+	c.issueService = drift.NewGitHubDriftIssueService(
+		github.NewClient(ctx, c.GitHubFlags.FlagGitHubToken),
+		c.GitHubFlags.FlagGitHubOwner,
+		c.GitHubFlags.FlagGitHubRepo,
+		issueTitle,
+		issueBody,
+	)
 	c.terraformParser, err = parser.NewTerraformParser(ctx, "")
 	if err != nil {
 		return fmt.Errorf("failed to create terraform parser: %w", err)
