@@ -15,7 +15,6 @@
 name: 'Guardian Apply'
 description: |-
   Use this action to run a Terraform Apply process for merged pull requests.
-
 inputs:
   working_directory:
     description: 'The working directory for Guardian to execute commands in.'
@@ -43,7 +42,6 @@ inputs:
     description: 'The max retry delay in seconds when handling failures.'
     required: false
     default: '60'
-
 runs:
   using: 'composite'
   steps:
@@ -54,7 +52,6 @@ runs:
         OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
       run: |-
         echo "Unknown error, see logs for details." > $OUT_FILENAME
-
     - name: 'Validate Run Number'
       if: '${{ github.run_attempt > 1 }}'
       shell: 'bash'
@@ -66,18 +63,15 @@ runs:
         echo "$MSG" > $OUT_FILENAME
         echo "::error ::$MSG"
         exit 1
-
     # must come first to ensure these exist to delete plan file on errors
     - name: 'Setup Node'
-      uses: 'actions/setup-node@64ed1c7eab4cce3362f8c340dee64e5eaeef8f7c' # ratchet:actions/setup-node@v3
+      uses: 'actions/setup-node@e33196f7422957bea03ed53f6fbb155025ffc7b8' # ratchet:actions/setup-node@v3
       with:
         node-version: '16'
-
     - name: 'Install Google Cloud Storage SDK'
       shell: 'bash'
       run: |-
         npm install @google-cloud/storage@~6.9.5
-
     - name: 'Validate Event'
       if: '${{ github.event_name != ''push'' }}'
       shell: 'bash'
@@ -89,10 +83,9 @@ runs:
         echo "$MSG" > $OUT_FILENAME
         echo "::error ::$MSG"
         exit 1
-
     - name: 'Get PR Number'
       id: 'get-pr'
-      uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
+      uses: 'actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410' # ratchet:actions/github-script@v6
       with:
         github-token: '${{ github.token }}'
         retries: '${{ inputs.max_retries }}'
@@ -113,10 +106,9 @@ runs:
           }
 
           return pullRequest.number;
-
     - name: 'Determine Plan Diff'
       id: 'has-diff'
-      uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
+      uses: 'actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410' # ratchet:actions/github-script@v6
       env:
         OUT_FILEPATH: '${{ inputs.working_directory }}/out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
         GUARDIAN_PLAN_PREFIX: 'guardian-plans/${{ github.repository }}/${{ steps.get-pr.outputs.result }}/${{ inputs.working_directory }}'
@@ -168,11 +160,10 @@ runs:
             core.error(errString);
             core.setFailed("Failed to determine plan diff.");
           }
-
     - name: 'Start Comment'
       id: 'comment'
       if: '${{ steps.has-diff.outputs.result == ''true'' }}'
-      uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
+      uses: 'actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410' # ratchet:actions/github-script@v6
       env:
         WORKING_DIRECTORY: '${{ inputs.working_directory }}'
         PR_NUMBER: '${{ steps.get-pr.outputs.result }}'
@@ -191,14 +182,13 @@ runs:
 
     - name: 'Setup Terraform'
       if: '${{ steps.has-diff.outputs.result == ''true'' }}'
-      uses: 'abcxyz/secure-setup-terraform@78e3f2fdfb7ebf59ce42141f6dd93bdd65bf04ed' # ratchet:abcxyz/secure-setup-terraform@v0.2.5
+      uses: 'abcxyz/secure-setup-terraform@eba2f9ad6a23da76d4e5996fe1c2850cc8ca92d9' # ratchet:abcxyz/secure-setup-terraform@main
       with:
         terraform_version: '${{ inputs.terraform_version }}'
         terraform_module_location: './${{ inputs.working_directory }}'
         terraform_lockfile_location: './${{ inputs.working_directory }}'
         protect_lockfile: '${{ inputs.protect_lockfile }}'
         terraform_wrapper: false
-
     - name: 'Terraform Init'
       if: '${{ steps.has-diff.outputs.result == ''true'' }}'
       shell: 'bash'
@@ -209,10 +199,9 @@ runs:
       run: |-
         echo "# Terraform Init" > $OUT_FILENAME
         terraform init -input=false -no-color 2>&1 | tee -a $OUT_FILENAME
-
     - name: 'Download Plan File'
       if: '${{ steps.has-diff.outputs.result == ''true'' }}'
-      uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
+      uses: 'actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410' # ratchet:actions/github-script@v6
       env:
         OUT_FILEPATH: '${{ inputs.working_directory }}/out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
         GUARDIAN_PLAN_PREFIX: 'guardian-plans/${{ github.repository }}/${{ steps.get-pr.outputs.result }}/${{ inputs.working_directory }}'
@@ -256,7 +245,6 @@ runs:
             core.error(errString);
             core.setFailed("Failed to download plan file.");
           }
-
     - name: 'Terraform Apply'
       if: '${{ steps.has-diff.outputs.result == ''true'' }}'
       shell: 'bash'
@@ -268,7 +256,6 @@ runs:
       run: |-
         echo "# Terraform Apply" > $OUT_FILENAME
         terraform apply -lock-timeout=$LOCK_TIMEOUT -input=false -no-color tfplan.binary 2>&1 | tee -a $OUT_FILENAME
-
     - name: 'GitHub Format'
       if: '${{ steps.has-diff.outputs.result == ''true'' }}'
       shell: 'bash'
@@ -278,7 +265,6 @@ runs:
       run: |-
         sed -i -E 's|^([[:space:]]*)([~])|\1\!|g' $OUT_FILENAME
         sed -i -E 's|^([[:space:]]*)([-+\!])|\2\1|g' $OUT_FILENAME
-
     - name: 'Create Success File'
       if: '${{ steps.has-diff.outputs.result == ''true'' }}'
       shell: 'bash'
@@ -292,10 +278,9 @@ runs:
         # Since the delete plan action always runs, we should clear the outfile.
         # If the delete plan action fails, it can append to empty file and not to successful output.
         rm $OUT_FILENAME
-
     - name: 'Delete Plan File'
       if: '${{ steps.get-pr.outcome == ''success'' && always() }}'
-      uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
+      uses: 'actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410' # ratchet:actions/github-script@v6
       env:
         OUT_FILEPATH: '${{ inputs.working_directory }}/out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
         GUARDIAN_PLAN_PREFIX: 'guardian-plans/${{ github.repository }}/${{ steps.get-pr.outputs.result }}/${{ inputs.working_directory }}'
@@ -338,7 +323,6 @@ runs:
             core.error(errString);
             core.setFailed("Failed to delete plan file.");
           }
-
     # Precaution to ensure outfile exists to prevent unneccessary i/o errors
     - name: 'Ensure Outfile'
       if: '${{ failure() }}'
@@ -348,10 +332,9 @@ runs:
         OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
       run: |-
         touch $OUT_FILENAME
-
     - name: 'Failure Comment'
       if: '${{ steps.get-pr.outcome == ''success'' && failure() }}'
-      uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
+      uses: 'actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410' # ratchet:actions/github-script@v6
       env:
         COMMENT_ID: '${{ steps.comment.outputs.result }}'
         OUT_FILENAME: 'out_${{ github.run_id }}_${{ github.run_attempt }}.txt'
@@ -381,7 +364,7 @@ runs:
 
     - name: 'Success Comment'
       if: '${{ steps.get-pr.outcome == ''success'' && steps.has-diff.outputs.result == ''true'' && success() }}'
-      uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
+      uses: 'actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410' # ratchet:actions/github-script@v6
       env:
         COMMENT_ID: '${{ steps.comment.outputs.result }}'
         SUCCESS_FILENAME: 'success_${{ github.run_id }}_${{ github.run_attempt }}.txt'
