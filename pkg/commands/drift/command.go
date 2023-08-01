@@ -72,7 +72,7 @@ func (c *DetectIamDriftCommand) Flags() *cli.FlagSet {
 	set := c.NewFlagSet()
 
 	c.GitHubFlags.AddFlags(set)
-	c.DriftIssueFlags.AddFlags(set, "guardian-iam-drift")
+	c.DriftIssueFlags.AddFlags(set, &driftflags.Options{DefaultIssueLabel: "guardian-iam-drift"})
 
 	// Command options
 	f := set.NewSection("COMMAND OPTIONS")

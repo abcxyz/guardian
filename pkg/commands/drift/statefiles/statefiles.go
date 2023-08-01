@@ -82,7 +82,7 @@ func (c *DriftStatefilesCommand) Flags() *cli.FlagSet {
 
 	c.GitHubFlags.AddFlags(set)
 	c.RetryFlags.AddFlags(set)
-	c.DriftIssueFlags.AddFlags(set, "guardian-statefile-drift")
+	c.DriftIssueFlags.AddFlags(set, &driftflags.Options{DefaultIssueLabel: "guardian-statefile-drift"})
 
 	f := set.NewSection("COMMAND OPTIONS")
 

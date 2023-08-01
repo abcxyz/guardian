@@ -27,7 +27,11 @@ type DriftIssueFlags struct {
 	FlagGitHubCommentMessageAppend string
 }
 
-func (d *DriftIssueFlags) AddFlags(set *cli.FlagSet, defaultIssueLabel string) {
+type Options struct {
+	DefaultIssueLabel string
+}
+
+func (d *DriftIssueFlags) AddFlags(set *cli.FlagSet, options *Options) {
 	f := set.NewSection("DRIFT ISSUE OPTIONS")
 
 	f.BoolVar(&cli.BoolVar{
@@ -50,7 +54,7 @@ func (d *DriftIssueFlags) AddFlags(set *cli.FlagSet, defaultIssueLabel string) {
 		Target:  &d.FlagGitHubIssueLabels,
 		Example: "guardian-iam-drift",
 		Usage:   `The labels to use on any created GitHub Issues.`,
-		Default: []string{defaultIssueLabel},
+		Default: []string{options.DefaultIssueLabel},
 	})
 
 	f.StringVar(&cli.StringVar{
