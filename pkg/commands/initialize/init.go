@@ -77,8 +77,8 @@ Usage: {{ COMMAND }} [options] <directory>
 func (c *InitCommand) Flags() *cli.FlagSet {
 	set := c.NewFlagSet()
 
-	c.GitHubFlags.AddFlags(set)
-	c.RetryFlags.AddFlags(set)
+	c.GitHubFlags.Register(set)
+	c.RetryFlags.Register(set)
 
 	f := set.NewSection("COMMAND OPTIONS")
 

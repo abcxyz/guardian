@@ -57,7 +57,7 @@ Usage: {{ COMMAND }} [options]
 func (c *IAMCleanupCommand) Flags() *cli.FlagSet {
 	set := c.NewFlagSet()
 
-	c.RetryFlags.AddFlags(set)
+	c.RetryFlags.Register(set)
 
 	// Command options
 	f := set.NewSection("COMMAND OPTIONS")

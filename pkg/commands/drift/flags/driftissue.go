@@ -31,7 +31,7 @@ type Options struct {
 	DefaultIssueLabel string
 }
 
-func (d *DriftIssueFlags) AddFlags(set *cli.FlagSet, options *Options) {
+func (d *DriftIssueFlags) Register(set *cli.FlagSet, options *Options) {
 	f := set.NewSection("DRIFT ISSUE OPTIONS")
 
 	f.BoolVar(&cli.BoolVar{

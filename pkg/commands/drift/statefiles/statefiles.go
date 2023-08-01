@@ -80,9 +80,11 @@ Usage: {{ COMMAND }} [options] <directory>
 func (c *DriftStatefilesCommand) Flags() *cli.FlagSet {
 	set := c.NewFlagSet()
 
-	c.GitHubFlags.AddFlags(set)
-	c.RetryFlags.AddFlags(set)
-	c.DriftIssueFlags.AddFlags(set, &driftflags.Options{DefaultIssueLabel: "guardian-statefile-drift"})
+	c.GitHubFlags.Register(set)
+	c.RetryFlags.Register(set)
+	c.DriftIssueFlags.Register(set, &driftflags.Options{
+		DefaultIssueLabel: "guardian-statefile-drift",
+	})
 
 	f := set.NewSection("COMMAND OPTIONS")
 
