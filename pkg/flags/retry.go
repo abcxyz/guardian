@@ -28,7 +28,7 @@ type RetryFlags struct {
 	FlagRetryMaxDelay     time.Duration
 }
 
-func (r *RetryFlags) AddFlags(set *cli.FlagSet) {
+func (r *RetryFlags) Register(set *cli.FlagSet) {
 	f := set.NewSection("RETRY OPTIONS")
 
 	f.Uint64Var(&cli.Uint64Var{

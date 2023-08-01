@@ -25,7 +25,7 @@ type GitHubFlags struct {
 	FlagGitHubRepo      string
 }
 
-func (g *GitHubFlags) AddFlags(set *cli.FlagSet) {
+func (g *GitHubFlags) Register(set *cli.FlagSet) {
 	f := set.NewSection("GITHUB OPTIONS")
 
 	f.BoolVar(&cli.BoolVar{
