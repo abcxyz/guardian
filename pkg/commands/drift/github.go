@@ -17,92 +17,74 @@ package drift
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/abcxyz/guardian/pkg/github"
 	githubAPI "github.com/google/go-github/v53/github"
 )
 
-const (
-	issueTitle = "IAM drift detected"
-	issueBody  = `We've detected a drift between your submitted IAM policies and actual
-        IAM policies.
+type GitHubDriftIssueService struct {
+	gh         *github.GitHubClient
+	owner      string
+	repo       string
+	issueTitle string
+	issueBody  string
+}
 
-        See the comment(s) below to see details of the drift
+func NewGitHubDriftIssueService(gh *github.GitHubClient, owner, repo, issueTitle, issueBody string) *GitHubDriftIssueService {
+	return &GitHubDriftIssueService{gh, owner, repo, issueTitle, issueBody}
+}
 
-        Please determine which parts are correct, and submit updated
-        terraform config and/or remove the extra policies.
-
-        Re-run drift detection manually once complete to verify all diffs are properly resolved.`
-)
-
-func createOrUpdateIssue(ctx context.Context, token, owner, repo string, assignees, labels []string, message string) error {
+func (s *GitHubDriftIssueService) CreateOrUpdateIssue(ctx context.Context, assignees, labels []string, message string) error {
 	// Labels are used to uniquely identify Drift issues.
 	if len(labels) == 0 {
 		return fmt.Errorf("invalid argument - at least one 'label' must be provided")
 	}
-	gh := github.NewClient(ctx, token)
 
-	issues, err := gh.ListIssues(ctx, owner, repo, &githubAPI.IssueListByRepoOptions{
+	issues, err := s.gh.ListIssues(ctx, s.owner, s.repo, &githubAPI.IssueListByRepoOptions{
 		Labels: labels,
 		State:  github.Open,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to list GitHub issues for %s/%s: %w", owner, repo, err)
+		return fmt.Errorf("failed to list GitHub issues for %s/%s: %w", s.owner, s.repo, err)
 	}
 
 	var issueNumber int
 	if len(issues) == 0 {
-		issue, err := gh.CreateIssue(ctx, owner, repo, issueTitle, issueBody, assignees, labels)
+		issue, err := s.gh.CreateIssue(ctx, s.owner, s.repo, issueTitle, issueBody, assignees, labels)
 		if err != nil {
-			return fmt.Errorf("failed to create GitHub issue for %s/%s with assignees %s and labels %s: %w", owner, repo, assignees, labels, err)
+			return fmt.Errorf("failed to create GitHub issue for %s/%s with assignees %s and labels %s: %w", s.owner, s.repo, assignees, labels, err)
 		}
 		issueNumber = issue.Number
 	} else {
 		issueNumber = issues[0].Number
 	}
 
-	if _, err := gh.CreateIssueComment(ctx, owner, repo, issueNumber, message); err != nil {
-		return fmt.Errorf("failed to comment on issue %s/%s %d: %w", owner, repo, issueNumber, err)
+	if _, err := s.gh.CreateIssueComment(ctx, s.owner, s.repo, issueNumber, message); err != nil {
+		return fmt.Errorf("failed to comment on issue %s/%s %d: %w", s.owner, s.repo, issueNumber, err)
 	}
 
 	return nil
 }
 
-func closeIssues(ctx context.Context, token, owner, repo string, labels []string) error {
+func (s *GitHubDriftIssueService) CloseIssues(ctx context.Context, labels []string) error {
 	// Labels are used to uniquely identify Drift issues.
 	if len(labels) == 0 {
 		return fmt.Errorf("invalid argument - at least one 'label' must be provided")
 	}
-	gh := github.NewClient(ctx, token)
-	issues, err := gh.ListIssues(ctx, owner, repo, &githubAPI.IssueListByRepoOptions{
+	issues, err := s.gh.ListIssues(ctx, s.owner, s.repo, &githubAPI.IssueListByRepoOptions{
 		Labels: labels,
 		State:  github.Open,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to list GitHub issues for %s/%s: %w", owner, repo, err)
+		return fmt.Errorf("failed to list GitHub issues for %s/%s: %w", s.owner, s.repo, err)
 	}
 	for _, issueToClose := range issues {
-		if _, err := gh.CreateIssueComment(ctx, owner, repo, issueToClose.Number, "Drift Resolved."); err != nil {
-			return fmt.Errorf("failed to comment on issue %s/%s %d: %w", owner, repo, issueToClose.Number, err)
+		if _, err := s.gh.CreateIssueComment(ctx, s.owner, s.repo, issueToClose.Number, "Drift Resolved."); err != nil {
+			return fmt.Errorf("failed to comment on issue %s/%s %d: %w", s.owner, s.repo, issueToClose.Number, err)
 		}
-		if err := gh.CloseIssue(ctx, owner, repo, issueToClose.Number); err != nil {
-			return fmt.Errorf("failed to close GitHub issue for %s/%s %d: %w", owner, repo, issueToClose.Number, err)
+		if err := s.gh.CloseIssue(ctx, s.owner, s.repo, issueToClose.Number); err != nil {
+			return fmt.Errorf("failed to close GitHub issue for %s/%s %d: %w", s.owner, s.repo, issueToClose.Number, err)
 		}
 	}
 	return nil
-}
-
-func driftMessage(drift *IAMDrift) string {
-	var msg strings.Builder
-	if len(drift.ClickOpsChanges) > 0 {
-		msg.WriteString(fmt.Sprintf("Found Click Ops Changes \n> %s", strings.Join(drift.ClickOpsChanges, "\n> ")))
-		if len(drift.MissingTerraformChanges) > 0 {
-			msg.WriteString("\n\n")
-		}
-	}
-	if len(drift.MissingTerraformChanges) > 0 {
-		msg.WriteString(fmt.Sprintf("Found Missing Terraform Changes \n> %s", strings.Join(drift.MissingTerraformChanges, "\n> ")))
-	}
-	return msg.String()
 }

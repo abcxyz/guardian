@@ -23,6 +23,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/abcxyz/guardian/pkg/commands/drift"
+	driftflags "github.com/abcxyz/guardian/pkg/commands/drift/flags"
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/github"
 	"github.com/abcxyz/guardian/pkg/terraform"
@@ -35,6 +37,19 @@ import (
 
 var _ cli.Command = (*DriftStatefilesCommand)(nil)
 
+const (
+	issueTitle = "Terraform statefile drift detected"
+	issueBody  = `We've detected a drift between the statefiles stored in your GCS bucket and the
+        ones referenced in your backend config blocks.
+
+        See the comment(s) below to see details of the drift
+
+        Please determine which parts are correct, and delete or rename any unused statefiles
+        in your GCS bucket.
+
+        Re-run drift detection manually once complete to verify all diffs are properly resolved.`
+)
+
 type DriftStatefilesCommand struct {
 	cli.BaseCommand
 
@@ -42,11 +57,12 @@ type DriftStatefilesCommand struct {
 
 	flags.GitHubFlags
 	flags.RetryFlags
+	driftflags.DriftIssueFlags
 
 	flagGCSBucket string
 
-	githubClient    github.GitHub
 	terraformParser parser.Terraform
+	issueService    *drift.GitHubDriftIssueService
 }
 
 func (c *DriftStatefilesCommand) Desc() string {
@@ -66,6 +82,7 @@ func (c *DriftStatefilesCommand) Flags() *cli.FlagSet {
 
 	c.GitHubFlags.AddFlags(set)
 	c.RetryFlags.AddFlags(set)
+	c.DriftIssueFlags.AddFlags(set, &driftflags.Options{DefaultIssueLabel: "guardian-statefile-drift"})
 
 	f := set.NewSection("COMMAND OPTIONS")
 
@@ -97,13 +114,12 @@ func (c *DriftStatefilesCommand) Run(ctx context.Context, args []string) error {
 	}
 	c.directory = dirAbs
 
-	// TODO: Create github issue.
-	c.githubClient = github.NewClient(
-		ctx,
-		c.GitHubFlags.FlagGitHubToken,
-		github.WithRetryInitialDelay(c.RetryFlags.FlagRetryInitialDelay),
-		github.WithRetryMaxAttempts(c.RetryFlags.FlagRetryMaxAttempts),
-		github.WithRetryMaxDelay(c.RetryFlags.FlagRetryMaxDelay),
+	c.issueService = drift.NewGitHubDriftIssueService(
+		github.NewClient(ctx, c.GitHubFlags.FlagGitHubToken),
+		c.GitHubFlags.FlagGitHubOwner,
+		c.GitHubFlags.FlagGitHubRepo,
+		issueTitle,
+		issueBody,
 	)
 	c.terraformParser, err = parser.NewTerraformParser(ctx, "")
 	if err != nil {
@@ -183,6 +199,22 @@ func (c *DriftStatefilesCommand) Process(ctx context.Context) error {
 	m := driftMessage(statefilesNotInRemote, statefilesNotInLocal)
 	if changesDetected {
 		c.Outf(m)
+	}
+
+	if c.DriftIssueFlags.FlagSkipGitHubIssue {
+		return nil
+	}
+	if c.DriftIssueFlags.FlagGitHubCommentMessageAppend != "" {
+		m = strings.Join([]string{m, c.DriftIssueFlags.FlagGitHubCommentMessageAppend}, "\n\n")
+	}
+	if changesDetected {
+		if err := c.issueService.CreateOrUpdateIssue(ctx, c.DriftIssueFlags.FlagGitHubIssueAssignees, c.DriftIssueFlags.FlagGitHubIssueLabels, m); err != nil {
+			return fmt.Errorf("failed to create or update GitHub Issue: %w", err)
+		}
+	} else {
+		if err := c.issueService.CloseIssues(ctx, c.DriftIssueFlags.FlagGitHubIssueLabels); err != nil {
+			return fmt.Errorf("failed to close GitHub Issues: %w", err)
+		}
 	}
 
 	return nil
