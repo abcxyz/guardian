@@ -39,40 +39,21 @@ jobs:
   init:
     runs-on: 'ubuntu-latest'
     outputs:
-      directories: '${{ steps.init.outputs.directories }}'
+      directories: '${{ steps.dirs.outputs.directories }}'
     steps:
       - name: 'Checkout'
         uses: 'actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9' # ratchet:actions/checkout@v3
         with:
           fetch-depth: 0 # get everything so we can use git diff
-      - name: 'Setup Go'
-        uses: 'actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568' # ratchet:actions/setup-go@v3
+      - name: 'Guardian Directories'
+        id: 'dirs'
+        uses: './.github/actions/directories'
         with:
-          go-version: '1.20'
-      - name: 'Install Guardian CLI'
-        shell: 'bash'
-        run: 'go install github.com/abcxyz/guardian/cmd/guardian@${{ github.event.pull_request.head.sha }}'
-      - name: 'Guardian Plan Init'
-        id: 'init'
-        env:
-          GITHUB_TOKEN: '${{ github.token }}'
-          TERRAFORM_DIRECTORY: 'terraform'
-          HEAD_REF: 'origin/${{ github.event.pull_request.head.ref }}'
-          BASE_REF: 'origin/${{ github.event.pull_request.base.ref }}'
-        run: |-
-          DIRS=$(guardian init \
-            -github-owner="${REPO_OWNER}" \
-            -github-repo="${REPO_NAME}" \
-            -pull-request-number="${PR_NUMBER}" \
-            -source-ref="${HEAD_REF}" \
-            -dest-ref="${BASE_REF}" \
-            -format=json \
-            -delete-outdated-plan-comments \
-            "${TERRAFORM_DIRECTORY}")
-
-          echo "Guardian Dirs: ${DIRS}"
-
-          echo "directories=${DIRS}" >> $GITHUB_OUTPUT
+          detect_plan_changes: 'true'
+      - name: 'Guardian Hide Previous Plan Comments'
+        uses: './.github/actions/hide-plan-comments'
+        with:
+          strategy: 'delete'
   plan:
     if: |
       needs.init.outputs.directories != '[]'
@@ -92,16 +73,6 @@ jobs:
         uses: 'actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568' # ratchet:actions/setup-go@v3
         with:
           go-version: '1.20'
-      - name: 'Install Guardian CLI'
-        shell: 'bash'
-        run: 'go install github.com/abcxyz/guardian/cmd/guardian@${{ github.event.pull_request.head.sha }}'
-      - name: 'Setup Terraform'
-        uses: 'abcxyz/secure-setup-terraform@eba2f9ad6a23da76d4e5996fe1c2850cc8ca92d9' # ratchet:abcxyz/secure-setup-terraform@main
-        with:
-          terraform_version: '1.3.6'
-          terraform_module_location: '${{ matrix.working_directory }}'
-          terraform_lockfile_location: '${{ matrix.working_directory }}'
-          terraform_wrapper: false
       - name: 'Mint Token'
         id: 'mint-token'
         uses: 'abcxyz/github-token-minter/.github/actions/mint-token@c6ea9b91e3e1df75a6e86dad8e5b0a0a45b42fec'
@@ -120,17 +91,20 @@ jobs:
         run: |-
           git config --global url."https://guardian-bot:${{ steps.mint-token.outputs.token }}@github.com".insteadOf "https://github.com"
       - name: 'Guardian Plan'
+        id: 'plan'
+        uses: './.github/actions/plan'
         env:
-          GITHUB_TOKEN: '${{ github.token }}'
-          WORKING_DIRECTORY: '${{ matrix.working_directory }}'
-          BUCKET_NAME: '${{ vars.GUARDIAN_BUCKET_NAME }}'
+          GITHUB_TOKEN: '${{ steps.mint-token.outputs.token }}'
+        with:
+          working_directory: '${{ matrix.working_directory }}'
+          bucket_name: '${{ vars.GUARDIAN_BUCKET_NAME }}'
+          terraform_version: '1.3.6'
+      - name: 'Print Plan Output'
+        shell: 'bash'
+        env:
+          PLAN_OUTPUT: '${{ steps.plan.outputs.has-diff }}'
         run: |-
-          guardian plan run \
-            -bucket-name="${BUCKET_NAME}" \
-            -github-owner="${REPO_OWNER}" \
-            -github-repo="${REPO_NAME}" \
-            -pull-request-number="${PR_NUMBER}" \
-            "${WORKING_DIRECTORY}"
+          echo "PLAN_OUTPUT=${PLAN_OUTPUT}"
   plan_success:
     if: '${{ always() }}'
     runs-on: 'ubuntu-latest'
