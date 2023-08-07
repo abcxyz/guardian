@@ -42,6 +42,10 @@ inputs:
     description: 'The max retry delay in seconds when handling failures.'
     required: false
     default: '60'
+outputs:
+  has-diff:
+    description: 'Returns "true" if the Terraform plan file has a diff.'
+    value: '${{ steps.plan.outputs.has-diff }}'
 runs:
   using: 'composite'
   steps:
@@ -103,6 +107,7 @@ runs:
         echo "# Terraform Validate" > $OUT_FILENAME
         terraform validate -no-color 2>&1 | tee -a $OUT_FILENAME
     - name: 'Terraform Plan'
+      id: 'plan'
       shell: 'bash'
       working-directory: '${{ inputs.working_directory }}'
       env:
@@ -119,6 +124,12 @@ runs:
 
         PLAN_EXIT_CODE="${PIPESTATUS[0]}"
         echo "PLAN_EXIT_CODE=$PLAN_EXIT_CODE" >> $GITHUB_ENV
+
+        if [ "$PLAN_EXIT_CODE" == "2" ]; then
+          echo "has-diff=true" >> $GITHUB_OUTPUT
+        else
+          echo "has-diff=false" >> $GITHUB_OUTPUT
+        fi
 
         if [ "$PLAN_EXIT_CODE" == "1" ]; then
           exit 1

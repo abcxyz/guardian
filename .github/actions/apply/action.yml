@@ -42,6 +42,10 @@ inputs:
     description: 'The max retry delay in seconds when handling failures.'
     required: false
     default: '60'
+outputs:
+  has-diff:
+    description: 'Returns "true" if the Terraform plan file has a diff'
+    value: '${{ steps.has-diff.outputs.result }}'
 runs:
   using: 'composite'
   steps:

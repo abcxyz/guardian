@@ -71,6 +71,7 @@ jobs:
         run: |-
           git config --global url."https://guardian-bot:${{ steps.mint-token.outputs.token }}@github.com".insteadOf "https://github.com"
       - name: 'Guardian Apply'
+        id: 'apply'
         uses: './.github/actions/apply'
         env:
           GITHUB_TOKEN: '${{ steps.mint-token.outputs.token }}'
@@ -78,3 +79,9 @@ jobs:
           working_directory: '${{ matrix.working_directory }}'
           bucket_name: '${{ vars.GUARDIAN_BUCKET_NAME }}'
           terraform_version: '1.3.6'
+      - name: 'Print Apply Output'
+        shell: 'bash'
+        env:
+          APPLY_OUTPUT: '${{ steps.apply.outputs.has-diff }}'
+        run: |-
+          echo "APPLY_OUTPUT=${APPLY_OUTPUT}"
