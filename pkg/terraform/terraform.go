@@ -111,11 +111,137 @@ type TerraformEntrypoint struct {
 	BackendFile string
 }
 
+type ModuleUsageGraph struct {
+	EntrypointToModules  map[string]map[string]struct{}
+	ModulesToEntrypoints map[string]map[string]struct{}
+}
+
+// moduleSourcePattern is a Regex pattern used to parse ID from the resource ParentFullResourceName.
+var moduleSourcePattern = regexp.MustCompile(`source\s\=\s\"(.*)\"`)
+
 // NewTerraformClient creates a new Terraform client.
 func NewTerraformClient(workingDir string) *TerraformClient {
 	return &TerraformClient{
 		workingDir: workingDir,
 	}
+}
+
+// GetModuleUsageGraph gets all the directories that have Terraform config
+// files containing a backend block to be used as an entrypoint module.
+func GetModuleUsageGraph(rootDir string) (*ModuleUsageGraph, error) {
+	entrypoints, err := GetEntrypointDirectories(rootDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get entrypoints: %w", err)
+	}
+	moduleUsages, err := getModuleUsages(rootDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get module usages: %w", err)
+	}
+	entrypointToModules := make(map[string]map[string]struct{})
+	modulesToEntrypoints := make(map[string]map[string]struct{})
+	for _, entrypoint := range entrypoints {
+		entrypointToModules[entrypoint.Path] = make(map[string]struct{})
+		recurseAndAppend(entrypoint.Path, entrypoint.Path, entrypointToModules, moduleUsages)
+	}
+	for _, modules := range entrypointToModules {
+		for module := range modules {
+			if _, ok := modulesToEntrypoints[module]; !ok {
+				modulesToEntrypoints[module] = make(map[string]struct{})
+			}
+		}
+	}
+	for mod := range moduleUsages {
+		fmt.Println("Module:", mod)
+	}
+	for module := range modulesToEntrypoints {
+		for entrypoint, modules := range entrypointToModules {
+			if _, modOK := modules[module]; modOK {
+				fmt.Println("adding2", module, entrypoint)
+				modulesToEntrypoints[module][entrypoint] = struct{}{}
+			}
+		}
+	}
+	return &ModuleUsageGraph{
+		EntrypointToModules:  entrypointToModules,
+		ModulesToEntrypoints: modulesToEntrypoints,
+	}, nil
+}
+
+func recurseAndAppend(rootPth, pth string, entrypointToModules map[string]map[string]struct{}, moduleUsages map[string]*ModuleUsage) {
+	if usage, ok := moduleUsages[pth]; ok {
+		for modulePath := range usage.ModulePaths {
+			entrypointToModules[rootPth][modulePath] = struct{}{}
+			recurseAndAppend(rootPth, modulePath, entrypointToModules, moduleUsages)
+		}
+	}
+}
+
+type ModuleUsage struct {
+	ModulePaths        map[string]struct{}
+	ModuleOrEntrypoint string
+}
+
+func getModuleUsages(rootDir string) (map[string]*ModuleUsage, error) {
+	matches := make(map[string]*ModuleUsage)
+	if err := filepath.WalkDir(rootDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return fmt.Errorf("failed to walk directory %s: %w", path, err)
+		}
+
+		if d.IsDir() {
+			return nil
+		}
+
+		if filepath.Ext(path) != ".tf" {
+			return nil
+		}
+
+		file, err := os.Open(path)
+		if err != nil {
+			return fmt.Errorf("failed to open file %s: %w", path, err)
+		}
+
+		// Read the contents of the file
+		contents, err := io.ReadAll(file)
+		if err != nil {
+			return fmt.Errorf("failed to read contents of file %s: %w", path, err)
+		}
+		defer file.Close()
+
+		m := moduleSourcePattern.FindAllStringSubmatch(string(contents), -1)
+		if len(m) == 0 {
+			return nil
+		}
+
+		absPath, err := util.PathEvalAbs(path)
+		if err != nil {
+			return fmt.Errorf("failed to get absolute path for directory %s: %w", rootDir, err)
+		}
+
+		modulePaths := make(map[string]struct{})
+
+		for _, ms := range m {
+			if len(ms) == 2 {
+				relativeModulePath := filepath.Join(filepath.Dir(absPath), ms[1])
+				pth, err := util.PathEvalAbs(relativeModulePath)
+				if err != nil {
+					return fmt.Errorf("failed to get absolute path for directory %s: %w", relativeModulePath, err)
+				}
+				modulePaths[pth] = struct{}{}
+			}
+		}
+
+		matches[filepath.Dir(absPath)] = &ModuleUsage{
+			ModuleOrEntrypoint: filepath.Dir(absPath),
+			ModulePaths:        modulePaths,
+		}
+
+		return nil
+	}); err != nil {
+		return nil, fmt.Errorf("failed to find files: %w", err)
+	}
+
+	return matches, nil
 }
 
 // GetEntrypointDirectories gets all the directories that have Terraform config
