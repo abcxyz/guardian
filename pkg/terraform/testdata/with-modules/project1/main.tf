@@ -23,5 +23,5 @@ terraform {
 }
 
 module "a" {
-    source = "../modules/module-a"
+  source = "../modules/module-a"
 }

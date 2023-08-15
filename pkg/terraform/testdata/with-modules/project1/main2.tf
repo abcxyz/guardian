@@ -13,5 +13,5 @@
 # limitations under the License.
 
 module "b" {
-    source = "../modules/module-b-using-a"
+  source = "../modules/module-b-using-a"
 }

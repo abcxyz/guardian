@@ -1,3 +1,3 @@
 module "b" {
-    source = "../module-a"
+  source = "../module-a"
 }
