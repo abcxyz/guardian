@@ -116,7 +116,7 @@ type ModuleUsageGraph struct {
 	ModulesToEntrypoints map[string]map[string]struct{}
 }
 
-// moduleSourcePattern is a Regex pattern used to parse ID from the resource ParentFullResourceName.
+// moduleSourcePattern is a Regex pattern used to a module source from the module block in a terraform config.
 var moduleSourcePattern = regexp.MustCompile(`source\s\=\s\"(.*)\"`)
 
 // NewTerraformClient creates a new Terraform client.
@@ -126,14 +126,13 @@ func NewTerraformClient(workingDir string) *TerraformClient {
 	}
 }
 
-// GetModuleUsageGraph gets all the directories that have Terraform config
-// files containing a backend block to be used as an entrypoint module.
-func GetModuleUsageGraph(rootDir string) (*ModuleUsageGraph, error) {
+// ModuleUsage locates all the usages of modules in all terraform entrypoints and vice versa.
+func ModuleUsage(rootDir string) (*ModuleUsageGraph, error) {
 	entrypoints, err := GetEntrypointDirectories(rootDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get entrypoints: %w", err)
 	}
-	moduleUsages, err := getModuleUsages(rootDir)
+	moduleUsages, err := modules(rootDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get module usages: %w", err)
 	}
@@ -167,7 +166,7 @@ func GetModuleUsageGraph(rootDir string) (*ModuleUsageGraph, error) {
 	}, nil
 }
 
-func recurseAndAppend(rootPth, pth string, entrypointToModules map[string]map[string]struct{}, moduleUsages map[string]*ModuleUsage) {
+func recurseAndAppend(rootPth, pth string, entrypointToModules map[string]map[string]struct{}, moduleUsages map[string]*Modules) {
 	if usage, ok := moduleUsages[pth]; ok {
 		for modulePath := range usage.ModulePaths {
 			entrypointToModules[rootPth][modulePath] = struct{}{}
@@ -176,13 +175,15 @@ func recurseAndAppend(rootPth, pth string, entrypointToModules map[string]map[st
 	}
 }
 
-type ModuleUsage struct {
+// Modules represents the details of the modules used by a given module or terraform entrypoint.
+type Modules struct {
 	ModulePaths        map[string]struct{}
 	ModuleOrEntrypoint string
 }
 
-func getModuleUsages(rootDir string) (map[string]*ModuleUsage, error) {
-	matches := make(map[string]*ModuleUsage)
+// modules locates all terraform entrypoints or modules and finds all of their module usages.
+func modules(rootDir string) (map[string]*Modules, error) {
+	matches := make(map[string]*Modules)
 	if err := filepath.WalkDir(rootDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return fmt.Errorf("failed to walk directory %s: %w", path, err)
@@ -231,7 +232,7 @@ func getModuleUsages(rootDir string) (map[string]*ModuleUsage, error) {
 			}
 		}
 
-		matches[filepath.Dir(absPath)] = &ModuleUsage{
+		matches[filepath.Dir(absPath)] = &Modules{
 			ModuleOrEntrypoint: filepath.Dir(absPath),
 			ModulePaths:        modulePaths,
 		}

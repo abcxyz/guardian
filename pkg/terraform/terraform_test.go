@@ -294,7 +294,7 @@ func Test_extractBackendConfig(t *testing.T) {
 	}
 }
 
-func Test_getModuleUsages(t *testing.T) {
+func Test_modules(t *testing.T) {
 	t.Parallel()
 
 	cwd, err := os.Getwd()
@@ -305,13 +305,13 @@ func Test_getModuleUsages(t *testing.T) {
 	cases := []struct {
 		name string
 		dir  string
-		exp  map[string]*ModuleUsage
+		exp  map[string]*Modules
 		err  string
 	}{
 		{
 			name: "has_modules",
 			dir:  "testdata/with-modules",
-			exp: map[string]*ModuleUsage{
+			exp: map[string]*Modules{
 				path.Join(cwd, "testdata/with-modules/modules/module-b-using-a"): {
 					ModulePaths:        map[string]struct{}{path.Join(cwd, "testdata/with-modules/modules/module-a"): {}},
 					ModuleOrEntrypoint: path.Join(cwd, "testdata/with-modules/modules/module-b-using-a"),
@@ -332,7 +332,7 @@ func Test_getModuleUsages(t *testing.T) {
 		{
 			name: "no_modules",
 			dir:  "testdata/no-backends",
-			exp:  map[string]*ModuleUsage{},
+			exp:  map[string]*Modules{},
 		},
 		{
 			name: "missing_directory",
@@ -353,7 +353,7 @@ func Test_getModuleUsages(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			dirs, err := getModuleUsages(tc.dir)
+			dirs, err := modules(tc.dir)
 			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
 				t.Errorf(diff)
 			}
@@ -365,7 +365,7 @@ func Test_getModuleUsages(t *testing.T) {
 	}
 }
 
-func TestGetModuleUsageGraph(t *testing.T) {
+func TestModuleUsage(t *testing.T) {
 	t.Parallel()
 
 	cwd, err := os.Getwd()
@@ -433,7 +433,7 @@ func TestGetModuleUsageGraph(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			graph, err := GetModuleUsageGraph(tc.dir)
+			graph, err := ModuleUsage(tc.dir)
 			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
 				t.Errorf(diff)
 			}
