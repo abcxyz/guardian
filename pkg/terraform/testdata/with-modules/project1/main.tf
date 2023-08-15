@@ -14,12 +14,14 @@
 
 terraform {
   backend "local" {}
+
+  required_providers {
+    google = {
+      version = ">= 4.45"
+    }
+  }
 }
 
 module "a" {
     source = "../modules/module-a"
-}
-
-module "b" {
-    source = "../modules/module-b-using-a"
 }

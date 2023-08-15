@@ -14,6 +14,12 @@
 
 terraform {
   backend "local" {}
+
+  required_providers {
+    google = {
+      version = ">= 4.45"
+    }
+  }
 }
 
 module "b" {
