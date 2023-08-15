@@ -15,6 +15,7 @@
 package terraform
 
 import (
+	"context"
 	"os"
 	"path"
 	"strings"
@@ -353,7 +354,7 @@ func Test_modules(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			dirs, err := modules(tc.dir)
+			dirs, err := modules(context.Background(), tc.dir, true)
 			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
 				t.Errorf(diff)
 			}
@@ -433,7 +434,7 @@ func TestModuleUsage(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			graph, err := ModuleUsage(tc.dir)
+			graph, err := ModuleUsage(context.Background(), tc.dir, true)
 			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
 				t.Errorf(diff)
 			}

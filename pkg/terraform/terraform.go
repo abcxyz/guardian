@@ -26,6 +26,8 @@ import (
 	"regexp"
 	"sort"
 
+	"github.com/abcxyz/pkg/logging"
+
 	"github.com/abcxyz/guardian/pkg/util"
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/gohcl"
@@ -117,7 +119,7 @@ type ModuleUsageGraph struct {
 }
 
 // moduleSourcePattern is a Regex pattern used to a module source from the module block in a terraform config.
-var moduleSourcePattern = regexp.MustCompile(`source\s\=\s\"(.*)\"`)
+var moduleSourcePattern = regexp.MustCompile(`source\s*\=\s\"(.*)\"`)
 
 // NewTerraformClient creates a new Terraform client.
 func NewTerraformClient(workingDir string) *TerraformClient {
@@ -127,12 +129,12 @@ func NewTerraformClient(workingDir string) *TerraformClient {
 }
 
 // ModuleUsage locates all the usages of modules in all terraform entrypoints and vice versa.
-func ModuleUsage(rootDir string) (*ModuleUsageGraph, error) {
+func ModuleUsage(ctx context.Context, rootDir string, skipUnresolvableModules bool) (*ModuleUsageGraph, error) {
 	entrypoints, err := GetEntrypointDirectories(rootDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get entrypoints: %w", err)
 	}
-	moduleUsages, err := modules(rootDir)
+	moduleUsages, err := modules(ctx, rootDir, skipUnresolvableModules)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get module usages: %w", err)
 	}
@@ -149,13 +151,9 @@ func ModuleUsage(rootDir string) (*ModuleUsageGraph, error) {
 			}
 		}
 	}
-	for mod := range moduleUsages {
-		fmt.Println("Module:", mod)
-	}
 	for module := range modulesToEntrypoints {
 		for entrypoint, modules := range entrypointToModules {
 			if _, modOK := modules[module]; modOK {
-				fmt.Println("adding2", module, entrypoint)
 				modulesToEntrypoints[module][entrypoint] = struct{}{}
 			}
 		}
@@ -182,7 +180,8 @@ type Modules struct {
 }
 
 // modules locates all terraform entrypoints or modules and finds all of their module usages.
-func modules(rootDir string) (map[string]*Modules, error) {
+func modules(ctx context.Context, rootDir string, skipUnresolvableModules bool) (map[string]*Modules, error) {
+	logger := logging.FromContext(ctx)
 	matches := make(map[string]*Modules)
 	if err := filepath.WalkDir(rootDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -219,22 +218,28 @@ func modules(rootDir string) (map[string]*Modules, error) {
 			return fmt.Errorf("failed to get absolute path for directory %s: %w", rootDir, err)
 		}
 
-		modulePaths := make(map[string]struct{})
+		if _, ok := matches[filepath.Dir(absPath)]; !ok {
+			matches[filepath.Dir(absPath)] = &Modules{
+				ModuleOrEntrypoint: filepath.Dir(absPath),
+				ModulePaths:        make(map[string]struct{}),
+			}
+		}
+		modulePaths := matches[filepath.Dir(absPath)].ModulePaths
 
 		for _, ms := range m {
 			if len(ms) == 2 {
 				relativeModulePath := filepath.Join(filepath.Dir(absPath), ms[1])
 				pth, err := util.PathEvalAbs(relativeModulePath)
 				if err != nil {
-					return fmt.Errorf("failed to get absolute path for directory %s: %w", relativeModulePath, err)
+					if !skipUnresolvableModules {
+						return fmt.Errorf("failed to get absolute path for directory %s: %w", relativeModulePath, err)
+					} else {
+						logger.Debugw("Skipping unresolvable module", "module", relativeModulePath, "used_in_tf_file", absPath)
+						continue
+					}
 				}
 				modulePaths[pth] = struct{}{}
 			}
-		}
-
-		matches[filepath.Dir(absPath)] = &Modules{
-			ModuleOrEntrypoint: filepath.Dir(absPath),
-			ModulePaths:        modulePaths,
 		}
 
 		return nil
