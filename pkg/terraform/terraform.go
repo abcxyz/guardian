@@ -110,12 +110,6 @@ type TerraformBackendConfig struct {
 	Prefix *string `hcl:"prefix,attr"`
 }
 
-// // TerraformModule represents the terraform module block.
-// type TerraformModule struct {
-// 	// Source is the uri of the module to use.
-// 	Source string `hcl:"source,attr"`
-// }
-
 // TerraformEntrypoint describes a terraform entrypoint.
 type TerraformEntrypoint struct {
 	// Path is the filesystem path to the entrypoint.
