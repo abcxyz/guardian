@@ -24,7 +24,6 @@ import (
 
 	"github.com/abcxyz/guardian/internal/version"
 	"github.com/abcxyz/guardian/pkg/commands/apply"
-	"github.com/abcxyz/guardian/pkg/commands/diff"
 	"github.com/abcxyz/guardian/pkg/commands/drift"
 	"github.com/abcxyz/guardian/pkg/commands/drift/statefiles"
 	"github.com/abcxyz/guardian/pkg/commands/iamcleanup"
@@ -94,9 +93,6 @@ var rootCmd = func() cli.Command {
 						},
 					},
 				}
-			},
-			"diff": func() cli.Command {
-				return &diff.DiffCommand{}
 			},
 		},
 	}

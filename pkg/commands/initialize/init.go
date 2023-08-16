@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/abcxyz/guardian/pkg/commands/plan"
@@ -30,7 +31,6 @@ import (
 	"github.com/abcxyz/guardian/pkg/util"
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
-	"github.com/abcxyz/pkg/sets"
 	gh "github.com/google/go-github/v53/github"
 	"golang.org/x/exp/maps"
 )
@@ -57,6 +57,7 @@ type InitCommand struct {
 	flagDeleteOutdatedPlanComments bool
 	flagSkipDetectChanges          bool
 	flagFormat                     string
+	flagFailUnresolvableModules    bool
 
 	gitClient    git.Git
 	githubClient github.GitHub
@@ -119,6 +120,13 @@ func (c *InitCommand) Flags() *cli.FlagSet {
 		Name:   "format",
 		Target: &c.flagFormat,
 		Usage:  fmt.Sprintf("The format to print the output directories. The supported formats are: %s.", strings.Join(maps.Keys(allowedFormats), ", ")),
+	})
+
+	f.BoolVar(&cli.BoolVar{
+		Name:    "fail-unresolvable-modules",
+		Target:  &c.flagFailUnresolvableModules,
+		Usage:   `Whether or not to error if a module cannot be resolved.`,
+		Default: false,
 	})
 
 	return set
@@ -202,7 +210,28 @@ func (c *InitCommand) Process(ctx context.Context) error {
 		}
 		logger.Debugw("git diff directories", "directories", diffDirs)
 
-		entrypointDirs = sets.IntersectStable(entrypointDirs, diffDirs)
+		moduleUsageGraph, err := terraform.ModuleUsage(ctx, c.directory, !c.flagFailUnresolvableModules)
+		if err != nil {
+			return fmt.Errorf("failed to get module usage for %s: %w", c.directory, err)
+		}
+
+		modifiedEntrypoints := make(map[string]struct{})
+
+		for _, changedFile := range diffDirs {
+			if entrypoints, ok := moduleUsageGraph.ModulesToEntrypoints[changedFile]; ok {
+				for entrypoint := range entrypoints {
+					modifiedEntrypoints[entrypoint] = struct{}{}
+				}
+			}
+			if _, ok := moduleUsageGraph.EntrypointToModules[changedFile]; ok {
+				modifiedEntrypoints[changedFile] = struct{}{}
+			}
+		}
+
+		files := maps.Keys(modifiedEntrypoints)
+		sort.Strings(files)
+
+		entrypointDirs = files
 	}
 
 	logger.Debugw("target directories", "target_directories", entrypointDirs)
