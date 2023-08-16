@@ -15,6 +15,7 @@
 package terraform
 
 import (
+	"context"
 	"os"
 	"path"
 	"strings"
@@ -289,6 +290,159 @@ func Test_extractBackendConfig(t *testing.T) {
 
 			if diff := cmp.Diff(tc.want, got); diff != "" {
 				t.Errorf("StateFileURIs() returned diff (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestModules(t *testing.T) {
+	t.Parallel()
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cases := []struct {
+		name string
+		dir  string
+		exp  map[string]*Modules
+		err  string
+	}{
+		{
+			name: "has_modules",
+			dir:  "testdata/with-modules",
+			exp: map[string]*Modules{
+				path.Join(cwd, "testdata/with-modules/modules/module-a"): {ModulePaths: map[string]struct{}{}},
+				path.Join(cwd, "testdata/with-modules/modules/module-b-using-a"): {
+					ModulePaths: map[string]struct{}{path.Join(cwd, "testdata/with-modules/modules/module-a"): {}},
+				},
+				path.Join(cwd, "testdata/with-modules/project1"): {
+					ModulePaths: map[string]struct{}{
+						path.Join(cwd, "testdata/with-modules/modules/module-a"):         {},
+						path.Join(cwd, "testdata/with-modules/modules/module-b-using-a"): {},
+					},
+				},
+				path.Join(cwd, "testdata/with-modules/project2"): {
+					ModulePaths: map[string]struct{}{path.Join(cwd, "testdata/with-modules/modules/module-b-using-a"): {}},
+				},
+				path.Join(cwd, "testdata/with-modules/project3"): {ModulePaths: map[string]struct{}{}},
+			},
+		},
+		{
+			name: "no_modules",
+			dir:  "testdata/no-backends",
+			exp: map[string]*Modules{
+				path.Join(cwd, "/testdata/no-backends/project1"): {ModulePaths: map[string]struct{}{}},
+				path.Join(cwd, "/testdata/no-backends/project2"): {ModulePaths: map[string]struct{}{}},
+			},
+		},
+		{
+			name: "missing_directory",
+			dir:  "testdata/missing",
+			exp:  nil,
+			err:  "no such file or directory",
+		},
+		{
+			name: "empty",
+			dir:  "",
+			err:  "no such file or directory",
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			dirs, err := modules(context.Background(), tc.dir, true)
+			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
+				t.Errorf(diff)
+			}
+
+			if diff := cmp.Diff(dirs, tc.exp); diff != "" {
+				t.Errorf("directories differed from expected, (-got,+want): %s", diff)
+			}
+		})
+	}
+}
+
+func TestModuleUsage(t *testing.T) {
+	t.Parallel()
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cases := []struct {
+		name string
+		dir  string
+		exp  *ModuleUsageGraph
+		err  string
+	}{
+		{
+			name: "has_modules",
+			dir:  "testdata/with-modules",
+			exp: &ModuleUsageGraph{
+				EntrypointToModules: map[string]map[string]struct{}{
+					path.Join(cwd, "testdata/with-modules/project1"): {
+						path.Join(cwd, "testdata/with-modules/modules/module-a"):         struct{}{},
+						path.Join(cwd, "testdata/with-modules/modules/module-b-using-a"): struct{}{},
+					},
+					path.Join(cwd, "testdata/with-modules/project2"): {
+						path.Join(cwd, "testdata/with-modules/modules/module-a"):         struct{}{},
+						path.Join(cwd, "testdata/with-modules/modules/module-b-using-a"): struct{}{},
+					},
+					path.Join(cwd, "testdata/with-modules/project3"): {},
+				},
+				ModulesToEntrypoints: map[string]map[string]struct{}{
+					path.Join(cwd, "testdata/with-modules/modules/module-a"): {
+						path.Join(cwd, "testdata/with-modules/project1"): struct{}{},
+						path.Join(cwd, "testdata/with-modules/project2"): struct{}{},
+					},
+					path.Join(cwd, "testdata/with-modules/modules/module-b-using-a"): {
+						path.Join(cwd, "testdata/with-modules/project1"): struct{}{},
+						path.Join(cwd, "testdata/with-modules/project2"): struct{}{},
+					},
+				},
+			},
+		},
+		{
+			name: "no_modules",
+			dir:  "testdata/no-backends",
+			exp: &ModuleUsageGraph{
+				EntrypointToModules:  map[string]map[string]struct{}{},
+				ModulesToEntrypoints: map[string]map[string]struct{}{},
+			},
+		},
+		{
+			name: "missing_directory",
+			dir:  "testdata/missing",
+			exp:  nil,
+			err:  "no such file or directory",
+		},
+		{
+			name: "empty",
+			dir:  "",
+			err:  "no such file or directory",
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			graph, err := ModuleUsage(context.Background(), tc.dir, true)
+			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
+				t.Errorf(diff)
+			}
+
+			if diff := cmp.Diff(graph, tc.exp); diff != "" {
+				t.Errorf("directories differed from expected, (-got,+want): %s", diff)
 			}
 		})
 	}
