@@ -34,7 +34,7 @@ import (
 
 var _ cli.Command = (*DiffCommand)(nil)
 
-// DetectIamDriftCommand is a subcommand for Guardian that enables detecting IAM drift.
+// DiffCommand is a subcommand for Guardian that allows detecting which terraform entrypoints have changed.
 type DiffCommand struct {
 	cli.BaseCommand
 

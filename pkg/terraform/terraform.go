@@ -104,22 +104,33 @@ type TerraformResponse struct {
 
 // TerraformBackendConfig represents the terraform backend config block.
 type TerraformBackendConfig struct {
+	// GCSBucket is the GCS Bucket used in a terraform backend config block.
 	GCSBucket *string `hcl:"bucket,attr"`
-	Prefix    *string `hcl:"prefix,attr"`
+	// Prefix is the GCS Bucket prefix used in a terraform backend config block.
+	Prefix *string `hcl:"prefix,attr"`
 }
 
+// // TerraformModule represents the terraform module block.
+// type TerraformModule struct {
+// 	// Source is the uri of the module to use.
+// 	Source string `hcl:"source,attr"`
+// }
+
+// TerraformEntrypoint describes a terraform entrypoint.
 type TerraformEntrypoint struct {
-	Path        string
+	// Path is the filesystem path to the entrypoint.
+	Path string
+	// BackendFile is the filename of the terraform file that contains the backend config block.
 	BackendFile string
 }
 
+// ModuleUsageGraph describes which entrypoints use which modules and which modules are used by each entrypoint.
 type ModuleUsageGraph struct {
-	EntrypointToModules  map[string]map[string]struct{}
+	// EntrypointToModules is the complete list of all modules used by a terraform entrypoint at any depth.
+	EntrypointToModules map[string]map[string]struct{}
+	// ModulesToEntrypoints is the complete list of all terraform entrypoints that use a particular module at any depth.
 	ModulesToEntrypoints map[string]map[string]struct{}
 }
-
-// moduleSourcePattern is a Regex pattern used to a module source from the module block in a terraform config.
-var moduleSourcePattern = regexp.MustCompile(`source\s*\=\s\"(.*)\"`)
 
 // NewTerraformClient creates a new Terraform client.
 func NewTerraformClient(workingDir string) *TerraformClient {
@@ -175,8 +186,8 @@ func recurseAndAppend(rootPth, pth string, entrypointToModules map[string]map[st
 
 // Modules represents the details of the modules used by a given module or terraform entrypoint.
 type Modules struct {
-	ModulePaths        map[string]struct{}
-	ModuleOrEntrypoint string
+	// ModulePaths is the list of all modules used in the particular terraform or module entrypoint.
+	ModulePaths map[string]struct{}
 }
 
 // modules locates all terraform entrypoints or modules and finds all of their module usages.
@@ -196,23 +207,6 @@ func modules(ctx context.Context, rootDir string, skipUnresolvableModules bool) 
 			return nil
 		}
 
-		file, err := os.Open(path)
-		if err != nil {
-			return fmt.Errorf("failed to open file %s: %w", path, err)
-		}
-
-		// Read the contents of the file
-		contents, err := io.ReadAll(file)
-		if err != nil {
-			return fmt.Errorf("failed to read contents of file %s: %w", path, err)
-		}
-		defer file.Close()
-
-		m := moduleSourcePattern.FindAllStringSubmatch(string(contents), -1)
-		if len(m) == 0 {
-			return nil
-		}
-
 		absPath, err := util.PathEvalAbs(path)
 		if err != nil {
 			return fmt.Errorf("failed to get absolute path for directory %s: %w", rootDir, err)
@@ -220,26 +214,26 @@ func modules(ctx context.Context, rootDir string, skipUnresolvableModules bool) 
 
 		if _, ok := matches[filepath.Dir(absPath)]; !ok {
 			matches[filepath.Dir(absPath)] = &Modules{
-				ModuleOrEntrypoint: filepath.Dir(absPath),
-				ModulePaths:        make(map[string]struct{}),
+				ModulePaths: make(map[string]struct{}),
 			}
 		}
 		modulePaths := matches[filepath.Dir(absPath)].ModulePaths
+		modules, _, err := ExtractModules(path)
+		if err != nil {
+			return fmt.Errorf("failed to extract modules: %w", err)
+		}
 
-		for _, ms := range m {
-			if len(ms) == 2 {
-				relativeModulePath := filepath.Join(filepath.Dir(absPath), ms[1])
-				pth, err := util.PathEvalAbs(relativeModulePath)
-				if err != nil {
-					if !skipUnresolvableModules {
-						return fmt.Errorf("failed to get absolute path for directory %s: %w", relativeModulePath, err)
-					} else {
-						logger.Debugw("Skipping unresolvable module", "module", relativeModulePath, "used_in_tf_file", absPath)
-						continue
-					}
+		for m := range modules.ModulePaths {
+			relativeModulePath := filepath.Join(filepath.Dir(absPath), m)
+			pth, err := util.PathEvalAbs(relativeModulePath)
+			if err != nil {
+				if skipUnresolvableModules {
+					logger.Debugw("Skipping unresolvable module", "module", relativeModulePath, "used_in_tf_file", absPath)
+					continue
 				}
-				modulePaths[pth] = struct{}{}
+				return fmt.Errorf("failed to get absolute path for directory %s: %w", relativeModulePath, err)
 			}
+			modulePaths[pth] = struct{}{}
 		}
 
 		return nil
@@ -372,6 +366,45 @@ func extractBackendConfig(contents []byte, filename string) (*TerraformBackendCo
 	}
 
 	return nil, diags, nil
+}
+
+// ExtractModules extracts the details about the modules used in a particular file.
+func ExtractModules(path string) (*Modules, hcl.Diagnostics, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to read file: %w", err)
+	}
+	return extractModules(b, path)
+}
+
+func extractModules(contents []byte, filename string) (*Modules, hcl.Diagnostics, error) {
+	var diags hcl.Diagnostics
+
+	parser := hclparse.NewParser()
+	file, d := parser.ParseHCL(contents, filename)
+	diags = append(diags, d...)
+
+	if d.HasErrors() {
+		for _, diag := range d {
+			if diag.Summary == "Failed to parse file" {
+				return nil, d, fmt.Errorf("failed to read file: %s", filename)
+			}
+		}
+	}
+
+	rootBlocks, _, d := file.Body.PartialContent(RootSchema)
+	diags = append(diags, d...)
+	paths := make(map[string]struct{})
+
+	for _, terraformBlock := range rootBlocks.Blocks.OfType("module") {
+		content, _, d := terraformBlock.Body.PartialContent(ModuleSchema)
+		diags = append(diags, d...)
+		v, d := content.Attributes["source"].Expr.Value(nil)
+		diags = append(diags, d...)
+		paths[v.AsString()] = struct{}{}
+	}
+
+	return &Modules{ModulePaths: paths}, diags, nil
 }
 
 // FormatOutputForGitHubDiff formats the Terraform diff output for use with

@@ -313,27 +313,29 @@ func Test_modules(t *testing.T) {
 			name: "has_modules",
 			dir:  "testdata/with-modules",
 			exp: map[string]*Modules{
+				path.Join(cwd, "testdata/with-modules/modules/module-a"): {ModulePaths: map[string]struct{}{}},
 				path.Join(cwd, "testdata/with-modules/modules/module-b-using-a"): {
-					ModulePaths:        map[string]struct{}{path.Join(cwd, "testdata/with-modules/modules/module-a"): {}},
-					ModuleOrEntrypoint: path.Join(cwd, "testdata/with-modules/modules/module-b-using-a"),
+					ModulePaths: map[string]struct{}{path.Join(cwd, "testdata/with-modules/modules/module-a"): {}},
 				},
 				path.Join(cwd, "testdata/with-modules/project1"): {
 					ModulePaths: map[string]struct{}{
 						path.Join(cwd, "testdata/with-modules/modules/module-a"):         {},
 						path.Join(cwd, "testdata/with-modules/modules/module-b-using-a"): {},
 					},
-					ModuleOrEntrypoint: path.Join(cwd, "testdata/with-modules/project1"),
 				},
 				path.Join(cwd, "testdata/with-modules/project2"): {
-					ModulePaths:        map[string]struct{}{path.Join(cwd, "testdata/with-modules/modules/module-b-using-a"): {}},
-					ModuleOrEntrypoint: path.Join(cwd, "testdata/with-modules/project2"),
+					ModulePaths: map[string]struct{}{path.Join(cwd, "testdata/with-modules/modules/module-b-using-a"): {}},
 				},
+				path.Join(cwd, "testdata/with-modules/project3"): {ModulePaths: map[string]struct{}{}},
 			},
 		},
 		{
 			name: "no_modules",
 			dir:  "testdata/no-backends",
-			exp:  map[string]*Modules{},
+			exp: map[string]*Modules{
+				path.Join(cwd, "/testdata/no-backends/project1"): {ModulePaths: map[string]struct{}{}},
+				path.Join(cwd, "/testdata/no-backends/project2"): {ModulePaths: map[string]struct{}{}},
+			},
 		},
 		{
 			name: "missing_directory",
