@@ -295,7 +295,7 @@ func Test_extractBackendConfig(t *testing.T) {
 	}
 }
 
-func Test_modules(t *testing.T) {
+func TestModules(t *testing.T) {
 	t.Parallel()
 
 	cwd, err := os.Getwd()
