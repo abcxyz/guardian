@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package plan
+package initialize
 
 import (
 	"testing"
@@ -34,21 +34,17 @@ func TestConfig_MapGitHubContext(t *testing.T) {
 		{
 			name: "success",
 			githubContext: &githubactions.GitHubContext{
-				ServerURL:  "https://github.com",
-				RunID:      int64(100),
-				RunAttempt: int64(1),
+				Actor: "actor",
 			},
 			exp: &Config{
-				ServerURL:  "https://github.com",
-				RunID:      int64(100),
-				RunAttempt: int64(1),
+				Actor: "actor",
 			},
 		},
 		{
 			name:          "error",
 			githubContext: &githubactions.GitHubContext{},
 			exp:           &Config{},
-			err:           "GITHUB_SERVER_URL is required\nGITHUB_RUN_ID is required\nGITHUB_RUN_ATTEMPT is required",
+			err:           "GITHUB_ACTOR is required",
 		},
 	}
 

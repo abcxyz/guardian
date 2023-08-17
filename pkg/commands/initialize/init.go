@@ -32,7 +32,9 @@ import (
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
 	gh "github.com/google/go-github/v53/github"
+	"github.com/sethvargo/go-githubactions"
 	"golang.org/x/exp/maps"
+	"golang.org/x/exp/slices"
 )
 
 var _ cli.Command = (*InitCommand)(nil)
@@ -46,6 +48,8 @@ var allowedFormats = map[string]struct{}{
 type InitCommand struct {
 	cli.BaseCommand
 
+	cfg *Config
+
 	directory string
 
 	flags.GitHubFlags
@@ -58,7 +62,9 @@ type InitCommand struct {
 	flagSkipDetectChanges          bool
 	flagFormat                     string
 	flagFailUnresolvableModules    bool
+	flagRequiredPermissions        []string
 
+	actions      *githubactions.Action
 	gitClient    git.Git
 	githubClient github.GitHub
 }
@@ -116,6 +122,13 @@ func (c *InitCommand) Flags() *cli.FlagSet {
 		Usage:  "Delete outdated plan comments when Guardian plan is run multiple times for the same pull request.",
 	})
 
+	f.StringSliceVar(&cli.StringSliceVar{
+		Name:    "required-permissions",
+		Target:  &c.flagRequiredPermissions,
+		Example: "admin,write",
+		Usage:   "The required set of permissions allowed to run these commands. One of admin, write, read, and none.",
+	})
+
 	f.StringVar(&cli.StringVar{
 		Name:   "format",
 		Target: &c.flagFormat,
@@ -133,6 +146,8 @@ func (c *InitCommand) Flags() *cli.FlagSet {
 }
 
 func (c *InitCommand) Run(ctx context.Context, args []string) error {
+	logger := logging.FromContext(ctx)
+
 	f := c.Flags()
 	if err := f.Parse(args); err != nil {
 		return fmt.Errorf("failed to parse flags: %w", err)
@@ -149,6 +164,18 @@ func (c *InitCommand) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("failed to absolute path for directory: %w", err)
 	}
 	c.directory = dirAbs
+
+	c.actions = githubactions.New(githubactions.WithWriter(c.Stdout()))
+	actionsCtx, err := c.actions.Context()
+	if err != nil {
+		return fmt.Errorf("failed to load github context: %w", err)
+	}
+
+	c.cfg = &Config{}
+	if err := c.cfg.MapGitHubContext(actionsCtx); err != nil {
+		return fmt.Errorf("failed to load github context: %w", err)
+	}
+	logger.Debugw("loaded configuration", "config", c.cfg)
 
 	c.gitClient = git.NewGitClient(c.directory)
 	c.githubClient = github.NewClient(
@@ -170,7 +197,7 @@ func (c *InitCommand) Process(ctx context.Context) error {
 		With("github_repo", c.GitHubFlags.FlagGitHubOwner).
 		With("pull_request_number", c.flagPullRequestNumber)
 
-	logger.Debug("starting Guardian plan init")
+	logger.Debug("Starting Guardian init")
 
 	if c.flagFormat == "" {
 		c.flagFormat = "text"
@@ -180,7 +207,20 @@ func (c *InitCommand) Process(ctx context.Context) error {
 		return fmt.Errorf("invalid format flag: %s (supported formats are: %s)", c.flagFormat, strings.Join(maps.Keys(allowedFormats), ", "))
 	}
 
-	if c.GitHubFlags.FlagIsGitHubActions && c.flagDeleteOutdatedPlanComments {
+	if len(c.flagRequiredPermissions) > 0 {
+		logger.Debugw("checking required permissions")
+		permission, err := c.githubClient.RepoUserPermissionLevel(ctx, c.GitHubFlags.FlagGitHubOwner, c.GitHubFlags.FlagGitHubRepo, c.cfg.Actor)
+		if err != nil {
+			return fmt.Errorf("failed to get repo permissions: %w", err)
+		}
+
+		if allowed := slices.Contains(c.flagRequiredPermissions, permission); !allowed {
+			sort.Strings(c.flagRequiredPermissions)
+			return fmt.Errorf("%s does not have the required permissions to run this command.\n\nRequired permissions are %q", c.cfg.Actor, c.flagRequiredPermissions)
+		}
+	}
+
+	if c.flagDeleteOutdatedPlanComments {
 		logger.Debug("removing outdated comments...")
 		if err := c.deleteOutdatedPlanComments(ctx, c.GitHubFlags.FlagGitHubOwner, c.GitHubFlags.FlagGitHubRepo, c.flagPullRequestNumber); err != nil {
 			return fmt.Errorf("failed to delete outdated comments: %w", err)

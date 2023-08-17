@@ -35,6 +35,7 @@ type MockTerraformClient struct {
 	PlanResponse     *MockTerraformResponse
 	ApplyResponse    *MockTerraformResponse
 	ShowResponse     *MockTerraformResponse
+	RunResponse      *MockTerraformResponse
 }
 
 func (m *MockTerraformClient) Init(ctx context.Context, stdout, stderr io.Writer, opts *InitOptions) (int, error) {
@@ -83,10 +84,10 @@ func (m *MockTerraformClient) Show(ctx context.Context, stdout, stderr io.Writer
 }
 
 func (m *MockTerraformClient) Run(ctx context.Context, stdout, stderr io.Writer, subcommand string, args ...string) (int, error) {
-	if m.ShowResponse != nil {
-		stdout.Write([]byte(m.ShowResponse.Stdout))
-		stderr.Write([]byte(m.ShowResponse.Stderr))
-		return m.ShowResponse.ExitCode, m.ShowResponse.Err
+	if m.RunResponse != nil {
+		stdout.Write([]byte(m.RunResponse.Stdout))
+		stderr.Write([]byte(m.RunResponse.Stderr))
+		return m.RunResponse.ExitCode, m.RunResponse.Err
 	}
 	return 0, nil
 }
