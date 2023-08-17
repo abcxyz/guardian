@@ -5,7 +5,7 @@ go 1.20
 require (
 	cloud.google.com/go/asset v1.14.1
 	cloud.google.com/go/storage v1.31.0
-	github.com/abcxyz/pkg v0.5.1-0.20230724202741-7ad5bd201d22
+	github.com/abcxyz/pkg v0.6.1-0.20230816030342-4fa9e5955bc1
 	github.com/google/cel-go v0.17.0
 	github.com/google/go-cmp v0.5.9
 	github.com/google/go-github/v53 v53.2.0
@@ -16,7 +16,7 @@ require (
 	golang.org/x/exp v0.0.0-20230713183714-613f0c0eb8a1
 	golang.org/x/oauth2 v0.10.0
 	google.golang.org/api v0.132.0
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20230717213848-3f92550aa753
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20230726155614-23370e0ffb3e
 	google.golang.org/grpc v1.56.2
 	google.golang.org/protobuf v1.31.0
 )
