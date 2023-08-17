@@ -222,7 +222,7 @@ func modules(ctx context.Context, rootDir string, skipUnresolvableModules bool) 
 			pth, err := util.PathEvalAbs(relativeModulePath)
 			if err != nil {
 				if skipUnresolvableModules {
-					logger.Debugw("Skipping unresolvable module", "module", relativeModulePath, "used_in_tf_file", absPath)
+					logger.DebugContext(ctx, "Skipping unresolvable module", "module", relativeModulePath, "used_in_tf_file", absPath)
 					continue
 				}
 				return fmt.Errorf("failed to get absolute path for directory %s: %w", relativeModulePath, err)

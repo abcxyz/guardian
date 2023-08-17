@@ -38,7 +38,6 @@ type RunConfig struct {
 // Run executes a child process with the provided arguments.
 func Run(ctx context.Context, cfg *RunConfig) (int, error) {
 	logger := logging.FromContext(ctx).
-		Named("child.run").
 		With("working_dir", cfg.WorkingDir).
 		With("command", cfg.Command).
 		With("args", cfg.Args)
@@ -75,7 +74,7 @@ func Run(ctx context.Context, cfg *RunConfig) (int, error) {
 	// https://github.com/golang/go/issues/50436
 	cmd.WaitDelay = 2 * time.Second
 
-	logger.Debug("command started")
+	logger.DebugContext(ctx, "command started")
 
 	if err := cmd.Start(); err != nil {
 		return cmd.ProcessState.ExitCode(), fmt.Errorf("failed to start command: %w", err)
@@ -87,7 +86,7 @@ func Run(ctx context.Context, cfg *RunConfig) (int, error) {
 
 	exitCode := cmd.ProcessState.ExitCode()
 
-	logger.Debugw("command completed", "exit_code", exitCode)
+	logger.DebugContext(ctx, "command completed", "exit_code", exitCode)
 
 	return exitCode, nil
 }

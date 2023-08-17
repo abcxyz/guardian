@@ -167,7 +167,7 @@ func driftignore(
 	f, err := os.Open(fname)
 	if err != nil {
 		if os.IsNotExist(err) {
-			logger.Debugw("failed to find driftignore", "filename", fname)
+			logger.DebugContext(ctx, "failed to find driftignore", "filename", fname)
 			return &ignoredAssets{
 				iamAssets,
 				projects,
@@ -195,7 +195,7 @@ func driftignore(
 			} else if p, ok := projectsByName[a]; ok {
 				projects[p.ID] = struct{}{}
 			} else {
-				logger.Warnw("failed to identify ignored project %s", "project", a, "uri", line)
+				logger.WarnContext(ctx, "failed to identify ignored project %s", "project", a, "uri", line)
 			}
 		}
 
@@ -208,7 +208,7 @@ func driftignore(
 			} else if f, ok := foldersByName[a]; ok {
 				folders[f.ID] = struct{}{}
 			} else {
-				logger.Warnw("failed to identify ignored folder %s", "folder", a, "uri", line)
+				logger.WarnContext(ctx, "failed to identify ignored folder %s", "folder", a, "uri", line)
 			}
 		}
 

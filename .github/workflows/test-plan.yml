@@ -72,7 +72,7 @@ jobs:
       - name: 'Setup Go'
         uses: 'actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568' # ratchet:actions/setup-go@v3
         with:
-          go-version: '1.20'
+          go-version: '1.21'
       - name: 'Mint Token'
         id: 'mint-token'
         uses: 'abcxyz/github-token-minter/.github/actions/mint-token@c6ea9b91e3e1df75a6e86dad8e5b0a0a45b42fec'

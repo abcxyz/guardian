@@ -144,14 +144,14 @@ func (d *IAMDriftDetector) DetectDrift(
 		return nil, fmt.Errorf("failed to expand graph for ignored assets: %w", err)
 	}
 
-	logger.Debugw("fetching iam for org, folders and projects",
+	logger.DebugContext(ctx, "fetching iam for org, folders and projects",
 		"number_of_folders", len(folders),
 		"number_of_projects", len(projects))
 	gcpIAM, err := d.actualGCPIAM(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to determine GCP IAM: %w", err)
 	}
-	logger.Debugw("Fetching terraform state from Buckets", "number_of_buckets", len(buckets))
+	logger.DebugContext(ctx, "Fetching terraform state from Buckets", "number_of_buckets", len(buckets))
 	tfIAM, err := d.terraformStateIAM(ctx, buckets)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse IAM from Terraform State: %w", err)
@@ -160,11 +160,11 @@ func (d *IAMDriftDetector) DetectDrift(
 	gcpIAMNoIgnored := filterIgnored(gcpIAM, ignoredExpanded)
 	tfIAMNoIgnored := filterIgnored(tfIAM, ignoredExpanded)
 
-	logger.Debugw("gcp iam entries",
+	logger.DebugContext(ctx, "gcp iam entries",
 		"number_of_in_scope_entries", len(gcpIAMNoIgnored),
 		"number_of_entries", len(gcpIAM),
 		"number_of_ignored_entries", len(gcpIAM)-len(gcpIAMNoIgnored))
-	logger.Debugw("terraform iam entries",
+	logger.DebugContext(ctx, "terraform iam entries",
 		"number_of_in_scope_entries", len(tfIAMNoIgnored),
 		"number_of_entries", len(tfIAM),
 		"number_of_ignored_entries", len(tfIAM)-len(tfIAMNoIgnored))
@@ -180,11 +180,11 @@ func (d *IAMDriftDetector) DetectDrift(
 	sort.Strings(clickOpsNoDefaultIgnoredChanges)
 	sort.Strings(missingTerraformNoDefaultIgnoredChanges)
 
-	logger.Debugw("found click ops changes",
+	logger.DebugContext(ctx, "found click ops changes",
 		"number_of_in_scope_changes", len(clickOpsNoDefaultIgnoredChanges),
 		"number_of_changes", len(clickOpsNoIgnoredChanges),
 		"number_of_ignored_changes", (len(clickOpsChanges) - len(clickOpsNoDefaultIgnoredChanges)))
-	logger.Debugw("found missing terraform changes",
+	logger.DebugContext(ctx, "found missing terraform changes",
 		"number_of_in_scope_changes", len(missingTerraformNoDefaultIgnoredChanges),
 		"number_of_changes", len(missingTerraformNoIgnoredChanges),
 		"number_of_ignored_changes", (len(missingTerraformChanges) - len(missingTerraformNoDefaultIgnoredChanges)))

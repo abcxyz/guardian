@@ -175,7 +175,7 @@ func (c *InitCommand) Run(ctx context.Context, args []string) error {
 	if err := c.cfg.MapGitHubContext(actionsCtx); err != nil {
 		return fmt.Errorf("failed to load github context: %w", err)
 	}
-	logger.Debugw("loaded configuration", "config", c.cfg)
+	logger.DebugContext(ctx, "loaded configuration", "config", c.cfg)
 
 	c.gitClient = git.NewGitClient(c.directory)
 	c.githubClient = github.NewClient(
@@ -192,12 +192,11 @@ func (c *InitCommand) Run(ctx context.Context, args []string) error {
 // Process handles the main logic for the Guardian init process.
 func (c *InitCommand) Process(ctx context.Context) error {
 	logger := logging.FromContext(ctx).
-		Named("init.process").
 		With("github_owner", c.GitHubFlags.FlagGitHubOwner).
 		With("github_repo", c.GitHubFlags.FlagGitHubOwner).
 		With("pull_request_number", c.flagPullRequestNumber)
 
-	logger.Debug("Starting Guardian init")
+	logger.DebugContext(ctx, "Starting Guardian init")
 
 	if c.flagFormat == "" {
 		c.flagFormat = "text"
@@ -208,7 +207,7 @@ func (c *InitCommand) Process(ctx context.Context) error {
 	}
 
 	if len(c.flagRequiredPermissions) > 0 {
-		logger.Debugw("checking required permissions")
+		logger.DebugContext(ctx, "checking required permissions")
 		permission, err := c.githubClient.RepoUserPermissionLevel(ctx, c.GitHubFlags.FlagGitHubOwner, c.GitHubFlags.FlagGitHubRepo, c.cfg.Actor)
 		if err != nil {
 			return fmt.Errorf("failed to get repo permissions: %w", err)
@@ -221,13 +220,13 @@ func (c *InitCommand) Process(ctx context.Context) error {
 	}
 
 	if c.flagDeleteOutdatedPlanComments {
-		logger.Debug("removing outdated comments...")
+		logger.DebugContext(ctx, "removing outdated comments...")
 		if err := c.deleteOutdatedPlanComments(ctx, c.GitHubFlags.FlagGitHubOwner, c.GitHubFlags.FlagGitHubRepo, c.flagPullRequestNumber); err != nil {
 			return fmt.Errorf("failed to delete outdated comments: %w", err)
 		}
 	}
 
-	logger.Debug("finding entrypoint directories")
+	logger.DebugContext(ctx, "finding entrypoint directories")
 
 	entrypoints, err := terraform.GetEntrypointDirectories(c.directory)
 	if err != nil {
@@ -239,16 +238,16 @@ func (c *InitCommand) Process(ctx context.Context) error {
 		entrypointDirs = append(entrypointDirs, e.Path)
 	}
 
-	logger.Debugw("terraform entrypoint directories", "entrypoint_dirs", entrypoints)
+	logger.DebugContext(ctx, "terraform entrypoint directories", "entrypoint_dirs", entrypoints)
 
 	if !c.flagSkipDetectChanges {
-		logger.Debug("finding git diff directories")
+		logger.DebugContext(ctx, "finding git diff directories")
 
 		diffDirs, err := c.gitClient.DiffDirsAbs(ctx, c.flagDestRef, c.flagSourceRef)
 		if err != nil {
 			return fmt.Errorf("failed to find git diff directories: %w", err)
 		}
-		logger.Debugw("git diff directories", "directories", diffDirs)
+		logger.DebugContext(ctx, "git diff directories", "directories", diffDirs)
 
 		moduleUsageGraph, err := terraform.ModuleUsage(ctx, c.directory, !c.flagFailUnresolvableModules)
 		if err != nil {
@@ -274,7 +273,7 @@ func (c *InitCommand) Process(ctx context.Context) error {
 		entrypointDirs = files
 	}
 
-	logger.Debugw("target directories", "target_directories", entrypointDirs)
+	logger.DebugContext(ctx, "target directories", "target_directories", entrypointDirs)
 
 	if err := c.writeOutput(entrypointDirs); err != nil {
 		return fmt.Errorf("failed to write output: %w", err)
