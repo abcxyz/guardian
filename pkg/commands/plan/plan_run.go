@@ -66,20 +66,20 @@ type PlanRunCommand struct {
 	flagLockTimeout          time.Duration
 
 	actions         *githubactions.Action
-	githubClient    github.GitHub
+	gitHubClient    github.GitHub
 	storageClient   storage.Storage
 	terraformClient terraform.Terraform
 }
 
 func (c *PlanRunCommand) Desc() string {
-	return `Run the Terraform plan for a directory`
+	return `Run Terraform plan for a directory`
 }
 
 func (c *PlanRunCommand) Help() string {
 	return `
 Usage: {{ COMMAND }} [options] <directory>
 
-  Run the Terraform plan for a directory.
+  Run Terraform plan for a directory.
 `
 }
 
@@ -110,7 +110,7 @@ func (c *PlanRunCommand) Flags() *cli.FlagSet {
 		Target:  &c.flagAllowLockfileChanges,
 		Default: true,
 		Example: "true",
-		Usage:   "Prevent modification of the Terraform lockfile.",
+		Usage:   "Allow modification of the Terraform lockfile.",
 	})
 
 	f.DurationVar(&cli.DurationVar{
@@ -166,7 +166,7 @@ func (c *PlanRunCommand) Run(ctx context.Context, args []string) error {
 	}
 	logger.DebugContext(ctx, "loaded configuration", "config", c.cfg)
 
-	c.githubClient = github.NewClient(
+	c.gitHubClient = github.NewClient(
 		ctx,
 		c.GitHubFlags.FlagGitHubToken,
 		github.WithRetryInitialDelay(c.RetryFlags.FlagRetryInitialDelay),
@@ -233,7 +233,7 @@ func (c *PlanRunCommand) createStartCommentForActions(ctx context.Context) (*git
 
 	c.Outf("Creating start comment")
 
-	startComment, err := c.githubClient.CreateIssueComment(
+	startComment, err := c.gitHubClient.CreateIssueComment(
 		ctx,
 		c.GitHubFlags.FlagGitHubOwner,
 		c.GitHubFlags.FlagGitHubRepo,
@@ -265,7 +265,7 @@ func (c *PlanRunCommand) updateResultCommentForActions(ctx context.Context, star
 			fmt.Fprintf(&comment, "\n\n<details>\n<summary>Details</summary>\n\n```diff\n\n%s\n```\n</details>", result.commentDetails)
 		}
 
-		if err := c.githubClient.UpdateIssueComment(
+		if err := c.gitHubClient.UpdateIssueComment(
 			ctx,
 			c.GitHubFlags.FlagGitHubOwner,
 			c.GitHubFlags.FlagGitHubRepo,
@@ -286,7 +286,7 @@ func (c *PlanRunCommand) updateResultCommentForActions(ctx context.Context, star
 			fmt.Fprintf(&comment, "\n\n<details>\n<summary>Details</summary>\n\n```diff\n\n%s\n```\n</details>", result.commentDetails)
 		}
 
-		if commentErr := c.githubClient.UpdateIssueComment(
+		if commentErr := c.gitHubClient.UpdateIssueComment(
 			ctx,
 			c.GitHubFlags.FlagGitHubOwner,
 			c.GitHubFlags.FlagGitHubRepo,
@@ -299,7 +299,7 @@ func (c *PlanRunCommand) updateResultCommentForActions(ctx context.Context, star
 		return nil
 	}
 
-	if err := c.githubClient.UpdateIssueComment(
+	if err := c.gitHubClient.UpdateIssueComment(
 		ctx,
 		c.GitHubFlags.FlagGitHubOwner,
 		c.GitHubFlags.FlagGitHubRepo,

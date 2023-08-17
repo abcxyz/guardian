@@ -66,18 +66,18 @@ type InitCommand struct {
 
 	actions      *githubactions.Action
 	gitClient    git.Git
-	githubClient github.GitHub
+	gitHubClient github.GitHub
 }
 
 func (c *InitCommand) Desc() string {
-	return `Run the Terraform plan for a directory`
+	return `Run initialization steps prior to running additional Guardian commands`
 }
 
 func (c *InitCommand) Help() string {
 	return `
 Usage: {{ COMMAND }} [options] <directory>
 
-  Initialize Guardian for running the Terraform plan process.
+	Run initialization steps prior to running additional Guardian commands.
 `
 }
 
@@ -178,7 +178,7 @@ func (c *InitCommand) Run(ctx context.Context, args []string) error {
 	logger.DebugContext(ctx, "loaded configuration", "config", c.cfg)
 
 	c.gitClient = git.NewGitClient(c.directory)
-	c.githubClient = github.NewClient(
+	c.gitHubClient = github.NewClient(
 		ctx,
 		c.GitHubFlags.FlagGitHubToken,
 		github.WithRetryInitialDelay(c.RetryFlags.FlagRetryInitialDelay),
@@ -208,7 +208,7 @@ func (c *InitCommand) Process(ctx context.Context) error {
 
 	if len(c.flagRequiredPermissions) > 0 {
 		logger.DebugContext(ctx, "checking required permissions")
-		permission, err := c.githubClient.RepoUserPermissionLevel(ctx, c.GitHubFlags.FlagGitHubOwner, c.GitHubFlags.FlagGitHubRepo, c.cfg.Actor)
+		permission, err := c.gitHubClient.RepoUserPermissionLevel(ctx, c.GitHubFlags.FlagGitHubOwner, c.GitHubFlags.FlagGitHubRepo, c.cfg.Actor)
 		if err != nil {
 			return fmt.Errorf("failed to get repo permissions: %w", err)
 		}
@@ -321,7 +321,7 @@ func (c *InitCommand) deleteOutdatedPlanComments(ctx context.Context, owner, rep
 	}
 
 	for {
-		response, err := c.githubClient.ListIssueComments(ctx, owner, repo, number, listOpts)
+		response, err := c.gitHubClient.ListIssueComments(ctx, owner, repo, number, listOpts)
 		if err != nil {
 			return fmt.Errorf("failed to list comments: %w", err)
 		}
@@ -335,7 +335,7 @@ func (c *InitCommand) deleteOutdatedPlanComments(ctx context.Context, owner, rep
 				continue
 			}
 
-			if err := c.githubClient.DeleteIssueComment(ctx, owner, repo, comment.ID); err != nil {
+			if err := c.gitHubClient.DeleteIssueComment(ctx, owner, repo, comment.ID); err != nil {
 				return fmt.Errorf("failed to delete comment: %w", err)
 			}
 		}

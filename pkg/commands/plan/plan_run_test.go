@@ -267,7 +267,7 @@ func TestPlan_Process(t *testing.T) {
 			t.Parallel()
 
 			actions := githubactions.New(githubactions.WithWriter(os.Stdout))
-			githubClient := &github.MockGitHubClient{}
+			gitHubClient := &github.MockGitHubClient{}
 			storageClient := &storage.MockStorageClient{}
 
 			c := &PlanRunCommand{
@@ -287,7 +287,7 @@ func TestPlan_Process(t *testing.T) {
 					FlagGitHubRepo:      tc.flagGitHubRepo,
 				},
 				actions:         actions,
-				githubClient:    githubClient,
+				gitHubClient:    gitHubClient,
 				storageClient:   storageClient,
 				terraformClient: tc.terraformClient,
 			}
@@ -299,7 +299,7 @@ func TestPlan_Process(t *testing.T) {
 				t.Errorf(diff)
 			}
 
-			if diff := cmp.Diff(githubClient.Reqs, tc.expGitHubClientReqs); diff != "" {
+			if diff := cmp.Diff(gitHubClient.Reqs, tc.expGitHubClientReqs); diff != "" {
 				t.Errorf("GitHubClient calls not as expected; (-got,+want): %s", diff)
 			}
 

@@ -202,7 +202,7 @@ func TestInitProcess(t *testing.T) {
 			t.Parallel()
 
 			actions := githubactions.New(githubactions.WithWriter(os.Stdout))
-			githubClient := &github.MockGitHubClient{
+			gitHubClient := &github.MockGitHubClient{
 				RepoPermissionLevel: "read",
 			}
 
@@ -224,7 +224,7 @@ func TestInitProcess(t *testing.T) {
 				},
 				actions:      actions,
 				gitClient:    tc.gitClient,
-				githubClient: githubClient,
+				gitHubClient: gitHubClient,
 			}
 
 			_, stdout, stderr := c.Pipe()
@@ -234,7 +234,7 @@ func TestInitProcess(t *testing.T) {
 				t.Errorf(diff)
 			}
 
-			if diff := cmp.Diff(githubClient.Reqs, tc.expGitHubClientReqs); diff != "" {
+			if diff := cmp.Diff(gitHubClient.Reqs, tc.expGitHubClientReqs); diff != "" {
 				t.Errorf("GitHubClient calls not as expected; (-got,+want): %s", diff)
 			}
 
