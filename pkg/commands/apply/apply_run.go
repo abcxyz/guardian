@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package plan provide the Terraform planning functionality for Guardian.
-package plan
+// Package apply provides the Terraform apply functionality for Guardian.
+package apply
 
 import (
 	"context"
@@ -23,7 +23,7 @@ import (
 	"io"
 	"os"
 	"path"
-	"strconv"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -37,30 +37,36 @@ import (
 	"github.com/sethvargo/go-githubactions"
 )
 
-const CommentPrefix = "**`🔱 Guardian 🔱 PLAN`** -"
+const (
+	ownerReadWritePerms = 0o600
+	CommentPrefix       = "**`🔱 Guardian 🔱 APPLY`** -"
+)
 
-var _ cli.Command = (*PlanRunCommand)(nil)
+var _ cli.Command = (*ApplyRunCommand)(nil)
 
-// RunResult is the result of a plan operation.
+// RunResult is the result of a apply operation.
 type RunResult struct {
-	hasChanges     bool
 	commentDetails string
 }
 
-type PlanRunCommand struct {
+// ApplyRunCommand is a subcommand of apply and implements the cli.Command interface.
+// It performs terraform apply on the given working directory.
+type ApplyRunCommand struct {
 	cli.BaseCommand
 
 	cfg *Config
 
-	directory    string
-	childPath    string
-	planFilename string
-	gitHubLogURL string
+	directory                 string
+	childPath                 string
+	planFilename              string
+	gitHubLogURL              string
+	computedPullRequestNumber int
 
 	flags.GitHubFlags
 	flags.RetryFlags
 
 	flagBucketName           string
+	flagCommitSHA            string
 	flagPullRequestNumber    int
 	flagAllowLockfileChanges bool
 	flagLockTimeout          time.Duration
@@ -71,19 +77,22 @@ type PlanRunCommand struct {
 	terraformClient terraform.Terraform
 }
 
-func (c *PlanRunCommand) Desc() string {
-	return `Run the Terraform plan for a directory`
+// Desc provides a short, one-line description of the command.
+func (c *ApplyRunCommand) Desc() string {
+	return "Run the Terraform apply for a directory"
 }
 
-func (c *PlanRunCommand) Help() string {
+// Help is the long-form help output to include usage instructions and flag
+// information.
+func (c *ApplyRunCommand) Help() string {
 	return `
 Usage: {{ COMMAND }} [options] <directory>
 
-  Run the Terraform plan for a directory.
+	Run the Terraform apply for a directory.
 `
 }
 
-func (c *PlanRunCommand) Flags() *cli.FlagSet {
+func (c *ApplyRunCommand) Flags() *cli.FlagSet {
 	set := c.NewFlagSet()
 
 	c.GitHubFlags.Register(set)
@@ -95,7 +104,14 @@ func (c *PlanRunCommand) Flags() *cli.FlagSet {
 		Name:    "pull-request-number",
 		Target:  &c.flagPullRequestNumber,
 		Example: "100",
-		Usage:   "The GitHub pull request number associated with this plan run.",
+		Usage:   "The GitHub pull request number associated with this apply run.",
+	})
+
+	f.StringVar(&cli.StringVar{
+		Name:    "commit-sha",
+		Target:  &c.flagCommitSHA,
+		Example: "100",
+		Usage:   "The commit sha to determine the pull request number associated with this apply run.",
 	})
 
 	f.StringVar(&cli.StringVar{
@@ -124,7 +140,7 @@ func (c *PlanRunCommand) Flags() *cli.FlagSet {
 	return set
 }
 
-func (c *PlanRunCommand) Run(ctx context.Context, args []string) error {
+func (c *ApplyRunCommand) Run(ctx context.Context, args []string) error {
 	logger := logging.FromContext(ctx)
 
 	f := c.Flags()
@@ -164,7 +180,7 @@ func (c *PlanRunCommand) Run(ctx context.Context, args []string) error {
 	if err := c.cfg.MapGitHubContext(actionsCtx); err != nil {
 		return fmt.Errorf("failed to load github context: %w", err)
 	}
-	logger.DebugContext(ctx, "loaded configuration", "config", c.cfg)
+	logger.Debugw("loaded configuration", "config", c.cfg)
 
 	c.githubClient = github.NewClient(
 		ctx,
@@ -188,32 +204,94 @@ func (c *PlanRunCommand) Run(ctx context.Context, args []string) error {
 	return c.Process(ctx)
 }
 
-// Process handles the main logic for the Guardian plan run process.
-func (c *PlanRunCommand) Process(ctx context.Context) error {
+// Process handles the main logic for the Guardian apply run process.
+func (c *ApplyRunCommand) Process(ctx context.Context) (merr error) {
 	logger := logging.FromContext(ctx).
+		Named("apply_run.process").
 		With("github_owner", c.GitHubFlags.FlagGitHubOwner).
 		With("github_repo", c.GitHubFlags.FlagGitHubOwner).
+		With("commit_sha", c.flagCommitSHA).
 		With("pull_request_number", c.flagPullRequestNumber)
 
-	var merr error
-
-	c.Outf("Starting Guardian plan")
+	c.Outf("Starting Guardian apply")
 
 	if c.planFilename == "" {
 		c.planFilename = "tfplan.binary"
 	}
 
+	if c.flagCommitSHA != "" {
+		prResponse, err := c.githubClient.ListPullRequestsForCommit(ctx, c.GitHubFlags.FlagGitHubOwner, c.GitHubFlags.FlagGitHubRepo, c.flagCommitSHA, nil)
+		if err != nil {
+			merr = fmt.Errorf("failed to get pull request number for commit sha: %w", err)
+			return
+		}
+
+		if prResponse.PullRequests == nil {
+			merr = fmt.Errorf("no pull requests found for commit sha")
+			return
+		}
+
+		c.computedPullRequestNumber = prResponse.PullRequests[0].Number
+	} else {
+		c.computedPullRequestNumber = c.flagPullRequestNumber
+	}
+	logger.Debugw("computed pull request number", "computed_pull_request_number", c.computedPullRequestNumber)
+
 	c.gitHubLogURL = fmt.Sprintf("[[logs](%s/%s/%s/actions/runs/%d/attempts/%d)]", c.cfg.ServerURL, c.GitHubFlags.FlagGitHubOwner, c.GitHubFlags.FlagGitHubRepo, c.cfg.RunID, c.cfg.RunAttempt)
-	logger.DebugContext(ctx, "computed github log url", "github_log_url", c.gitHubLogURL)
+	logger.Debugw("computed github log url", "github_log_url", c.gitHubLogURL)
+
+	planBucketPath := path.Join(c.childPath, c.planFilename)
+	bucketObjectPath := fmt.Sprintf("guardian-plans/%s/%s/%d/%s", c.GitHubFlags.FlagGitHubOwner, c.GitHubFlags.FlagGitHubRepo, c.computedPullRequestNumber, planBucketPath)
+	logger.Debugw("bucket object path", "bucket_object_path", bucketObjectPath)
+
+	planData, planExitCode, err := c.downloadGuardianPlan(ctx, bucketObjectPath)
+	if err != nil {
+		merr = fmt.Errorf("failed to download guardian plan file: %w", err)
+		return
+	}
+
+	// we always want to delete the remote plan file to keep the bucket clean
+	defer func() {
+		if err := c.deleteGuardianPlan(ctx, bucketObjectPath); err != nil {
+			merr = errors.Join(merr, fmt.Errorf("failed to delete plan file: %w", err))
+		}
+	}()
+
+	// exit code of 0 means success with no diff, skip apply
+	if planExitCode == "0" {
+		logger.Debugw("plan file has no diff, exiting", "plan_exit_code", planExitCode)
+		c.Outf("Guardian plan file has no diff, exiting")
+		return
+	}
+
+	tempDir, err := os.MkdirTemp("", "guardian-plans-*")
+	if err != nil {
+		merr = fmt.Errorf("failed to create temporary plan directory: %w", err)
+		return
+	}
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			merr = errors.Join(merr, fmt.Errorf("failed to delete temporary plan directory: %w", err))
+		}
+	}()
+
+	c.Outf("Writing plan file to disk")
+
+	planFilePath := filepath.Join(tempDir, c.planFilename)
+	if err := os.WriteFile(planFilePath, planData, ownerReadWritePerms); err != nil {
+		merr = fmt.Errorf("failed to write plan file to disk [%s]: %w", planFilePath, err)
+		return
+	}
 
 	startComment, err := c.createStartCommentForActions(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to write start comment: %w", err)
+		merr = fmt.Errorf("failed to write start comment: %w", err)
+		return
 	}
 
-	result, err := c.terraformPlan(ctx)
+	result, err := c.terraformApply(ctx)
 	if err != nil {
-		merr = errors.Join(merr, fmt.Errorf("failed to run Guardian plan: %w", err))
+		merr = errors.Join(merr, fmt.Errorf("failed to run Guardian apply: %w", err))
 	}
 
 	if err := c.updateResultCommentForActions(ctx, startComment, result, err); err != nil {
@@ -223,11 +301,11 @@ func (c *PlanRunCommand) Process(ctx context.Context) error {
 	return merr
 }
 
-func (c *PlanRunCommand) createStartCommentForActions(ctx context.Context) (*github.IssueComment, error) {
+func (c *ApplyRunCommand) createStartCommentForActions(ctx context.Context) (*github.IssueComment, error) {
 	logger := logging.FromContext(ctx)
 
 	if !c.GitHubFlags.FlagIsGitHubActions {
-		logger.DebugContext(ctx, "skipping start comment", "is_github_action", c.GitHubFlags.FlagIsGitHubActions)
+		logger.Debugw("skipping start comment", "is_github_action", c.GitHubFlags.FlagIsGitHubActions)
 		return nil, nil
 	}
 
@@ -237,7 +315,7 @@ func (c *PlanRunCommand) createStartCommentForActions(ctx context.Context) (*git
 		ctx,
 		c.GitHubFlags.FlagGitHubOwner,
 		c.GitHubFlags.FlagGitHubRepo,
-		c.flagPullRequestNumber,
+		c.computedPullRequestNumber,
 		fmt.Sprintf("%s 🟨 Running for dir: `%s` %s", CommentPrefix, c.childPath, c.gitHubLogURL),
 	)
 	if err != nil {
@@ -247,11 +325,11 @@ func (c *PlanRunCommand) createStartCommentForActions(ctx context.Context) (*git
 	return startComment, nil
 }
 
-func (c *PlanRunCommand) updateResultCommentForActions(ctx context.Context, startComment *github.IssueComment, result *RunResult, resulErr error) error {
+func (c *ApplyRunCommand) updateResultCommentForActions(ctx context.Context, startComment *github.IssueComment, result *RunResult, resulErr error) error {
 	logger := logging.FromContext(ctx)
 
 	if !c.GitHubFlags.FlagIsGitHubActions {
-		logger.DebugContext(ctx, "skipping update result comment", "is_github_action", c.GitHubFlags.FlagIsGitHubActions)
+		logger.Debugw("skipping update result comment", "is_github_action", c.GitHubFlags.FlagIsGitHubActions)
 		return nil
 	}
 
@@ -272,49 +350,35 @@ func (c *PlanRunCommand) updateResultCommentForActions(ctx context.Context, star
 			startComment.ID,
 			comment.String(),
 		); err != nil {
-			return fmt.Errorf("failed to update plan error comment: %w", err)
+			return fmt.Errorf("failed to update apply error comment: %w", err)
 		}
 
 		return nil
 	}
 
-	if result.hasChanges {
-		var comment strings.Builder
+	var comment strings.Builder
 
-		fmt.Fprintf(&comment, "%s 🟩 Successful for dir: `%s` %s", CommentPrefix, c.childPath, c.gitHubLogURL)
-		if result.commentDetails != "" {
-			fmt.Fprintf(&comment, "\n\n<details>\n<summary>Details</summary>\n\n```diff\n\n%s\n```\n</details>", result.commentDetails)
-		}
-
-		if commentErr := c.githubClient.UpdateIssueComment(
-			ctx,
-			c.GitHubFlags.FlagGitHubOwner,
-			c.GitHubFlags.FlagGitHubRepo,
-			startComment.ID,
-			comment.String(),
-		); commentErr != nil {
-			return fmt.Errorf("failed to create plan comment: %w", commentErr)
-		}
-
-		return nil
+	fmt.Fprintf(&comment, "%s 🟩 Successful for dir: `%s` %s", CommentPrefix, c.childPath, c.gitHubLogURL)
+	if result.commentDetails != "" {
+		fmt.Fprintf(&comment, "\n\n<details>\n<summary>Details</summary>\n\n```diff\n\n%s\n```\n</details>", result.commentDetails)
 	}
 
-	if err := c.githubClient.UpdateIssueComment(
+	if commentErr := c.githubClient.UpdateIssueComment(
 		ctx,
 		c.GitHubFlags.FlagGitHubOwner,
 		c.GitHubFlags.FlagGitHubRepo,
 		startComment.ID,
-		fmt.Sprintf("%s 🟦 No changes for dir: `%s` %s", CommentPrefix, c.childPath, c.gitHubLogURL),
-	); err != nil {
-		return fmt.Errorf("failed to update plan comment: %w", err)
+		comment.String(),
+	); commentErr != nil {
+		return fmt.Errorf("failed to create apply comment: %w", commentErr)
 	}
 
 	return nil
 }
 
-// terraformPlan runs the required Terraform commands for a full run of
-// a Guardian plan using the Terraform CLI.
-func (c *PlanRunCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
+// terraformApply runs the required Terraform commands for a full run of
+// a Guardian apply using the Terraform CLI.
+func (c *ApplyRunCommand) terraformApply(ctx context.Context) (*RunResult, error) {
 	var stdout, stderr strings.Builder
 	multiStdout := io.MultiWriter(c.Stdout(), &stdout)
 	multiStderr := io.MultiWriter(c.Stderr(), &stderr)
@@ -349,72 +413,31 @@ func (c *PlanRunCommand) terraformPlan(ctx context.Context) (*RunResult, error) 
 
 	stderr.Reset()
 
-	var hasChanges bool
-	var planExitCode int
-
-	if err := c.withActionsOutGroup("Planning Terraform", func() error {
-		exitCode, err := c.terraformClient.Plan(ctx, c.Stdout(), multiStderr, &terraform.PlanOptions{
-			Out:              util.Ptr(c.planFilename),
-			Input:            util.Ptr(false),
-			NoColor:          util.Ptr(true),
-			DetailedExitcode: util.Ptr(true),
-			LockTimeout:      util.Ptr(c.flagLockTimeout.String()),
+	if err := c.withActionsOutGroup("Applying Terraform", func() error {
+		_, err := c.terraformClient.Apply(ctx, multiStdout, multiStderr, &terraform.ApplyOptions{
+			File:            util.Ptr(c.planFilename),
+			CompactWarnings: util.Ptr(true),
+			Input:           util.Ptr(false),
+			NoColor:         util.Ptr(true),
+			LockTimeout:     util.Ptr(c.flagLockTimeout.String()),
 		})
 
-		planExitCode = exitCode
-		// use the detailed exitcode from terraform to determine if there is a diff
-		// 0 - success, no diff  1 - failed   2 - success, diff
-		hasChanges = planExitCode == 2
-
-		return err //nolint:wrapcheck // Want passthrough
-	}); err != nil && !hasChanges {
-		return &RunResult{commentDetails: stderr.String()}, fmt.Errorf("failed to plan: %w", err)
-	}
-
-	stderr.Reset()
-
-	if err := c.withActionsOutGroup("Formatting output", func() error {
-		_, err := c.terraformClient.Show(ctx, multiStdout, multiStderr, &terraform.ShowOptions{
-			File:    util.Ptr(c.planFilename),
-			NoColor: util.Ptr(true),
-		})
 		return err //nolint:wrapcheck // Want passthrough
 	}); err != nil {
-		return &RunResult{
-			commentDetails: stderr.String(),
-			hasChanges:     hasChanges,
-		}, fmt.Errorf("failed to terraform show: %w", err)
+		return &RunResult{commentDetails: stderr.String()}, fmt.Errorf("failed to apply: %w", err)
 	}
 
 	stderr.Reset()
 
+	c.Outf("Formatting output")
 	githubOutput := terraform.FormatOutputForGitHubDiff(stdout.String())
 
-	planFilePath := path.Join(c.childPath, c.planFilename)
-
-	planData, err := os.ReadFile(planFilePath)
-	if err != nil {
-		return &RunResult{hasChanges: hasChanges}, fmt.Errorf("failed to read plan binary: %w", err)
-	}
-
-	bucketObjectPath := fmt.Sprintf("guardian-plans/%s/%s/%d/%s", c.GitHubFlags.FlagGitHubOwner, c.GitHubFlags.FlagGitHubRepo, c.flagPullRequestNumber, planFilePath)
-	c.Outf("Uploading plan file to gs://%s/%s", c.flagBucketName, bucketObjectPath)
-
-	if err := c.uploadGuardianPlan(ctx, bucketObjectPath, planData, planExitCode); err != nil {
-		return &RunResult{hasChanges: hasChanges}, fmt.Errorf("failed to upload plan data: %w", err)
-	}
-
-	stderr.Reset()
-
-	return &RunResult{
-		commentDetails: githubOutput,
-		hasChanges:     hasChanges,
-	}, nil
+	return &RunResult{commentDetails: githubOutput}, nil
 }
 
 // withActionsOutGroup runs a function and ensures it is wrapped in GitHub actions
 // grouping syntax. If this is not in an action, output is printed without grouping syntax.
-func (c *PlanRunCommand) withActionsOutGroup(msg string, fn func() error) error {
+func (c *ApplyRunCommand) withActionsOutGroup(msg string, fn func() error) error {
 	if c.GitHubFlags.FlagIsGitHubActions {
 		c.actions.Group(msg)
 		defer c.actions.EndGroup()
@@ -425,17 +448,52 @@ func (c *PlanRunCommand) withActionsOutGroup(msg string, fn func() error) error 
 	return fn()
 }
 
-// uploadGuardianPlan uploads the Guardian plan binary to the configured Guardian storage bucket.
-func (c *PlanRunCommand) uploadGuardianPlan(ctx context.Context, path string, data []byte, exitCode int) error {
-	metadata := make(map[string]string)
-	metadata["plan_exit_code"] = strconv.Itoa(exitCode)
+// downloadGuardianPlan downloads the Guardian plan binary from the configured Guardian storage bucket
+// and returns the plan data and plan exit code.
+func (c *ApplyRunCommand) downloadGuardianPlan(ctx context.Context, path string) (planData []byte, planExitCode string, outErr error) {
+	c.Outf("Downloading Guardian plan file")
 
-	if err := c.storageClient.UploadObject(ctx, c.flagBucketName, path, data,
-		storage.WithContentType("application/octet-stream"),
-		storage.WithMetadata(metadata),
-		storage.WithAllowOverwrite(true),
-	); err != nil {
-		return fmt.Errorf("failed to upload plan file: %w", err)
+	metadata, err := c.storageClient.ObjectMetadata(ctx, c.flagBucketName, path)
+	if err != nil {
+		outErr = fmt.Errorf("failed to get plan object metadata: %w", err)
+		return
+	}
+
+	exitCode, ok := metadata["plan_exit_code"]
+	if !ok {
+		outErr = fmt.Errorf("failed to determine plan exit code: %w", err)
+		return
+	}
+	planExitCode = exitCode
+
+	rc, err := c.storageClient.DownloadObject(ctx, c.flagBucketName, path)
+	if err != nil {
+		outErr = fmt.Errorf("failed to download object: %w", err)
+		return
+	}
+
+	defer func() {
+		if closeErr := rc.Close(); closeErr != nil {
+			outErr = fmt.Errorf("failed to close download object reader: %w", closeErr)
+		}
+	}()
+
+	data, err := io.ReadAll(rc)
+	if err != nil {
+		outErr = fmt.Errorf("failed to read plan data: %w", err)
+		return
+	}
+	planData = data
+
+	return
+}
+
+// handleDeleteGuardianPlan deletes the Guardian plan binary from the configured Guardian storage bucket.
+func (c *ApplyRunCommand) deleteGuardianPlan(ctx context.Context, path string) error {
+	c.Outf("Deleting Guardian plan file")
+
+	if err := c.storageClient.DeleteObject(ctx, c.flagBucketName, path); err != nil {
+		return fmt.Errorf("failed to upload apply file: %w", err)
 	}
 
 	return nil

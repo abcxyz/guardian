@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package plan
+package apply
 
 import (
 	"context"
@@ -32,7 +32,7 @@ import (
 	"github.com/sethvargo/go-githubactions"
 )
 
-var terraformNoDiffMock = &terraform.MockTerraformClient{
+var terraformMock = &terraform.MockTerraformClient{
 	InitResponse: &terraform.MockTerraformResponse{
 		Stdout:   "terraform init success",
 		ExitCode: 0,
@@ -41,57 +41,30 @@ var terraformNoDiffMock = &terraform.MockTerraformClient{
 		Stdout:   "terraform validate success",
 		ExitCode: 0,
 	},
-	PlanResponse: &terraform.MockTerraformResponse{
-		Stdout:   "terraform plan success - no diff",
-		ExitCode: 0,
-	},
-	ShowResponse: &terraform.MockTerraformResponse{
-		Stdout:   "terraform show success - no diff",
-		ExitCode: 0,
-	},
-}
-
-var terraformDiffMock = &terraform.MockTerraformClient{
-	InitResponse: &terraform.MockTerraformResponse{
-		Stdout:   "terraform init success with diff",
-		ExitCode: 0,
-	},
-	ValidateResponse: &terraform.MockTerraformResponse{
-		Stdout:   "terraform validate success with diff",
-		ExitCode: 0,
-	},
-	PlanResponse: &terraform.MockTerraformResponse{
-		Stdout:   "terraform plan success with diff",
-		ExitCode: 2,
-	},
-	ShowResponse: &terraform.MockTerraformResponse{
-		Stdout:   "terraform show success with diff",
+	ApplyResponse: &terraform.MockTerraformResponse{
+		Stdout:   "terraform apply success",
 		ExitCode: 0,
 	},
 }
 
 var terraformErrorMock = &terraform.MockTerraformClient{
 	InitResponse: &terraform.MockTerraformResponse{
-		Stdout:   "terraform init output",
-		Stderr:   "terraform init failed",
-		ExitCode: 1,
-		Err:      fmt.Errorf("failed to run terraform init"),
+		Stdout:   "terraform init success",
+		ExitCode: 0,
 	},
 	ValidateResponse: &terraform.MockTerraformResponse{
 		Stdout:   "terraform validate success",
 		ExitCode: 0,
 	},
-	PlanResponse: &terraform.MockTerraformResponse{
-		Stdout:   "terraform plan success - no diff",
-		ExitCode: 0,
-	},
-	ShowResponse: &terraform.MockTerraformResponse{
-		Stdout:   "terraform show success - no diff",
-		ExitCode: 0,
+	ApplyResponse: &terraform.MockTerraformResponse{
+		Stdout:   "terraform apply output",
+		Stderr:   "terraform apply failed",
+		ExitCode: 1,
+		Err:      fmt.Errorf("failed to run terraform apply"),
 	},
 }
 
-func TestPlan_Process(t *testing.T) {
+func TestApply_Process(t *testing.T) {
 	t.Parallel()
 
 	ctx := logging.WithLogger(context.Background(), logging.TestLogger(t))
@@ -108,11 +81,13 @@ func TestPlan_Process(t *testing.T) {
 		flagIsGitHubActions      bool
 		flagGitHubOwner          string
 		flagGitHubRepo           string
+		flagCommitSHA            string
 		flagPullRequestNumber    int
 		flagBucketName           string
 		flagAllowLockfileChanges bool
 		flagLockTimeout          time.Duration
 		config                   *Config
+		planExitCode             string
 		terraformClient          *terraform.MockTerraformClient
 		err                      string
 		expGitHubClientReqs      []*github.Request
@@ -121,74 +96,59 @@ func TestPlan_Process(t *testing.T) {
 		expStderr                string
 	}{
 		{
-			name:                     "success_with_diff",
-			directory:                "testdata",
+			name:                     "success",
+			directory:                "testdir",
 			flagIsGitHubActions:      true,
 			flagGitHubOwner:          "owner",
 			flagGitHubRepo:           "repo",
-			flagPullRequestNumber:    1,
+			flagCommitSHA:            "commit-sha-1",
 			flagBucketName:           "my-bucket-name",
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
 			config:                   defaultConfig,
-			terraformClient:          terraformDiffMock,
+			planExitCode:             "2",
+			terraformClient:          terraformMock,
 			expGitHubClientReqs: []*github.Request{
 				{
+					Name:   "ListPullRequestsForCommit",
+					Params: []any{"owner", "repo", "commit-sha-1"},
+				},
+				{
 					Name:   "CreateIssueComment",
-					Params: []any{"owner", "repo", int(1), "**`🔱 Guardian 🔱 PLAN`** - 🟨 Running for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
+					Params: []any{"owner", "repo", int(1), "**`🔱 Guardian 🔱 APPLY`** - 🟨 Running for dir: `testdir` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
 				},
 				{
 					Name:   "UpdateIssueComment",
-					Params: []any{"owner", "repo", int64(1), "**`🔱 Guardian 🔱 PLAN`** - 🟩 Successful for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]\n\n<details>\n<summary>Details</summary>\n\n```diff\n\nterraform show success with diff\n```\n</details>"},
+					Params: []any{"owner", "repo", int64(1), "**`🔱 Guardian 🔱 APPLY`** - 🟩 Successful for dir: `testdir` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]\n\n<details>\n<summary>Details</summary>\n\n```diff\n\nterraform apply success\n```\n</details>"},
 				},
 			},
 			expStorageClientReqs: []*storage.Request{
 				{
-					Name: "UploadObject",
+					Name: "ObjectMetadata",
 					Params: []any{
 						"my-bucket-name",
-						"guardian-plans/owner/repo/1/testdata/test-tfplan.binary",
-						"this is a plan binary",
+						"guardian-plans/owner/repo/1/testdir/test-tfplan.binary",
+					},
+				},
+				{
+					Name: "DownloadObject",
+					Params: []any{
+						"my-bucket-name",
+						"guardian-plans/owner/repo/1/testdir/test-tfplan.binary",
+					},
+				},
+				{
+					Name: "DeleteObject",
+					Params: []any{
+						"my-bucket-name",
+						"guardian-plans/owner/repo/1/testdir/test-tfplan.binary",
 					},
 				},
 			},
 		},
 		{
-			name:                     "success_with_no_diff",
-			directory:                "testdata",
-			flagIsGitHubActions:      true,
-			flagGitHubOwner:          "owner",
-			flagGitHubRepo:           "repo",
-			flagPullRequestNumber:    2,
-			flagBucketName:           "my-bucket-name",
-			flagAllowLockfileChanges: true,
-			flagLockTimeout:          10 * time.Minute,
-			config:                   defaultConfig,
-			terraformClient:          terraformNoDiffMock,
-			expGitHubClientReqs: []*github.Request{
-				{
-					Name:   "CreateIssueComment",
-					Params: []any{"owner", "repo", int(2), "**`🔱 Guardian 🔱 PLAN`** - 🟨 Running for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
-				},
-				{
-					Name:   "UpdateIssueComment",
-					Params: []any{"owner", "repo", int64(1), "**`🔱 Guardian 🔱 PLAN`** - 🟦 No changes for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
-				},
-			},
-			expStorageClientReqs: []*storage.Request{
-				{
-					Name: "UploadObject",
-					Params: []any{
-						"my-bucket-name",
-						"guardian-plans/owner/repo/2/testdata/test-tfplan.binary",
-						"this is a plan binary",
-					},
-				},
-			},
-		},
-		{
-			name:                     "skips_comments",
-			directory:                "testdata",
+			name:                     "skips_no_diff",
+			directory:                "testdir",
 			flagIsGitHubActions:      false,
 			flagGitHubOwner:          "owner",
 			flagGitHubRepo:           "repo",
@@ -197,21 +157,36 @@ func TestPlan_Process(t *testing.T) {
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
 			config:                   defaultConfig,
-			terraformClient:          terraformNoDiffMock,
+			planExitCode:             "0",
+			terraformClient:          terraformMock,
 			expStorageClientReqs: []*storage.Request{
 				{
-					Name: "UploadObject",
+					Name: "ObjectMetadata",
 					Params: []any{
 						"my-bucket-name",
-						"guardian-plans/owner/repo/2/testdata/test-tfplan.binary",
-						"this is a plan binary",
+						"guardian-plans/owner/repo/2/testdir/test-tfplan.binary",
+					},
+				},
+				{
+					Name: "DownloadObject",
+					Params: []any{
+						"my-bucket-name",
+						"guardian-plans/owner/repo/2/testdir/test-tfplan.binary",
+					},
+				},
+				{
+					Name: "DeleteObject",
+					Params: []any{
+						"my-bucket-name",
+						"guardian-plans/owner/repo/2/testdir/test-tfplan.binary",
 					},
 				},
 			},
+			expStdout: "Guardian plan file has no diff, exiting",
 		},
 		{
 			name:                     "handles_error",
-			directory:                "testdata",
+			directory:                "testdir",
 			flagIsGitHubActions:      true,
 			flagGitHubOwner:          "owner",
 			flagGitHubRepo:           "repo",
@@ -220,40 +195,41 @@ func TestPlan_Process(t *testing.T) {
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
 			config:                   defaultConfig,
+			planExitCode:             "2",
 			terraformClient:          terraformErrorMock,
-			expStdout:                "terraform init output",
-			expStderr:                "terraform init failed",
-			err:                      "failed to run Guardian plan: failed to initialize: failed to run terraform init",
+			expStdout:                "terraform apply output",
+			expStderr:                "terraform apply failed",
+			err:                      "failed to run Guardian apply: failed to apply: failed to run terraform apply",
 			expGitHubClientReqs: []*github.Request{
 				{
 					Name:   "CreateIssueComment",
-					Params: []any{"owner", "repo", int(3), "**`🔱 Guardian 🔱 PLAN`** - 🟨 Running for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
+					Params: []any{"owner", "repo", int(3), "**`🔱 Guardian 🔱 APPLY`** - 🟨 Running for dir: `testdir` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
 				},
 				{
-					Name: "UpdateIssueComment",
+					Name:   "UpdateIssueComment",
+					Params: []any{"owner", "repo", int64(1), "**`🔱 Guardian 🔱 APPLY`** - 🟥 Failed for dir: `testdir` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]\n\n<details>\n<summary>Error</summary>\n\n```\n\nfailed to apply: failed to run terraform apply\n```\n</details>\n\n<details>\n<summary>Details</summary>\n\n```diff\n\nterraform apply failed\n```\n</details>"},
+				},
+			},
+			expStorageClientReqs: []*storage.Request{
+				{
+					Name: "ObjectMetadata",
 					Params: []any{
-						"owner",
-						"repo",
-						int64(1),
-						"**`🔱 Guardian 🔱 PLAN`** - 🟥 Failed for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]\n" +
-							"\n" +
-							"<details>\n" +
-							"<summary>Error</summary>\n" +
-							"\n" +
-							"```\n" +
-							"\n" +
-							"failed to initialize: failed to run terraform init\n" +
-							"```\n" +
-							"</details>\n" +
-							"\n" +
-							"<details>\n" +
-							"<summary>Details</summary>\n" +
-							"\n" +
-							"```diff\n" +
-							"\n" +
-							"terraform init failed\n" +
-							"```\n" +
-							"</details>",
+						"my-bucket-name",
+						"guardian-plans/owner/repo/3/testdir/test-tfplan.binary",
+					},
+				},
+				{
+					Name: "DownloadObject",
+					Params: []any{
+						"my-bucket-name",
+						"guardian-plans/owner/repo/3/testdir/test-tfplan.binary",
+					},
+				},
+				{
+					Name: "DeleteObject",
+					Params: []any{
+						"my-bucket-name",
+						"guardian-plans/owner/repo/3/testdir/test-tfplan.binary",
 					},
 				},
 			},
@@ -268,15 +244,20 @@ func TestPlan_Process(t *testing.T) {
 
 			actions := githubactions.New(githubactions.WithWriter(os.Stdout))
 			githubClient := &github.MockGitHubClient{}
-			storageClient := &storage.MockStorageClient{}
+			storageClient := &storage.MockStorageClient{
+				Metadata: map[string]string{
+					"plan_exit_code": tc.planExitCode,
+				},
+			}
 
-			c := &PlanRunCommand{
+			c := &ApplyRunCommand{
 				cfg: tc.config,
 
 				directory:    tc.directory,
 				childPath:    tc.directory,
 				planFilename: "test-tfplan.binary",
 
+				flagCommitSHA:            tc.flagCommitSHA,
 				flagPullRequestNumber:    tc.flagPullRequestNumber,
 				flagBucketName:           tc.flagBucketName,
 				flagAllowLockfileChanges: tc.flagAllowLockfileChanges,
