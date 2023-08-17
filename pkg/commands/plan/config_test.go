@@ -47,6 +47,7 @@ func TestConfig_MapGitHubContext(t *testing.T) {
 		{
 			name:          "error",
 			githubContext: &githubactions.GitHubContext{},
+			exp:           &Config{},
 			err:           "GITHUB_SERVER_URL is required\nGITHUB_RUN_ID is required\nGITHUB_RUN_ATTEMPT is required",
 		},
 	}
@@ -57,18 +58,17 @@ func TestConfig_MapGitHubContext(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			c := &Config{}
+			var c Config
 
 			err := c.MapGitHubContext(tc.githubContext)
 			if err != nil || tc.err != "" {
 				if diff := testutil.DiffErrString(err, tc.err); diff != "" {
 					t.Fatal(diff)
 				}
-				return
 			}
 
-			if diff := cmp.Diff(c, tc.exp); diff != "" {
-				t.Errorf("got %#v, want %#v, diff (-got, +want): %v", c, tc.exp, diff)
+			if diff := cmp.Diff(&c, tc.exp); diff != "" {
+				t.Errorf("got %#v, want %#v, diff (-got, +want): %v", &c, tc.exp, diff)
 			}
 		})
 	}

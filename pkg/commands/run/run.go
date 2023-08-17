@@ -73,7 +73,7 @@ func (c *RunCommand) Flags() *cli.FlagSet {
 	f.StringSliceVar(&cli.StringSliceVar{
 		Name:    "allowed-terraform-commands",
 		Target:  &c.flagAllowedTerraformCommands,
-		Example: "plan,apply,destroy",
+		Example: "plan, apply, destroy",
 		Usage:   "The list of allowed Terraform commands to be run. Defaults to all commands.",
 	})
 
@@ -81,7 +81,7 @@ func (c *RunCommand) Flags() *cli.FlagSet {
 		Name:    "terraform-command",
 		Target:  &c.flagTerraformCommand,
 		Example: "plan",
-		Usage:   "The Terraform CLI command to run.",
+		Usage:   "The Terraform command to run.",
 	})
 
 	f.StringSliceVar(&cli.StringSliceVar{

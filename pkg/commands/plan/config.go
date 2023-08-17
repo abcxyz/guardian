@@ -38,12 +38,12 @@ func (c *Config) MapGitHubContext(context *githubactions.GitHubContext) error {
 	}
 
 	c.RunID = context.RunID
-	if c.RunID == 0 {
+	if c.RunID <= 0 {
 		merr = errors.Join(merr, fmt.Errorf("GITHUB_RUN_ID is required"))
 	}
 
 	c.RunAttempt = context.RunAttempt
-	if c.RunAttempt == 0 {
+	if c.RunAttempt <= 0 {
 		merr = errors.Join(merr, fmt.Errorf("GITHUB_RUN_ATTEMPT is required"))
 	}
 

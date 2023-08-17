@@ -17,7 +17,7 @@ package run
 import (
 	"context"
 	"fmt"
-	"os"
+	"io"
 	"strings"
 	"testing"
 	"time"
@@ -117,7 +117,7 @@ func TestPlan_Process(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			actions := githubactions.New(githubactions.WithWriter(os.Stdout))
+			actions := githubactions.New(githubactions.WithWriter(io.Discard))
 
 			c := &RunCommand{
 				directory: "testdir",
