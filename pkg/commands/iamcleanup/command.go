@@ -112,7 +112,7 @@ func (c *IAMCleanupCommand) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("unexpected arguments: %q", args)
 	}
 
-	logger.Debugw("Running IAM Cleanup...",
+	logger.DebugContext(ctx, "Running IAM Cleanup...",
 		"name", version.Name,
 		"commit", version.Commit,
 		"version", version.Version)

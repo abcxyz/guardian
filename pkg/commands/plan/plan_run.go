@@ -164,7 +164,7 @@ func (c *PlanRunCommand) Run(ctx context.Context, args []string) error {
 	if err := c.cfg.MapGitHubContext(actionsCtx); err != nil {
 		return fmt.Errorf("failed to load github context: %w", err)
 	}
-	logger.Debugw("loaded configuration", "config", c.cfg)
+	logger.DebugContext(ctx, "loaded configuration", "config", c.cfg)
 
 	c.githubClient = github.NewClient(
 		ctx,
@@ -191,7 +191,6 @@ func (c *PlanRunCommand) Run(ctx context.Context, args []string) error {
 // Process handles the main logic for the Guardian plan run process.
 func (c *PlanRunCommand) Process(ctx context.Context) error {
 	logger := logging.FromContext(ctx).
-		Named("plan_run.process").
 		With("github_owner", c.GitHubFlags.FlagGitHubOwner).
 		With("github_repo", c.GitHubFlags.FlagGitHubOwner).
 		With("pull_request_number", c.flagPullRequestNumber)
@@ -205,7 +204,7 @@ func (c *PlanRunCommand) Process(ctx context.Context) error {
 	}
 
 	c.gitHubLogURL = fmt.Sprintf("[[logs](%s/%s/%s/actions/runs/%d/attempts/%d)]", c.cfg.ServerURL, c.GitHubFlags.FlagGitHubOwner, c.GitHubFlags.FlagGitHubRepo, c.cfg.RunID, c.cfg.RunAttempt)
-	logger.Debugw("computed github log url", "github_log_url", c.gitHubLogURL)
+	logger.DebugContext(ctx, "computed github log url", "github_log_url", c.gitHubLogURL)
 
 	startComment, err := c.createStartCommentForActions(ctx)
 	if err != nil {
@@ -229,7 +228,7 @@ func (c *PlanRunCommand) createStartCommentForActions(ctx context.Context) (*git
 	logger := logging.FromContext(ctx)
 
 	if !c.GitHubFlags.FlagIsGitHubActions {
-		logger.Debugw("skipping start comment", "is_github_action", c.GitHubFlags.FlagIsGitHubActions)
+		logger.DebugContext(ctx, "skipping start comment", "is_github_action", c.GitHubFlags.FlagIsGitHubActions)
 		return nil, nil
 	}
 
@@ -253,7 +252,7 @@ func (c *PlanRunCommand) updateResultCommentForActions(ctx context.Context, star
 	logger := logging.FromContext(ctx)
 
 	if !c.GitHubFlags.FlagIsGitHubActions {
-		logger.Debugw("skipping update result comment", "is_github_action", c.GitHubFlags.FlagIsGitHubActions)
+		logger.DebugContext(ctx, "skipping update result comment", "is_github_action", c.GitHubFlags.FlagIsGitHubActions)
 		return nil
 	}
 

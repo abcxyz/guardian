@@ -49,7 +49,7 @@ func (c *IAMCleaner) Do(
 		return fmt.Errorf("failed to get iam: %w", err)
 	}
 
-	logger.Debugw("got IAM", "number_of_iam_memberships", len(iams), "scope", scope, "query", iamQuery)
+	logger.DebugContext(ctx, "got IAM", "number_of_iam_memberships", len(iams), "scope", scope, "query", iamQuery)
 
 	// We group by URI to confirm we only delete 1 ResourceID/Member combination at a single time.
 	// Multiple concurrent requests to delete IAM for a particular ResourceID/Member result in a conflict.
@@ -60,7 +60,7 @@ func (c *IAMCleaner) Do(
 		iamsToDelete = groupByURI(iams)
 	}
 
-	logger.Debugw("Cleaning up IAM", "number_of_iam_memberships_to_remove", countAll(iamsToDelete))
+	logger.DebugContext(ctx, "Cleaning up IAM", "number_of_iam_memberships_to_remove", countAll(iamsToDelete))
 
 	w := workerpool.New[*workerpool.Void](&workerpool.Config{
 		Concurrency: c.maxConcurrentRequests,
@@ -96,7 +96,7 @@ func (c *IAMCleaner) Do(
 		return fmt.Errorf("failed to execute IAM Removal tasks in parallel: %w", err)
 	}
 
-	logger.Debugw("Successfully deleted IAM", "number_of_iam_memberships_removed", len(iamsToDelete))
+	logger.DebugContext(ctx, "Successfully deleted IAM", "number_of_iam_memberships_removed", len(iamsToDelete))
 
 	return nil
 }
@@ -107,7 +107,8 @@ func filterByEvaluation(ctx context.Context, iams []*assetinventory.AssetIAM) []
 	for _, i := range iams {
 		passed, err := evaluateIAMConditionExpression(ctx, i.Condition.Expression)
 		if err != nil {
-			logger.Warnw("Failed to parse expression (CEL) for IAM membership", "membership", i, "error", err)
+			logger.WarnContext(ctx, "failed to parse expression (CEL) for IAM membership",
+				"membership", i, "error", err)
 		} else if !*passed {
 			filteredResults = append(filteredResults, i)
 		}

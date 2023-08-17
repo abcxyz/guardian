@@ -134,12 +134,11 @@ func (c *DriftStatefilesCommand) Run(ctx context.Context, args []string) error {
 // Process handles the main logic for the Guardian init process.
 func (c *DriftStatefilesCommand) Process(ctx context.Context) error {
 	logger := logging.FromContext(ctx).
-		Named("drift.statefiles").
 		With("github_owner", c.GitHubFlags.FlagGitHubOwner).
 		With("github_repo", c.GitHubFlags.FlagGitHubOwner)
 
-	logger.Debug("starting Guardian drift statefiles")
-	logger.Debug("finding entrypoint directories")
+	logger.DebugContext(ctx, "starting Guardian drift statefiles")
+	logger.DebugContext(ctx, "finding entrypoint directories")
 
 	entrypoints, err := terraform.GetEntrypointDirectories(c.directory)
 	if err != nil {
@@ -149,7 +148,7 @@ func (c *DriftStatefilesCommand) Process(ctx context.Context) error {
 	for _, e := range entrypoints {
 		entrypointBackendFiles = append(entrypointBackendFiles, e.BackendFile)
 	}
-	logger.Debugw("terraform entrypoint directories", "entrypoint_backend_files", entrypointBackendFiles)
+	logger.DebugContext(ctx, "terraform entrypoint directories", "entrypoint_backend_files", entrypointBackendFiles)
 
 	expectedURIs := make([]string, 0, len(entrypointBackendFiles))
 	gcsBuckets := make([]string, 0, len(entrypointBackendFiles))
@@ -185,7 +184,8 @@ func (c *DriftStatefilesCommand) Process(ctx context.Context) error {
 		return fmt.Errorf("unable to determine gcs bucket - please provide the gcsBucket flag or point at a terraform config with gcs backends")
 	}
 
-	logger.Debug("finding statefiles in gcs bucket", "gcs_bucket")
+	logger.DebugContext(ctx, "finding statefiles in gcs bucket",
+		"gcs_bucket", gcsBucket)
 
 	gotURIs, err := c.terraformParser.StateFileURIs(ctx, []string{gcsBucket})
 	if err != nil {
