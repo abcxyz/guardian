@@ -180,7 +180,7 @@ func (c *ApplyRunCommand) Run(ctx context.Context, args []string) error {
 	if err := c.cfg.MapGitHubContext(actionsCtx); err != nil {
 		return fmt.Errorf("failed to load github context: %w", err)
 	}
-	logger.Debugw("loaded configuration", "config", c.cfg)
+	logger.DebugContext(ctx, "loaded configuration", "config", c.cfg)
 
 	c.gitHubClient = github.NewClient(
 		ctx,
@@ -207,7 +207,6 @@ func (c *ApplyRunCommand) Run(ctx context.Context, args []string) error {
 // Process handles the main logic for the Guardian apply run process.
 func (c *ApplyRunCommand) Process(ctx context.Context) (merr error) {
 	logger := logging.FromContext(ctx).
-		Named("apply_run.process").
 		With("github_owner", c.GitHubFlags.FlagGitHubOwner).
 		With("github_repo", c.GitHubFlags.FlagGitHubOwner).
 		With("commit_sha", c.flagCommitSHA).
@@ -239,14 +238,14 @@ func (c *ApplyRunCommand) Process(ctx context.Context) (merr error) {
 	if c.flagPullRequestNumber > 0 {
 		c.computedPullRequestNumber = c.flagPullRequestNumber
 	}
-	logger.Debugw("computed pull request number", "computed_pull_request_number", c.computedPullRequestNumber)
+	logger.DebugContext(ctx, "computed pull request number", "computed_pull_request_number", c.computedPullRequestNumber)
 
 	c.gitHubLogURL = fmt.Sprintf("[[logs](%s/%s/%s/actions/runs/%d/attempts/%d)]", c.cfg.ServerURL, c.GitHubFlags.FlagGitHubOwner, c.GitHubFlags.FlagGitHubRepo, c.cfg.RunID, c.cfg.RunAttempt)
-	logger.Debugw("computed github log url", "github_log_url", c.gitHubLogURL)
+	logger.DebugContext(ctx, "computed github log url", "github_log_url", c.gitHubLogURL)
 
 	planBucketPath := path.Join(c.childPath, c.planFilename)
 	bucketObjectPath := fmt.Sprintf("guardian-plans/%s/%s/%d/%s", c.GitHubFlags.FlagGitHubOwner, c.GitHubFlags.FlagGitHubRepo, c.computedPullRequestNumber, planBucketPath)
-	logger.Debugw("bucket object path", "bucket_object_path", bucketObjectPath)
+	logger.DebugContext(ctx, "bucket object path", "bucket_object_path", bucketObjectPath)
 
 	planData, planExitCode, err := c.downloadGuardianPlan(ctx, bucketObjectPath)
 	if err != nil {
@@ -262,7 +261,7 @@ func (c *ApplyRunCommand) Process(ctx context.Context) (merr error) {
 
 	// exit code of 0 means success with no diff, skip apply
 	if planExitCode == "0" {
-		logger.Debugw("plan file has no diff, exiting", "plan_exit_code", planExitCode)
+		logger.DebugContext(ctx, "plan file has no diff, exiting", "plan_exit_code", planExitCode)
 		c.Outf("Guardian plan file has no diff, exiting")
 		return
 	}
@@ -305,7 +304,7 @@ func (c *ApplyRunCommand) createStartCommentForActions(ctx context.Context) (*gi
 	logger := logging.FromContext(ctx)
 
 	if !c.GitHubFlags.FlagIsGitHubActions {
-		logger.Debugw("skipping start comment", "is_github_action", c.GitHubFlags.FlagIsGitHubActions)
+		logger.DebugContext(ctx, "skipping start comment", "is_github_action", c.GitHubFlags.FlagIsGitHubActions)
 		return nil, nil
 	}
 
@@ -329,7 +328,7 @@ func (c *ApplyRunCommand) updateResultCommentForActions(ctx context.Context, sta
 	logger := logging.FromContext(ctx)
 
 	if !c.GitHubFlags.FlagIsGitHubActions {
-		logger.Debugw("skipping update result comment", "is_github_action", c.GitHubFlags.FlagIsGitHubActions)
+		logger.DebugContext(ctx, "skipping update result comment", "is_github_action", c.GitHubFlags.FlagIsGitHubActions)
 		return nil
 	}
 
@@ -481,7 +480,7 @@ func (c *ApplyRunCommand) downloadGuardianPlan(ctx context.Context, path string)
 	}
 	planData = data
 
-	return planData, exitCode, nil
+	return planData, planExitCode, nil
 }
 
 // handleDeleteGuardianPlan deletes the Guardian plan binary from the configured Guardian storage bucket.
