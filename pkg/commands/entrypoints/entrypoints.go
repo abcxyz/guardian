@@ -18,6 +18,7 @@ package entrypoints
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"sort"
@@ -29,7 +30,9 @@ import (
 	"github.com/abcxyz/guardian/pkg/util"
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
+	"github.com/posener/complete/v2"
 	"golang.org/x/exp/maps"
+	"golang.org/x/exp/slices"
 )
 
 var _ cli.Command = (*EntrypointsCommand)(nil)
@@ -39,6 +42,10 @@ var allowedFormats = map[string]struct{}{
 	"json": {},
 	"text": {},
 }
+
+// allowedFormatNames are the sorted allowed format names for the format flag.
+// This is used for printing messages and prediction.
+var allowedFormatNames = sortedMapKeys(allowedFormats)
 
 type EntrypointsCommand struct {
 	cli.BaseCommand
@@ -106,9 +113,14 @@ func (c *EntrypointsCommand) Flags() *cli.FlagSet {
 	})
 
 	f.StringVar(&cli.StringVar{
-		Name:   "format",
-		Target: &c.flagFormat,
-		Usage:  fmt.Sprintf("The format to print the output directories. The supported formats are: %s.", strings.Join(maps.Keys(allowedFormats), ", ")),
+		Name:    "format",
+		Target:  &c.flagFormat,
+		Example: "json",
+		Usage:   fmt.Sprintf("The format to print the output directories. The supported formats are: %s.", allowedFormatNames),
+		Default: "text",
+		Predict: complete.PredictFunc(func(prefix string) []string {
+			return allowedFormatNames
+		}),
 	})
 
 	f.BoolVar(&cli.BoolVar{
@@ -116,6 +128,18 @@ func (c *EntrypointsCommand) Flags() *cli.FlagSet {
 		Target:  &c.flagFailUnresolvableModules,
 		Usage:   `Whether or not to error if a module cannot be resolved.`,
 		Default: false,
+	})
+
+	set.AfterParse(func(existingErr error) (merr error) {
+		if !c.flagSkipDetectChanges && c.flagSourceRef == "" && c.flagDestRef == "" {
+			merr = errors.Join(merr, fmt.Errorf("invalid flag: source-ref and dest-ref are required to detect changes"))
+		}
+
+		if _, ok := allowedFormats[c.flagFormat]; !ok {
+			merr = errors.Join(merr, fmt.Errorf("invalid format flag: %s (supported formats are: %s)", c.flagFormat, allowedFormatNames))
+		}
+
+		return merr
 	})
 
 	return set
@@ -150,16 +174,6 @@ func (c *EntrypointsCommand) Process(ctx context.Context) error {
 		With("github_owner", c.GitHubFlags.FlagGitHubOwner).
 		With("github_repo", c.GitHubFlags.FlagGitHubOwner).
 		With("pull_request_number", c.flagPullRequestNumber)
-
-	logger.DebugContext(ctx, "Starting Guardian init")
-
-	if c.flagFormat == "" {
-		c.flagFormat = "text"
-	}
-
-	if _, ok := allowedFormats[c.flagFormat]; !ok {
-		return fmt.Errorf("invalid format flag: %s (supported formats are: %s)", c.flagFormat, strings.Join(maps.Keys(allowedFormats), ", "))
-	}
 
 	logger.DebugContext(ctx, "finding entrypoint directories")
 
@@ -244,8 +258,15 @@ func (c *EntrypointsCommand) writeOutput(dirs []string) error {
 			c.Outf("%s", dir)
 		}
 	default:
-		return fmt.Errorf("invalid format flag: %s (supported formats are: %s)", c.flagFormat, strings.Join(maps.Keys(allowedFormats), ", "))
+		return fmt.Errorf("invalid format flag: %s (supported formats are: %s)", c.flagFormat, allowedFormatNames)
 	}
 
 	return nil
+}
+
+// sortedMapKeys returns the sorted slice of map key strings.
+func sortedMapKeys(m map[string]struct{}) []string {
+	k := maps.Keys(m)
+	slices.Sort(k)
+	return k
 }

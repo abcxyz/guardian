@@ -57,6 +57,7 @@ func TestEntrypointsProcess(t *testing.T) {
 		{
 			name:                  "success",
 			directory:             "testdata",
+			flagFormat:            "text",
 			flagIsGitHubActions:   true,
 			flagGitHubOwner:       "owner",
 			flagGitHubRepo:        "repo",
@@ -92,13 +93,13 @@ func TestEntrypointsProcess(t *testing.T) {
 		{
 			name:                  "invalid_format",
 			directory:             "testdata",
+			flagFormat:            "yaml",
 			flagIsGitHubActions:   true,
 			flagGitHubOwner:       "owner",
 			flagGitHubRepo:        "repo",
 			flagPullRequestNumber: 3,
 			flagDestRef:           "main",
 			flagSourceRef:         "ldap/feature",
-			flagFormat:            "yaml",
 			gitClient: &git.MockGitClient{
 				DiffResp: []string{
 					path.Join(cwd, "testdata/backends/project1"),
@@ -110,6 +111,7 @@ func TestEntrypointsProcess(t *testing.T) {
 		{
 			name:                  "skips_detect_changes",
 			directory:             "testdata",
+			flagFormat:            "text",
 			flagIsGitHubActions:   true,
 			flagGitHubOwner:       "owner",
 			flagGitHubRepo:        "repo",
@@ -123,6 +125,7 @@ func TestEntrypointsProcess(t *testing.T) {
 		{
 			name:                  "errors",
 			directory:             "testdata",
+			flagFormat:            "text",
 			flagIsGitHubActions:   true,
 			flagGitHubOwner:       "owner",
 			flagGitHubRepo:        "repo",
@@ -170,6 +173,42 @@ func TestEntrypointsProcess(t *testing.T) {
 			}
 			if got, want := strings.TrimSpace(stderr.String()), strings.TrimSpace(tc.expStderr); !strings.Contains(got, want) {
 				t.Errorf("expected stderr\n\n%s\n\nto contain\n\n%s\n\n", got, want)
+			}
+		})
+	}
+}
+
+func TestAfterParse(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name string
+		args []string
+		err  string
+	}{
+		{
+			name: "validate_refs",
+			err:  "invalid flag: source-ref and dest-ref are required to detect changes",
+		},
+		{
+			name: "validate_format",
+			args: []string{"-format=yaml", "-source-ref=a", "-dest-ref=b"},
+			err:  "invalid format flag: yaml (supported formats are: [json text])",
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			c := &EntrypointsCommand{}
+
+			f := c.Flags()
+			err := f.Parse(tc.args)
+			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
+				t.Errorf(diff)
 			}
 		})
 	}
