@@ -12,16 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package plan
+package apply
 
 import (
-	"errors"
-	"fmt"
-
 	"github.com/sethvargo/go-githubactions"
 )
 
-// Config defines the of configuration required for running the plan action.
+// Config defines the of configuration required for running the apply action.
 type Config struct {
 	// GitHub context values
 	ServerURL  string // this value is used to generate URLs for creating links in pull request comments
@@ -31,21 +28,8 @@ type Config struct {
 
 // MapGitHubContext maps values from the GitHub context.
 func (c *Config) MapGitHubContext(context *githubactions.GitHubContext) error {
-	var merr error
 	c.ServerURL = context.ServerURL
-	if c.ServerURL == "" {
-		merr = errors.Join(merr, fmt.Errorf("GITHUB_SERVER_URL is required"))
-	}
-
 	c.RunID = context.RunID
-	if c.RunID <= 0 {
-		merr = errors.Join(merr, fmt.Errorf("GITHUB_RUN_ID is required"))
-	}
-
 	c.RunAttempt = context.RunAttempt
-	if c.RunAttempt <= 0 {
-		merr = errors.Join(merr, fmt.Errorf("GITHUB_RUN_ATTEMPT is required"))
-	}
-
-	return merr
+	return nil
 }

@@ -32,15 +32,16 @@ type MockGitHubClient struct {
 	reqMu sync.Mutex
 	Reqs  []*Request
 
-	ListIssuesErr          error
-	CreateIssueErr         error
-	CloseIssueErr          error
-	CreateIssueCommentsErr error
-	UpdateIssueCommentsErr error
-	DeleteIssueCommentsErr error
-	ListIssueCommentsErr   error
-	RepoPermissionLevelErr error
-	RepoPermissionLevel    string
+	ListIssuesErr                error
+	CreateIssueErr               error
+	CloseIssueErr                error
+	CreateIssueCommentsErr       error
+	UpdateIssueCommentsErr       error
+	DeleteIssueCommentsErr       error
+	ListIssueCommentsErr         error
+	ListPullRequestsForCommitErr error
+	RepoPermissionLevelErr       error
+	RepoPermissionLevel          string
 }
 
 func (m *MockGitHubClient) ListIssues(ctx context.Context, owner, repo string, opts *github.IssueListByRepoOptions) ([]*Issue, error) {
@@ -145,6 +146,25 @@ func (m *MockGitHubClient) ListIssueComments(ctx context.Context, owner, repo st
 	}
 
 	return &IssueCommentResponse{}, nil
+}
+
+func (m *MockGitHubClient) ListPullRequestsForCommit(ctx context.Context, owner, repo, sha string, opts *github.PullRequestListOptions) (*PullRequestResponse, error) {
+	m.reqMu.Lock()
+	defer m.reqMu.Unlock()
+	m.Reqs = append(m.Reqs, &Request{
+		Name:   "ListPullRequestsForCommit",
+		Params: []any{owner, repo, sha},
+	})
+
+	if m.ListPullRequestsForCommitErr != nil {
+		return nil, m.ListPullRequestsForCommitErr
+	}
+
+	return &PullRequestResponse{
+		PullRequests: []*PullRequest{
+			{ID: 1, Number: 1},
+		},
+	}, nil
 }
 
 func (m *MockGitHubClient) RepoUserPermissionLevel(ctx context.Context, owner, repo, user string) (string, error) {

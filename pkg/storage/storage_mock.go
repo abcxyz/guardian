@@ -100,7 +100,7 @@ func (m *MockStorageClient) DeleteObject(ctx context.Context, bucket, name strin
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
 	m.Reqs = append(m.Reqs, &Request{
-		Name:   "UploadObject",
+		Name:   "DeleteObject",
 		Params: []any{bucket, name},
 	})
 
