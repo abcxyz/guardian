@@ -26,8 +26,8 @@ import (
 	"github.com/abcxyz/guardian/pkg/commands/apply"
 	"github.com/abcxyz/guardian/pkg/commands/drift"
 	"github.com/abcxyz/guardian/pkg/commands/drift/statefiles"
+	"github.com/abcxyz/guardian/pkg/commands/entrypoints"
 	"github.com/abcxyz/guardian/pkg/commands/iamcleanup"
-	"github.com/abcxyz/guardian/pkg/commands/initialize"
 	"github.com/abcxyz/guardian/pkg/commands/plan"
 	"github.com/abcxyz/guardian/pkg/commands/run"
 	"github.com/abcxyz/pkg/cli"
@@ -45,8 +45,8 @@ var rootCmd = func() cli.Command {
 		Name:    "guardian",
 		Version: version.HumanVersion,
 		Commands: map[string]cli.CommandFactory{
-			"init": func() cli.Command {
-				return &initialize.InitCommand{}
+			"entrypoints": func() cli.Command {
+				return &entrypoints.EntrypointsCommand{}
 			},
 			"plan": func() cli.Command {
 				return &cli.RootCommand{
