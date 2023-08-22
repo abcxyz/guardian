@@ -132,11 +132,11 @@ func (c *EntrypointsCommand) Flags() *cli.FlagSet {
 
 	set.AfterParse(func(existingErr error) (merr error) {
 		if !c.flagSkipDetectChanges && c.flagSourceRef == "" && c.flagDestRef == "" {
-			merr = errors.Join(merr, fmt.Errorf("invalid flag: source-ref and dest-ref are required to detect changes"))
+			merr = errors.Join(merr, fmt.Errorf("invalid flag: source-ref and dest-ref are required to detect changes, to ignore changes set the skip-detect-changes flag"))
 		}
 
 		if _, ok := allowedFormats[c.flagFormat]; !ok {
-			merr = errors.Join(merr, fmt.Errorf("invalid format flag: %s (supported formats are: %s)", c.flagFormat, allowedFormatNames))
+			merr = errors.Join(merr, fmt.Errorf("invalid flag: format %s (supported formats are: %s)", c.flagFormat, allowedFormatNames))
 		}
 
 		return merr
