@@ -46,7 +46,7 @@ func (g *GitHubFlags) Register(set *cli.FlagSet) {
 	f.StringVar(&cli.StringVar{
 		Name:    "github-owner",
 		Target:  &g.FlagGitHubOwner,
-		Example: "organiation-name",
+		Example: "organization-name",
 		Usage:   "The GitHub repository owner.",
 	})
 

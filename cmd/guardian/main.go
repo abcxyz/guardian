@@ -30,6 +30,7 @@ import (
 	"github.com/abcxyz/guardian/pkg/commands/iamcleanup"
 	"github.com/abcxyz/guardian/pkg/commands/plan"
 	"github.com/abcxyz/guardian/pkg/commands/run"
+	"github.com/abcxyz/guardian/pkg/commands/workflows"
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
 )
@@ -47,6 +48,20 @@ var rootCmd = func() cli.Command {
 		Commands: map[string]cli.CommandFactory{
 			"entrypoints": func() cli.Command {
 				return &entrypoints.EntrypointsCommand{}
+			},
+			"workflows": func() cli.Command {
+				return &cli.RootCommand{
+					Name:        "workflows",
+					Description: "Perform operations related to running Guardian using workflows",
+					Commands: map[string]cli.CommandFactory{
+						"remove-plan-comments": func() cli.Command {
+							return &workflows.RemovePlanCommentsCommand{}
+						},
+						"validate-permissions": func() cli.Command {
+							return &workflows.ValidatePermissionsCommand{}
+						},
+					},
+				}
 			},
 			"plan": func() cli.Command {
 				return &cli.RootCommand{

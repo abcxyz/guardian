@@ -39,6 +39,7 @@ type MockGitHubClient struct {
 	UpdateIssueCommentsErr       error
 	DeleteIssueCommentsErr       error
 	ListIssueCommentsErr         error
+	ListIssueCommentResponse     *IssueCommentResponse
 	ListPullRequestsForCommitErr error
 	RepoPermissionLevelErr       error
 	RepoPermissionLevel          string
@@ -143,6 +144,10 @@ func (m *MockGitHubClient) ListIssueComments(ctx context.Context, owner, repo st
 
 	if m.ListIssueCommentsErr != nil {
 		return nil, m.ListIssueCommentsErr
+	}
+
+	if m.ListIssueCommentResponse != nil {
+		return m.ListIssueCommentResponse, nil
 	}
 
 	return &IssueCommentResponse{}, nil

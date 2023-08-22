@@ -188,12 +188,12 @@ func TestAfterParse(t *testing.T) {
 	}{
 		{
 			name: "validate_refs",
-			err:  "invalid flag: source-ref and dest-ref are required to detect changes",
+			err:  "invalid flag: source-ref and dest-ref are required to detect changes, to ignore changes set the skip-detect-changes flag",
 		},
 		{
 			name: "validate_format",
 			args: []string{"-format=yaml", "-source-ref=a", "-dest-ref=b"},
-			err:  "invalid format flag: yaml (supported formats are: [json text])",
+			err:  "invalid flag: format yaml (supported formats are: [json text])",
 		},
 	}
 
