@@ -121,6 +121,26 @@ func (c *PlanRunCommand) Flags() *cli.FlagSet {
 		Usage:   "The duration Terraform should wait to obtain a lock when running commands that modify state.",
 	})
 
+	set.AfterParse(func(existingErr error) (merr error) {
+		if c.GitHubFlags.FlagGitHubOwner == "" {
+			merr = errors.Join(merr, fmt.Errorf("missing flag: github-owner is required"))
+		}
+
+		if c.GitHubFlags.FlagGitHubRepo == "" {
+			merr = errors.Join(merr, fmt.Errorf("missing flag: github-repo is required"))
+		}
+
+		if c.flagPullRequestNumber <= 0 {
+			merr = errors.Join(merr, fmt.Errorf("missing flag: pull-request-number is required"))
+		}
+
+		if c.flagBucketName == "" {
+			merr = errors.Join(merr, fmt.Errorf("missing flag: bucket-name is required"))
+		}
+
+		return merr
+	})
+
 	return set
 }
 

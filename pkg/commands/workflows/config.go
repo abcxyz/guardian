@@ -21,14 +21,46 @@ import (
 	"github.com/sethvargo/go-githubactions"
 )
 
-// Config defines the of configuration required for running Guardian in GitHub workflows.
-type Config struct {
+// PlanStatusCommentsConfig defines the of configuration required for running the plan status comments
+// command for GitHub workflows.
+type PlanStatusCommentsConfig struct {
+	// GitHub context values
+	ServerURL  string // this value is used to generate URLs for creating links in pull request comments
+	RunID      int64
+	RunAttempt int64
+}
+
+// MapGitHubContext maps values from the GitHub context.
+func (c *PlanStatusCommentsConfig) MapGitHubContext(context *githubactions.GitHubContext) error {
+	var merr error
+
+	c.ServerURL = context.ServerURL
+	if c.ServerURL == "" {
+		merr = errors.Join(merr, fmt.Errorf("GITHUB_SERVER_URL is required"))
+	}
+
+	c.RunID = context.RunID
+	if c.RunID <= 0 {
+		merr = errors.Join(merr, fmt.Errorf("GITHUB_RUN_ID is required"))
+	}
+
+	c.RunAttempt = context.RunAttempt
+	if c.RunAttempt <= 0 {
+		merr = errors.Join(merr, fmt.Errorf("GITHUB_RUN_ATTEMPT is required"))
+	}
+
+	return merr
+}
+
+// ValidatePermissionsConfig defines the of configuration required for running the
+// validate permissions command for GitHub workflows.
+type ValidatePermissionsConfig struct {
 	// GitHub context values
 	Actor string
 }
 
-// MapGitHubContext maps values from the GitHub context to the Config.
-func (c *Config) MapGitHubContext(context *githubactions.GitHubContext) error {
+// MapGitHubContext maps values from the GitHub context.
+func (c *ValidatePermissionsConfig) MapGitHubContext(context *githubactions.GitHubContext) error {
 	var merr error
 
 	c.Actor = context.Actor

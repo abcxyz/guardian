@@ -32,6 +32,48 @@ import (
 	"github.com/sethvargo/go-githubactions"
 )
 
+func TestAfterParse(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name string
+		args []string
+		err  string
+	}{
+		{
+			name: "validate_github_flags",
+			args: []string{"-pull-request-number=1", "-bucket-name=my-bucket"},
+			err:  "missing flag: github-owner is required\nmissing flag: github-repo is required",
+		},
+		{
+			name: "validate_pull_request_number",
+			args: []string{"-github-owner=owner", "-github-repo=repo", "-bucket-name=my-bucket"},
+			err:  "missing flag: pull-request-number is required",
+		},
+		{
+			name: "validate_bucket_name",
+			args: []string{"-github-owner=owner", "-github-repo=repo", "-pull-request-number=1"},
+			err:  "missing flag: bucket-name is required",
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			c := &PlanRunCommand{}
+
+			f := c.Flags()
+			err := f.Parse(tc.args)
+			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
+				t.Errorf(diff)
+			}
+		})
+	}
+}
+
 var terraformNoDiffMock = &terraform.MockTerraformClient{
 	InitResponse: &terraform.MockTerraformResponse{
 		Stdout:   "terraform init success",
