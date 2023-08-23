@@ -17,6 +17,7 @@ package workflows
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"strings"
@@ -67,6 +68,22 @@ func (c *RemovePlanCommentsCommand) Flags() *cli.FlagSet {
 		Target:  &c.flagPullRequestNumber,
 		Example: "100",
 		Usage:   "The GitHub pull request number to remove plan comments from.",
+	})
+
+	set.AfterParse(func(existingErr error) (merr error) {
+		if c.GitHubFlags.FlagGitHubOwner == "" {
+			merr = errors.Join(merr, fmt.Errorf("missing flag: github-owner is required"))
+		}
+
+		if c.GitHubFlags.FlagGitHubRepo == "" {
+			merr = errors.Join(merr, fmt.Errorf("missing flag: github-repo is required"))
+		}
+
+		if c.flagPullRequestNumber <= 0 {
+			merr = errors.Join(merr, fmt.Errorf("missing flag: pull-request-number is required"))
+		}
+
+		return merr
 	})
 
 	return set

@@ -17,6 +17,7 @@ package workflows
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"sort"
@@ -34,7 +35,7 @@ var _ cli.Command = (*ValidatePermissionsCommand)(nil)
 type ValidatePermissionsCommand struct {
 	cli.BaseCommand
 
-	cfg *Config
+	cfg *ValidatePermissionsConfig
 
 	flags.GitHubFlags
 	flags.RetryFlags
@@ -72,6 +73,18 @@ func (c *ValidatePermissionsCommand) Flags() *cli.FlagSet {
 		Usage:   "The list of allowed permissions to validate against.",
 	})
 
+	set.AfterParse(func(existingErr error) (merr error) {
+		if c.GitHubFlags.FlagGitHubOwner == "" {
+			merr = errors.Join(merr, fmt.Errorf("missing flag: github-owner is required"))
+		}
+
+		if c.GitHubFlags.FlagGitHubRepo == "" {
+			merr = errors.Join(merr, fmt.Errorf("missing flag: github-repo is required"))
+		}
+
+		return merr
+	})
+
 	return set
 }
 
@@ -94,11 +107,11 @@ func (c *ValidatePermissionsCommand) Run(ctx context.Context, args []string) err
 		return fmt.Errorf("failed to load github context: %w", err)
 	}
 
-	c.cfg = &Config{}
+	c.cfg = &ValidatePermissionsConfig{}
 	if err := c.cfg.MapGitHubContext(actionsCtx); err != nil {
 		return fmt.Errorf("failed to load github context: %w", err)
 	}
-	logger.DebugContext(ctx, "loaded configuration", "config", c.cfg)
+	logger.DebugContext(ctx, "loaded configuration", "validate_permissions_config", c.cfg)
 
 	c.gitHubClient = github.NewClient(
 		ctx,
