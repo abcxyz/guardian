@@ -24,7 +24,7 @@ on:
       command:
         description: 'COMMAND - The Terraform command to run.'
         required: true
-        type: choice
+        type: 'choice'
         default: 'plan'
         options:
           - 'plan'
@@ -32,7 +32,7 @@ on:
           - 'output'
       directories:
         description: 'DIRECTORIES - A CSV list of directories execute the Terraform command in. If left blank, the Terraform command will run for all configured directories.'
-        type: string
+        type: 'string'
 
 permissions:
   contents: 'read'
