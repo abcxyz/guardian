@@ -26,7 +26,7 @@ on:
         required: true
       directories:
         description: 'DIRECTORIES - A CSV list of directories execute the Terraform command in. If left blank, the Terraform command will run for all configured directories.'
-        type: string
+        type: 'string'
       terraform_init:
         description: 'TERRAFORM_INIT - Run the Terraform Init command prior to running the admin command.'
         type: 'choice'
