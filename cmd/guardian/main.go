@@ -60,6 +60,9 @@ var rootCmd = func() cli.Command {
 						"validate-permissions": func() cli.Command {
 							return &workflows.ValidatePermissionsCommand{}
 						},
+						"plan-status-comment": func() cli.Command {
+							return &workflows.PlanStatusCommentCommand{}
+						},
 					},
 				}
 			},
