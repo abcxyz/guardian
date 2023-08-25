@@ -65,7 +65,7 @@ func TestPlanStatusCommentsAfterParse(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			c := &PlanStatusCommentsCommand{}
+			c := &PlanStatusCommentCommand{}
 
 			f := c.Flags()
 			err := f.Parse(tc.args)
@@ -185,7 +185,7 @@ func TestPlanStatusCommentsProcess(t *testing.T) {
 
 			actions := githubactions.New(githubactions.WithWriter(os.Stdout))
 
-			c := &PlanStatusCommentsCommand{
+			c := &PlanStatusCommentCommand{
 				cfg: defaultConfig,
 
 				GitHubFlags: flags.GitHubFlags{

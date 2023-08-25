@@ -30,9 +30,9 @@ import (
 	"golang.org/x/exp/slices"
 )
 
-var _ cli.Command = (*PlanStatusCommentsCommand)(nil)
+var _ cli.Command = (*PlanStatusCommentCommand)(nil)
 
-type PlanStatusCommentsCommand struct {
+type PlanStatusCommentCommand struct {
 	cli.BaseCommand
 
 	cfg *PlanStatusCommentsConfig
@@ -50,11 +50,11 @@ type PlanStatusCommentsCommand struct {
 	gitHubClient github.GitHub
 }
 
-func (c *PlanStatusCommentsCommand) Desc() string {
+func (c *PlanStatusCommentCommand) Desc() string {
 	return `Remove previous Guardian plan comments from a pull request`
 }
 
-func (c *PlanStatusCommentsCommand) Help() string {
+func (c *PlanStatusCommentCommand) Help() string {
 	return `
 Usage: {{ COMMAND }} [options] <pull_request_number>
 
@@ -62,7 +62,7 @@ Usage: {{ COMMAND }} [options] <pull_request_number>
 `
 }
 
-func (c *PlanStatusCommentsCommand) Flags() *cli.FlagSet {
+func (c *PlanStatusCommentCommand) Flags() *cli.FlagSet {
 	set := c.NewFlagSet()
 
 	c.GitHubFlags.Register(set)
@@ -118,7 +118,7 @@ func (c *PlanStatusCommentsCommand) Flags() *cli.FlagSet {
 	return set
 }
 
-func (c *PlanStatusCommentsCommand) Run(ctx context.Context, args []string) error {
+func (c *PlanStatusCommentCommand) Run(ctx context.Context, args []string) error {
 	logger := logging.FromContext(ctx)
 
 	f := c.Flags()
@@ -155,7 +155,7 @@ func (c *PlanStatusCommentsCommand) Run(ctx context.Context, args []string) erro
 }
 
 // Process handles the main logic for the Guardian remove plan comments process.
-func (c *PlanStatusCommentsCommand) Process(ctx context.Context) error {
+func (c *PlanStatusCommentCommand) Process(ctx context.Context) error {
 	logger := logging.FromContext(ctx).
 		With("github_owner", c.GitHubFlags.FlagGitHubOwner).
 		With("github_repo", c.GitHubFlags.FlagGitHubOwner).
