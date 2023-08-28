@@ -58,7 +58,8 @@ type ApplyRunCommand struct {
 
 	directory                 string
 	childPath                 string
-	planFilename              string
+	planFileName              string
+	planFilePath              string
 	gitHubLogURL              string
 	computedPullRequestNumber int
 
@@ -218,8 +219,8 @@ func (c *ApplyRunCommand) Process(ctx context.Context) (merr error) {
 		return errors.New("only one of pull-request-number and commit-sha are allowed")
 	}
 
-	if c.planFilename == "" {
-		c.planFilename = "tfplan.binary"
+	if c.planFileName == "" {
+		c.planFileName = "tfplan.binary"
 	}
 
 	if c.flagCommitSHA != "" {
@@ -243,7 +244,7 @@ func (c *ApplyRunCommand) Process(ctx context.Context) (merr error) {
 	c.gitHubLogURL = fmt.Sprintf("[[logs](%s/%s/%s/actions/runs/%d/attempts/%d)]", c.cfg.ServerURL, c.GitHubFlags.FlagGitHubOwner, c.GitHubFlags.FlagGitHubRepo, c.cfg.RunID, c.cfg.RunAttempt)
 	logger.DebugContext(ctx, "computed github log url", "github_log_url", c.gitHubLogURL)
 
-	planBucketPath := path.Join(c.childPath, c.planFilename)
+	planBucketPath := path.Join(c.childPath, c.planFileName)
 	bucketObjectPath := fmt.Sprintf("guardian-plans/%s/%s/%d/%s", c.GitHubFlags.FlagGitHubOwner, c.GitHubFlags.FlagGitHubRepo, c.computedPullRequestNumber, planBucketPath)
 	logger.DebugContext(ctx, "bucket object path", "bucket_object_path", bucketObjectPath)
 
@@ -278,10 +279,11 @@ func (c *ApplyRunCommand) Process(ctx context.Context) (merr error) {
 
 	c.Outf("Writing plan file to disk")
 
-	planFilePath := filepath.Join(tempDir, c.planFilename)
+	planFilePath := filepath.Join(tempDir, c.planFileName)
 	if err := os.WriteFile(planFilePath, planData, ownerReadWritePerms); err != nil {
 		return fmt.Errorf("failed to write plan file to disk [%s]: %w", planFilePath, err)
 	}
+	c.planFilePath = planFilePath
 
 	startComment, err := c.createStartCommentForActions(ctx)
 	if err != nil {
@@ -414,7 +416,7 @@ func (c *ApplyRunCommand) terraformApply(ctx context.Context) (*RunResult, error
 
 	if err := c.withActionsOutGroup("Applying Terraform", func() error {
 		_, err := c.terraformClient.Apply(ctx, multiStdout, multiStderr, &terraform.ApplyOptions{
-			File:            util.Ptr(c.planFilename),
+			File:            util.Ptr(c.planFilePath),
 			CompactWarnings: util.Ptr(true),
 			Input:           util.Ptr(false),
 			NoColor:         util.Ptr(true),

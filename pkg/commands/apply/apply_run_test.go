@@ -255,7 +255,7 @@ func TestApply_Process(t *testing.T) {
 
 				directory:    tc.directory,
 				childPath:    tc.directory,
-				planFilename: "test-tfplan.binary",
+				planFileName: "test-tfplan.binary",
 
 				flagCommitSHA:            tc.flagCommitSHA,
 				flagPullRequestNumber:    tc.flagPullRequestNumber,
