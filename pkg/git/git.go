@@ -25,6 +25,7 @@ import (
 
 	"github.com/abcxyz/guardian/pkg/child"
 	"github.com/abcxyz/guardian/pkg/util"
+	"github.com/abcxyz/pkg/logging"
 	"golang.org/x/exp/maps"
 )
 
@@ -53,7 +54,9 @@ func NewGitClient(workingDir string) *GitClient {
 
 // DiffDirsAbs runs a git diff between two revisions and returns the sorted list
 // of absolute directory paths that have changes.
-func (g *GitClient) DiffDirsAbs(ctx context.Context, ref1, ref2 string) ([]string, error) {
+func (g *GitClient) DiffDirsAbs(ctx context.Context, sourceRef, destRef string) ([]string, error) {
+	logger := logging.FromContext(ctx).With("working_dir", g.workingDir)
+
 	var stdout, stderr bytes.Buffer
 
 	_, err := child.Run(ctx, &child.RunConfig{
@@ -61,21 +64,25 @@ func (g *GitClient) DiffDirsAbs(ctx context.Context, ref1, ref2 string) ([]strin
 		Stderr:     &stderr,
 		WorkingDir: g.workingDir,
 		Command:    "git",
-		Args:       []string{"diff", fmt.Sprintf("%s..%s", ref1, ref2), "--name-only"},
+		Args:       []string{"diff", fmt.Sprintf("%s..%s", sourceRef, destRef), "--name-only", "--diff-filter=d"},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to run git diff command: %w\n\n%s", err, stderr.String())
 	}
 
-	return parseSortedDiffDirsAbs(stdout.String())
+	logger.DebugContext(ctx, "DiffDirsAbs git diff output", "output", stdout.String())
+
+	return parseSortedDiffDirsAbs(ctx, stdout.String())
 }
 
 // parseSortedDiffDirs splits a string at newlines and returns the sorted set of
 // absolute directory paths.
-func parseSortedDiffDirsAbs(v string) ([]string, error) {
+func parseSortedDiffDirsAbs(ctx context.Context, stdout string) ([]string, error) {
+	logger := logging.FromContext(ctx)
+
 	matches := make(map[string]struct{})
 
-	for _, line := range newline.Split(v, -1) {
+	for _, line := range newline.Split(stdout, -1) {
 		if len(line) > 0 {
 			dir := filepath.Dir(line)
 
@@ -91,6 +98,8 @@ func parseSortedDiffDirsAbs(v string) ([]string, error) {
 	dirs := maps.Keys(matches)
 
 	sort.Strings(dirs)
+
+	logger.DebugContext(ctx, "parseSortedDiffDirsAbs result", "dirs", dirs)
 
 	return dirs, nil
 }

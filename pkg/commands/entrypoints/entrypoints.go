@@ -192,7 +192,7 @@ func (c *EntrypointsCommand) Process(ctx context.Context) error {
 	if !c.flagSkipDetectChanges {
 		logger.DebugContext(ctx, "finding git diff directories")
 
-		diffDirs, err := c.gitClient.DiffDirsAbs(ctx, c.flagDestRef, c.flagSourceRef)
+		diffDirs, err := c.gitClient.DiffDirsAbs(ctx, c.flagSourceRef, c.flagDestRef)
 		if err != nil {
 			return fmt.Errorf("failed to find git diff directories: %w", err)
 		}

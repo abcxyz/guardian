@@ -15,6 +15,7 @@
 package git
 
 import (
+	"context"
 	"os"
 	"path"
 	"testing"
@@ -65,6 +66,11 @@ testdata/third`,
 			exp: []string{path.Join(cwd, "testdata")},
 		},
 		{
+			name:  "returns_error",
+			value: "testdata/does_not_exist/test.txt",
+			err:   "failed to get absolute path for directory testdata/does_not_exist",
+		},
+		{
 			name:  "handles_empty",
 			value: "",
 			exp:   []string{},
@@ -77,7 +83,7 @@ testdata/third`,
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			dirs, err := parseSortedDiffDirsAbs(tc.value)
+			dirs, err := parseSortedDiffDirsAbs(context.Background(), tc.value)
 			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
 				t.Errorf(diff)
 			}
