@@ -77,7 +77,7 @@ runs:
       run: |-
         gh pr checkout $NUMBER
     - name: 'Setup Terraform'
-      uses: 'abcxyz/secure-setup-terraform@eba2f9ad6a23da76d4e5996fe1c2850cc8ca92d9' # ratchet:abcxyz/secure-setup-terraform@main
+      uses: 'abcxyz/secure-setup-terraform@2f3979483fa0faf9c4f2a8aa2c38377d4ac7c38e' # ratchet:abcxyz/secure-setup-terraform@main
       with:
         terraform_version: '${{ inputs.terraform_version }}'
         terraform_module_location: './${{ inputs.working_directory }}'

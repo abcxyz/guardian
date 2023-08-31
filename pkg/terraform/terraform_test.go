@@ -212,7 +212,7 @@ func TestExtractBackendConfig(t *testing.T) {
 		{
 			name: "has_backend",
 			file: "../../terraform/terraform.tf", // depend on test data in [REPO_ROOT]/terraform
-			want: &TerraformBackendConfig{GCSBucket: util.Ptr("guardian-i-terraform-state-576047"), Prefix: util.Ptr("state/test")},
+			want: &TerraformBackendConfig{GCSBucket: util.Ptr("guardian-ci-i-terraform-state-c79e1f4759"), Prefix: util.Ptr("state/test")},
 		},
 		{
 			name: "no_backend",
@@ -259,11 +259,11 @@ func Test_extractBackendConfig(t *testing.T) {
 			data: []byte(`
 				terraform {
 				  backend "gcs" {
-					bucket = "guardian-i-terraform-state-576047"
+					bucket = "guardian-ci-i-terraform-state-c79e1f4759"
 					prefix = "state/test"
 				  }
 				}`),
-			want: &TerraformBackendConfig{GCSBucket: util.Ptr("guardian-i-terraform-state-576047"), Prefix: util.Ptr("state/test")},
+			want: &TerraformBackendConfig{GCSBucket: util.Ptr("guardian-ci-i-terraform-state-c79e1f4759"), Prefix: util.Ptr("state/test")},
 		},
 		{
 			name: "local_backend",
