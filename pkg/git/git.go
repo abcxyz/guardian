@@ -18,8 +18,9 @@ package git
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
-	"os"
+	"io/fs"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -88,7 +89,7 @@ func parseSortedDiffDirsAbs(ctx context.Context, stdout string) ([]string, error
 			dir := filepath.Dir(line)
 
 			path, err := util.PathEvalAbs(dir)
-			if err != nil && os.IsNotExist(err) {
+			if errors.Is(err, fs.ErrNotExist) {
 				continue
 			}
 
