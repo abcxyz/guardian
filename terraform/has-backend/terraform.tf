@@ -22,7 +22,7 @@ terraform {
   }
 
   backend "gcs" {
-    bucket = "guardian-i-terraform-state-576047"
+    bucket = "guardian-ci-i-terraform-state-c79e1f4759"
     prefix = "state/has-backend"
   }
 }

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 name: 'test_guardian_plan'
+
 on:
   # pull_request_target: # removed pull_request_target to allow for testing of guardian within the guardian repository
   pull_request:
@@ -22,19 +23,26 @@ on:
       - 'reopened'
     branches:
       - 'main'
+
 permissions:
   contents: 'read'
   id-token: 'write'
   pull-requests: 'write'
+
 # only one plan, per pr should run at a time
 concurrency:
   group: '${{ github.workflow }}-${{ github.event.pull_request.number }}-${{ github.head_ref || github.ref }}'
+
 env:
   REPO_OWNER: '${{ github.repository_owner }}'
   REPO_NAME: '${{ github.event.repository.name }}'
+  GUARDIAN_WIF_PROVIDER: 'projects/1098665030124/locations/global/workloadIdentityPools/guardian-automation/providers/guardian-ci-i'
+  GUARDIAN_WIF_SERVICE_ACCOUNT: 'guardian-automation-bot@ghg-guardian-ci-i-6ad437.iam.gserviceaccount.com'
+  GUARDIAN_BUCKET_NAME: 'guardian-ci-i-guardian-state-c79e1f4759'
   PR_NUMBER: '${{ github.event.number }}'
   # GUARDIAN_LOG_MODE: 'development'
   # GUARDIAN_LOG_LEVEL: 'debug'
+
 jobs:
   init:
     runs-on: 'ubuntu-latest'
@@ -42,19 +50,22 @@ jobs:
       directories: '${{ steps.dirs.outputs.directories }}'
     steps:
       - name: 'Checkout'
-        uses: 'actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9' # ratchet:actions/checkout@v3
+        uses: 'actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744' # ratchet:actions/checkout@v3
         with:
           fetch-depth: 0 # get everything so we can use git diff
+
       - name: 'Guardian Directories'
         id: 'dirs'
         uses: './.github/actions/directories'
         with:
           terraform_directory: 'terraform'
           detect_plan_changes: 'true'
+
       - name: 'Guardian Hide Previous Plan Comments'
         uses: './.github/actions/hide-plan-comments'
         with:
           strategy: 'delete'
+
   plan:
     if: |
       needs.init.outputs.directories != '[]'
@@ -67,13 +78,15 @@ jobs:
         working_directory: '${{ fromJSON(needs.init.outputs.directories) }}'
     steps:
       - name: 'Checkout'
-        uses: 'actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9' # ratchet:actions/checkout@v3
+        uses: 'actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744' # ratchet:actions/checkout@v3
         with:
           ref: '${{ github.event.pull_request.head.ref }}'
+
       - name: 'Setup Go'
         uses: 'actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568' # ratchet:actions/setup-go@v3
         with:
           go-version: '1.21'
+
       - name: 'Mint Token'
         id: 'mint-token'
         uses: 'abcxyz/github-token-minter/.github/actions/mint-token@c6ea9b91e3e1df75a6e86dad8e5b0a0a45b42fec'
@@ -83,14 +96,17 @@ jobs:
           service_audience: '${{ vars.TOKEN_MINTER_SERVICE_AUDIENCE }}'
           service_url: '${{ vars.TOKEN_MINTER_SERVICE_URL }}'
           requested_permissions: '{"repositories":["*"],"permissions":{"contents":"read"}}'
+
       - name: 'Authenticate to Google Cloud'
         uses: 'google-github-actions/auth@35b0e87d162680511bf346c299f71c9c5c379033' # ratchet:google-github-actions/auth@v1
         with:
-          workload_identity_provider: '${{ vars.GUARDIAN_WIF_PROVIDER }}'
-          service_account: '${{ vars.GUARDIAN_WIF_SERVICE_ACCOUNT }}'
+          workload_identity_provider: '${{ env.GUARDIAN_WIF_PROVIDER }}'
+          service_account: '${{ env.GUARDIAN_WIF_SERVICE_ACCOUNT }}'
+
       - name: 'Git Config'
         run: |-
           git config --global url."https://guardian-bot:${{ steps.mint-token.outputs.token }}@github.com".insteadOf "https://github.com"
+
       - name: 'Guardian Plan'
         id: 'plan'
         uses: './.github/actions/plan'
@@ -98,14 +114,16 @@ jobs:
           GITHUB_TOKEN: '${{ steps.mint-token.outputs.token }}'
         with:
           working_directory: '${{ matrix.working_directory }}'
-          bucket_name: '${{ vars.GUARDIAN_BUCKET_NAME }}'
+          bucket_name: '${{ env.GUARDIAN_BUCKET_NAME }}'
           terraform_version: '1.3.6'
+
       - name: 'Print Plan Output'
         shell: 'bash'
         env:
           PLAN_OUTPUT: '${{ steps.plan.outputs.has-diff }}'
         run: |-
           echo "PLAN_OUTPUT=${PLAN_OUTPUT}"
+
   plan_success:
     if: '${{ always() }}'
     runs-on: 'ubuntu-latest'
@@ -114,7 +132,8 @@ jobs:
       - 'plan'
     steps:
       - name: 'Checkout'
-        uses: 'actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9' # ratchet:actions/checkout@v3
+        uses: 'actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744' # ratchet:actions/checkout@v3
+
       - name: 'Guardian Post Plan Status'
         uses: './.github/actions/plan-status'
         with:

@@ -72,7 +72,7 @@ runs:
           return prComment.id;
 
     - name: 'Setup Terraform'
-      uses: 'abcxyz/secure-setup-terraform@eba2f9ad6a23da76d4e5996fe1c2850cc8ca92d9' # ratchet:abcxyz/secure-setup-terraform@main
+      uses: 'abcxyz/secure-setup-terraform@2f3979483fa0faf9c4f2a8aa2c38377d4ac7c38e' # ratchet:abcxyz/secure-setup-terraform@main
       with:
         terraform_version: '${{ inputs.terraform_version }}'
         terraform_module_location: './${{ inputs.working_directory }}'
@@ -162,7 +162,7 @@ runs:
       run: |-
         cp $OUT_FILENAME ${{ env.SUCCESS_FILENAME }}
     - name: 'Setup Node'
-      uses: 'actions/setup-node@e33196f7422957bea03ed53f6fbb155025ffc7b8' # ratchet:actions/setup-node@v3
+      uses: 'actions/setup-node@5e21ff4d9bc1a8cf6de233a3057d20ec6b3fb69d' # ratchet:actions/setup-node@v3
       with:
         node-version: '16'
     - name: 'Install Google Cloud Storage SDK'
