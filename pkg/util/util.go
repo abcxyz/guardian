@@ -58,12 +58,12 @@ func ChildPath(base, target string) (string, error) {
 func PathEvalAbs(path string) (string, error) {
 	sym, err := filepath.EvalSymlinks(path)
 	if err != nil {
-		return "", fmt.Errorf("failed to resolve symlinks for path: %w", err)
+		return "", err //nolint:wrapcheck // Want passthrough
 	}
 
 	abs, err := filepath.Abs(sym)
 	if err != nil {
-		return "", fmt.Errorf("failed to compute absolute path: %w", err)
+		return "", err //nolint:wrapcheck // Want passthrough
 	}
 
 	return abs, nil

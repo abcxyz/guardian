@@ -50,6 +50,18 @@ testdata/third/test.txt`,
 			},
 		},
 		{
+			name: "ignores_missing_dir",
+			value: `testdata/first/test.txt
+testdata/second/test.txt
+testdata/third/test.txt
+testdata/fourth/test.txt`,
+			exp: []string{
+				path.Join(cwd, "testdata/first"),
+				path.Join(cwd, "testdata/second"),
+				path.Join(cwd, "testdata/third"),
+			},
+		},
+		{
 			name:  "carriage_return_and_newline",
 			value: "testdata/first/test.txt\r\ntestdata/third/test.txt\r\ntestdata/second/test.txt",
 			exp: []string{
@@ -64,11 +76,6 @@ testdata/third/test.txt`,
 testdata/second
 testdata/third`,
 			exp: []string{path.Join(cwd, "testdata")},
-		},
-		{
-			name:  "returns_error",
-			value: "testdata/does_not_exist/test.txt",
-			err:   "failed to get absolute path for directory testdata/does_not_exist",
 		},
 		{
 			name:  "handles_empty",

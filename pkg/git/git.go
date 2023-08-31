@@ -18,7 +18,9 @@ package git
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -64,7 +66,7 @@ func (g *GitClient) DiffDirsAbs(ctx context.Context, sourceRef, destRef string) 
 		Stderr:     &stderr,
 		WorkingDir: g.workingDir,
 		Command:    "git",
-		Args:       []string{"diff", fmt.Sprintf("%s..%s", sourceRef, destRef), "--name-only", "--diff-filter=d"},
+		Args:       []string{"diff", fmt.Sprintf("%s..%s", sourceRef, destRef), "--name-only"},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to run git diff command: %w\n\n%s", err, stderr.String())
@@ -87,6 +89,10 @@ func parseSortedDiffDirsAbs(ctx context.Context, stdout string) ([]string, error
 			dir := filepath.Dir(line)
 
 			path, err := util.PathEvalAbs(dir)
+			if errors.Is(err, fs.ErrNotExist) {
+				continue
+			}
+
 			if err != nil {
 				return nil, fmt.Errorf("failed to get absolute path for directory %s: %w", dir, err)
 			}
