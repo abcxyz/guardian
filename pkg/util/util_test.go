@@ -15,6 +15,7 @@
 package util
 
 import (
+	"os"
 	"testing"
 
 	"github.com/abcxyz/pkg/testutil"
@@ -83,11 +84,48 @@ func TestChildPath(t *testing.T) {
 func TestPathEvalAbs(t *testing.T) {
 	t.Parallel()
 
-	dir, err := PathEvalAbs(".")
+	cwd, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if dir == "" {
-		t.Errorf("expected dir to be defined")
+
+	cases := []struct {
+		name string
+		dir  string
+		exp  string
+		err  string
+	}{
+		{
+			name: "success",
+			dir:  ".",
+			exp:  cwd,
+		},
+		{
+			name: "empty",
+			dir:  "",
+			exp:  cwd,
+		},
+		{
+			name: "missing_dir",
+			dir:  "./not_a_real_dir",
+			err:  "lstat not_a_real_dir: no such file or directory",
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			dir, err := PathEvalAbs(tc.dir)
+			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
+				t.Errorf(diff)
+			}
+
+			if got, want := dir, tc.exp; got != want {
+				t.Errorf("expected %s to be %s", got, want)
+			}
+		})
 	}
 }
