@@ -82,5 +82,5 @@ jobs:
         with:
           working_directory: '${{ matrix.working_directory }}'
           bucket_name: '${{ env.GUARDIAN_BUCKET_NAME }}'
-          terraform_version: '1.5.4'
+          terraform_version: 'REPLACE_TERRAFORM_VERSION'
           protect_lockfile: true

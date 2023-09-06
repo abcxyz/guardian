@@ -93,5 +93,5 @@ jobs:
           command: '${{ inputs.command }}'
           terraform_init: '${{ inputs.terraform_init }}'
           working_directory: '${{ matrix.working_directory }}'
-          terraform_version: '1.5.4'
+          terraform_version: 'REPLACE_TERRAFORM_VERSION'
           protect_lockfile: true

@@ -95,7 +95,7 @@ jobs:
           command: 'output'
           terraform_init: 'true'
           working_directory: '${{ matrix.working_directory }}'
-          terraform_version: '1.5.4'
+          terraform_version: 'REPLACE_TERRAFORM_VERSION'
           protect_lockfile: true
 
       - name: 'Guardian Plan'
@@ -109,7 +109,7 @@ jobs:
           command: 'plan -input=false -lock-timeout=10m'
           terraform_init: 'true'
           working_directory: '${{ matrix.working_directory }}'
-          terraform_version: '1.5.4'
+          terraform_version: 'REPLACE_TERRAFORM_VERSION'
           protect_lockfile: true
 
       - name: 'Guardian Apply'
@@ -123,5 +123,5 @@ jobs:
           command: 'apply -input=false -auto-approve -lock-timeout=10m'
           terraform_init: 'true'
           working_directory: '${{ matrix.working_directory }}'
-          terraform_version: '1.5.4'
+          terraform_version: 'REPLACE_TERRAFORM_VERSION'
           protect_lockfile: true
