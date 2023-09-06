@@ -9,7 +9,7 @@ abc templates render \
   -input=guardian_wif_provider=<WIF_PROVIDER> \
   -input=guardian_service_account=<SERVICE_ACCOUNT> \
   -input=guardian_state_bucket=<GUARDIAN_STATE_BUCKET> \
-  github.com/abcxyz/guardian.git//abc.templates/workflows
+  github.com/abcxyz/guardian.git//abc.templates/default-workflows
 ```
 
 #### Optional inputs:
