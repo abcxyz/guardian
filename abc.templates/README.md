@@ -13,5 +13,5 @@ abc templates render \
 ```
 
 #### Optional inputs:
-- `terraform_version`: Defaults to `1.5.6`.
+- `terraform_version`: Defaults to `1.5.4`.
 - `terraform_directory`: Defaults to the current directory.

@@ -23,7 +23,7 @@ inputs:
     default: '.'
   - name: 'terraform_version'
     desc: 'The terraform version to use with Guardian'
-    default: '1.5.6'
+    default: '1.5.4'
   - name: 'guardian_wif_provider'
     desc: 'The Google Cloud workload identity federation provider for Guardian'
   - name: 'guardian_service_account'
