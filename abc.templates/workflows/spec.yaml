@@ -26,7 +26,7 @@ inputs:
   - name: 'guardian_service_account'
     desc: 'The Google Cloud service account for Guardian'
     rules:
-      rule: 'gcp_matches_service_account(guardian_service_account)'
+      - rule: 'gcp_matches_service_account(guardian_service_account)'
   - name: 'guardian_state_bucket'
     desc: 'The Google Cloud storage bucket for Guardian state'
 
