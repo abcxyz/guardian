@@ -35,7 +35,7 @@ steps:
     action: 'include'
     params:
       paths: ['contents']
-      add_prefix: '.github/workflows'
+      as: ['.github/workflows']
 
   - desc: 'Replace variables'
     action: 'string_replace'
