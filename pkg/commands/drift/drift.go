@@ -16,6 +16,7 @@ package drift
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -276,7 +277,7 @@ func (d *IAMDriftDetector) terraformStateIAM(ctx context.Context, gcsBuckets []s
 				return nil, fmt.Errorf("failed to parse terraform states: %w", err)
 			}
 			return tIAM, nil
-		}); err != nil {
+		}); err != nil && !errors.Is(err, workerpool.ErrStopped) {
 			return nil, fmt.Errorf("failed to execute terraform IAM task: %w", err)
 		}
 	}
@@ -287,13 +288,20 @@ func (d *IAMDriftDetector) terraformStateIAM(ctx context.Context, gcsBuckets []s
 	}
 
 	tfIAM := make(map[string]*assetinventory.AssetIAM)
+	errs := []error{}
 	for _, r := range iamResults {
 		if err := r.Error; err != nil {
-			return nil, fmt.Errorf("failed to execute IAM task: %w", err)
+			if !errors.Is(err, workerpool.ErrStopped) {
+				errs = append(errs, fmt.Errorf("failed to execute IAM task: %w", err))
+			}
+			continue
 		}
 		for _, iamF := range r.Value {
 			tfIAM[d.URI(iamF)] = iamF
 		}
+	}
+	if len(errs) > 0 {
+		return nil, fmt.Errorf("failed to execute terraform IAM tasks in parallel: %w", errors.Join(errs...))
 	}
 
 	return tfIAM, nil
