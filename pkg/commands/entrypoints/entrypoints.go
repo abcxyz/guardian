@@ -61,6 +61,7 @@ type EntrypointsCommand struct {
 	flagSkipDetectChanges       bool
 	flagFormat                  string
 	flagFailUnresolvableModules bool
+	flagNoRecursion             bool
 
 	gitClient git.Git
 }
@@ -130,6 +131,13 @@ func (c *EntrypointsCommand) Flags() *cli.FlagSet {
 		Default: false,
 	})
 
+	f.BoolVar(&cli.BoolVar{
+		Name:    "no-recursion",
+		Target:  &c.flagNoRecursion,
+		Usage:   `Whether or not recurse and find entrypoints nested beneath the target entrypoint.`,
+		Default: false,
+	})
+
 	set.AfterParse(func(existingErr error) (merr error) {
 		if !c.flagSkipDetectChanges && c.flagSourceRef == "" && c.flagDestRef == "" {
 			merr = errors.Join(merr, fmt.Errorf("invalid flag: source-ref and dest-ref are required to detect changes, to ignore changes set the skip-detect-changes flag"))
@@ -177,17 +185,27 @@ func (c *EntrypointsCommand) Process(ctx context.Context) error {
 
 	logger.DebugContext(ctx, "finding entrypoint directories")
 
-	entrypoints, err := terraform.GetEntrypointDirectories(c.directory)
-	if err != nil {
-		return fmt.Errorf("failed to find terraform directories: %w", err)
+	var entrypointDirs []string
+
+	if c.flagNoRecursion {
+		entrypointDirs = []string{c.directory}
+	} else {
+		entrypoints, err := terraform.GetEntrypointDirectories(c.directory)
+		if err != nil {
+			return fmt.Errorf("failed to find terraform directories: %w", err)
+		}
+
+		entrypointDirs = make([]string, 0, len(entrypoints))
+		for _, e := range entrypoints {
+			entrypointDirs = append(entrypointDirs, e.Path)
+		}
+
+		logger.DebugContext(ctx, "terraform entrypoint directories", "entrypoint_dirs", entrypoints)
 	}
 
-	entrypointDirs := make([]string, 0, len(entrypoints))
-	for _, e := range entrypoints {
-		entrypointDirs = append(entrypointDirs, e.Path)
+	if c.flagNoRecursion && !c.flagSkipDetectChanges {
+		return fmt.Errorf("invalid arguments: -no-recursion must be called with -skip-detect-changes")
 	}
-
-	logger.DebugContext(ctx, "terraform entrypoint directories", "entrypoint_dirs", entrypoints)
 
 	if !c.flagSkipDetectChanges {
 		logger.DebugContext(ctx, "finding git diff directories")
