@@ -140,7 +140,7 @@ func (c *EntrypointsCommand) Flags() *cli.FlagSet {
 
 	set.AfterParse(func(existingErr error) (merr error) {
 		if !c.flagSkipDetectChanges && c.flagNoRecursion {
-			return fmt.Errorf("invalid flag: -no-recursion must be called with -skip-detect-changes")
+			merr = errors.Join(merr, fmt.Errorf("invalid flag: -no-recursion must be called with -skip-detect-changes"))
 		}
 
 		if !c.flagSkipDetectChanges && c.flagSourceRef == "" && c.flagDestRef == "" {
