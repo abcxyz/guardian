@@ -23,6 +23,11 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/abcxyz/pkg/cli"
+	"github.com/abcxyz/pkg/logging"
+	"github.com/abcxyz/pkg/sets"
+	"golang.org/x/exp/maps"
+
 	"github.com/abcxyz/guardian/pkg/commands/drift"
 	driftflags "github.com/abcxyz/guardian/pkg/commands/drift/flags"
 	"github.com/abcxyz/guardian/pkg/flags"
@@ -30,9 +35,6 @@ import (
 	"github.com/abcxyz/guardian/pkg/terraform"
 	"github.com/abcxyz/guardian/pkg/terraform/parser"
 	"github.com/abcxyz/guardian/pkg/util"
-	"github.com/abcxyz/pkg/cli"
-	"github.com/abcxyz/pkg/logging"
-	"github.com/abcxyz/pkg/sets"
 )
 
 var _ cli.Command = (*DriftStatefilesCommand)(nil)
@@ -59,8 +61,6 @@ type DriftStatefilesCommand struct {
 	flags.RetryFlags
 	driftflags.DriftIssueFlags
 
-	flagGCSBucket string
-
 	terraformParser parser.Terraform
 	issueService    *drift.GitHubDriftIssueService
 }
@@ -84,15 +84,6 @@ func (c *DriftStatefilesCommand) Flags() *cli.FlagSet {
 	c.RetryFlags.Register(set)
 	c.DriftIssueFlags.Register(set, &driftflags.Options{
 		DefaultIssueLabel: "guardian-statefile-drift",
-	})
-
-	f := set.NewSection("COMMAND OPTIONS")
-
-	f.StringVar(&cli.StringVar{
-		Name:    "gcsBucket",
-		Target:  &c.flagGCSBucket,
-		Example: "my-gcs-bucket",
-		Usage:   "The gcs bucket to compare against local backend configurations. If none is provided then we will parse it from the backend config.",
 	})
 
 	return set
@@ -151,7 +142,7 @@ func (c *DriftStatefilesCommand) Process(ctx context.Context) error {
 	logger.DebugContext(ctx, "terraform entrypoint directories", "entrypoint_backend_files", entrypointBackendFiles)
 
 	expectedURIs := make([]string, 0, len(entrypointBackendFiles))
-	gcsBuckets := make([]string, 0, len(entrypointBackendFiles))
+	gcsBuckets := make(map[string]struct{})
 	var errs []error
 	for _, f := range entrypointBackendFiles {
 		config, _, err := terraform.ExtractBackendConfig(f)
@@ -163,33 +154,19 @@ func (c *DriftStatefilesCommand) Process(ctx context.Context) error {
 			errs = append(errs, fmt.Errorf("unsupported backend type for terraform config at %s - only gcs backends are supported", f))
 			continue
 		}
-		gcsBuckets = append(gcsBuckets, *config.GCSBucket)
+		gcsBuckets[*config.GCSBucket] = struct{}{}
 		expectedURIs = append(expectedURIs, fmt.Sprintf("gs://%s/%s/default.tfstate", *config.GCSBucket, *config.Prefix))
 	}
 	if len(errs) > 0 {
 		return fmt.Errorf("failed to determine statefile gcs URIs: %w", errors.Join(errs...))
 	}
 
-	gcsBucket := c.flagGCSBucket
-	for _, bucket := range gcsBuckets {
-		if gcsBucket == "" {
-			gcsBucket = bucket
-		}
-		if bucket != gcsBucket {
-			return fmt.Errorf("found multiple definitions for gcs buckets - expected a single gcs bucket; from configs: %v; expected %s", gcsBuckets, gcsBucket)
-		}
-	}
+	logger.DebugContext(ctx, "finding statefiles in gcs buckets",
+		"gcs_buckets", gcsBuckets)
 
-	if gcsBucket == "" {
-		return fmt.Errorf("unable to determine gcs bucket - please provide the gcsBucket flag or point at a terraform config with gcs backends")
-	}
-
-	logger.DebugContext(ctx, "finding statefiles in gcs bucket",
-		"gcs_bucket", gcsBucket)
-
-	gotURIs, err := c.terraformParser.StateFileURIs(ctx, []string{gcsBucket})
+	gotURIs, err := c.terraformParser.StateFileURIs(ctx, maps.Keys(gcsBuckets))
 	if err != nil {
-		return fmt.Errorf("failed to determine state file URIs for gcs bucket %s: %w", gcsBucket, err)
+		return fmt.Errorf("failed to determine state file URIs for gcs buckets %s: %w", gcsBuckets, err)
 	}
 
 	statefilesNotInRemote := sets.Subtract(expectedURIs, gotURIs)
