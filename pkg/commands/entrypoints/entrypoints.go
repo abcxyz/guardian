@@ -61,7 +61,7 @@ type EntrypointsCommand struct {
 	flagSkipDetectChanges       bool
 	flagFormat                  string
 	flagFailUnresolvableModules bool
-	flagNoRecursion             bool
+	flagSkipNestedEntrypoints   bool
 
 	gitClient git.Git
 }
@@ -132,14 +132,14 @@ func (c *EntrypointsCommand) Flags() *cli.FlagSet {
 	})
 
 	f.BoolVar(&cli.BoolVar{
-		Name:    "no-recursion",
-		Target:  &c.flagNoRecursion,
+		Name:    "skip-nested-entrypoints",
+		Target:  &c.flagSkipNestedEntrypoints,
 		Usage:   `Whether or not recurse and find entrypoints nested beneath the target entrypoint.`,
 		Default: false,
 	})
 
 	set.AfterParse(func(existingErr error) (merr error) {
-		if !c.flagSkipDetectChanges && c.flagNoRecursion {
+		if !c.flagSkipDetectChanges && c.flagSkipNestedEntrypoints {
 			merr = errors.Join(merr, fmt.Errorf("invalid flag: -no-recursion must be called with -skip-detect-changes"))
 		}
 
@@ -191,7 +191,7 @@ func (c *EntrypointsCommand) Process(ctx context.Context) error {
 
 	var entrypointDirs []string
 
-	if c.flagNoRecursion {
+	if c.flagSkipNestedEntrypoints {
 		entrypointDirs = []string{c.directory}
 	} else {
 		entrypoints, err := terraform.GetEntrypointDirectories(c.directory)
