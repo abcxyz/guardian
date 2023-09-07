@@ -46,6 +46,7 @@ var ignoredFolderPattern = regexp.MustCompile(`^\/organizations\/(?:\d*)\/folder
 var ignoredRolesPattern = regexp.MustCompile(`^\/roles\/([^\/\s]*)\/(serviceAccount|group|user)\:([^\/\s]*)$`)
 
 var defaultURIFilterPatterns = []*regexp.Regexp{
+	regexp.MustCompile(`aiplatform.serviceAgent\/serviceAccount:service-(?:\d*)@gcp-sa-aiplatform.iam.gserviceaccount.com`),
 	regexp.MustCompile(`artifactregistry.serviceAgent\/serviceAccount:service-(?:\d*)@gcp-sa-artifactregistry.iam.gserviceaccount.com`),
 	regexp.MustCompile(`bigquerydatatransfer.serviceAgent\/serviceAccount:service-(?:\d*)@gcp-sa-bigquerydatatransfer.iam.gserviceaccount.com`),
 	regexp.MustCompile(`binaryauthorization.serviceAgent\/serviceAccount:service-(?:\d*)@gcp-sa-binaryauthorization.iam.gserviceaccount.com`),
@@ -71,6 +72,7 @@ var defaultURIFilterPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`iap.settingsAdmin\/serviceAccount:(?:\d*)-compute@developer.gserviceaccount.com`),
 	regexp.MustCompile(`identitytoolkit.viewer\/serviceAccount:(?:\d*)-compute@developer.gserviceaccount.com`),
 	regexp.MustCompile(`networkmanagement.serviceAgent\/serviceAccount:service-(?:\d*)@gcp-sa-networkmanagement.iam.gserviceaccount.com`),
+	regexp.MustCompile(`monitoring.notificationServiceAgent\/serviceAccount:service-(?:\d*)@gcp-sa-monitoring-notification.iam.gserviceaccount.com`),
 	regexp.MustCompile(`osconfig.serviceAgent\/serviceAccount:service-(?:\d*)@gcp-sa-osconfig.iam.gserviceaccount.com`),
 	regexp.MustCompile(`pubsub.serviceAgent\/serviceAccount:service-(?:\d*)@gcp-sa-pubsub.iam.gserviceaccount.com`),
 	regexp.MustCompile(`redis.serviceAgent\/serviceAccount:service-(?:\d*)@cloud-redis.iam.gserviceaccount.com`),
@@ -83,6 +85,7 @@ var defaultURIFilterPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`storage.objectViewer\/serviceAccount:project-(?:\d*)@storage-transfer-service.iam.gserviceaccount.com`),
 	regexp.MustCompile(`vpcaccess.serviceAgent\/serviceAccount:service-(?:\d*)@gcp-sa-vpcaccess.iam.gserviceaccount.com`),
 	regexp.MustCompile(`websecurityscanner.serviceAgent\/serviceAccount:service-(?:\d*)@gcp-sa-websecurityscanner.iam.gserviceaccount.com`),
+	regexp.MustCompile(`workflows.serviceAgent\/serviceAccount:service-(?:\d*)@gcp-sa-workflows.iam.gserviceaccount.com`),
 }
 
 func filterDefaultURIs(uris []string) []string {
