@@ -139,8 +139,8 @@ func (c *EntrypointsCommand) Flags() *cli.FlagSet {
 	})
 
 	set.AfterParse(func(existingErr error) (merr error) {
-		if !c.flagSkipDetectChanges && c.flagSkipNestedEntrypoints {
-			merr = errors.Join(merr, fmt.Errorf("invalid flag: -no-recursion must be called with -skip-detect-changes"))
+		if c.flagSkipNestedEntrypoints && !c.flagSkipDetectChanges {
+			merr = errors.Join(merr, fmt.Errorf("invalid flag: -skip-nested-entrypoints must be called with -skip-detect-changes"))
 		}
 
 		if !c.flagSkipDetectChanges && c.flagSourceRef == "" && c.flagDestRef == "" {
