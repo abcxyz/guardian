@@ -1,0 +1,58 @@
+# Copyright 2023 The Authors (see AUTHORS file)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: 'cli.abcxyz.dev/v1alpha1'
+kind: 'Template'
+
+desc: 'Generate the Guardian workflows for the Google Cloud organization Terraform intrastructure repo.'
+
+inputs:
+  - name: 'terraform_directory'
+    desc: 'A sub-directory for all Terraform files'
+    default: '.'
+  - name: 'terraform_version'
+    desc: 'The terraform version to use with Guardian'
+    default: '1.5.4'
+  - name: 'guardian_wif_provider'
+    desc: 'The Google Cloud workload identity federation provider for Guardian'
+  - name: 'guardian_service_account'
+    desc: 'The Google Cloud service account for Guardian'
+    rules:
+      - rule: 'gcp_matches_service_account(guardian_service_account)'
+  - name: 'guardian_state_bucket'
+    desc: 'The Google Cloud storage bucket for Guardian state'
+
+steps:
+  - desc: 'Include required files and directories'
+    action: 'include'
+    params:
+      paths: ['contents']
+      as: ['.github/workflows']
+
+  - desc: 'Replace variables'
+    action: 'string_replace'
+    params:
+      paths:
+        - '.github/workflows'
+      replacements:
+        - to_replace: 'REPLACE_TERRAFORM_DIRECTORY'
+          with: '{{.terraform_directory}}'
+        - to_replace: 'REPLACE_TERRAFORM_VERSION'
+          with: '{{.terraform_version}}'
+        - to_replace: 'REPLACE_GUARDIAN_WIF_PROVIDER'
+          with: '{{.guardian_wif_provider}}'
+        - to_replace: 'REPLACE_GUARDIAN_WIF_SERVICE_ACCOUNT'
+          with: '{{.guardian_service_account}}'
+        - to_replace: 'REPLACE_GUARDIAN_STATE_BUCKET'
+          with: '{{.guardian_state_bucket}}'
