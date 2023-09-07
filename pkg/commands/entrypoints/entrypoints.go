@@ -139,6 +139,10 @@ func (c *EntrypointsCommand) Flags() *cli.FlagSet {
 	})
 
 	set.AfterParse(func(existingErr error) (merr error) {
+		if !c.flagSkipDetectChanges && c.flagNoRecursion {
+			return fmt.Errorf("invalid flag: -no-recursion must be called with -skip-detect-changes")
+		}
+
 		if !c.flagSkipDetectChanges && c.flagSourceRef == "" && c.flagDestRef == "" {
 			merr = errors.Join(merr, fmt.Errorf("invalid flag: source-ref and dest-ref are required to detect changes, to ignore changes set the skip-detect-changes flag"))
 		}
@@ -201,10 +205,6 @@ func (c *EntrypointsCommand) Process(ctx context.Context) error {
 		}
 
 		logger.DebugContext(ctx, "terraform entrypoint directories", "entrypoint_dirs", entrypoints)
-	}
-
-	if c.flagNoRecursion && !c.flagSkipDetectChanges {
-		return fmt.Errorf("invalid arguments: -no-recursion must be called with -skip-detect-changes")
 	}
 
 	if !c.flagSkipDetectChanges {
