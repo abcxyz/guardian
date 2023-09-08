@@ -25,6 +25,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strings"
 
 	"github.com/abcxyz/pkg/logging"
 
@@ -134,8 +135,8 @@ func NewTerraformClient(workingDir string) *TerraformClient {
 }
 
 // ModuleUsage locates all the usages of modules in all terraform entrypoints and vice versa.
-func ModuleUsage(ctx context.Context, rootDir string, skipUnresolvableModules bool) (*ModuleUsageGraph, error) {
-	entrypoints, err := GetEntrypointDirectories(rootDir)
+func ModuleUsage(ctx context.Context, rootDir string, maxDepth *int, skipUnresolvableModules bool) (*ModuleUsageGraph, error) {
+	entrypoints, err := GetEntrypointDirectories(rootDir, maxDepth)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get entrypoints: %w", err)
 	}
@@ -240,11 +241,16 @@ func modules(ctx context.Context, rootDir string, skipUnresolvableModules bool) 
 
 // GetEntrypointDirectories gets all the directories that have Terraform config
 // files containing a backend block to be used as an entrypoint module.
-func GetEntrypointDirectories(rootDir string) ([]*TerraformEntrypoint, error) {
+func GetEntrypointDirectories(rootDir string, maxDepth *int) ([]*TerraformEntrypoint, error) {
 	matches := make(map[string]*TerraformEntrypoint)
+	startPathSeparatorCount := strings.Count(rootDir, string(os.PathSeparator))
 	if err := filepath.WalkDir(rootDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return fmt.Errorf("failed to walk directory %s: %w", path, err)
+		}
+
+		if d.IsDir() && maxDepth != nil && strings.Count(path, string(os.PathSeparator))-startPathSeparatorCount > *maxDepth {
+			return fs.SkipDir
 		}
 
 		if d.IsDir() {
