@@ -161,12 +161,13 @@ func (c *DriftStatefilesCommand) Process(ctx context.Context) error {
 		return fmt.Errorf("failed to determine statefile gcs URIs: %w", errors.Join(errs...))
 	}
 
+	buckets := maps.Keys(gcsBuckets)
 	logger.DebugContext(ctx, "finding statefiles in gcs buckets",
-		"gcs_buckets", gcsBuckets)
+		"gcs_buckets", buckets)
 
-	gotURIs, err := c.terraformParser.StateFileURIs(ctx, maps.Keys(gcsBuckets))
+	gotURIs, err := c.terraformParser.StateFileURIs(ctx, buckets)
 	if err != nil {
-		return fmt.Errorf("failed to determine state file URIs for gcs buckets %s: %w", gcsBuckets, err)
+		return fmt.Errorf("failed to determine state file URIs for gcs buckets %s: %w", buckets, err)
 	}
 
 	statefilesNotInRemote := sets.Subtract(expectedURIs, gotURIs)
