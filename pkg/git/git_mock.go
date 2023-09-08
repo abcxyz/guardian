@@ -22,9 +22,15 @@ import (
 type MockGitClient struct {
 	DiffResp []string
 	DiffErr  error
+	CloneErr error
 }
 
 // DiffDirsAbs runs a git diff between two revisions and returns the list of directories with changes.
 func (m *MockGitClient) DiffDirsAbs(ctx context.Context, baseRef, headRef string) ([]string, error) {
 	return m.DiffResp, m.DiffErr
+}
+
+// CloneRepository clones the repository to the workingDir.
+func (m *MockGitClient) CloneRepository(ctx context.Context, githubToken, owner, repo string) error {
+	return m.CloneErr
 }

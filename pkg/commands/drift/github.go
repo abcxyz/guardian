@@ -23,14 +23,14 @@ import (
 )
 
 type GitHubDriftIssueService struct {
-	gh         *github.GitHubClient
+	gh         github.GitHub
 	owner      string
 	repo       string
 	issueTitle string
 	issueBody  string
 }
 
-func NewGitHubDriftIssueService(gh *github.GitHubClient, owner, repo, issueTitle, issueBody string) *GitHubDriftIssueService {
+func NewGitHubDriftIssueService(gh github.GitHub, owner, repo, issueTitle, issueBody string) *GitHubDriftIssueService {
 	return &GitHubDriftIssueService{gh, owner, repo, issueTitle, issueBody}
 }
 

@@ -40,6 +40,8 @@ var newline = regexp.MustCompile("\r?\n")
 type Git interface {
 	// DiffDirsAbs returns the directories changed using the git diff command
 	DiffDirsAbs(ctx context.Context, baseRef, headRef string) ([]string, error)
+	// CloneRepository clones the repository to the workingDir.
+	CloneRepository(ctx context.Context, githubToken, owner, repo string) error
 }
 
 // GitClient implements the git interface.
@@ -75,6 +77,28 @@ func (g *GitClient) DiffDirsAbs(ctx context.Context, sourceRef, destRef string) 
 	logger.DebugContext(ctx, "DiffDirsAbs git diff output", "output", stdout.String())
 
 	return parseSortedDiffDirsAbs(ctx, stdout.String())
+}
+
+// CloneRepository clones the repository to the workingDir.
+func (g *GitClient) CloneRepository(ctx context.Context, githubToken, owner, repo string) error {
+	logger := logging.FromContext(ctx).With("working_dir", g.workingDir)
+
+	var stdout, stderr bytes.Buffer
+
+	_, err := child.Run(ctx, &child.RunConfig{
+		Stdout:     &stdout,
+		Stderr:     &stderr,
+		WorkingDir: g.workingDir,
+		Command:    "git",
+		Args:       []string{"clone", fmt.Sprintf("https://%s@github.com/%s/%s.git", githubToken, owner, repo)},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to run git clone command: %w\n\n%s", err, stderr.String())
+	}
+
+	logger.DebugContext(ctx, "CloneRepository git clone output", "output", stdout.String())
+
+	return nil
 }
 
 // parseSortedDiffDirs splits a string at newlines and returns the sorted set of

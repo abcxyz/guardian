@@ -28,13 +28,16 @@ import (
 	"github.com/abcxyz/pkg/sets"
 	"golang.org/x/exp/maps"
 
+	"github.com/abcxyz/guardian/pkg/assetinventory"
 	"github.com/abcxyz/guardian/pkg/commands/drift"
 	driftflags "github.com/abcxyz/guardian/pkg/commands/drift/flags"
 	"github.com/abcxyz/guardian/pkg/flags"
+	"github.com/abcxyz/guardian/pkg/git"
 	"github.com/abcxyz/guardian/pkg/github"
 	"github.com/abcxyz/guardian/pkg/terraform"
 	"github.com/abcxyz/guardian/pkg/terraform/parser"
 	"github.com/abcxyz/guardian/pkg/util"
+	githubAPI "github.com/google/go-github/v53/github"
 )
 
 var _ cli.Command = (*DriftStatefilesCommand)(nil)
@@ -61,8 +64,17 @@ type DriftStatefilesCommand struct {
 	flags.RetryFlags
 	driftflags.DriftIssueFlags
 
-	terraformParser parser.Terraform
-	issueService    *drift.GitHubDriftIssueService
+	flagOrganizationID                string
+	flagGitHubRepoQuery               string
+	flagGCSBucketQuery                string
+	flagDetectGCSBucketsFromTerraform bool
+	flagTerraformRepoTopics           []string
+
+	assetInventoryClient assetinventory.AssetInventory
+	gitClient            git.Git
+	githubClient         github.GitHub
+	issueService         *drift.GitHubDriftIssueService
+	terraformParser      parser.Terraform
 }
 
 func (c *DriftStatefilesCommand) Desc() string {
@@ -86,6 +98,43 @@ func (c *DriftStatefilesCommand) Flags() *cli.FlagSet {
 		DefaultIssueLabel: "guardian-statefile-drift",
 	})
 
+	// Command options
+	f := set.NewSection("COMMAND OPTIONS")
+
+	f.StringVar(&cli.StringVar{
+		Name:    "organization-id",
+		Target:  &c.flagOrganizationID,
+		Example: "123435456456",
+		Usage:   `The Google Cloud organization ID for which to detect drift.`,
+	})
+
+	f.StringVar(&cli.StringVar{
+		Name:    "github-repo-query",
+		Target:  &c.flagGitHubRepoQuery,
+		Example: "labels.terraform:*",
+		Usage:   `The label to use to find GCS buckets with Terraform statefiles.`,
+	})
+
+	f.StringVar(&cli.StringVar{
+		Name:    "gcs-bucket-query",
+		Target:  &c.flagGCSBucketQuery,
+		Example: "labels.terraform:*",
+		Usage:   `The label to use to find GCS buckets with Terraform statefiles.`,
+	})
+
+	f.BoolVar(&cli.BoolVar{
+		Name:   "detect-gcs-buckets-from-terraform",
+		Target: &c.flagDetectGCSBucketsFromTerraform,
+		Usage:  `Whether or not to use the terraform backend configs to determine gcs buckets.`,
+	})
+
+	f.StringSliceVar(&cli.StringSliceVar{
+		Name:    "github-repo-terraform-topics",
+		Target:  &c.flagTerraformRepoTopics,
+		Example: "terraform,guardian",
+		Usage:   `Topics to use to identify github repositories that contain terraform configurations.`,
+	})
+
 	return set
 }
 
@@ -107,8 +156,10 @@ func (c *DriftStatefilesCommand) Run(ctx context.Context, args []string) error {
 	}
 	c.directory = dirAbs
 
+	c.gitClient = git.NewGitClient(c.directory)
+	c.githubClient = github.NewClient(ctx, c.GitHubFlags.FlagGitHubToken)
 	c.issueService = drift.NewGitHubDriftIssueService(
-		github.NewClient(ctx, c.GitHubFlags.FlagGitHubToken),
+		c.githubClient,
 		c.GitHubFlags.FlagGitHubOwner,
 		c.GitHubFlags.FlagGitHubRepo,
 		issueTitle,
@@ -117,6 +168,10 @@ func (c *DriftStatefilesCommand) Run(ctx context.Context, args []string) error {
 	c.terraformParser, err = parser.NewTerraformParser(ctx, "")
 	if err != nil {
 		return fmt.Errorf("failed to create terraform parser: %w", err)
+	}
+	c.assetInventoryClient, err = assetinventory.NewClient(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to initialize assets client: %w", err)
 	}
 
 	return c.Process(ctx)
@@ -131,6 +186,23 @@ func (c *DriftStatefilesCommand) Process(ctx context.Context) error {
 	logger.DebugContext(ctx, "starting Guardian drift statefiles")
 	logger.DebugContext(ctx, "finding entrypoint directories")
 
+	// Clone all git repositories.
+	repositories, err := c.githubClient.ListRepositories(ctx, c.GitHubFlags.FlagGitHubOwner, &githubAPI.RepositoryListByOrgOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to determine github repositories")
+	}
+	repositoriesWithTerraform := []*github.Repository{}
+	for _, r := range repositories {
+		if len(sets.Subtract(r.Topics, c.flagTerraformRepoTopics)) == 0 {
+			repositoriesWithTerraform = append(repositoriesWithTerraform, r)
+		}
+	}
+
+	for _, r := range repositoriesWithTerraform {
+		c.gitClient.CloneRepository(ctx, c.GitHubFlags.FlagGitHubToken, r.Owner, r.Name)
+	}
+
+	// Determine expected statefiles from checked out repositories.
 	entrypoints, err := terraform.GetEntrypointDirectories(c.directory, nil)
 	if err != nil {
 		return fmt.Errorf("failed to find terraform directories: %w", err)
@@ -142,7 +214,7 @@ func (c *DriftStatefilesCommand) Process(ctx context.Context) error {
 	logger.DebugContext(ctx, "terraform entrypoint directories", "entrypoint_backend_files", entrypointBackendFiles)
 
 	expectedURIs := make([]string, 0, len(entrypointBackendFiles))
-	gcsBuckets := make(map[string]struct{})
+	gcsBucketsInTerraform := make(map[string]struct{})
 	var errs []error
 	for _, f := range entrypointBackendFiles {
 		config, _, err := terraform.ExtractBackendConfig(f)
@@ -154,14 +226,23 @@ func (c *DriftStatefilesCommand) Process(ctx context.Context) error {
 			errs = append(errs, fmt.Errorf("unsupported backend type for terraform config at %s - only gcs backends are supported", f))
 			continue
 		}
-		gcsBuckets[*config.GCSBucket] = struct{}{}
+		gcsBucketsInTerraform[*config.GCSBucket] = struct{}{}
 		expectedURIs = append(expectedURIs, fmt.Sprintf("gs://%s/%s/default.tfstate", *config.GCSBucket, *config.Prefix))
 	}
 	if len(errs) > 0 {
 		return fmt.Errorf("failed to determine statefile gcs URIs: %w", errors.Join(errs...))
 	}
 
-	buckets := maps.Keys(gcsBuckets)
+	// Determine actual statefiles in GCS buckets.
+	var buckets []string
+	if c.flagDetectGCSBucketsFromTerraform {
+		buckets = maps.Keys(gcsBucketsInTerraform)
+	} else {
+		buckets, err = c.assetInventoryClient.Buckets(ctx, c.flagOrganizationID, c.flagGCSBucketQuery)
+		if err != nil {
+			return fmt.Errorf("failed to determine gcs buckets: %w", err)
+		}
+	}
 	logger.DebugContext(ctx, "finding statefiles in gcs buckets",
 		"gcs_buckets", buckets)
 
@@ -170,6 +251,7 @@ func (c *DriftStatefilesCommand) Process(ctx context.Context) error {
 		return fmt.Errorf("failed to determine state file URIs for gcs buckets %s: %w", buckets, err)
 	}
 
+	// Compare expected vs actual statefiles.
 	statefilesNotInRemote := sets.Subtract(expectedURIs, gotURIs)
 	statefilesNotInLocal := sets.Subtract(gotURIs, expectedURIs)
 	sort.Strings(statefilesNotInRemote)

@@ -46,6 +46,15 @@ type Pagination struct {
 	NextPage int
 }
 
+// Repository is the GitHub Repository.
+type Repository struct {
+	ID       int64
+	Owner    string
+	Name     string
+	FullName string
+	Topics   []string
+}
+
 // Issue is the GitHub Issue.
 type Issue struct {
 	Number int
@@ -79,6 +88,9 @@ const (
 
 // GitHub provides the minimum interface for sending requests to the GitHub API.
 type GitHub interface {
+	//  ListRepositories all repositories and returns details about the repositories.
+	ListRepositories(ctx context.Context, owner string, opts *github.RepositoryListByOrgOptions) ([]*Repository, error)
+
 	// ListIssues lists all issues and returns their numbers in a repository matching the given criteria.
 	ListIssues(ctx context.Context, owner, repo string, opts *github.IssueListByRepoOptions) ([]*Issue, error)
 
@@ -144,6 +156,53 @@ func NewClient(ctx context.Context, token string, opts ...Option) *GitHubClient 
 	}
 
 	return g
+}
+
+// ListRepositories all repositories and returns details about the repositories.
+func (g *GitHubClient) ListRepositories(ctx context.Context, owner string, opts *github.RepositoryListByOrgOptions) ([]*Repository, error) {
+	pageStart := func(i *int) bool { return i == nil }
+	pageEnd := func(i *int) bool { return *i == 0 }
+	uniqueResponses := make(map[int64]*Repository)
+	opt := *opts
+
+	var page *int // Use nil to indicate start of request.
+
+	for pageStart(page) || !pageEnd(page) {
+		if err := g.withRetries(ctx, func(ctx context.Context) error {
+			if page != nil {
+				opt.Page = *page
+			}
+			repos, resp, err := g.client.Repositories.ListByOrg(ctx, owner, &opt)
+			if err != nil {
+				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
+					return retry.RetryableError(err)
+				}
+
+				return fmt.Errorf("failed to list issues: %w", err)
+			}
+
+			for _, r := range repos {
+				uniqueResponses[*r.ID] = &Repository{
+					ID:       *r.ID,
+					Name:     *r.Name,
+					Owner:    *r.Owner.Name,
+					FullName: *r.FullName,
+					Topics:   r.Topics,
+				}
+			}
+			page = &resp.NextPage
+			return nil
+		}); err != nil {
+			return nil, fmt.Errorf("failed to list issues after retries: %w", err)
+		}
+	}
+
+	response := make([]*Repository, 0, len(uniqueResponses))
+	for _, r := range uniqueResponses {
+		response = append(response, r)
+	}
+
+	return response, nil
 }
 
 // ListIssues lists all issues and returns their numbers in a repository matching the given criteria.

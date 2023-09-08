@@ -32,6 +32,7 @@ type MockGitHubClient struct {
 	reqMu sync.Mutex
 	Reqs  []*Request
 
+	ListRepositoriesErr          error
 	ListIssuesErr                error
 	CreateIssueErr               error
 	CloseIssueErr                error
@@ -43,6 +44,20 @@ type MockGitHubClient struct {
 	ListPullRequestsForCommitErr error
 	RepoPermissionLevelErr       error
 	RepoPermissionLevel          string
+}
+
+func (m *MockGitHubClient) ListRepositories(ctx context.Context, owner string, opts *github.RepositoryListByOrgOptions) ([]*Repository, error) {
+	m.reqMu.Lock()
+	defer m.reqMu.Unlock()
+	m.Reqs = append(m.Reqs, &Request{
+		Name:   "ListRepositories",
+		Params: []any{owner, opts},
+	})
+
+	if m.ListRepositoriesErr != nil {
+		return nil, m.ListRepositoriesErr
+	}
+	return []*Repository{}, nil
 }
 
 func (m *MockGitHubClient) ListIssues(ctx context.Context, owner, repo string, opts *github.IssueListByRepoOptions) ([]*Issue, error) {
