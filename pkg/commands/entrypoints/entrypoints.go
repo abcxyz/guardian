@@ -112,7 +112,7 @@ func (c *EntrypointsCommand) Flags() *cli.FlagSet {
 	f.BoolVar(&cli.BoolVar{
 		Name:   "detect-changes",
 		Target: &c.flagDetectChanges,
-		Usage:  "Skip detecting file changes and run for all entrypoint directories.",
+		Usage:  "Detect file changes, including all local module dependencies, and run for all entrypoint directories.",
 	})
 
 	f.StringVar(&cli.StringVar{
