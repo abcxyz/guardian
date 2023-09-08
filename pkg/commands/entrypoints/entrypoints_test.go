@@ -47,7 +47,8 @@ func TestEntrypointsProcess(t *testing.T) {
 		flagPullRequestNumber int
 		flagDestRef           string
 		flagSourceRef         string
-		flagSkipDetectChanges bool
+		flagDetectChanges     bool
+		flagMaxDepth          int
 		flagFormat            string
 		gitClient             *git.MockGitClient
 		err                   string
@@ -64,6 +65,7 @@ func TestEntrypointsProcess(t *testing.T) {
 			flagPullRequestNumber: 1,
 			flagDestRef:           "main",
 			flagSourceRef:         "ldap/feature",
+			flagDetectChanges:     true,
 			gitClient: &git.MockGitClient{
 				DiffResp: []string{
 					path.Join(cwd, "testdata/backends/project1"),
@@ -82,6 +84,7 @@ func TestEntrypointsProcess(t *testing.T) {
 			flagPullRequestNumber: 3,
 			flagDestRef:           "main",
 			flagSourceRef:         "ldap/feature",
+			flagDetectChanges:     true,
 			gitClient: &git.MockGitClient{
 				DiffResp: []string{
 					path.Join(cwd, "testdata/backends/project1"),
@@ -100,6 +103,7 @@ func TestEntrypointsProcess(t *testing.T) {
 			flagPullRequestNumber: 3,
 			flagDestRef:           "main",
 			flagSourceRef:         "ldap/feature",
+			flagDetectChanges:     true,
 			gitClient: &git.MockGitClient{
 				DiffResp: []string{
 					path.Join(cwd, "testdata/backends/project1"),
@@ -118,7 +122,7 @@ func TestEntrypointsProcess(t *testing.T) {
 			flagPullRequestNumber: 1,
 			flagDestRef:           "main",
 			flagSourceRef:         "ldap/feature",
-			flagSkipDetectChanges: true,
+			flagDetectChanges:     false,
 			gitClient:             &git.MockGitClient{},
 			expStdout:             "testdata/backends/project1\ntestdata/backends/project2",
 		},
@@ -132,6 +136,7 @@ func TestEntrypointsProcess(t *testing.T) {
 			flagPullRequestNumber: 2,
 			flagDestRef:           "main",
 			flagSourceRef:         "ldap/feature",
+			flagDetectChanges:     true,
 			gitClient: &git.MockGitClient{
 				DiffErr: fmt.Errorf("failed to run git diff"),
 			},
@@ -152,7 +157,8 @@ func TestEntrypointsProcess(t *testing.T) {
 				flagFormat:            tc.flagFormat,
 				flagDestRef:           tc.flagDestRef,
 				flagSourceRef:         tc.flagSourceRef,
-				flagSkipDetectChanges: tc.flagSkipDetectChanges,
+				flagDetectChanges:     tc.flagDetectChanges,
+				flagMaxDepth:          tc.flagMaxDepth,
 				GitHubFlags: flags.GitHubFlags{
 					FlagIsGitHubActions: tc.flagIsGitHubActions,
 					FlagGitHubOwner:     tc.flagGitHubOwner,
@@ -188,11 +194,12 @@ func TestAfterParse(t *testing.T) {
 	}{
 		{
 			name: "validate_refs",
-			err:  "invalid flag: source-ref and dest-ref are required to detect changes, to ignore changes set the skip-detect-changes flag",
+			args: []string{"-format=yaml", "-detect-changes", "-max-depth=0"},
+			err:  "invalid flag: source-ref and dest-ref are required to detect changes, to ignore changes set the detect-changes flag",
 		},
 		{
 			name: "validate_format",
-			args: []string{"-format=yaml", "-source-ref=a", "-dest-ref=b"},
+			args: []string{"-format=yaml", "-source-ref=a", "-dest-ref=b", "-detect-changes", "-max-depth=0"},
 			err:  "invalid flag: format yaml (supported formats are: [json text])",
 		},
 	}
@@ -203,7 +210,7 @@ func TestAfterParse(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			c := &EntrypointsCommand{}
+			c := EntrypointsCommand{}
 
 			f := c.Flags()
 			err := f.Parse(tc.args)
