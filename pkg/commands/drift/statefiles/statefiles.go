@@ -199,7 +199,9 @@ func (c *DriftStatefilesCommand) Process(ctx context.Context) error {
 	}
 
 	for _, r := range repositoriesWithTerraform {
-		c.gitClient.CloneRepository(ctx, c.GitHubFlags.FlagGitHubToken, r.Owner, r.Name)
+		if err = c.gitClient.CloneRepository(ctx, c.GitHubFlags.FlagGitHubToken, r.Owner, r.Name); err != nil {
+			return fmt.Errorf("failed to clone repository: %w", err)
+		}
 	}
 
 	// Determine expected statefiles from checked out repositories.
