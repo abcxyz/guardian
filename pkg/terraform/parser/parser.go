@@ -184,7 +184,7 @@ func (p *TerraformParser) parseIAMBindingForFolder(ctx context.Context, instance
 			parentID, parentType := p.maybeFindGCPAssetIDAndType(folderID)
 			if parentType == assetinventory.Unknown {
 				logger := logging.FromContext(ctx)
-				logger.Warn("failed to locate GCP folder - is this folder deleted?", "folder", folderID)
+				logger.WarnContext(ctx, "failed to locate GCP folder - is this folder deleted?", "folder", folderID)
 			}
 			iams = append(iams, &assetinventory.AssetIAM{
 				Member:       m,
@@ -204,7 +204,7 @@ func (p *TerraformParser) parseIAMBindingForProject(ctx context.Context, instanc
 			parentID, parentType := p.maybeFindGCPAssetIDAndType(i.Attributes.Project)
 			if parentType == assetinventory.Unknown {
 				logger := logging.FromContext(ctx)
-				logger.Warn("failed to locate GCP project - is this project deleted?", "project", i.Attributes.Project)
+				logger.WarnContext(ctx, "failed to locate GCP project - is this project deleted?", "project", i.Attributes.Project)
 			}
 			iams = append(iams, &assetinventory.AssetIAM{
 				Member:       m,
@@ -237,7 +237,7 @@ func (p *TerraformParser) parseIAMMemberForFolder(ctx context.Context, instances
 		parentID, parentType := p.maybeFindGCPAssetIDAndType(folderID)
 		if parentType == assetinventory.Unknown {
 			logger := logging.FromContext(ctx)
-			logger.Warn("failed to locate GCP folder - is this folder deleted?", "folder", folderID)
+			logger.WarnContext(ctx, "failed to locate GCP folder - is this folder deleted?", "folder", folderID)
 		}
 		iams[x] = &assetinventory.AssetIAM{
 			Member:       i.Attributes.Member,
@@ -255,7 +255,7 @@ func (p *TerraformParser) parseIAMMemberForProject(ctx context.Context, instance
 		parentID, parentType := p.maybeFindGCPAssetIDAndType(i.Attributes.Project)
 		if parentType == assetinventory.Unknown {
 			logger := logging.FromContext(ctx)
-			logger.Warn("failed to locate GCP project - is this project deleted?", "project", i.Attributes.Project)
+			logger.WarnContext(ctx, "failed to locate GCP project - is this project deleted?", "project", i.Attributes.Project)
 		}
 		iams[x] = &assetinventory.AssetIAM{
 			Member:       i.Attributes.Member,
