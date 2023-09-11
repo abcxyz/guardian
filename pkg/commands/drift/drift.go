@@ -311,21 +311,26 @@ func (d *IAMDriftDetector) terraformStateIAM(ctx context.Context, gcsBuckets []s
 // This is used for diffing and as output to the user.
 func (d *IAMDriftDetector) URI(i *assetinventory.AssetIAM) string {
 	role := strings.Replace(strings.Replace(i.Role, "organizations/", "", 1), fmt.Sprintf("%s/", d.organizationID), "", 1)
-	if i.ResourceType == assetinventory.Folder {
+	switch i.ResourceType {
+	case assetinventory.Folder:
 		// Fallback to folder ID if we can not find the folder.
 		resourceName := i.ResourceID
 		if f, ok := d.foldersByID[i.ResourceID]; ok {
 			resourceName = f.Name
 		}
 		return fmt.Sprintf("/organizations/%s/folders/%s/%s/%s", d.organizationID, resourceName, role, i.Member)
-	} else if i.ResourceType == assetinventory.Project {
+	case assetinventory.Project:
 		// Fallback to project ID if we can not find the project.
 		resourceName := i.ResourceID
 		if p, ok := d.projectsByID[i.ResourceID]; ok {
 			resourceName = p.Name
 		}
 		return fmt.Sprintf("/organizations/%s/projects/%s/%s/%s", d.organizationID, resourceName, role, i.Member)
-	} else {
+	case assetinventory.Organization:
 		return fmt.Sprintf("/organizations/%s/%s/%s", d.organizationID, role, i.Member)
+	case assetinventory.Unknown:
+		return fmt.Sprintf("unknownParent:/organizations/%s/%s/%s/%s/%s", d.organizationID, i.ResourceType, i.ResourceID, role, i.Member)
+	default:
+		return fmt.Sprintf("unknownParent:/organizations/%s/%s/%s/%s/%s", d.organizationID, i.ResourceType, i.ResourceID, role, i.Member)
 	}
 }

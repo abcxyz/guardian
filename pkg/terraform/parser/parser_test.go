@@ -173,14 +173,14 @@ func TestParser_ProcessStates(t *testing.T) {
 					Role:         "roles/browser",
 				},
 				{
-					ResourceID:   "UNKNOWN_PARENT_ID",
-					ResourceType: "UNKNOWN_PARENT_TYPE",
+					ResourceID:   "123123123123",
+					ResourceType: "Unknown",
 					Member:       "group:my-group@google.com",
 					Role:         "roles/viewer",
 				},
 				{
-					ResourceID:   "UNKNOWN_PARENT_ID",
-					ResourceType: "UNKNOWN_PARENT_TYPE",
+					ResourceID:   "my-project",
+					ResourceType: "Unknown",
 					Member:       "serviceAccount:my-service-account@my-project.iam.gserviceaccount.com",
 					Role:         "roles/compute.admin",
 				},

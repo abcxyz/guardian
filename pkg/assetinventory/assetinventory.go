@@ -37,6 +37,11 @@ const (
 	// Project Node Type.
 	Project = "Project"
 
+	// Unknown is used when we cannot find an the asset in the GCP hierarchy.
+	// This may indicate that the project/folder was filtered out of the asset inventory results.
+	// The most likely reason for this is that the project/folder was deleted.
+	Unknown = "Unknown"
+
 	// OrganizationAssetType represent the org asset type used in the cloud resource manager api.
 	OrganizationAssetType = "cloudresourcemanager.googleapis.com/Organization"
 
