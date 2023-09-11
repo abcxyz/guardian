@@ -88,7 +88,7 @@ const (
 
 // GitHub provides the minimum interface for sending requests to the GitHub API.
 type GitHub interface {
-	//  ListRepositories all repositories and returns details about the repositories.
+	//  ListRepositories lists all repositories and returns details about the repositories.
 	ListRepositories(ctx context.Context, owner string, opts *github.RepositoryListByOrgOptions) ([]*Repository, error)
 
 	// ListIssues lists all issues and returns their numbers in a repository matching the given criteria.
@@ -158,7 +158,7 @@ func NewClient(ctx context.Context, token string, opts ...Option) *GitHubClient 
 	return g
 }
 
-// ListRepositories all repositories and returns details about the repositories.
+// ListRepositories lists all repositories and returns details about the repositories.
 func (g *GitHubClient) ListRepositories(ctx context.Context, owner string, opts *github.RepositoryListByOrgOptions) ([]*Repository, error) {
 	pageStart := func(i *int) bool { return i == nil }
 	pageEnd := func(i *int) bool { return *i == 0 }
