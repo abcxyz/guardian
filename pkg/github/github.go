@@ -167,6 +167,10 @@ func (g *GitHubClient) ListRepositories(ctx context.Context, owner string, opts 
 
 	var page *int // Use nil to indicate start of request.
 
+	// There is a race condition if a repository is created while paginating.
+	// It means that a its possible for a repository to appear in the results
+	// more than once. We resolve this duplication by using a map to store the
+	// responses.
 	for pageStart(page) || !pageEnd(page) {
 		if err := g.withRetries(ctx, func(ctx context.Context) error {
 			if page != nil {
@@ -185,7 +189,7 @@ func (g *GitHubClient) ListRepositories(ctx context.Context, owner string, opts 
 				uniqueResponses[*r.ID] = &Repository{
 					ID:       *r.ID,
 					Name:     *r.Name,
-					Owner:    *r.Owner.Name,
+					Owner:    *r.Owner.Login,
 					FullName: *r.FullName,
 					Topics:   r.Topics,
 				}
@@ -214,6 +218,10 @@ func (g *GitHubClient) ListIssues(ctx context.Context, owner, repo string, opts 
 
 	var page *int // Use nil to indicate start of request.
 
+	// There is a race condition if an issue is created while paginating.
+	// It means that a its possible for an issue to appear in the results
+	// more than once. We resolve this duplication by using a map to store the
+	// responses.
 	for pageStart(page) || !pageEnd(page) {
 		if err := g.withRetries(ctx, func(ctx context.Context) error {
 			if page != nil {

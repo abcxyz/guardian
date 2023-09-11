@@ -20,6 +20,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 
@@ -68,6 +69,7 @@ type DriftStatefilesCommand struct {
 	flagGCSBucketQuery                string
 	flagDetectGCSBucketsFromTerraform bool
 	flagTerraformRepoTopics           []string
+	flagIgnoreDirs                    []string
 
 	assetInventoryClient assetinventory.AssetInventory
 	gitClient            git.Git
@@ -127,6 +129,13 @@ func (c *DriftStatefilesCommand) Flags() *cli.FlagSet {
 		Usage:   `Topics to use to identify github repositories that contain terraform configurations.`,
 	})
 
+	f.StringSliceVar(&cli.StringSliceVar{
+		Name:    "ignore-dirs",
+		Target:  &c.flagIgnoreDirs,
+		Example: "templates,test",
+		Usage:   `Directories to filter from the possible terraform entrypoint locations.`,
+	})
+
 	return set
 }
 
@@ -176,25 +185,30 @@ func (c *DriftStatefilesCommand) Process(ctx context.Context) error {
 		With("github_repo", c.GitHubFlags.FlagGitHubOwner)
 
 	logger.DebugContext(ctx, "starting Guardian drift statefiles")
-	logger.DebugContext(ctx, "finding entrypoint directories")
 
 	// Clone all git repositories.
 	repositories, err := c.githubClient.ListRepositories(ctx, c.GitHubFlags.FlagGitHubOwner, &githubAPI.RepositoryListByOrgOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to determine github repositories")
+		return fmt.Errorf("failed to determine github repositories: %w", err)
 	}
 	repositoriesWithTerraform := []*github.Repository{}
 	for _, r := range repositories {
-		if len(sets.Subtract(r.Topics, c.flagTerraformRepoTopics)) == 0 {
+		if len(sets.Subtract(r.Topics, c.flagTerraformRepoTopics)) == 0 && len(r.Topics) != 0 {
 			repositoriesWithTerraform = append(repositoriesWithTerraform, r)
 		}
 	}
+	logger.DebugContext(ctx, "found github repositories matching topics",
+		"number_of_candidate_repositories", len(repositories),
+		"number_of_matched_repositories", len(repositoriesWithTerraform),
+		"topics", c.flagTerraformRepoTopics)
 
 	for _, r := range repositoriesWithTerraform {
 		if err = c.gitClient.CloneRepository(ctx, c.GitHubFlags.FlagGitHubToken, r.Owner, r.Name); err != nil {
 			return fmt.Errorf("failed to clone repository: %w", err)
 		}
 	}
+
+	logger.DebugContext(ctx, "finding entrypoint directories")
 
 	// Determine expected statefiles from checked out repositories.
 	entrypoints, err := terraform.GetEntrypointDirectories(c.directory, nil)
@@ -203,7 +217,9 @@ func (c *DriftStatefilesCommand) Process(ctx context.Context) error {
 	}
 	entrypointBackendFiles := make([]string, 0, len(entrypoints))
 	for _, e := range entrypoints {
-		entrypointBackendFiles = append(entrypointBackendFiles, e.BackendFile)
+		if len(sets.Intersect(strings.Split(e.BackendFile, string(os.PathSeparator)), c.flagIgnoreDirs)) == 0 {
+			entrypointBackendFiles = append(entrypointBackendFiles, e.BackendFile)
+		}
 	}
 	logger.DebugContext(ctx, "terraform entrypoint directories", "entrypoint_backend_files", entrypointBackendFiles)
 
