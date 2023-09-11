@@ -22,6 +22,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/abcxyz/pkg/logging"
+
 	"github.com/abcxyz/guardian/pkg/assetinventory"
 	"github.com/abcxyz/guardian/pkg/storage"
 )
@@ -31,9 +33,6 @@ const (
 	// This shouldn't happen but it is theoretically possible especially if there is a race condition between
 	// fetching the projects & folders and querying for terraform state.
 	UnknownParentID = "UNKNOWN_PARENT_ID"
-
-	// UnknownParentType is used when we cannot find an asset parent. See UnknownParentID.
-	UnknownParentType = "UNKNOWN_PARENT_TYPE"
 
 	// Default max size for a terraform statefile is 512 MB.
 	defaultTerraformStateFileSizeLimit = 512 * 1024 * 1024 // 512 MB
@@ -135,34 +134,35 @@ func (p *TerraformParser) ProcessStates(ctx context.Context, gcsUris []string) (
 		if err := json.NewDecoder(lr).Decode(&state); err != nil {
 			return nil, fmt.Errorf("failed to decode terraform state: %w", err)
 		}
-		iams = append(iams, p.parseTerraformStateIAM(state)...)
+		iams = append(iams, p.parseTerraformStateIAM(ctx, state)...)
 	}
 	return iams, nil
 }
 
-func (p *TerraformParser) parseTerraformStateIAM(state TerraformState) []*assetinventory.AssetIAM {
+func (p *TerraformParser) parseTerraformStateIAM(ctx context.Context, state TerraformState) []*assetinventory.AssetIAM {
 	var iams []*assetinventory.AssetIAM
 	for _, r := range state.Resources {
+
 		if strings.Contains(r.Type, "google_organization_iam_binding") {
-			iams = append(iams, p.parseIAMBindingForOrg(r.Instances)...)
+			iams = append(iams, p.parseIAMBindingForOrg(ctx, r.Instances)...)
 		} else if strings.Contains(r.Type, "google_folder_iam_binding") {
-			iams = append(iams, p.parseIAMBindingForFolder(r.Instances)...)
+			iams = append(iams, p.parseIAMBindingForFolder(ctx, r.Instances)...)
 		} else if strings.Contains(r.Type, "google_project_iam_binding") {
-			iams = append(iams, p.parseIAMBindingForProject(r.Instances)...)
+			iams = append(iams, p.parseIAMBindingForProject(ctx, r.Instances)...)
 		}
 
 		if strings.Contains(r.Type, "google_organization_iam_member") {
-			iams = append(iams, p.parseIAMMemberForOrg(r.Instances)...)
+			iams = append(iams, p.parseIAMMemberForOrg(ctx, r.Instances)...)
 		} else if strings.Contains(r.Type, "google_folder_iam_member") {
-			iams = append(iams, p.parseIAMMemberForFolder(r.Instances)...)
+			iams = append(iams, p.parseIAMMemberForFolder(ctx, r.Instances)...)
 		} else if strings.Contains(r.Type, "google_project_iam_member") {
-			iams = append(iams, p.parseIAMMemberForProject(r.Instances)...)
+			iams = append(iams, p.parseIAMMemberForProject(ctx, r.Instances)...)
 		}
 	}
 	return iams
 }
 
-func (p *TerraformParser) parseIAMBindingForOrg(instances []ResourceInstance) []*assetinventory.AssetIAM {
+func (p *TerraformParser) parseIAMBindingForOrg(ctx context.Context, instances []ResourceInstance) []*assetinventory.AssetIAM {
 	var iams []*assetinventory.AssetIAM
 	for _, i := range instances {
 		for _, m := range i.Attributes.Members {
@@ -177,12 +177,16 @@ func (p *TerraformParser) parseIAMBindingForOrg(instances []ResourceInstance) []
 	return iams
 }
 
-func (p *TerraformParser) parseIAMBindingForFolder(instances []ResourceInstance) []*assetinventory.AssetIAM {
+func (p *TerraformParser) parseIAMBindingForFolder(ctx context.Context, instances []ResourceInstance) []*assetinventory.AssetIAM {
 	var iams []*assetinventory.AssetIAM
 	for _, i := range instances {
 		for _, m := range i.Attributes.Members {
 			folderID := strings.TrimPrefix(i.Attributes.Folder, "folders/")
 			parentID, parentType := p.maybeFindGCPAssetIDAndType(folderID)
+			if parentType == assetinventory.UnknownParent {
+				logger := logging.FromContext(ctx)
+				logger.Warn("failed to locate GCP folder - is this folder deleted?", "folder", folderID)
+			}
 			iams = append(iams, &assetinventory.AssetIAM{
 				Member:       m,
 				Role:         i.Attributes.Role,
@@ -194,11 +198,15 @@ func (p *TerraformParser) parseIAMBindingForFolder(instances []ResourceInstance)
 	return iams
 }
 
-func (p *TerraformParser) parseIAMBindingForProject(instances []ResourceInstance) []*assetinventory.AssetIAM {
+func (p *TerraformParser) parseIAMBindingForProject(ctx context.Context, instances []ResourceInstance) []*assetinventory.AssetIAM {
 	var iams []*assetinventory.AssetIAM
 	for _, i := range instances {
 		for _, m := range i.Attributes.Members {
 			parentID, parentType := p.maybeFindGCPAssetIDAndType(i.Attributes.Project)
+			if parentType == assetinventory.UnknownParent {
+				logger := logging.FromContext(ctx)
+				logger.Warn("failed to locate GCP project - is this project deleted?", "project", i.Attributes.Project)
+			}
 			iams = append(iams, &assetinventory.AssetIAM{
 				Member:       m,
 				Role:         i.Attributes.Role,
@@ -210,7 +218,7 @@ func (p *TerraformParser) parseIAMBindingForProject(instances []ResourceInstance
 	return iams
 }
 
-func (p *TerraformParser) parseIAMMemberForOrg(instances []ResourceInstance) []*assetinventory.AssetIAM {
+func (p *TerraformParser) parseIAMMemberForOrg(ctx context.Context, instances []ResourceInstance) []*assetinventory.AssetIAM {
 	iams := make([]*assetinventory.AssetIAM, len(instances))
 	for x, i := range instances {
 		iams[x] = &assetinventory.AssetIAM{
@@ -223,11 +231,15 @@ func (p *TerraformParser) parseIAMMemberForOrg(instances []ResourceInstance) []*
 	return iams
 }
 
-func (p *TerraformParser) parseIAMMemberForFolder(instances []ResourceInstance) []*assetinventory.AssetIAM {
+func (p *TerraformParser) parseIAMMemberForFolder(ctx context.Context, instances []ResourceInstance) []*assetinventory.AssetIAM {
 	iams := make([]*assetinventory.AssetIAM, len(instances))
 	for x, i := range instances {
 		folderID := strings.TrimPrefix(i.Attributes.Folder, "folders/")
 		parentID, parentType := p.maybeFindGCPAssetIDAndType(folderID)
+		if parentType == assetinventory.UnknownParent {
+			logger := logging.FromContext(ctx)
+			logger.Warn("failed to locate GCP folder - is this folder deleted?", "folder", folderID)
+		}
 		iams[x] = &assetinventory.AssetIAM{
 			Member:       i.Attributes.Member,
 			Role:         i.Attributes.Role,
@@ -238,10 +250,14 @@ func (p *TerraformParser) parseIAMMemberForFolder(instances []ResourceInstance) 
 	return iams
 }
 
-func (p *TerraformParser) parseIAMMemberForProject(instances []ResourceInstance) []*assetinventory.AssetIAM {
+func (p *TerraformParser) parseIAMMemberForProject(ctx context.Context, instances []ResourceInstance) []*assetinventory.AssetIAM {
 	iams := make([]*assetinventory.AssetIAM, len(instances))
 	for x, i := range instances {
 		parentID, parentType := p.maybeFindGCPAssetIDAndType(i.Attributes.Project)
+		if parentType == assetinventory.UnknownParent {
+			logger := logging.FromContext(ctx)
+			logger.Warn("failed to locate GCP project - is this project deleted?", "project", i.Attributes.Project)
+		}
 		iams[x] = &assetinventory.AssetIAM{
 			Member:       i.Attributes.Member,
 			Role:         i.Attributes.Role,
@@ -255,7 +271,7 @@ func (p *TerraformParser) parseIAMMemberForProject(instances []ResourceInstance)
 func (p *TerraformParser) maybeFindGCPAssetIDAndType(ID string) (string, string) {
 	asset := p.findGCPAsset(ID)
 	if asset == nil {
-		return UnknownParentID, UnknownParentType
+		return ID, assetinventory.UnknownParent
 	}
 	return asset.ID, asset.NodeType
 }

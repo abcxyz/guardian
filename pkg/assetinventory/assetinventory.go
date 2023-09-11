@@ -37,6 +37,9 @@ const (
 	// Project Node Type.
 	Project = "Project"
 
+	// UnknownParent is used when we cannot find an asset parent. See UnknownParentID.
+	UnknownParent = "Unknown"
+
 	// OrganizationAssetType represent the org asset type used in the cloud resource manager api.
 	OrganizationAssetType = "cloudresourcemanager.googleapis.com/Organization"
 

@@ -325,7 +325,9 @@ func (d *IAMDriftDetector) URI(i *assetinventory.AssetIAM) string {
 			resourceName = p.Name
 		}
 		return fmt.Sprintf("/organizations/%s/projects/%s/%s/%s", d.organizationID, resourceName, role, i.Member)
-	} else {
+	} else if i.ResourceType == assetinventory.Organization {
 		return fmt.Sprintf("/organizations/%s/%s/%s", d.organizationID, role, i.Member)
+	} else {
+		return fmt.Sprintf("unknownParent:/organizations/%s/%s/%s/%s/%s", d.organizationID, i.ResourceType, i.ResourceID, role, i.Member)
 	}
 }
