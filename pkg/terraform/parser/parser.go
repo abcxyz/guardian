@@ -142,7 +142,6 @@ func (p *TerraformParser) ProcessStates(ctx context.Context, gcsUris []string) (
 func (p *TerraformParser) parseTerraformStateIAM(ctx context.Context, state TerraformState) []*assetinventory.AssetIAM {
 	var iams []*assetinventory.AssetIAM
 	for _, r := range state.Resources {
-
 		if strings.Contains(r.Type, "google_organization_iam_binding") {
 			iams = append(iams, p.parseIAMBindingForOrg(ctx, r.Instances)...)
 		} else if strings.Contains(r.Type, "google_folder_iam_binding") {
