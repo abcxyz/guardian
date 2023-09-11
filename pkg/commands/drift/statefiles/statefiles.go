@@ -65,7 +65,6 @@ type DriftStatefilesCommand struct {
 	driftflags.DriftIssueFlags
 
 	flagOrganizationID                string
-	flagGitHubRepoQuery               string
 	flagGCSBucketQuery                string
 	flagDetectGCSBucketsFromTerraform bool
 	flagTerraformRepoTopics           []string
@@ -106,13 +105,6 @@ func (c *DriftStatefilesCommand) Flags() *cli.FlagSet {
 		Target:  &c.flagOrganizationID,
 		Example: "123435456456",
 		Usage:   `The Google Cloud organization ID for which to detect drift.`,
-	})
-
-	f.StringVar(&cli.StringVar{
-		Name:    "github-repo-query",
-		Target:  &c.flagGitHubRepoQuery,
-		Example: "labels.terraform:*",
-		Usage:   `The label to use to find GCS buckets with Terraform statefiles.`,
 	})
 
 	f.StringVar(&cli.StringVar{
