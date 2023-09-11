@@ -183,7 +183,7 @@ func (p *TerraformParser) parseIAMBindingForFolder(ctx context.Context, instance
 		for _, m := range i.Attributes.Members {
 			folderID := strings.TrimPrefix(i.Attributes.Folder, "folders/")
 			parentID, parentType := p.maybeFindGCPAssetIDAndType(folderID)
-			if parentType == assetinventory.UnknownParent {
+			if parentType == assetinventory.Unknown {
 				logger := logging.FromContext(ctx)
 				logger.Warn("failed to locate GCP folder - is this folder deleted?", "folder", folderID)
 			}
@@ -203,7 +203,7 @@ func (p *TerraformParser) parseIAMBindingForProject(ctx context.Context, instanc
 	for _, i := range instances {
 		for _, m := range i.Attributes.Members {
 			parentID, parentType := p.maybeFindGCPAssetIDAndType(i.Attributes.Project)
-			if parentType == assetinventory.UnknownParent {
+			if parentType == assetinventory.Unknown {
 				logger := logging.FromContext(ctx)
 				logger.Warn("failed to locate GCP project - is this project deleted?", "project", i.Attributes.Project)
 			}
@@ -236,7 +236,7 @@ func (p *TerraformParser) parseIAMMemberForFolder(ctx context.Context, instances
 	for x, i := range instances {
 		folderID := strings.TrimPrefix(i.Attributes.Folder, "folders/")
 		parentID, parentType := p.maybeFindGCPAssetIDAndType(folderID)
-		if parentType == assetinventory.UnknownParent {
+		if parentType == assetinventory.Unknown {
 			logger := logging.FromContext(ctx)
 			logger.Warn("failed to locate GCP folder - is this folder deleted?", "folder", folderID)
 		}
@@ -254,7 +254,7 @@ func (p *TerraformParser) parseIAMMemberForProject(ctx context.Context, instance
 	iams := make([]*assetinventory.AssetIAM, len(instances))
 	for x, i := range instances {
 		parentID, parentType := p.maybeFindGCPAssetIDAndType(i.Attributes.Project)
-		if parentType == assetinventory.UnknownParent {
+		if parentType == assetinventory.Unknown {
 			logger := logging.FromContext(ctx)
 			logger.Warn("failed to locate GCP project - is this project deleted?", "project", i.Attributes.Project)
 		}
@@ -271,7 +271,7 @@ func (p *TerraformParser) parseIAMMemberForProject(ctx context.Context, instance
 func (p *TerraformParser) maybeFindGCPAssetIDAndType(ID string) (string, string) {
 	asset := p.findGCPAsset(ID)
 	if asset == nil {
-		return ID, assetinventory.UnknownParent
+		return ID, assetinventory.Unknown
 	}
 	return asset.ID, asset.NodeType
 }
