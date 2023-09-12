@@ -182,7 +182,7 @@ func (g *GitHubClient) ListRepositories(ctx context.Context, owner string, opts 
 					return retry.RetryableError(err)
 				}
 
-				return fmt.Errorf("failed to list issues: %w", err)
+				return fmt.Errorf("failed to list repositories: %w", err)
 			}
 
 			for _, r := range repos {
@@ -197,7 +197,7 @@ func (g *GitHubClient) ListRepositories(ctx context.Context, owner string, opts 
 			page = &resp.NextPage
 			return nil
 		}); err != nil {
-			return nil, fmt.Errorf("failed to list issues after retries: %w", err)
+			return nil, fmt.Errorf("failed to list repositories after retries: %w", err)
 		}
 	}
 
