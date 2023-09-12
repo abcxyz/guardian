@@ -20,7 +20,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"os"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -69,7 +69,9 @@ type DriftStatefilesCommand struct {
 	flagGCSBucketQuery                string
 	flagDetectGCSBucketsFromTerraform bool
 	flagTerraformRepoTopics           []string
-	flagIgnoreDirs                    []string
+	flagIgnoreDirPatterns             []string
+
+	parsedFlagIgnoreDirPatters []*regexp.Regexp
 
 	assetInventoryClient assetinventory.AssetInventory
 	gitClient            git.Git
@@ -130,10 +132,22 @@ func (c *DriftStatefilesCommand) Flags() *cli.FlagSet {
 	})
 
 	f.StringSliceVar(&cli.StringSliceVar{
-		Name:    "ignore-dirs",
-		Target:  &c.flagIgnoreDirs,
-		Example: "templates,test",
-		Usage:   `Directories to filter from the possible terraform entrypoint locations.`,
+		Name:    "ignore-dir-patterns",
+		Target:  &c.flagIgnoreDirPatterns,
+		Example: "templates\\/**',test\\/**",
+		Usage:   `Directories to filter from the possible terraform entrypoint locations. Paths will be matched against the root of each cloned repository.`,
+	})
+
+	set.AfterParse(func(existingErr error) (merr error) {
+		for _, p := range c.flagIgnoreDirPatterns {
+			r, err := regexp.Compile(p)
+			if err != nil {
+				merr = errors.Join(merr, fmt.Errorf("failed to compile ignore-dir-patterns: %w", err))
+			} else {
+				c.parsedFlagIgnoreDirPatters = append(c.parsedFlagIgnoreDirPatters, r)
+			}
+		}
+		return merr
 	})
 
 	return set
@@ -217,7 +231,15 @@ func (c *DriftStatefilesCommand) Process(ctx context.Context) error {
 	}
 	entrypointBackendFiles := make([]string, 0, len(entrypoints))
 	for _, e := range entrypoints {
-		if len(sets.Intersect(strings.Split(e.BackendFile, string(os.PathSeparator)), c.flagIgnoreDirs)) == 0 {
+		included := true
+		relPath := "." + strings.TrimPrefix(e.BackendFile, c.directory)
+		for _, p := range c.parsedFlagIgnoreDirPatters {
+			matches := p.FindStringSubmatch(relPath)
+			if len(matches) > 0 {
+				included = false
+			}
+		}
+		if included {
 			entrypointBackendFiles = append(entrypointBackendFiles, e.BackendFile)
 		}
 	}
