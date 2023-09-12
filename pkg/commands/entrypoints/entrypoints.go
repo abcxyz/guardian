@@ -58,9 +58,12 @@ type EntrypointsCommand struct {
 	flagPullRequestNumber       int
 	flagDestRef                 string
 	flagSourceRef               string
-	flagSkipDetectChanges       bool
+	flagDetectChanges           bool
 	flagFormat                  string
 	flagFailUnresolvableModules bool
+	flagMaxDepth                int
+
+	parsedFlagMaxDepth *int
 
 	gitClient git.Git
 }
@@ -107,9 +110,9 @@ func (c *EntrypointsCommand) Flags() *cli.FlagSet {
 	})
 
 	f.BoolVar(&cli.BoolVar{
-		Name:   "skip-detect-changes",
-		Target: &c.flagSkipDetectChanges,
-		Usage:  "Skip detecting file changes and run for all entrypoint directories.",
+		Name:   "detect-changes",
+		Target: &c.flagDetectChanges,
+		Usage:  "Detect file changes, including all local module dependencies, and run for all entrypoint directories.",
 	})
 
 	f.StringVar(&cli.StringVar{
@@ -130,13 +133,24 @@ func (c *EntrypointsCommand) Flags() *cli.FlagSet {
 		Default: false,
 	})
 
+	f.IntVar(&cli.IntVar{
+		Name:    "max-depth",
+		Target:  &c.flagMaxDepth,
+		Usage:   `How far to traverse the filesystem beneath the target directory for entrypoints.`,
+		Default: -1,
+	})
+
 	set.AfterParse(func(existingErr error) (merr error) {
-		if !c.flagSkipDetectChanges && c.flagSourceRef == "" && c.flagDestRef == "" {
-			merr = errors.Join(merr, fmt.Errorf("invalid flag: source-ref and dest-ref are required to detect changes, to ignore changes set the skip-detect-changes flag"))
+		if c.flagDetectChanges && c.flagSourceRef == "" && c.flagDestRef == "" {
+			merr = errors.Join(merr, fmt.Errorf("invalid flag: source-ref and dest-ref are required to detect changes, to ignore changes set the detect-changes flag"))
 		}
 
 		if _, ok := allowedFormats[c.flagFormat]; !ok {
 			merr = errors.Join(merr, fmt.Errorf("invalid flag: format %s (supported formats are: %s)", c.flagFormat, allowedFormatNames))
+		}
+
+		if c.flagMaxDepth != -1 {
+			c.parsedFlagMaxDepth = &c.flagMaxDepth
 		}
 
 		return merr
@@ -177,7 +191,7 @@ func (c *EntrypointsCommand) Process(ctx context.Context) error {
 
 	logger.DebugContext(ctx, "finding entrypoint directories")
 
-	entrypoints, err := terraform.GetEntrypointDirectories(c.directory)
+	entrypoints, err := terraform.GetEntrypointDirectories(c.directory, c.parsedFlagMaxDepth)
 	if err != nil {
 		return fmt.Errorf("failed to find terraform directories: %w", err)
 	}
@@ -189,7 +203,7 @@ func (c *EntrypointsCommand) Process(ctx context.Context) error {
 
 	logger.DebugContext(ctx, "terraform entrypoint directories", "entrypoint_dirs", entrypoints)
 
-	if !c.flagSkipDetectChanges {
+	if c.flagDetectChanges {
 		logger.DebugContext(ctx, "finding git diff directories")
 
 		diffDirs, err := c.gitClient.DiffDirsAbs(ctx, c.flagSourceRef, c.flagDestRef)
@@ -198,7 +212,7 @@ func (c *EntrypointsCommand) Process(ctx context.Context) error {
 		}
 		logger.DebugContext(ctx, "git diff directories", "directories", diffDirs)
 
-		moduleUsageGraph, err := terraform.ModuleUsage(ctx, c.directory, !c.flagFailUnresolvableModules)
+		moduleUsageGraph, err := terraform.ModuleUsage(ctx, c.directory, c.parsedFlagMaxDepth, !c.flagFailUnresolvableModules)
 		if err != nil {
 			return fmt.Errorf("failed to get module usage for %s: %w", c.directory, err)
 		}

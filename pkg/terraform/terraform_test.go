@@ -106,10 +106,11 @@ func TestGetEntrypointDirectories(t *testing.T) {
 	}
 
 	cases := []struct {
-		name string
-		dir  string
-		exp  []*TerraformEntrypoint
-		err  string
+		name     string
+		dir      string
+		maxDepth *int
+		exp      []*TerraformEntrypoint
+		err      string
 	}{
 		{
 			name: "has_backend",
@@ -118,6 +119,21 @@ func TestGetEntrypointDirectories(t *testing.T) {
 				{Path: path.Join(cwd, "testdata/backends/project1"), BackendFile: path.Join(cwd, "testdata/backends/project1/main.tf")},
 				{Path: path.Join(cwd, "testdata/backends/project2"), BackendFile: path.Join(cwd, "testdata/backends/project2/main.tf")},
 			},
+		},
+		{
+			name:     "has_backend_max_depth_1",
+			dir:      "testdata/backends",
+			maxDepth: util.Ptr(1),
+			exp: []*TerraformEntrypoint{
+				{Path: path.Join(cwd, "testdata/backends/project1"), BackendFile: path.Join(cwd, "testdata/backends/project1/main.tf")},
+				{Path: path.Join(cwd, "testdata/backends/project2"), BackendFile: path.Join(cwd, "testdata/backends/project2/main.tf")},
+			},
+		},
+		{
+			name:     "has_backend_max_depth_0",
+			dir:      "testdata/backends",
+			maxDepth: util.Ptr(0),
+			exp:      []*TerraformEntrypoint{},
 		},
 		{
 			name: "no_backend",
@@ -143,7 +159,7 @@ func TestGetEntrypointDirectories(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			dirs, err := GetEntrypointDirectories(tc.dir)
+			dirs, err := GetEntrypointDirectories(tc.dir, tc.maxDepth)
 			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
 				t.Errorf(diff)
 			}
@@ -377,10 +393,11 @@ func TestModuleUsage(t *testing.T) {
 	}
 
 	cases := []struct {
-		name string
-		dir  string
-		exp  *ModuleUsageGraph
-		err  string
+		name     string
+		dir      string
+		maxDepth *int
+		exp      *ModuleUsageGraph
+		err      string
 	}{
 		{
 			name: "has_modules",
@@ -405,6 +422,27 @@ func TestModuleUsage(t *testing.T) {
 					path.Join(cwd, "testdata/with-modules/modules/module-b-using-a"): {
 						path.Join(cwd, "testdata/with-modules/project1"): struct{}{},
 						path.Join(cwd, "testdata/with-modules/project2"): struct{}{},
+					},
+				},
+			},
+		},
+		{
+			name:     "has_modules_with_max_depth_0",
+			dir:      "testdata/with-modules/project1",
+			maxDepth: util.Ptr(0),
+			exp: &ModuleUsageGraph{
+				EntrypointToModules: map[string]map[string]struct{}{
+					path.Join(cwd, "testdata/with-modules/project1"): {
+						path.Join(cwd, "testdata/with-modules/modules/module-a"):         struct{}{},
+						path.Join(cwd, "testdata/with-modules/modules/module-b-using-a"): struct{}{},
+					},
+				},
+				ModulesToEntrypoints: map[string]map[string]struct{}{
+					path.Join(cwd, "testdata/with-modules/modules/module-a"): {
+						path.Join(cwd, "testdata/with-modules/project1"): struct{}{},
+					},
+					path.Join(cwd, "testdata/with-modules/modules/module-b-using-a"): {
+						path.Join(cwd, "testdata/with-modules/project1"): struct{}{},
 					},
 				},
 			},
@@ -436,7 +474,7 @@ func TestModuleUsage(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			graph, err := ModuleUsage(context.Background(), tc.dir, true)
+			graph, err := ModuleUsage(context.Background(), tc.dir, tc.maxDepth, true)
 			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
 				t.Errorf(diff)
 			}

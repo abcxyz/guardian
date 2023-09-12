@@ -131,7 +131,7 @@ func (c *DriftStatefilesCommand) Process(ctx context.Context) error {
 	logger.DebugContext(ctx, "starting Guardian drift statefiles")
 	logger.DebugContext(ctx, "finding entrypoint directories")
 
-	entrypoints, err := terraform.GetEntrypointDirectories(c.directory)
+	entrypoints, err := terraform.GetEntrypointDirectories(c.directory, nil)
 	if err != nil {
 		return fmt.Errorf("failed to find terraform directories: %w", err)
 	}
