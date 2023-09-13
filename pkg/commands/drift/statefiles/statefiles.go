@@ -20,7 +20,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"log"
 	"log/slog"
 	"os"
 	"regexp"
@@ -176,7 +175,7 @@ func (c *DriftStatefilesCommand) Run(ctx context.Context, args []string) error {
 
 	tmpDir, err := os.MkdirTemp(dirAbs, "tmp")
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("failed to create temp directory: %w", err)
 	}
 	defer os.RemoveAll(tmpDir)
 
