@@ -20,7 +20,9 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"log"
 	"log/slog"
+	"os"
 	"regexp"
 	"sort"
 	"strings"
@@ -60,7 +62,8 @@ const (
 type DriftStatefilesCommand struct {
 	cli.BaseCommand
 
-	directory string
+	directory    string
+	tmpDirectory string
 
 	flags.GitHubFlags
 	flags.RetryFlags
@@ -170,9 +173,16 @@ func (c *DriftStatefilesCommand) Run(ctx context.Context, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to absolute path for directory: %w", err)
 	}
-	c.directory = dirAbs
 
-	c.gitClient = git.NewGitClient(c.directory)
+	tmpDir, err := os.MkdirTemp(dirAbs, "tmp")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	c.directory = dirAbs
+	c.tmpDirectory = tmpDir
+	c.gitClient = git.NewGitClient(c.tmpDirectory)
 	c.githubClient = github.NewClient(ctx, c.GitHubFlags.FlagGitHubToken)
 	c.issueService = drift.NewGitHubDriftIssueService(
 		c.githubClient,
@@ -253,6 +263,7 @@ func (c *DriftStatefilesCommand) cloneAllGitHubRepositories(ctx context.Context,
 	if err != nil {
 		return fmt.Errorf("failed to determine github repositories: %w", err)
 	}
+
 	repositoriesWithTerraform := []*github.Repository{}
 	for _, r := range repositories {
 		if len(sets.Subtract(r.Topics, c.flagTerraformRepoTopics)) == 0 && len(r.Topics) != 0 {
