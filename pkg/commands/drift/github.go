@@ -23,14 +23,14 @@ import (
 )
 
 type GitHubDriftIssueService struct {
-	gh         *github.GitHubClient
+	gh         github.GitHub
 	owner      string
 	repo       string
 	issueTitle string
 	issueBody  string
 }
 
-func NewGitHubDriftIssueService(gh *github.GitHubClient, owner, repo, issueTitle, issueBody string) *GitHubDriftIssueService {
+func NewGitHubDriftIssueService(gh github.GitHub, owner, repo, issueTitle, issueBody string) *GitHubDriftIssueService {
 	return &GitHubDriftIssueService{gh, owner, repo, issueTitle, issueBody}
 }
 
@@ -50,7 +50,7 @@ func (s *GitHubDriftIssueService) CreateOrUpdateIssue(ctx context.Context, assig
 
 	var issueNumber int
 	if len(issues) == 0 {
-		issue, err := s.gh.CreateIssue(ctx, s.owner, s.repo, issueTitle, issueBody, assignees, labels)
+		issue, err := s.gh.CreateIssue(ctx, s.owner, s.repo, s.issueTitle, s.issueBody, assignees, labels)
 		if err != nil {
 			return fmt.Errorf("failed to create GitHub issue for %s/%s with assignees %s and labels %s: %w", s.owner, s.repo, assignees, labels, err)
 		}

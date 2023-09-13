@@ -20,21 +20,26 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"log/slog"
+	"regexp"
 	"sort"
 	"strings"
 
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/sets"
-	"golang.org/x/exp/maps"
 
+	"github.com/abcxyz/guardian/pkg/assetinventory"
 	"github.com/abcxyz/guardian/pkg/commands/drift"
 	driftflags "github.com/abcxyz/guardian/pkg/commands/drift/flags"
 	"github.com/abcxyz/guardian/pkg/flags"
+	"github.com/abcxyz/guardian/pkg/git"
 	"github.com/abcxyz/guardian/pkg/github"
+	"github.com/abcxyz/guardian/pkg/storage"
 	"github.com/abcxyz/guardian/pkg/terraform"
 	"github.com/abcxyz/guardian/pkg/terraform/parser"
 	"github.com/abcxyz/guardian/pkg/util"
+	githubAPI "github.com/google/go-github/v53/github"
 )
 
 var _ cli.Command = (*DriftStatefilesCommand)(nil)
@@ -61,8 +66,19 @@ type DriftStatefilesCommand struct {
 	flags.RetryFlags
 	driftflags.DriftIssueFlags
 
-	terraformParser parser.Terraform
-	issueService    *drift.GitHubDriftIssueService
+	flagOrganizationID                string
+	flagGCSBucketQuery                string
+	flagDetectGCSBucketsFromTerraform bool
+	flagTerraformRepoTopics           []string
+	flagIgnoreDirPatterns             []string
+
+	parsedFlagIgnoreDirPatters []*regexp.Regexp
+
+	assetInventoryClient assetinventory.AssetInventory
+	gitClient            git.Git
+	githubClient         github.GitHub
+	issueService         *drift.GitHubDriftIssueService
+	terraformParser      parser.Terraform
 }
 
 func (c *DriftStatefilesCommand) Desc() string {
@@ -86,6 +102,55 @@ func (c *DriftStatefilesCommand) Flags() *cli.FlagSet {
 		DefaultIssueLabel: "guardian-statefile-drift",
 	})
 
+	// Command options
+	f := set.NewSection("COMMAND OPTIONS")
+
+	f.StringVar(&cli.StringVar{
+		Name:    "organization-id",
+		Target:  &c.flagOrganizationID,
+		Example: "123435456456",
+		Usage:   `The Google Cloud organization ID for which to detect drift.`,
+	})
+
+	f.StringVar(&cli.StringVar{
+		Name:    "gcs-bucket-query",
+		Target:  &c.flagGCSBucketQuery,
+		Example: "labels.terraform:*",
+		Usage:   `The label to use to find GCS buckets with Terraform statefiles.`,
+	})
+
+	f.BoolVar(&cli.BoolVar{
+		Name:   "detect-gcs-buckets-from-terraform",
+		Target: &c.flagDetectGCSBucketsFromTerraform,
+		Usage:  `Whether or not to use the terraform backend configs to determine gcs buckets.`,
+	})
+
+	f.StringSliceVar(&cli.StringSliceVar{
+		Name:    "github-repo-terraform-topics",
+		Target:  &c.flagTerraformRepoTopics,
+		Example: "terraform,guardian",
+		Usage:   `Topics to use to identify github repositories that contain terraform configurations.`,
+	})
+
+	f.StringSliceVar(&cli.StringSliceVar{
+		Name:    "ignore-dir-patterns",
+		Target:  &c.flagIgnoreDirPatterns,
+		Example: "templates\\/**',test\\/**",
+		Usage:   `Directories to filter from the possible terraform entrypoint locations. Paths will be matched against the root of each cloned repository.`,
+	})
+
+	set.AfterParse(func(existingErr error) (merr error) {
+		for _, p := range c.flagIgnoreDirPatterns {
+			r, err := regexp.Compile(p)
+			if err != nil {
+				merr = errors.Join(merr, fmt.Errorf("failed to compile ignore-dir-patterns: %w", err))
+			} else {
+				c.parsedFlagIgnoreDirPatters = append(c.parsedFlagIgnoreDirPatters, r)
+			}
+		}
+		return merr
+	})
+
 	return set
 }
 
@@ -107,8 +172,10 @@ func (c *DriftStatefilesCommand) Run(ctx context.Context, args []string) error {
 	}
 	c.directory = dirAbs
 
+	c.gitClient = git.NewGitClient(c.directory)
+	c.githubClient = github.NewClient(ctx, c.GitHubFlags.FlagGitHubToken)
 	c.issueService = drift.NewGitHubDriftIssueService(
-		github.NewClient(ctx, c.GitHubFlags.FlagGitHubToken),
+		c.githubClient,
 		c.GitHubFlags.FlagGitHubOwner,
 		c.GitHubFlags.FlagGitHubRepo,
 		issueTitle,
@@ -117,6 +184,10 @@ func (c *DriftStatefilesCommand) Run(ctx context.Context, args []string) error {
 	c.terraformParser, err = parser.NewTerraformParser(ctx, "")
 	if err != nil {
 		return fmt.Errorf("failed to create terraform parser: %w", err)
+	}
+	c.assetInventoryClient, err = assetinventory.NewClient(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to initialize assets client: %w", err)
 	}
 
 	return c.Process(ctx)
@@ -129,47 +200,23 @@ func (c *DriftStatefilesCommand) Process(ctx context.Context) error {
 		With("github_repo", c.GitHubFlags.FlagGitHubOwner)
 
 	logger.DebugContext(ctx, "starting Guardian drift statefiles")
-	logger.DebugContext(ctx, "finding entrypoint directories")
+	if err := c.cloneAllGitHubRepositories(ctx, logger); err != nil {
+		return fmt.Errorf("failed to clone github repositories: %w", err)
+	}
 
-	entrypoints, err := terraform.GetEntrypointDirectories(c.directory, nil)
+	logger.DebugContext(ctx, "finding expected statefile uris")
+	expectedURIs, err := c.expectedStatefileUris(ctx, logger)
 	if err != nil {
-		return fmt.Errorf("failed to find terraform directories: %w", err)
-	}
-	entrypointBackendFiles := make([]string, 0, len(entrypoints))
-	for _, e := range entrypoints {
-		entrypointBackendFiles = append(entrypointBackendFiles, e.BackendFile)
-	}
-	logger.DebugContext(ctx, "terraform entrypoint directories", "entrypoint_backend_files", entrypointBackendFiles)
-
-	expectedURIs := make([]string, 0, len(entrypointBackendFiles))
-	gcsBuckets := make(map[string]struct{})
-	var errs []error
-	for _, f := range entrypointBackendFiles {
-		config, _, err := terraform.ExtractBackendConfig(f)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to parse Terraform backend config: %w", err))
-			continue
-		}
-		if config.GCSBucket == nil || *config.GCSBucket == "" {
-			errs = append(errs, fmt.Errorf("unsupported backend type for terraform config at %s - only gcs backends are supported", f))
-			continue
-		}
-		gcsBuckets[*config.GCSBucket] = struct{}{}
-		expectedURIs = append(expectedURIs, fmt.Sprintf("gs://%s/%s/default.tfstate", *config.GCSBucket, *config.Prefix))
-	}
-	if len(errs) > 0 {
-		return fmt.Errorf("failed to determine statefile gcs URIs: %w", errors.Join(errs...))
+		return fmt.Errorf("failed to determine expected state file URIs: %w", err)
 	}
 
-	buckets := maps.Keys(gcsBuckets)
-	logger.DebugContext(ctx, "finding statefiles in gcs buckets",
-		"gcs_buckets", buckets)
-
-	gotURIs, err := c.terraformParser.StateFileURIs(ctx, buckets)
+	logger.DebugContext(ctx, "finding actual statefile uris")
+	gotURIs, err := c.actualStatefileUris(ctx, logger, expectedURIs)
 	if err != nil {
-		return fmt.Errorf("failed to determine state file URIs for gcs buckets %s: %w", buckets, err)
+		return fmt.Errorf("failed to determine actual state file URIs: %w", err)
 	}
 
+	// Compare expected vs actual statefiles.
 	statefilesNotInRemote := sets.Subtract(expectedURIs, gotURIs)
 	statefilesNotInLocal := sets.Subtract(gotURIs, expectedURIs)
 	sort.Strings(statefilesNotInRemote)
@@ -198,6 +245,101 @@ func (c *DriftStatefilesCommand) Process(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (c *DriftStatefilesCommand) cloneAllGitHubRepositories(ctx context.Context, logger *slog.Logger) error {
+	// Clone all git repositories.
+	repositories, err := c.githubClient.ListRepositories(ctx, c.GitHubFlags.FlagGitHubOwner, &githubAPI.RepositoryListByOrgOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to determine github repositories: %w", err)
+	}
+	repositoriesWithTerraform := []*github.Repository{}
+	for _, r := range repositories {
+		if len(sets.Subtract(r.Topics, c.flagTerraformRepoTopics)) == 0 && len(r.Topics) != 0 {
+			repositoriesWithTerraform = append(repositoriesWithTerraform, r)
+		}
+	}
+	logger.DebugContext(ctx, "found github repositories matching topics",
+		"number_of_candidate_repositories", len(repositories),
+		"number_of_matched_repositories", len(repositoriesWithTerraform),
+		"topics", c.flagTerraformRepoTopics)
+
+	for _, r := range repositoriesWithTerraform {
+		if err = c.gitClient.CloneRepository(ctx, c.GitHubFlags.FlagGitHubToken, r.Owner, r.Name); err != nil {
+			return fmt.Errorf("failed to clone repository: %w", err)
+		}
+	}
+	return nil
+}
+
+func (c *DriftStatefilesCommand) expectedStatefileUris(ctx context.Context, logger *slog.Logger) ([]string, error) {
+	// Determine expected statefiles from checked out repositories.
+	entrypoints, err := terraform.GetEntrypointDirectories(c.directory, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find terraform directories: %w", err)
+	}
+	entrypointBackendFiles := make([]string, 0, len(entrypoints))
+	for _, e := range entrypoints {
+		included := true
+		relPath := "." + strings.TrimPrefix(e.BackendFile, c.directory)
+		for _, p := range c.parsedFlagIgnoreDirPatters {
+			matches := p.FindStringSubmatch(relPath)
+			if len(matches) > 0 {
+				included = false
+			}
+		}
+		if included {
+			entrypointBackendFiles = append(entrypointBackendFiles, e.BackendFile)
+		}
+	}
+	logger.DebugContext(ctx, "terraform entrypoint directories", "entrypoint_backend_files", entrypointBackendFiles)
+
+	expectedURIs := make([]string, 0, len(entrypointBackendFiles))
+	var errs []error
+	for _, f := range entrypointBackendFiles {
+		config, _, err := terraform.ExtractBackendConfig(f)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to parse Terraform backend config: %w", err))
+			continue
+		}
+		if config.GCSBucket == nil || *config.GCSBucket == "" {
+			errs = append(errs, fmt.Errorf("unsupported backend type for terraform config at %s - only gcs backends are supported", f))
+			continue
+		}
+		expectedURIs = append(expectedURIs, fmt.Sprintf("gs://%s/%s/default.tfstate", *config.GCSBucket, *config.Prefix))
+	}
+	if len(errs) > 0 {
+		return nil, fmt.Errorf("failed to determine statefile gcs URIs: %w", errors.Join(errs...))
+	}
+
+	return expectedURIs, nil
+}
+
+func (c *DriftStatefilesCommand) actualStatefileUris(ctx context.Context, logger *slog.Logger, terraformUris []string) ([]string, error) {
+	var buckets []string
+	var err error
+	if c.flagDetectGCSBucketsFromTerraform {
+		for _, uri := range terraformUris {
+			bucket, _, err := storage.SplitObjectURI(uri)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse GCS URI: %w", err)
+			}
+			buckets = append(buckets, *bucket)
+		}
+	} else {
+		buckets, err = c.assetInventoryClient.Buckets(ctx, c.flagOrganizationID, c.flagGCSBucketQuery)
+		if err != nil {
+			return nil, fmt.Errorf("failed to determine gcs buckets: %w", err)
+		}
+	}
+	logger.DebugContext(ctx, "finding statefiles in gcs buckets",
+		"gcs_buckets", buckets)
+
+	gotURIs, err := c.terraformParser.StateFileURIs(ctx, buckets)
+	if err != nil {
+		return nil, fmt.Errorf("failed to determine state file URIs for gcs buckets %s: %w", buckets, err)
+	}
+	return gotURIs, nil
 }
 
 func Set(values []string) map[string]struct{} {
