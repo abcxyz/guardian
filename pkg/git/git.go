@@ -90,7 +90,7 @@ func (g *GitClient) CloneRepository(ctx context.Context, githubToken, owner, rep
 		Stderr:     &stderr,
 		WorkingDir: g.workingDir,
 		Command:    "git",
-		Args:       []string{"clone", fmt.Sprintf("https://%s@github.com/%s/%s.git", githubToken, owner, repo), "--single-branch", "--no-tags"},
+		Args:       []string{"clone", fmt.Sprintf("https://x-access-token:%s@github.com/%s/%s.git", githubToken, owner, repo), "--single-branch", "--no-tags"},
 	})
 	if err != nil {
 		return fmt.Errorf("failed to run git clone command: %w\n\n%s", err, stderr.String())
