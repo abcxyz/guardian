@@ -72,9 +72,7 @@ func (c *DetectIamDriftCommand) Flags() *cli.FlagSet {
 	set := c.NewFlagSet()
 
 	c.GitHubFlags.Register(set)
-	c.DriftIssueFlags.Register(set, &driftflags.Options{
-		DefaultIssueLabel: "guardian-iam-drift",
-	})
+	c.DriftIssueFlags.Register(set)
 
 	// Command options
 	f := set.NewSection("COMMAND OPTIONS")
@@ -107,6 +105,13 @@ func (c *DetectIamDriftCommand) Flags() *cli.FlagSet {
 		Example: "10",
 		Usage:   `The maximum number of concurrent requests allowed at any time to GCP.`,
 		Default: 10,
+	})
+
+	set.AfterParse(func(existingErr error) (merr error) {
+		if len(c.DriftIssueFlags.FlagGitHubIssueLabels) == 0 {
+			c.DriftIssueFlags.FlagGitHubIssueLabels = []string{"guardian-iam-drift"}
+		}
+		return merr
 	})
 
 	return set

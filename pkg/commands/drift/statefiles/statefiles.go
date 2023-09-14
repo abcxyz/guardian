@@ -100,9 +100,7 @@ func (c *DriftStatefilesCommand) Flags() *cli.FlagSet {
 
 	c.GitHubFlags.Register(set)
 	c.RetryFlags.Register(set)
-	c.DriftIssueFlags.Register(set, &driftflags.Options{
-		DefaultIssueLabel: "guardian-statefile-drift",
-	})
+	c.DriftIssueFlags.Register(set)
 
 	// Command options
 	f := set.NewSection("COMMAND OPTIONS")
@@ -149,6 +147,9 @@ func (c *DriftStatefilesCommand) Flags() *cli.FlagSet {
 			} else {
 				c.parsedFlagIgnoreDirPatters = append(c.parsedFlagIgnoreDirPatters, r)
 			}
+		}
+		if len(c.DriftIssueFlags.FlagGitHubIssueLabels) == 0 {
+			c.DriftIssueFlags.FlagGitHubIssueLabels = []string{"guardian-statefile-drift"}
 		}
 		return merr
 	})
