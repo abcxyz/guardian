@@ -73,12 +73,12 @@ jobs:
 
       # already runs from the default branch, dont need an additional checkout
       - name: 'Load Env Vars'
-        uses: 'abcxyz/pkg/.github/actions/load-workflow-variables@8698e5b744e805614a686279b9ab9d011ab787df' # ratchet:abcxyz/pkg/.github/actions/load-workflow-variables@main
+        uses: 'abcxyz/pkg/.github/actions/load-workflow-variables@main' # ratchet:exclude
         with:
           working_directory: '${{ matrix.working_directory }}'
-          env_filename: 'env.yml'
           find_in_parents: true
-          top_level_directory: '${{ github.workspace }}'
+          # env_filename: 'env.yml' # this is the default
+          # top_level_directory: '${{ github.workspace }}' # this is the default
 
       - name: 'Mint Token'
         id: 'mint-token'
