@@ -47,14 +47,6 @@ jobs:
     outputs:
       directories: '${{ steps.dirs.outputs.directories }}'
     steps:
-      - name: 'Validate Branch'
-        if: |-
-          github.ref != format('refs/heads/{0}', github.event.repository.default_branch)
-        shell: 'bash'
-        run: |-
-          echo "ERROR: Guardian Admin can only be run from the repository default branch."
-          exit 1
-
       - name: 'Checkout'
         uses: 'actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744' # ratchet:actions/checkout@v3
 
