@@ -76,9 +76,8 @@ jobs:
         uses: 'abcxyz/pkg/.github/actions/load-workflow-variables@main' # ratchet:exclude
         with:
           working_directory: '${{ matrix.working_directory }}'
-          find_in_parents: true
-          # env_filename: 'env.yml' # this is the default
-          # top_level_directory: '${{ github.workspace }}' # this is the default
+          filepath: 'guardian.env.yml'
+          fail_on_missing: true
 
       - name: 'Mint Token'
         id: 'mint-token'
