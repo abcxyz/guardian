@@ -83,9 +83,8 @@ jobs:
         uses: 'abcxyz/pkg/.github/actions/load-workflow-variables@main' # ratchet:exclude
         with:
           working_directory: '${{ matrix.working_directory }}'
-          find_in_parents: true
-          # env_filename: 'env.yml' # this is the default
-          # top_level_directory: '${{ github.workspace }}' # this is the default
+          filepath: 'guardian.env.yml'
+          fail_on_missing: true
 
       - name: 'Checkout'
         uses: 'actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744' # ratchet:actions/checkout@v3
