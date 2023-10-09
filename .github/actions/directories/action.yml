@@ -47,7 +47,7 @@ runs:
         INPUT_DIRS: '${{ inputs.directories }}'
       run: |-
         # Get all terraform file directores that contain a backend config
-        BACKEND_DIRS=$(find $TERRAFORM_DIRECTORY -name "*.tf" | xargs grep -l 'backend ".*" {' | xargs dirname | sed 's|[\.?][/]*||g' | sort | uniq)
+        BACKEND_DIRS=$(find $TERRAFORM_DIRECTORY -name "*.tf" | xargs awk '/backend ".*" {/ && ! /#[[:space:]]*backend ".*" {/ { print FILENAME }' | xargs dirname | sed 's|[\.?][/]*||g' | sort | uniq)
         echo "BACKEND_DIRS=$BACKEND_DIRS"
 
         if [ "$INPUT_DIRS" != "" ]; then
@@ -68,7 +68,8 @@ runs:
         echo "dirs=$OUTPUT_DIRS"
         echo "dirs=$OUTPUT_DIRS" >> $GITHUB_OUTPUT
     - name: 'Get Plan Directories'
-      if: '${{ inputs.detect_plan_changes == ''true'' }}'
+      if: |
+        inputs.detect_plan_changes == 'true'
       id: 'plan_dirs'
       shell: 'bash'
       env:
@@ -77,7 +78,7 @@ runs:
         BASE_REF: 'origin/${{ github.event.pull_request.base.ref }}'
       run: |-
         # Get all terraform file directores that contain a backend config
-        BACKEND_DIRS=$(find $TERRAFORM_DIRECTORY -name "*.tf" | xargs grep -l 'backend ".*" {' | xargs dirname | sed 's|[\.?][/]*||g' | sort | uniq)
+        BACKEND_DIRS=$(find $TERRAFORM_DIRECTORY -name "*.tf" | xargs awk '/backend ".*" {/ && ! /#[[:space:]]*backend ".*" {/ { print FILENAME }' | xargs dirname | sed 's|[\.?][/]*||g' | sort | uniq)
         echo "BACKEND_DIRS=$BACKEND_DIRS"
 
         MODIFIED=$(git diff "$BASE_REF..$HEAD_REF" --name-only | xargs dirname | sort | uniq)
@@ -125,14 +126,15 @@ runs:
         echo "dirs=$OUTPUT_DIRS"
         echo "dirs=$OUTPUT_DIRS" >> $GITHUB_OUTPUT
     - name: 'Get Apply Directories'
-      if: '${{ inputs.detect_apply_changes == ''true'' }}'
+      if: |
+        inputs.detect_apply_changes == 'true'
       id: 'apply_dirs'
       shell: 'bash'
       env:
         TERRAFORM_DIRECTORY: '${{ inputs.terraform_directory }}'
       run: |-
         # Get all terraform file directores that contain a backend config
-        BACKEND_DIRS=$(find $TERRAFORM_DIRECTORY -name "*.tf" | xargs grep -l 'backend ".*" {' | xargs dirname | sed 's|[\.?][/]*||g' | sort | uniq)
+        BACKEND_DIRS=$(find $TERRAFORM_DIRECTORY -name "*.tf" | xargs awk '/backend ".*" {/ && ! /#[[:space:]]*backend ".*" {/ { print FILENAME }' | xargs dirname | sed 's|[\.?][/]*||g' | sort | uniq)
         echo "BACKEND_DIRS=$BACKEND_DIRS"
 
         MODIFIED=$(git diff HEAD~1 --name-only | xargs dirname | sort | uniq)
