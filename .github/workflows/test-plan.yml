@@ -126,7 +126,7 @@ jobs:
         with:
           working_directory: '${{ matrix.working_directory }}'
           bucket_name: '${{ env.GUARDIAN_BUCKET_NAME }}'
-          terraform_version: '1.3.6'
+          terraform_version: '1.6.1'
 
       - name: 'Print Plan Output'
         shell: 'bash'

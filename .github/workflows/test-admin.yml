@@ -113,4 +113,4 @@ jobs:
           command: '${{ inputs.command }}'
           terraform_init: '${{ inputs.terraform_init }}'
           working_directory: '${{ matrix.working_directory }}'
-          terraform_version: '1.3.6'
+          terraform_version: '1.6.1'
