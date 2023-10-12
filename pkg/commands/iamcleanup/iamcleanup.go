@@ -131,7 +131,13 @@ func evaluateIAMConditionExpression(ctx context.Context, expression string) (*bo
 	if issues != nil && issues.Err() != nil {
 		return nil, fmt.Errorf("failed to compile Expression (CEL): %w", issues.Err())
 	}
-	for _, arg := range ast.Expr().GetCallExpr().Args {
+
+	pe, err := cel.AstToParsedExpr(ast)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse Expression (CEL): %w", err)
+	}
+
+	for _, arg := range pe.Expr.GetCallExpr().Args {
 		if arg.GetSelectExpr() == nil {
 			continue
 		}
