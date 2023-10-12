@@ -186,7 +186,7 @@ runs:
 
     - name: 'Setup Terraform'
       if: '${{ steps.has-diff.outputs.result == ''true'' }}'
-      uses: 'abcxyz/secure-setup-terraform@2912e6e8b49e9b5de6583825482889dccac4f3dc' # ratchet:abcxyz/secure-setup-terraform@main
+      uses: 'abcxyz/secure-setup-terraform@242935d09cb9a25785065d46521a6b4dbfa10cbc' # ratchet:abcxyz/secure-setup-terraform@main
       with:
         terraform_version: '${{ inputs.terraform_version }}'
         terraform_module_location: './${{ inputs.working_directory }}'
