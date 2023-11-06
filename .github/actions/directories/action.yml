@@ -74,8 +74,8 @@ runs:
       shell: 'bash'
       env:
         TERRAFORM_DIRECTORY: '${{ inputs.terraform_directory }}'
-        HEAD_REF: 'origin/${{ github.event.pull_request.head.ref }}'
-        BASE_REF: 'origin/${{ github.event.pull_request.base.ref }}'
+        HEAD_REF: '${{ github.event.pull_request.head.sha }}'
+        BASE_REF: '${{ github.event.pull_request.base.sha }}'
       run: |-
         # Get all terraform file directores that contain a backend config
         BACKEND_DIRS=$(find $TERRAFORM_DIRECTORY -name "*.tf" | xargs awk '/backend ".*" {/ && ! /#[[:space:]]*backend ".*" {/ { print FILENAME }' | xargs dirname | sed 's|[\.?][/]*||g' | sort | uniq)
