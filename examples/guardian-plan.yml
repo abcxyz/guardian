@@ -42,7 +42,7 @@ jobs:
         uses: 'actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3' # ratchet:actions/checkout@v3
         with:
           fetch-depth: 0 # get everything so we can use git diff
-          ref: '${{ github.event.pull_request.head.ref }}'
+          ref: '${{ github.event.pull_request.head.sha }}'
 
       - name: 'Guardian Directories'
         id: 'dirs'
@@ -69,7 +69,7 @@ jobs:
       - name: 'Checkout'
         uses: 'actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c' # ratchet:actions/checkout@v3
         with:
-          ref: '${{ github.event.pull_request.head.ref }}'
+          ref: '${{ github.event.pull_request.head.sha }}'
 
       # required to upload terraform plan files to cloud storage
       - name: 'Authenticate to Google Cloud'
