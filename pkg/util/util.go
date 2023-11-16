@@ -27,10 +27,11 @@ func Ptr[T any](v T) *T {
 	return &v
 }
 
-// BoolVal returns the value of a bool pointer or false if it is nil.
-func BoolVal(v *bool) bool {
+// PtrVal returns the value of the given pointer. If the provided input is nil,
+// it returns the zero value for the pointer's underlying type.
+func PtrVal[T any](v *T) T {
 	if v == nil {
-		return false
+		v = new(T)
 	}
 	return *v
 }

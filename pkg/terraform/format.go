@@ -40,11 +40,11 @@ func formatArgsFromOptions(opts *FormatOptions) []string {
 		return args
 	}
 
-	if util.BoolVal(opts.Check) {
+	if util.PtrVal(opts.Check) {
 		args = append(args, "-check")
 	}
 
-	if util.BoolVal(opts.Diff) {
+	if util.PtrVal(opts.Diff) {
 		args = append(args, "-diff")
 	}
 
@@ -52,11 +52,11 @@ func formatArgsFromOptions(opts *FormatOptions) []string {
 		args = append(args, fmt.Sprintf("-list=%t", *opts.List))
 	}
 
-	if util.BoolVal(opts.NoColor) {
+	if util.PtrVal(opts.NoColor) {
 		args = append(args, "-no-color")
 	}
 
-	if util.BoolVal(opts.Recursive) {
+	if util.PtrVal(opts.Recursive) {
 		args = append(args, "-recursive")
 	}
 
