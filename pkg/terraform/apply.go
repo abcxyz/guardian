@@ -41,11 +41,11 @@ func applyArgsFromOptions(opts *ApplyOptions) []string {
 		return args
 	}
 
-	if util.BoolVal(opts.AutoApprove) {
+	if util.PtrVal(opts.AutoApprove) {
 		args = append(args, "-auto-approve")
 	}
 
-	if util.BoolVal(opts.CompactWarnings) {
+	if util.PtrVal(opts.CompactWarnings) {
 		args = append(args, "-compact-warnings")
 	}
 
@@ -61,7 +61,7 @@ func applyArgsFromOptions(opts *ApplyOptions) []string {
 		args = append(args, fmt.Sprintf("-input=%t", *opts.Input))
 	}
 
-	if util.BoolVal(opts.NoColor) {
+	if util.PtrVal(opts.NoColor) {
 		args = append(args, "-no-color")
 	}
 

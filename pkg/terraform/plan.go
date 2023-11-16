@@ -41,15 +41,15 @@ func planArgsFromOptions(opts *PlanOptions) []string {
 		return args
 	}
 
-	if util.BoolVal(opts.CompactWarnings) {
+	if util.PtrVal(opts.CompactWarnings) {
 		args = append(args, "-compact-warnings")
 	}
 
-	if util.BoolVal(opts.DetailedExitcode) {
+	if util.PtrVal(opts.DetailedExitcode) {
 		args = append(args, "-detailed-exitcode")
 	}
 
-	if util.BoolVal(opts.NoColor) {
+	if util.PtrVal(opts.NoColor) {
 		args = append(args, "-no-color")
 	}
 

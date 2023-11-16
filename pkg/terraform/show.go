@@ -36,11 +36,11 @@ func showArgsFromOptions(opts *ShowOptions) []string {
 		return args
 	}
 
-	if util.BoolVal(opts.NoColor) {
+	if util.PtrVal(opts.NoColor) {
 		args = append(args, "-no-color")
 	}
 
-	if util.BoolVal(opts.JSON) {
+	if util.PtrVal(opts.JSON) {
 		args = append(args, "-json")
 	}
 

@@ -48,7 +48,7 @@ func initArgsFromOptions(opts *InitOptions) []string {
 		args = append(args, fmt.Sprintf("-input=%t", *opts.Input))
 	}
 
-	if util.BoolVal(opts.NoColor) {
+	if util.PtrVal(opts.NoColor) {
 		args = append(args, "-no-color")
 	}
 
