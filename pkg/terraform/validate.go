@@ -17,6 +17,8 @@ package terraform
 import (
 	"context"
 	"io"
+
+	"github.com/abcxyz/guardian/pkg/util"
 )
 
 // ValidateOptions are the set of options for running a terraform validate.
@@ -33,11 +35,11 @@ func validateArgsFromOptions(opts *ValidateOptions) []string {
 		return args
 	}
 
-	if opts.NoColor != nil && *opts.NoColor {
+	if util.BoolVal(opts.NoColor) {
 		args = append(args, "-no-color")
 	}
 
-	if opts.JSON != nil && *opts.JSON {
+	if util.BoolVal(opts.JSON) {
 		args = append(args, "-json")
 	}
 

@@ -17,6 +17,8 @@ package terraform
 import (
 	"context"
 	"io"
+
+	"github.com/abcxyz/guardian/pkg/util"
 )
 
 // ShowOptions are the set of options for running a terraform show.
@@ -34,11 +36,11 @@ func showArgsFromOptions(opts *ShowOptions) []string {
 		return args
 	}
 
-	if opts.NoColor != nil && *opts.NoColor {
+	if util.BoolVal(opts.NoColor) {
 		args = append(args, "-no-color")
 	}
 
-	if opts.JSON != nil && *opts.JSON {
+	if util.BoolVal(opts.JSON) {
 		args = append(args, "-json")
 	}
 

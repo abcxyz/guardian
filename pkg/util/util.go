@@ -27,6 +27,14 @@ func Ptr[T any](v T) *T {
 	return &v
 }
 
+// BoolVal returns the value of a bool pointer or false if it is nil.
+func BoolVal(v *bool) bool {
+	if v == nil {
+		return false
+	}
+	return *v
+}
+
 // ChildPath returns the child path with respect to the base directory
 // or returns an error if the target directory is not a child of the base directory.
 func ChildPath(base, target string) (string, error) {
