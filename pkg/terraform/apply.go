@@ -18,6 +18,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+
+	"github.com/abcxyz/guardian/pkg/util"
 )
 
 // ApplyOptions are the set of options for running a terraform apply.
@@ -39,11 +41,11 @@ func applyArgsFromOptions(opts *ApplyOptions) []string {
 		return args
 	}
 
-	if opts.AutoApprove != nil && *opts.AutoApprove {
+	if util.BoolVal(opts.AutoApprove) {
 		args = append(args, "-auto-approve")
 	}
 
-	if opts.CompactWarnings != nil && *opts.CompactWarnings {
+	if util.BoolVal(opts.CompactWarnings) {
 		args = append(args, "-compact-warnings")
 	}
 
@@ -59,7 +61,7 @@ func applyArgsFromOptions(opts *ApplyOptions) []string {
 		args = append(args, fmt.Sprintf("-input=%t", *opts.Input))
 	}
 
-	if opts.NoColor != nil && *opts.NoColor {
+	if util.BoolVal(opts.NoColor) {
 		args = append(args, "-no-color")
 	}
 

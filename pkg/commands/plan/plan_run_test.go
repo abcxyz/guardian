@@ -75,6 +75,10 @@ func TestAfterParse(t *testing.T) {
 }
 
 var terraformNoDiffMock = &terraform.MockTerraformClient{
+	FormatResponse: &terraform.MockTerraformResponse{
+		Stdout:   "terraform format success",
+		ExitCode: 0,
+	},
 	InitResponse: &terraform.MockTerraformResponse{
 		Stdout:   "terraform init success",
 		ExitCode: 0,
@@ -94,6 +98,10 @@ var terraformNoDiffMock = &terraform.MockTerraformClient{
 }
 
 var terraformDiffMock = &terraform.MockTerraformClient{
+	FormatResponse: &terraform.MockTerraformResponse{
+		Stdout:   "terraform format success",
+		ExitCode: 0,
+	},
 	InitResponse: &terraform.MockTerraformResponse{
 		Stdout:   "terraform init success with diff",
 		ExitCode: 0,
@@ -113,6 +121,10 @@ var terraformDiffMock = &terraform.MockTerraformClient{
 }
 
 var terraformErrorMock = &terraform.MockTerraformClient{
+	FormatResponse: &terraform.MockTerraformResponse{
+		Stdout:   "terraform format success",
+		ExitCode: 0,
+	},
 	InitResponse: &terraform.MockTerraformResponse{
 		Stdout:   "terraform init output",
 		Stderr:   "terraform init failed",

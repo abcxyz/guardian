@@ -341,6 +341,17 @@ func (c *PlanRunCommand) terraformPlan(ctx context.Context) (*RunResult, error) 
 
 	c.Outf("Running Terraform commands")
 
+	if err := c.withActionsOutGroup("Check Terraform Format", func() error {
+		_, err := c.terraformClient.Format(ctx, c.Stdout(), multiStderr, &terraform.FormatOptions{
+			Check:     util.Ptr(true),
+			Diff:      util.Ptr(true),
+			Recursive: util.Ptr(true),
+		})
+		return err //nolint:wrapcheck // Want passthrough
+	}); err != nil {
+		return &RunResult{commentDetails: stderr.String()}, fmt.Errorf("failed to check formatting: %w", err)
+	}
+
 	lockfileMode := "none"
 	if !c.flagAllowLockfileChanges {
 		lockfileMode = "readonly"

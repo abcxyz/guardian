@@ -18,6 +18,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+
+	"github.com/abcxyz/guardian/pkg/util"
 )
 
 // InitOptions are the set of options for running a terraform init.
@@ -46,7 +48,7 @@ func initArgsFromOptions(opts *InitOptions) []string {
 		args = append(args, fmt.Sprintf("-input=%t", *opts.Input))
 	}
 
-	if opts.NoColor != nil && *opts.NoColor {
+	if util.BoolVal(opts.NoColor) {
 		args = append(args, "-no-color")
 	}
 

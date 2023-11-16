@@ -87,6 +87,9 @@ type Terraform interface {
 	// Show runs the terraform show command.
 	Show(context.Context, io.Writer, io.Writer, *ShowOptions) (int, error)
 
+	// Format runs the terraform fmt command.
+	Format(context.Context, io.Writer, io.Writer, *FormatOptions) (int, error)
+
 	// Run runs a terraform command.
 	Run(context.Context, io.Writer, io.Writer, string, ...string) (int, error)
 }
