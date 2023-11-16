@@ -1,0 +1,48 @@
+# Copyright 2023 The Authors (see AUTHORS file)
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#      http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Create an annotated tag in the repo default branch.
+name: 'create_tag'
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'The name of the tag to be created.'
+        type: 'string'
+        required: true
+      message:
+        description: 'Message for the tag. Default will be the tag name.'
+        type: 'string'
+        required: false
+
+jobs:
+  create_tag:
+    permissions:
+      # Job need OIDC for token minter to work, see ref:
+      # https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect#adding-permissions-settings
+      id-token: 'write'
+    uses: 'abcxyz/pkg/.github/workflows/create-tag.yml@main' # ratchet:exclude
+    with:
+      tag: '${{ inputs.tag }}'
+      branch: '${{ github.event.repository.default_branch }}'
+      # Set message default here since workflow_dispatch inputs do not have the
+      # access to the context.
+      message: '${{ inputs.message || inputs.tag }}'
+      annotated_tag: true
+      deployment_environment: 'tag'
+      token_minter_wif_provider: '${{ vars.TOKEN_MINTER_WIF_PROVIDER }}'
+      token_minter_wif_service_account: '${{ vars.TOKEN_MINTER_WIF_SERVICE_ACCOUNT }}'
+      token_minter_service_audience: '${{ vars.TOKEN_MINTER_SERVICE_AUDIENCE }}'
+      token_minter_service_url: '${{ vars.TOKEN_MINTER_SERVICE_URL }}'
