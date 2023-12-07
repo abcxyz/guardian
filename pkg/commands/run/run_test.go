@@ -22,11 +22,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sethvargo/go-githubactions"
+
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/terraform"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/testutil"
-	"github.com/sethvargo/go-githubactions"
 )
 
 var terraformMock = &terraform.MockTerraformClient{

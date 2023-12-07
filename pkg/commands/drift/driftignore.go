@@ -22,9 +22,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/abcxyz/pkg/logging"
-
 	"github.com/abcxyz/guardian/pkg/assetinventory"
+	"github.com/abcxyz/pkg/logging"
 )
 
 type ignoredAssets struct {

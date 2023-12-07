@@ -21,14 +21,14 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/abcxyz/pkg/logging"
-	"github.com/abcxyz/pkg/sets"
-	"github.com/abcxyz/pkg/workerpool"
 	"golang.org/x/exp/maps"
 
 	"github.com/abcxyz/guardian/pkg/assetinventory"
 	"github.com/abcxyz/guardian/pkg/iam"
 	"github.com/abcxyz/guardian/pkg/terraform/parser"
+	"github.com/abcxyz/pkg/logging"
+	"github.com/abcxyz/pkg/sets"
+	"github.com/abcxyz/pkg/workerpool"
 )
 
 // IAMDrift represents the detected iam drift in a gcp org.

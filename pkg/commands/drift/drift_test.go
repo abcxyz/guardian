@@ -22,11 +22,12 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+
 	"github.com/abcxyz/guardian/pkg/assetinventory"
 	"github.com/abcxyz/guardian/pkg/iam"
 	"github.com/abcxyz/guardian/pkg/storage"
 	"github.com/abcxyz/guardian/pkg/terraform/parser"
-	"github.com/google/go-cmp/cmp"
 )
 
 var (

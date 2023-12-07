@@ -22,10 +22,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/abcxyz/pkg/logging"
-
 	"github.com/abcxyz/guardian/pkg/assetinventory"
 	"github.com/abcxyz/guardian/pkg/storage"
+	"github.com/abcxyz/pkg/logging"
 )
 
 const (

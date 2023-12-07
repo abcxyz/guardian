@@ -19,13 +19,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/abcxyz/pkg/cli"
-	"github.com/abcxyz/pkg/logging"
-
 	"github.com/abcxyz/guardian/internal/version"
 	"github.com/abcxyz/guardian/pkg/assetinventory"
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/iam"
+	"github.com/abcxyz/pkg/cli"
+	"github.com/abcxyz/pkg/logging"
 )
 
 var _ cli.Command = (*IAMCleanupCommand)(nil)

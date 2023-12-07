@@ -22,12 +22,13 @@ import (
 	"fmt"
 	"strings"
 
+	gh "github.com/google/go-github/v53/github"
+
 	"github.com/abcxyz/guardian/pkg/commands/plan"
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/github"
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
-	gh "github.com/google/go-github/v53/github"
 )
 
 var _ cli.Command = (*RemovePlanCommentsCommand)(nil)

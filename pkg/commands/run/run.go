@@ -21,12 +21,13 @@ import (
 	"sort"
 	"time"
 
+	"github.com/sethvargo/go-githubactions"
+	"golang.org/x/exp/slices"
+
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/terraform"
 	"github.com/abcxyz/guardian/pkg/util"
 	"github.com/abcxyz/pkg/cli"
-	"github.com/sethvargo/go-githubactions"
-	"golang.org/x/exp/slices"
 )
 
 var _ cli.Command = (*RunCommand)(nil)
