@@ -24,15 +24,16 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/posener/complete/v2"
+	"golang.org/x/exp/maps"
+	"golang.org/x/exp/slices"
+
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/git"
 	"github.com/abcxyz/guardian/pkg/terraform"
 	"github.com/abcxyz/guardian/pkg/util"
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
-	"github.com/posener/complete/v2"
-	"golang.org/x/exp/maps"
-	"golang.org/x/exp/slices"
 )
 
 var _ cli.Command = (*EntrypointsCommand)(nil)

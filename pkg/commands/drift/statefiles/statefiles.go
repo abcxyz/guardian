@@ -26,9 +26,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/abcxyz/pkg/cli"
-	"github.com/abcxyz/pkg/logging"
-	"github.com/abcxyz/pkg/sets"
+	githubAPI "github.com/google/go-github/v53/github"
 
 	"github.com/abcxyz/guardian/pkg/assetinventory"
 	"github.com/abcxyz/guardian/pkg/commands/drift"
@@ -40,7 +38,9 @@ import (
 	"github.com/abcxyz/guardian/pkg/terraform"
 	"github.com/abcxyz/guardian/pkg/terraform/parser"
 	"github.com/abcxyz/guardian/pkg/util"
-	githubAPI "github.com/google/go-github/v53/github"
+	"github.com/abcxyz/pkg/cli"
+	"github.com/abcxyz/pkg/logging"
+	"github.com/abcxyz/pkg/sets"
 )
 
 var _ cli.Command = (*DriftStatefilesCommand)(nil)

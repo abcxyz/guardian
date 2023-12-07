@@ -21,15 +21,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sethvargo/go-retry"
 	"golang.org/x/exp/slices"
 	"google.golang.org/api/cloudresourcemanager/v3"
 	"google.golang.org/api/googleapi"
-
-	"github.com/abcxyz/guardian/pkg/assetinventory"
-	"github.com/sethvargo/go-retry"
-
 	grpccodes "google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
+
+	"github.com/abcxyz/guardian/pkg/assetinventory"
 )
 
 // IAM defines the common gcp iam functionality.

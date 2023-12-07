@@ -17,9 +17,10 @@ package plan
 import (
 	"testing"
 
-	"github.com/abcxyz/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
 	"github.com/sethvargo/go-githubactions"
+
+	"github.com/abcxyz/pkg/testutil"
 )
 
 func TestConfig_MapGitHubContext(t *testing.T) {

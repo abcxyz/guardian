@@ -22,12 +22,13 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/sethvargo/go-githubactions"
+	"golang.org/x/exp/slices"
+
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/github"
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
-	"github.com/sethvargo/go-githubactions"
-	"golang.org/x/exp/slices"
 )
 
 var _ cli.Command = (*ValidatePermissionsCommand)(nil)

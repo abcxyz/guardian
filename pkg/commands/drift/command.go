@@ -19,13 +19,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/abcxyz/pkg/cli"
-	"github.com/abcxyz/pkg/logging"
-
 	"github.com/abcxyz/guardian/internal/version"
 	driftflags "github.com/abcxyz/guardian/pkg/commands/drift/flags"
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/github"
+	"github.com/abcxyz/pkg/cli"
+	"github.com/abcxyz/pkg/logging"
 )
 
 var _ cli.Command = (*DetectIamDriftCommand)(nil)

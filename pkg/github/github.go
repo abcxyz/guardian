@@ -20,10 +20,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/abcxyz/guardian/pkg/util"
 	"github.com/google/go-github/v53/github"
 	"github.com/sethvargo/go-retry"
 	"golang.org/x/oauth2"
+
+	"github.com/abcxyz/guardian/pkg/util"
 )
 
 var ignoredStatusCodes = map[int]struct{}{

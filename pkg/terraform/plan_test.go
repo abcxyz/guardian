@@ -17,8 +17,9 @@ package terraform
 import (
 	"testing"
 
-	"github.com/abcxyz/guardian/pkg/util"
 	"github.com/google/go-cmp/cmp"
+
+	"github.com/abcxyz/guardian/pkg/util"
 )
 
 func TestPlanArgsFromOptions(t *testing.T) {
