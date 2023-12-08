@@ -231,7 +231,9 @@ func driftignore(
 			} else if p, ok := projectsByName[a]; ok {
 				projects[p.ID] = struct{}{}
 			} else {
-				logger.WarnContext(ctx, "failed to identify ignored project %s", "project", a, "uri", line)
+				logger.WarnContext(ctx, "failed to identify ignored project",
+					"project", a,
+					"uri", line)
 			}
 		}
 
@@ -244,7 +246,9 @@ func driftignore(
 			} else if f, ok := foldersByName[a]; ok {
 				folders[f.ID] = struct{}{}
 			} else {
-				logger.WarnContext(ctx, "failed to identify ignored folder %s", "folder", a, "uri", line)
+				logger.WarnContext(ctx, "failed to identify ignored folder",
+					"folder", a,
+					"uri", line)
 			}
 		}
 

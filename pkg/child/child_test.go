@@ -21,6 +21,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/testutil"
 )
@@ -170,6 +172,143 @@ func TestRun_Cancel(t *testing.T) {
 			}
 			if got, want := exitCode, tc.expExitCode; got != want {
 				t.Errorf("expected %d to be %d", got, want)
+			}
+		})
+	}
+}
+
+func TestEnviron(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name        string
+		osEnv       []string
+		allowedKeys []string
+		deniedKeys  []string
+		overrideEnv []string
+
+		exp []string
+	}{
+		{
+			name: "nil_all",
+			exp:  []string{},
+		},
+		{
+			name:        "empty_all",
+			osEnv:       []string{},
+			allowedKeys: []string{},
+			deniedKeys:  []string{},
+			overrideEnv: []string{},
+			exp:         []string{},
+		},
+		{
+			name:        "empty_osenv",
+			osEnv:       []string{},
+			allowedKeys: []string{"allowed_key1", "allowed_key2"},
+			deniedKeys:  []string{"denied_key2", "denied_key2"},
+			overrideEnv: []string{},
+			exp:         []string{},
+		},
+		{
+			name:        "admits_allowed_keys",
+			osEnv:       []string{"allowed_key1", "allowed_key2"},
+			allowedKeys: []string{"allowed_key1", "allowed_key2"},
+			deniedKeys:  []string{},
+			overrideEnv: []string{},
+			exp:         []string{"allowed_key1", "allowed_key2"},
+		},
+		{
+			name:        "admits_allowed_keys_match",
+			osEnv:       []string{"allowed_key1", "allowed_key2"},
+			allowedKeys: []string{"allowed_*"},
+			deniedKeys:  []string{},
+			overrideEnv: []string{},
+			exp:         []string{"allowed_key1", "allowed_key2"},
+		},
+		{
+			name:        "rejects_denied_keys",
+			osEnv:       []string{"denied_key1", "denied_key2"},
+			allowedKeys: []string{},
+			deniedKeys:  []string{"denied_key1", "denied_key2"},
+			overrideEnv: []string{},
+			exp:         []string{},
+		},
+		{
+			name:        "rejects_denied_keys_match",
+			osEnv:       []string{"denied_key1", "denied_key2"},
+			allowedKeys: []string{},
+			deniedKeys:  []string{"denied_*"},
+			overrideEnv: []string{},
+			exp:         []string{},
+		},
+		{
+			name:        "deny_takes_precedence_over_allow",
+			osEnv:       []string{"denied_key1", "denied_key2"},
+			allowedKeys: []string{"denied_*"},
+			deniedKeys:  []string{"denied_*"},
+			overrideEnv: []string{},
+			exp:         []string{},
+		},
+		{
+			name: "allows_and_denies_corpus",
+			osEnv: []string{
+				"allowed_key1", "allowed_key2",
+				"denied_key1", "denied_key2",
+			},
+			allowedKeys: []string{"allowed_*"},
+			deniedKeys:  []string{"denied_*"},
+			overrideEnv: []string{},
+			exp:         []string{"allowed_key1", "allowed_key2"},
+		},
+		{
+			name: "ignores_values",
+			osEnv: []string{
+				"allowed_key1=denied_value1", "allowed_key2=denied_value2",
+				"denied_key1", "denied_key2",
+			},
+			allowedKeys: []string{"allowed_*"},
+			deniedKeys:  []string{"denied_*"},
+			overrideEnv: []string{},
+			exp:         []string{"allowed_key1=denied_value1", "allowed_key2=denied_value2"},
+		},
+		{
+			name:        "overrides_always",
+			osEnv:       []string{},
+			allowedKeys: []string{},
+			deniedKeys:  []string{"*"},
+			overrideEnv: []string{"override=value"},
+			exp:         []string{"override=value"},
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Grab copies to make sure we don't modify these slices!
+			originalOsEnv := append([]string{}, tc.osEnv...)
+			originalAllowedKeys := append([]string{}, tc.allowedKeys...)
+			originalDeniedKeys := append([]string{}, tc.deniedKeys...)
+			originalOverrideEnv := append([]string{}, tc.overrideEnv...)
+
+			got := environ(tc.osEnv, tc.allowedKeys, tc.deniedKeys, tc.overrideEnv)
+			if diff := cmp.Diff(tc.exp, got); diff != "" {
+				t.Errorf("unexpected environment (-want, +got):\n%s", diff)
+			}
+
+			if diff := cmp.Diff(tc.osEnv, originalOsEnv); tc.osEnv != nil && diff != "" {
+				t.Errorf("osEnv was modified (-want, +got):\n%s", diff)
+			}
+			if diff := cmp.Diff(tc.allowedKeys, originalAllowedKeys); tc.allowedKeys != nil && diff != "" {
+				t.Errorf("allowedKeys was modified (-want, +got):\n%s", diff)
+			}
+			if diff := cmp.Diff(tc.deniedKeys, originalDeniedKeys); tc.deniedKeys != nil && diff != "" {
+				t.Errorf("deniedKeys was modified (-want, +got):\n%s", diff)
+			}
+			if diff := cmp.Diff(tc.overrideEnv, originalOverrideEnv); tc.overrideEnv != nil && diff != "" {
+				t.Errorf("overrideEnv was modified (-want, +got):\n%s", diff)
 			}
 		})
 	}

@@ -130,7 +130,7 @@ func (c *DetectIamDriftCommand) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("unexpected arguments: %q", args)
 	}
 
-	logger.DebugContext(ctx, "Running IAM Drift Detection...",
+	logger.DebugContext(ctx, "running IAM Drift Detection",
 		"name", version.Name,
 		"commit", version.Commit,
 		"version", version.Version)

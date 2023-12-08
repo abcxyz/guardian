@@ -152,7 +152,8 @@ func (d *IAMDriftDetector) DetectDrift(
 	if err != nil {
 		return nil, fmt.Errorf("failed to determine GCP IAM: %w", err)
 	}
-	logger.DebugContext(ctx, "Fetching terraform state from Buckets", "number_of_buckets", len(buckets))
+	logger.DebugContext(ctx, "fetching terraform state from buckets",
+		"number_of_buckets", len(buckets))
 	tfIAM, err := d.terraformStateIAM(ctx, buckets)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse IAM from Terraform State: %w", err)
