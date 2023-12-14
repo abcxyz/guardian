@@ -24,7 +24,6 @@ import (
 
 	"github.com/abcxyz/guardian/pkg/assetinventory"
 	"github.com/abcxyz/guardian/pkg/storage"
-	"github.com/abcxyz/guardian/pkg/util"
 	"github.com/abcxyz/pkg/logging"
 )
 
@@ -73,7 +72,7 @@ type Terraform interface {
 	ProcessStates(ctx context.Context, gcsUris []string) ([]*assetinventory.AssetIAM, error)
 
 	// StateWithoutResources determines if the given statefile at the uri contains any resources or not.
-	StateWithoutResources(ctx context.Context, uri string) (*bool, error)
+	StateWithoutResources(ctx context.Context, uri string) (bool, error)
 }
 
 type TerraformParser struct {
@@ -122,24 +121,24 @@ func (p *TerraformParser) StateFileURIs(ctx context.Context, gcsBuckets []string
 	return gcsURIs, nil
 }
 
-// ProcessStates finds all IAM in memberships, bindings, or policies in the given terraform state files.
-func (p *TerraformParser) StateWithoutResources(ctx context.Context, uri string) (*bool, error) {
+// StateWithoutResources determines if the given statefile at the uri contains any resources or not.
+func (p *TerraformParser) StateWithoutResources(ctx context.Context, uri string) (bool, error) {
 	bucket, name, err := storage.SplitObjectURI(uri)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse GCS URI: %w", err)
+		return false, fmt.Errorf("failed to parse GCS URI: %w", err)
 	}
 	r, err := p.GCS.DownloadObject(ctx, *bucket, *name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to download gcs URI for terraform: %w", err)
+		return false, fmt.Errorf("failed to download gcs URI for terraform: %w", err)
 	}
 	defer r.Close()
 	lr := io.LimitReader(r, defaultTerraformStateFileSizeLimit)
 	data, err := io.ReadAll(lr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode terraform state: %w", err)
+		return false, fmt.Errorf("failed to decode terraform state: %w", err)
 	}
 	jsonContent := string(data)
-	return util.Ptr(strings.Contains(jsonContent, noResourcesInStatefileSyntax)), nil
+	return strings.Contains(jsonContent, noResourcesInStatefileSyntax), nil
 }
 
 // ProcessStates finds all IAM in memberships, bindings, or policies in the given terraform state files.

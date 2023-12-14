@@ -381,7 +381,7 @@ func (c *DriftStatefilesCommand) emptyStateFiles(ctx context.Context, gcsURIs []
 			if err != nil {
 				return nil, fmt.Errorf("failed to get determine if state file URI has resources: %w", err)
 			}
-			return &Resource{*empty, uri}, nil
+			return &Resource{empty, uri}, nil
 		}); err != nil && !errors.Is(err, workerpool.ErrStopped) {
 			return nil, fmt.Errorf("failed to execute terraform resources task: %w", err)
 		}
@@ -393,11 +393,11 @@ func (c *DriftStatefilesCommand) emptyStateFiles(ctx context.Context, gcsURIs []
 	}
 
 	var emptyStateFiles []string
-	errs := []error{}
+	var merr error
 	for _, r := range results {
 		if err := r.Error; err != nil {
 			if !errors.Is(err, workerpool.ErrStopped) {
-				errs = append(errs, fmt.Errorf("failed to execute resource task: %w", err))
+				merr = errors.Join(merr, fmt.Errorf("failed to execute resource task: %w", err))
 			}
 			continue
 		}
@@ -405,8 +405,8 @@ func (c *DriftStatefilesCommand) emptyStateFiles(ctx context.Context, gcsURIs []
 			emptyStateFiles = append(emptyStateFiles, r.Value.URI)
 		}
 	}
-	if len(errs) > 0 {
-		return nil, fmt.Errorf("failed to execute terraform resource tasks in parallel: %w", errors.Join(errs...))
+	if merr != nil {
+		return nil, fmt.Errorf("failed to execute terraform resource tasks in parallel: %w", merr)
 	}
 	return emptyStateFiles, nil
 }
