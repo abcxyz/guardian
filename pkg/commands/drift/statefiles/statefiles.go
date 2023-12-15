@@ -41,6 +41,7 @@ import (
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/sets"
+	"github.com/abcxyz/pkg/workerpool"
 )
 
 var _ cli.Command = (*DriftStatefilesCommand)(nil)
@@ -56,6 +57,8 @@ const (
         in your GCS bucket.
 
         Re-run drift detection manually once complete to verify all diffs are properly resolved.`
+	// maxConcurrentRequests is the maximum number of concurrent gcs reads to perform at once.
+	maxConcurrentRequests = 10
 )
 
 type DriftStatefilesCommand struct {
@@ -229,11 +232,20 @@ func (c *DriftStatefilesCommand) Process(ctx context.Context) error {
 	// Compare expected vs actual statefiles.
 	statefilesNotInRemote := sets.Subtract(expectedURIs, gotURIs)
 	statefilesNotInLocal := sets.Subtract(gotURIs, expectedURIs)
-	sort.Strings(statefilesNotInRemote)
-	sort.Strings(statefilesNotInLocal)
 
-	changesDetected := len(statefilesNotInRemote) > 0 || len(statefilesNotInLocal) > 0
-	m := driftMessage(statefilesNotInRemote, statefilesNotInLocal)
+	emptyStateFiles, err := c.emptyStateFiles(ctx, statefilesNotInLocal)
+	if err != nil {
+		return fmt.Errorf("failed to find empty statefiles: %w", err)
+	}
+
+	statefilesNotInLocalNotEmpty := sets.Subtract(statefilesNotInLocal, emptyStateFiles)
+
+	sort.Strings(statefilesNotInRemote)
+	sort.Strings(statefilesNotInLocalNotEmpty)
+	sort.Strings(emptyStateFiles)
+
+	changesDetected := len(statefilesNotInRemote) > 0 || len(statefilesNotInLocalNotEmpty) > 0 || len(emptyStateFiles) > 0
+	m := driftMessage(statefilesNotInRemote, statefilesNotInLocalNotEmpty, emptyStateFiles)
 	if changesDetected {
 		c.Outf(m)
 	}
@@ -353,6 +365,52 @@ func (c *DriftStatefilesCommand) actualStatefileUris(ctx context.Context, logger
 	return gotURIs, nil
 }
 
+func (c *DriftStatefilesCommand) emptyStateFiles(ctx context.Context, gcsURIs []string) ([]string, error) {
+	type Resource struct {
+		Empty bool
+		URI   string
+	}
+	w := workerpool.New[*Resource](&workerpool.Config{
+		Concurrency: maxConcurrentRequests,
+		StopOnError: true,
+	})
+	for _, u := range gcsURIs {
+		uri := u
+		if err := w.Do(ctx, func() (*Resource, error) {
+			empty, err := c.terraformParser.StateWithoutResources(ctx, uri)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get determine if state file URI has resources: %w", err)
+			}
+			return &Resource{empty, uri}, nil
+		}); err != nil && !errors.Is(err, workerpool.ErrStopped) {
+			return nil, fmt.Errorf("failed to execute terraform resources task: %w", err)
+		}
+	}
+
+	results, err := w.Done(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute terraform resources tasks in parallel: %w", err)
+	}
+
+	var emptyStateFiles []string
+	var merr error
+	for _, r := range results {
+		if err := r.Error; err != nil {
+			if !errors.Is(err, workerpool.ErrStopped) {
+				merr = errors.Join(merr, fmt.Errorf("failed to execute resource task: %w", err))
+			}
+			continue
+		}
+		if r.Value.Empty {
+			emptyStateFiles = append(emptyStateFiles, r.Value.URI)
+		}
+	}
+	if merr != nil {
+		return nil, fmt.Errorf("failed to execute terraform resource tasks in parallel: %w", merr)
+	}
+	return emptyStateFiles, nil
+}
+
 func Set(values []string) map[string]struct{} {
 	set := make(map[string]struct{})
 	for _, v := range values {
@@ -361,16 +419,22 @@ func Set(values []string) map[string]struct{} {
 	return set
 }
 
-func driftMessage(statefilesNotInRemote, statefilesNotInLocal []string) string {
+func driftMessage(statefilesNotInRemote, statefilesNotInLocal, emptyStatefilesNotInLocal []string) string {
 	var msg strings.Builder
 	if len(statefilesNotInRemote) > 0 {
 		msg.WriteString(fmt.Sprintf("Found state locally that are not in remote \n> %s", strings.Join(statefilesNotInRemote, "\n> ")))
-		if len(statefilesNotInLocal) > 0 {
+		if len(statefilesNotInLocal) > 0 || len(emptyStatefilesNotInLocal) > 0 {
 			msg.WriteString("\n\n")
 		}
 	}
 	if len(statefilesNotInLocal) > 0 {
 		msg.WriteString(fmt.Sprintf("Found statefiles in remote that are not in local \n> %s", strings.Join(statefilesNotInLocal, "\n> ")))
+		if len(emptyStatefilesNotInLocal) > 0 {
+			msg.WriteString("\n\n")
+		}
+	}
+	if len(emptyStatefilesNotInLocal) > 0 {
+		msg.WriteString(fmt.Sprintf("Found empty statefiles in remote that are not in local \n> %s", strings.Join(emptyStatefilesNotInLocal, "\n> ")))
 	}
 	return msg.String()
 }
