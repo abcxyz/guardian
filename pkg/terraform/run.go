@@ -30,10 +30,12 @@ func (t *TerraformClient) Run(ctx context.Context, stdout, stderr io.Writer, sub
 	}
 
 	return child.Run(ctx, &child.RunConfig{ //nolint:wrapcheck
-		Stdout:     stdout,
-		Stderr:     stderr,
-		WorkingDir: t.workingDir,
-		Command:    "terraform",
-		Args:       runArgs,
+		Stdout:         stdout,
+		Stderr:         stderr,
+		WorkingDir:     t.workingDir,
+		Command:        "terraform",
+		Args:           runArgs,
+		AllowedEnvKeys: []string{"*"},
+		DeniedEnvKeys:  []string{"TF_CLI_CONFIG_FILE"},
 	})
 }
