@@ -122,7 +122,7 @@ func environ(osEnv, allowedKeys, deniedKeys, overrideEnv []string) []string {
 	// Select keys that match the allow filter (if given) but not the deny filter.
 	for _, v := range osEnv {
 		k := strings.SplitN(v, "=", 2)[0]
-		if (len(allowedKeys) > 0 && anyGlobMatch(k, allowedKeys)) &&
+		if (len(allowedKeys) == 0 || anyGlobMatch(k, allowedKeys)) &&
 			!anyGlobMatch(k, deniedKeys) {
 			finalEnv = append(finalEnv, v)
 		}

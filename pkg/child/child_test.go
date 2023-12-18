@@ -226,6 +226,14 @@ func TestEnviron(t *testing.T) {
 			exp:         []string{"allowed_key1", "allowed_key2"},
 		},
 		{
+			name:        "admits_osenv_empty",
+			osEnv:       []string{"allowed_key1", "allowed_key2"},
+			allowedKeys: []string{},
+			deniedKeys:  []string{},
+			overrideEnv: []string{},
+			exp:         []string{"allowed_key1", "allowed_key2"},
+		},
+		{
 			name:        "rejects_denied_keys",
 			osEnv:       []string{"denied_key1", "denied_key2"},
 			allowedKeys: []string{},
