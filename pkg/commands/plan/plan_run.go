@@ -109,7 +109,6 @@ func (c *PlanRunCommand) Flags() *cli.FlagSet {
 	f.BoolVar(&cli.BoolVar{
 		Name:    "allow-lockfile-changes",
 		Target:  &c.flagAllowLockfileChanges,
-		Default: true,
 		Example: "true",
 		Usage:   "Allow modification of the Terraform lockfile.",
 	})
