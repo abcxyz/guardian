@@ -112,5 +112,6 @@ of the module, you should include a backend configuration within that directory.
 
 ### Creating Workflows
 
-To use Guardian in your repository, copy over the GitHub workflow YAMLs from the
-`examples` directory into your `.github/workflows` folder.
+To use Guardian in your repository, see the
+[template installation instructions](abc.templates/README.md) in the
+[`abc.templates`](abc.templates) folder.

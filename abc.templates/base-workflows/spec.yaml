@@ -15,15 +15,17 @@
 apiVersion: 'cli.abcxyz.dev/v1alpha1'
 kind: 'Template'
 
-desc: 'Generate the Guardian workflows for the Google Cloud organization Terraform intrastructure repo.'
+desc: 'Generate the default set of Guardian workflows Terraform intrastructure repositories.'
 
 inputs:
   - name: 'terraform_directory'
     desc: 'A sub-directory for all Terraform files'
     default: '.'
   - name: 'terraform_version'
-    desc: 'The terraform version to use with Guardian'
-    default: '1.5.4'
+    desc: 'The Terraform version to use'
+  - name: 'guardian_version'
+    desc: 'The Guardian version to use'
+    default: '0.1.0-beta2'
   - name: 'guardian_wif_provider'
     desc: 'The Google Cloud workload identity federation provider for Guardian'
   - name: 'guardian_service_account'
@@ -37,8 +39,10 @@ steps:
   - desc: 'Include required files and directories'
     action: 'include'
     params:
-      paths: ['contents']
-      as: ['.github/workflows']
+      paths:
+        - 'contents'
+      as:
+        - '.github/workflows'
 
   - desc: 'Replace variables'
     action: 'string_replace'
@@ -50,6 +54,8 @@ steps:
           with: '{{.terraform_directory}}'
         - to_replace: 'REPLACE_TERRAFORM_VERSION'
           with: '{{.terraform_version}}'
+        - to_replace: 'REPLACE_GUARDIAN_VERSION'
+          with: '{{.guardian_version}}'
         - to_replace: 'REPLACE_GUARDIAN_WIF_PROVIDER'
           with: '{{.guardian_wif_provider}}'
         - to_replace: 'REPLACE_GUARDIAN_WIF_SERVICE_ACCOUNT'
