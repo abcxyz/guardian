@@ -8,8 +8,9 @@ Guardian is a Terraform actuation and enforcement tool using GitHub actions.
 
 ## Guardian Features
 
-NOTE: While some features can be used independently, unless otherwise noted, all features have
-been designed to work with GitHub products (e.g. Pull Requests, Issues, Repositories).
+> [!NOTE]
+> While some features can be used independently, unless otherwise noted, all features have
+> been designed to work with GitHub products (e.g. Pull Requests, Issues, Repositories).
 
 * [Terraform Actuation](#terraform-actuation) via Plan, Apply, Run, and Admin cli
 * [IAM Drift Detection](#iam-drift-detection) via IAM drift cli
