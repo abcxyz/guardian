@@ -41,7 +41,10 @@ var (
 	HumanVersion = Name + " " + Version + " (" + Commit + ", " + OSArch + ")"
 
 	// UserAgent is the HTTP user agent string.
-	UserAgent = Name + "/" + Version + "(+https://github.com/abcxyz/guardian)"
+	userAgent string
+	UserAgent = valueOrFallback(userAgent, func() string {
+		return "abcxyz:" + Name + "/" + Version + " (+https://github.com/abcxyz/guardian)"
+	})
 )
 
 func valueOrFallback(val string, fn func() string) string {
