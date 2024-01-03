@@ -8,59 +8,76 @@ Guardian is a Terraform actuation and enforcement tool using GitHub actions.
 
 ## Guardian Features
 
-* Terraform Actuation via Plan, Apply, Run, and Admin cli
-  * Show terraform plans and applies, including outputs, in GitHub comments on Pull Requests.
-  * Determine all terraform entrypoints (e.g. where your terraform backend configurations are)
-    in your repository and plan/apply for each entrypoint.
-  * Automatically detect changes and only plan/apply entrypoints that have changed.
-  * Ensures terraform plans are always up to date via native GitHub functionality.
-  * Designed to be a drop-in replacement for terraform enterprise.
-  * Compatible with any version of terraform. 
-  * For more details, see [Developer Workflow](#developer-workflow).
-* IAM Drift Detection via IAM drift cli
-  * Compatible with GCP.
-  * Determines if there is any drift between your real IAM for GCP Org, Folders,
-    Projects and your terraform states.
-  * Generates a GitHub issue if a drift is detected.
-  * This issue will have any identified click-ops changes as well as changes described
-    in terraform that are missing from your actual GCP IAM.
-* Statefile Drift Detection via statefile drift cli
-  * Compatible with GCP.
-  * Determines if there are any terraform state files stored in remote state locations
-    (GCS buckets) that are not represented in your terraform repositories.
-  * This is especially useful when paired with IAM Drift Detection as you may encounter
-    leftover state files that are no longer used that contain IAM resources. These IAM resources
-    will falsely indicate a drift.
-  * Generates a GitHub issue if a drift is detected.
-  * This issue will have any identify state files that are
-    1. Described in your GitHub repositories that are missing in your remote state locations.
-    2. In remote state locations but missing from your GitHub repositories.
-    3. Empty (contains no resources and can be safely deleted) and not described in your GitHub repositories.
+NOTE: While some features can be used independently, unless otherwise noted, all features have
+been designed to work with GitHub products (e.g. Pull Requests, Issues, Repositories).
+
+* [Terraform Actuation](#terraform-actuation) via Plan, Apply, Run, and Admin cli
+* [IAM Drift Detection](#iam-drift-detection) via IAM drift cli
+* [Statefile Drift Detection](#statefile-drift-detection) via statefile drift cli
+
+### Terraform Actuation
+
+* Show Terraform plans and applies, including outputs, in GitHub comments on Pull Requests.
+* Determines all Terraform entrypoints (e.g. where your Terraform backend configurations are)
+  in your repository and plan/apply for each entrypoint.
+* Automatically detect changes and only plan/apply entrypoints that have changed.
+* Ensures Terraform plans are always up to date via native GitHub functionality.
+* Designed to work with any of your terraform configurations.
+* Compatible with any version of Terraform.
+* Support for administrative functionality such as one-off `state rm` or `terraform apply` commands.
+* For more details on the user experience for an engineer developing terraform,
+  see [Developer Workflow](#developer-workflow).
+* For more details on the admin experience, see [Guardian Admin](#guardian-admin).
+
+### IAM Drift Detection
+
+* Compatible with Google Cloud Platform.
+* Determines if there is any drift between your real IAM for Google Cloud Platform Org, Folders,
+  Projects and your Terraform states.
+* Generates a GitHub issue if a drift is detected.
+* This issue will contain any identified click-ops changes as well as changes described
+  in Terraform that are missing from your actual Google Cloud Platform IAM.
+* Consider using in conjunction with [Statefile Drift Detection](#statefile-drift-detection)
+  in order to locate outdated terraform state files that may incorrectly yield IAM drift.
+
+### Statefile Drift Detection
+
+* Compatible with Google Cloud Platform.
+* Determines if there are any Terraform state files stored in remote state locations
+  (GCS buckets) that are not represented in your Terraform repositories.
+* This is especially useful when paired with IAM Drift Detection as you may encounter
+  leftover state files that are no longer used that contain IAM resources. These IAM resources
+  will falsely indicate a drift.
+* Generates a GitHub issue if a drift is detected.
+* This issue will contain any identified state files that are
+  1. Described in your GitHub repositories that are missing in your remote state locations.
+  2. In remote state locations but missing from your GitHub repositories.
+  3. Empty (contains no resources and can be safely deleted) and not described in your GitHub repositories.
 
 ## Guardian Terraform Best Practices
 
-* Design your terraform to have many small terraform entrypoints. This will result
-  in small terraform state files - large terraform states are an anti-pattern as they
+* Design your Terraform to have many small Terraform entrypoints. This will result
+  in small Terraform state files - large Terraform states are an anti-pattern as they
   take a long time to plan/apply, are difficult to refactor, and broken applies can result
   in blocking all future work.
 * Limit use of remote state. Remote state can be especially attractive when using many
-  smaller terraform entrypoints as it permits you to share configuration across entrypoints.
+  smaller Terraform entrypoints as it permits you to share configuration across entrypoints.
   However, remote state adds a lot of complexity to determining how your state should be
   planned/applied (e.g. updating entrypoint state A which is used in entrypoint state B
   means two separate applies - which puts the burden on the user to figure out how to
   manage this operation).
 * If you are going to rely on remote state, try to use state that is relatively static.
   For example, a good candidate for remote state would be if you have some initial
-  resources that need to be setup once and rarely change (e.g. Configuring a GCP Org).
+  resources that need to be setup once and rarely change (e.g. Configuring a Google Cloud Platform Org).
 
 ## Developer workflow
 
-- Create a PR to propose terraform changes
+- Create a PR to propose Terraform changes
 - Guardian will run `terraform plan` for the configured working directories and
   will create a pull request comment with the plan diff for easy review
 
   - Guardian will store the plan file remotely in a Google Cloud Storage bucket,
-    with a unique prefix per pull request, per terraform working directory:
+    with a unique prefix per pull request, per Terraform working directory:
 
     `gs://<BUCKET_NAME>/guardian-plans/<OWNER>/<REPO>/<PR_NUMBER>/<TERRAFORM_WORKING_DIRECTORY_PATH>/tfplan.binary`
 
@@ -77,7 +94,7 @@ Guardian is a Terraform actuation and enforcement tool using GitHub actions.
 - Regardless of success or failure of apply, Guardian will delete all plan files
   - If the apply fails:
     - Another PR should be submitted to fix the failed state for the environment
-    - A repostiory admin can run the Guardian Admin workflow to run terraform
+    - A repository admin can run the Guardian Admin workflow to run Terraform
       commands to fix the state, e.g. via `terraform apply`
 
 ### Guardian Admin
@@ -91,7 +108,7 @@ scenarios with Terraform.
 - Click the `Run workflow` drop down in the top right area
 - Fill out the inputs
   - BRANCH: Only works from the default branch e.g. `main`
-  - COMMAND: The terraform command to run e.g.
+  - COMMAND: The Terraform command to run e.g.
     `apply -input=false -auto-approve`
 
 ## Security
