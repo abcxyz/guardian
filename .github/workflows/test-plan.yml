@@ -109,7 +109,7 @@ jobs:
           requested_permissions: '{"repositories":["*"],"permissions":{"contents":"read"}}'
 
       - name: 'Authenticate to Google Cloud'
-        uses: 'google-github-actions/auth@35b0e87d162680511bf346c299f71c9c5c379033' # ratchet:google-github-actions/auth@v1
+        uses: 'google-github-actions/auth@67e9c72af6e0492df856527b474995862b7b6591' # ratchet:google-github-actions/auth@v2
         with:
           workload_identity_provider: '${{ env.GUARDIAN_WIF_PROVIDER }}'
           service_account: '${{ env.GUARDIAN_WIF_SERVICE_ACCOUNT }}'
@@ -126,7 +126,7 @@ jobs:
         with:
           working_directory: '${{ matrix.working_directory }}'
           bucket_name: '${{ env.GUARDIAN_BUCKET_NAME }}'
-          terraform_version: '1.6.1'
+          terraform_version: '1.6.6'
 
       - name: 'Print Plan Output'
         shell: 'bash'
