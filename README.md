@@ -6,6 +6,53 @@ Guardian is a Terraform actuation and enforcement tool using GitHub actions.
 
 **This is not an official Google product.**
 
+## Guardian Features
+
+* Terraform Actuation via Plan, Apply, Run, and Admin cli
+  * Show terraform plans and applies, including outputs, in GitHub comments on Pull Requests.
+  * Determine all terraform entrypoints (e.g. where your terraform backend configurations are)
+    in your repository and plan/apply for each entrypoint.
+  * Automatically detect changes and only plan/apply entrypoints that have changed.
+  * Ensures terraform plans are always up to date via native GitHub functionality.
+  * Designed to be a drop-in replacement for terraform enterprise.
+  * Compatible with any version of terraform. 
+  * For more details, see [Developer Workflow](#developer-workflow).
+* IAM Drift Detection via IAM drift cli
+  * Compatible with GCP.
+  * Determines if there is any drift between your real IAM for GCP Org, Folders,
+    Projects and your terraform states.
+  * Generates a GitHub issue if a drift is detected.
+  * This issue will have any identified click-ops changes as well as changes described
+    in terraform that are missing from your actual GCP IAM.
+* Statefile Drift Detection via statefile drift cli
+  * Compatible with GCP.
+  * Determines if there are any terraform state files stored in remote state locations
+    (GCS buckets) that are not represented in your terraform repositories.
+  * This is especially useful when paired with IAM Drift Detection as you may encounter
+    leftover state files that are no longer used that contain IAM resources. These IAM resources
+    will falsely indicate a drift.
+  * Generates a GitHub issue if a drift is detected.
+  * This issue will have any identify state files that are
+    1. Described in your GitHub repositories that are missing in your remote state locations.
+    2. In remote state locations but missing from your GitHub repositories.
+    3. Empty (contains no resources and can be safely deleted) and not described in your GitHub repositories.
+
+## Guardian Terraform Best Practices
+
+* Design your terraform to have many small terraform entrypoints. This will result
+  in small terraform state files - large terraform states are an anti-pattern as they
+  take a long time to plan/apply, are difficult to refactor, and broken applies can result
+  in blocking all future work.
+* Limit use of remote state. Remote state can be especially attractive when using many
+  smaller terraform entrypoints as it permits you to share configuration across entrypoints.
+  However, remote state adds a lot of complexity to determining how your state should be
+  planned/applied (e.g. updating entrypoint state A which is used in entrypoint state B
+  means two separate applies - which puts the burden on the user to figure out how to
+  manage this operation).
+* If you are going to rely on remote state, try to use state that is relatively static.
+  For example, a good candidate for remote state would be if you have some initial
+  resources that need to be setup once and rarely change (e.g. Configuring a GCP Org).
+
 ## Developer workflow
 
 - Create a PR to propose terraform changes
