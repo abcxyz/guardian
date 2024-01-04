@@ -204,7 +204,8 @@ The actor that runs this command must have:
 Also supports [GitHub Options](#github-options).
 
 * **-driftignore-file=".driftignore"** - The driftignore file to use which contains
-  values to ignore. The default value is ".driftignore".
+  values to ignore. The default value is ".driftignore". See
+  [Using driftignore](#using-driftignore) for more details.
 * **-gcs-bucket-query="labels.terraform:*"** - The label to use to find GCS buckets
   with Terraform statefiles.
 * **-max-conncurrent-requests="10"** - The maximum number of concurrent requests
@@ -219,6 +220,41 @@ Also supports [GitHub Options](#github-options).
   GitHub Issues.
 * **-skip-github-issue** - Whether or not to create a GitHub Issue when a drift is
   detected. The default value is "false".
+
+### Using driftignore
+
+With a `.driftignore` file you can define iam resources that you do not want to be
+alerted for. This is especially useful for resources that are configured outside
+of terraform. Put this file at the root of your repository or indicate its location
+using the `-driftignore-file` option.
+
+#### Supported syntax:
+
+Each line in your `.driftignore` file can contain one of the following
+
+* `/organizations/{number}/projects/{name-or-number}` - Ignores all IAM for this
+  GCP project.
+* `/organizations/{number}/folders/{number}` - Ignores all IAM for this GCP folder
+  and all folders and projects beneath it.
+* `/roles/{role}/{member}` - Ignores all IAM in any GCP project, folder, or org
+  that matches this role & membership pair.
+* `{iam-uri}` - The full IAM uri as shown in the generated IAM drift GitHub issue.
+
+#### Example driftignore
+
+```
+# Ignore the 555555555567 folder because it is a customer tenant folder managed by a service
+/organizations/555555555555/folders/555555555567
+# my-service-account SA is the owner by default of every project because it creates all projects
+/roles/owner/serviceAccount:my-service-account@some-project.iam.gserviceaccount.com
+# my-service-account SA is the owner by default of every project because it creates all projects
+/roles/resourcemanager.folderAdmin/serviceAccount:my-service-account@some-project.iam.gserviceaccount.com
+/roles/resourcemanager.folderEditor/serviceAccount:my-service-account@some-project.iam.gserviceaccount.com
+# Project that doesn't use terraform
+/organizations/555555555555/projects/my-click-ops-project
+# Ignore this particular IAM resource
+/organizations/555555555555/projects/some-project/roles/storage.admin/user:me@google.com
+```
 
 ## Drift Statefiles
 
