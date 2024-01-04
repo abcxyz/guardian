@@ -9,7 +9,7 @@ Guardian is a Terraform actuation and enforcement tool using GitHub actions.
 ## Guardian CLI
 
 This is the underlying tool written in Golang that is enables all features. For more
-details and to understand how to use the cli see [Gaurdian CLI](./cli.md).
+details and to understand how to use the cli see [Guardian CLI](./cli.md).
 
 ## Guardian Features
 
