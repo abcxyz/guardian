@@ -31,9 +31,21 @@ details and to understand how to use the cli see [Guardian CLI](./cli.md).
 * Designed to work with any of your terraform configurations.
 * Compatible with any version of Terraform.
 * Support for administrative functionality such as one-off `state rm` or `terraform apply` commands.
-* For more details on the user experience for an engineer developing terraform,
-  see [Developer Workflow](#developer-workflow).
-* For more details on the admin experience, see [Guardian Admin](#guardian-admin).
+
+For more details on the user experience for an engineer developing terraform,
+see [Developer Workflow](#developer-workflow). For more details on the admin
+experience, see [Guardian Admin](#guardian-admin).
+
+For more details on how to use the Guardian CLI for terraform actuation see the relevant
+CLI doc:
+
+* [Plan Run CLI Docs](./cli.md#plan-run)
+* [Apply Run CLI Docs](./cli.md#apply-run)
+* [Run CLI Docs](./cli.md#run)
+* [Entrypoints CLI Docs](./cli.md#entrypoints)
+
+You can get started with using Guardian for terraform actuation by
+[Creating the Terraform Actuation GitHub Workflows](#creating-terraform-actuation-workflows).
 
 ### IAM Drift Detection
 
@@ -43,8 +55,16 @@ details and to understand how to use the cli see [Guardian CLI](./cli.md).
 * Generates a GitHub issue if a drift is detected.
 * This issue will contain any identified click-ops changes as well as changes described
   in Terraform that are missing from your actual Google Cloud Platform IAM.
-* Consider using in conjunction with [Statefile Drift Detection](#statefile-drift-detection)
-  in order to locate outdated terraform state files that may incorrectly yield IAM drift.
+
+For more information on using iam drift detection see the
+[IAM Drift CLI Docs](./cli.md#iam-detect-drift).
+
+You can get started with using Guardian for drift detection by
+[Creating the Drift Detection GitHub Workflows](#creating-drift-detection-workflows).
+
+> [!TIP]
+> Consider using in conjunction with [Statefile Drift Detection](#statefile-drift-detection)
+> in order to locate outdated terraform state files that may incorrectly yield IAM drift.
 
 ### Statefile Drift Detection
 
@@ -59,6 +79,12 @@ details and to understand how to use the cli see [Guardian CLI](./cli.md).
   1. Described in your GitHub repositories that are missing in your remote state locations.
   2. In remote state locations but missing from your GitHub repositories.
   3. Empty (contains no resources and can be safely deleted) and not described in your GitHub repositories.
+
+For more information on using statefile drift detection see the
+[Statefile Drift CLI Docs](./cli.md#drift-statefiles).
+
+You can get started with using Guardian for drift detection by
+[Creating the Drift Detection GitHub Workflows](#creating-drift-detection-workflows).
 
 ## Guardian Terraform Best Practices
 
@@ -180,8 +206,14 @@ This means if you add a new folder and you want Guardian to run the
 `terraform plan` and `terraform apply` commands from that directory as the root
 of the module, you should include a backend configuration within that directory.
 
-### Creating Workflows
+### Creating Terraform Actuation Workflows
 
 To use Guardian in your repository, see the
-[template installation instructions](abc.templates/README.md) in the
-[`abc.templates`](abc.templates) folder.
+[template installation instructions](abc.templates/README.md#install-terraform-actuation-workflows)
+in the [`abc.templates`](abc.templates) folder.
+
+### Creating Drift Detection Workflows
+
+To use Guardian drift detection in your repository, see the
+[template installation instructions](abc.templates/README.md#install-drift-detection-workflows)
+in the [`abc.templates`](abc.templates) folder.
