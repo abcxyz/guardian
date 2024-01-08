@@ -69,8 +69,8 @@ jobs:
         id: 'dirs'
         shell: 'bash'
         env:
-          SOURCE_REF: 'origin/${{ github.event.pull_request.base.sha }}'
-          DEST_REF: 'origin/${{ github.event.pull_request.head.sha }}'
+          SOURCE_REF: '${{ github.event.pull_request.base.sha }}'
+          DEST_REF: '${{ github.event.pull_request.head.sha }}'
         run: |-
           DIRECTORIES=$(guardian entrypoints -detect-changes -source-ref="${SOURCE_REF}" -dest-ref="${DEST_REF}" -format=json ./REPLACE_TERRAFORM_DIRECTORY)
           echo "entrypoints -> ${DIRECTORIES}"
