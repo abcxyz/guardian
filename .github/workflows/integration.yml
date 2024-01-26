@@ -74,7 +74,7 @@ jobs:
           SOURCE_REF: '${{ github.event.pull_request.base.sha }}'
           DEST_REF: '${{ github.event.pull_request.head.sha }}'
         run: |-
-          DIRECTORIES=$(guardian entrypoints -format=json ./.)
+          DIRECTORIES=$(guardian entrypoints -format=json ./terraform)
           echo "entrypoints -> ${DIRECTORIES}"
           echo "directories=${DIRECTORIES}" >> $GITHUB_OUTPUT
 
