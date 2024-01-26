@@ -15,7 +15,6 @@
 locals {
   project_id = "guardian-i-50"
   name       = "test-change-1"
-  foo        = "bar"
 }
 
 data "github_repository" "infra" {
