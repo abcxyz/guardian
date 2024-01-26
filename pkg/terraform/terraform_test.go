@@ -183,19 +183,19 @@ func TestHasBackendConfig(t *testing.T) {
 	}{
 		{
 			name: "has_backend",
-			file: "../../terraform/terraform.tf", // depend on test data in [REPO_ROOT]/terraform
+			file: "testdata/terraform.tf", // depend on test data in [REPO_ROOT]/terraform
 			exp:  true,
 		},
 		{
 			name: "no_backend",
-			file: "../../terraform/main.tf", // depend on test data in [REPO_ROOT]/terraform
+			file: "testdata/main.tf", // depend on test data in [REPO_ROOT]/terraform
 			exp:  false,
 		},
 		{
 			name: "missing_file",
-			file: "../../terraform/missing.tf", // depend on test data in [REPO_ROOT]/terraform
+			file: "testdata/missing.tf", // depend on test data in [REPO_ROOT]/terraform
 			exp:  false,
-			err:  "failed to read file: ../../terraform/missing.tf",
+			err:  "failed to read file: testdata/missing.tf",
 		},
 	}
 
@@ -228,19 +228,19 @@ func TestExtractBackendConfig(t *testing.T) {
 	}{
 		{
 			name: "has_backend",
-			file: "../../terraform/terraform.tf", // depend on test data in [REPO_ROOT]/terraform
+			file: "testdata/terraform.tf", // depend on test data in [REPO_ROOT]/terraform
 			want: &TerraformBackendConfig{GCSBucket: util.Ptr("guardian-ci-i-terraform-state-c79e1f4759"), Prefix: util.Ptr("state/test")},
 		},
 		{
 			name: "no_backend",
-			file: "../../terraform/main.tf", // depend on test data in [REPO_ROOT]/terraform
+			file: "testdata/main.tf", // depend on test data in [REPO_ROOT]/terraform
 			want: nil,
 		},
 		{
 			name: "missing_file",
-			file: "../../terraform/missing.tf", // depend on test data in [REPO_ROOT]/terraform
+			file: "testdata/missing.tf", // depend on test data in [REPO_ROOT]/terraform
 			want: nil,
-			err:  "failed to read file: open ../../terraform/missing.tf: no such file or directory",
+			err:  "failed to read file: open testdata/missing.tf: no such file or directory",
 		},
 	}
 

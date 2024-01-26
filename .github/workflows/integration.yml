@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: 'test_guardian_plan'
+name: 'integration'
 
 on:
   # pull_request_target: # removed pull_request_target to allow for testing of guardian within the guardian repository
@@ -74,7 +74,7 @@ jobs:
           SOURCE_REF: '${{ github.event.pull_request.base.sha }}'
           DEST_REF: '${{ github.event.pull_request.head.sha }}'
         run: |-
-          DIRECTORIES=$(guardian entrypoints -detect-changes -source-ref="${SOURCE_REF}" -dest-ref="${DEST_REF}" -format=json ./.)
+          DIRECTORIES=$(guardian entrypoints -format=json ./terraform)
           echo "entrypoints -> ${DIRECTORIES}"
           echo "directories=${DIRECTORIES}" >> $GITHUB_OUTPUT
 
@@ -92,8 +92,6 @@ jobs:
 
 
   plan:
-    if: |
-      needs.init.outputs.directories != '[]'
     needs:
       - 'init'
     runs-on: 'ubuntu-latest'
@@ -151,7 +149,6 @@ jobs:
           "${DIRECTORY}"
 
   plan_success:
-    if: '${{ always() }}'
     runs-on: 'ubuntu-latest'
     needs:
       - 'init'
@@ -187,3 +184,71 @@ jobs:
           -pull-request-number="${PULL_REQUEST_NUMBER}" \
           -init-result="${{ needs.init.result }}" \
           -plan-result="${{ needs.plan.result }}"
+
+  apply:
+    needs:
+      - 'init'
+      - 'plan'
+      - 'plan_success'
+    runs-on: 'ubuntu-latest'
+    strategy:
+      fail-fast: false
+      max-parallel: 100
+      matrix:
+        working_directory: '${{ fromJSON(needs.init.outputs.directories) }}'
+    steps:
+      - name: 'Checkout'
+        uses: 'actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11' # ratchet:actions/checkout@v4
+
+      - name: 'Authenticate to Google Cloud'
+        uses: 'google-github-actions/auth@67e9c72af6e0492df856527b474995862b7b6591' # ratchet:google-github-actions/auth@v2
+        with:
+          workload_identity_provider: '${{ env.GUARDIAN_WIF_PROVIDER }}'
+          service_account: '${{ env.GUARDIAN_WIF_SERVICE_ACCOUNT }}'
+
+      - name: 'Setup Terraform'
+        uses: 'abcxyz/secure-setup-terraform@4d361110d3718e05b118be20051ba2855a2cc9e1' # ratchet:abcxyz/secure-setup-terraform@main
+        with:
+          terraform_version: '${{ env.GUARDIAN_TERRAFORM_VERSION }}'
+          terraform_module_location: './${{ matrix.working_directory }}'
+          terraform_lockfile_location: './${{ matrix.working_directory }}'
+          protect_lockfile: true
+          terraform_wrapper: false
+
+      - name: 'Setup Go'
+        uses: 'actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568' # ratchet:actions/setup-go@v3
+        with:
+          go-version: '1.21'
+
+      - name: 'Build Guardian Binary'
+        env:
+          INSTALL_PATH: '${{ runner.temp }}/.guardian'
+        run: |-
+          go build -o ${INSTALL_PATH}/guardian cmd/guardian/main.go
+          echo "${INSTALL_PATH}" >> $GITHUB_PATH
+
+      - name: 'Guardian Apply'
+        shell: 'bash'
+        env:
+          DIRECTORY: '${{ matrix.working_directory }}'
+          COMMIT_SHA: '${{ github.sha }}'
+          # used to create comments on pull requests (access to only this repo)
+          REPO_TOKEN: '${{ github.token }}'
+        run: |-
+          guardian apply run \
+          -github-owner="${GITHUB_OWNER_NAME}" \
+          -github-repo="${GITHUB_REPO_NAME}" \
+          -github-token="${REPO_TOKEN}" \
+          -pull-request-number="${PULL_REQUEST_NUMBER}" \
+          -bucket-name="${GUARDIAN_BUCKET_NAME}" \
+          "${DIRECTORY}"
+
+      - name: 'Guardian Destroy'
+        env:
+          DIRECTORY: '${{ matrix.working_directory }}'
+        shell: 'bash'
+        run: |-
+          guardian run \
+          -terraform-command="destroy" \
+          -terraform-args="-input=false,-auto-approve" \
+          "${DIRECTORY}"
