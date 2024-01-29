@@ -318,11 +318,14 @@ func (c *PlanRunCommand) terraformPlan(ctx context.Context) (*RunResult, error) 
 			Check:     util.Ptr(true),
 			Diff:      util.Ptr(true),
 			Recursive: util.Ptr(true),
+			NoColor:   util.Ptr(true),
 		})
 		return err //nolint:wrapcheck // Want passthrough
 	}); err != nil {
 		return &RunResult{commentDetails: stderr.String()}, fmt.Errorf("failed to check formatting: %w", err)
 	}
+
+	stderr.Reset()
 
 	lockfileMode := "none"
 	if !c.flagAllowLockfileChanges {
