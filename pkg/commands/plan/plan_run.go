@@ -280,10 +280,10 @@ func (c *PlanRunCommand) updateResultCommentForActions(ctx context.Context, star
 
 	if result.hasChanges || resultErr != nil {
 		var comment strings.Builder
-		if result.hasChanges {
-			fmt.Fprintf(&comment, "%s 🟩 Successful for dir: `%s` %s", CommentPrefix, c.childPath, c.gitHubLogURL)
-		} else if resultErr != nil {
+		if resultErr != nil {
 			fmt.Fprintf(&comment, "%s 🟥 Failed for dir: `%s` %s\n\n<details>\n<summary>Error</summary>\n\n```\n\n%s\n```\n</details>", CommentPrefix, c.childPath, c.gitHubLogURL, resultErr)
+		} else if result.hasChanges {
+			fmt.Fprintf(&comment, "%s 🟩 Successful for dir: `%s` %s", CommentPrefix, c.childPath, c.gitHubLogURL)
 		}
 		if result.commentDetails != "" {
 			fmt.Fprintf(&comment, "\n\n<details>\n<summary>Details</summary>\n\n```diff\n\n%s\n```\n</details>", result.commentDetails)
