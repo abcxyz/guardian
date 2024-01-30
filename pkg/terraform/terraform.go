@@ -51,21 +51,22 @@ var (
 // InitRequiredCommands are the Terraform commands that
 // require terraform init to be run first.
 var InitRequiredCommands = map[string]struct{}{
-	"validate":  {},
-	"plan":      {},
-	"apply":     {},
-	"destroy":   {},
-	"console":   {},
-	"graph":     {},
-	"import":    {},
-	"output":    {},
-	"providers": {},
-	"refresh":   {},
-	"show":      {},
-	"state":     {},
-	"taint":     {},
-	"untaint":   {},
-	"workspace": {},
+	"validate":     {},
+	"plan":         {},
+	"apply":        {},
+	"destroy":      {},
+	"console":      {},
+	"graph":        {},
+	"import":       {},
+	"output":       {},
+	"providers":    {},
+	"refresh":      {},
+	"show":         {},
+	"state":        {},
+	"taint":        {},
+	"untaint":      {},
+	"workspace":    {},
+	"force-unlock": {},
 }
 
 var _ Terraform = (*TerraformClient)(nil)
