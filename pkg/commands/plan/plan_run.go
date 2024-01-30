@@ -38,7 +38,10 @@ import (
 	"github.com/abcxyz/pkg/logging"
 )
 
-const CommentPrefix = "**`🔱 Guardian 🔱 PLAN`** -"
+const (
+	CommentPrefix          = "**`🔱 Guardian 🔱 PLAN`** -"
+	gitHubMaxCommentLength = 65536
+)
 
 var _ cli.Command = (*PlanRunCommand)(nil)
 
@@ -276,20 +279,7 @@ func (c *PlanRunCommand) updateResultCommentForActions(ctx context.Context, star
 	}
 
 	c.Outf("Updating result comment")
-	msgBody := fmt.Sprintf("%s 🟦 No changes for dir: `%s` %s", CommentPrefix, c.childPath, c.gitHubLogURL)
-
-	if result.hasChanges || resultErr != nil {
-		var comment strings.Builder
-		if resultErr != nil {
-			fmt.Fprintf(&comment, "%s 🟥 Failed for dir: `%s` %s\n\n<details>\n<summary>Error</summary>\n\n```\n\n%s\n```\n</details>", CommentPrefix, c.childPath, c.gitHubLogURL, resultErr)
-		} else if result.hasChanges {
-			fmt.Fprintf(&comment, "%s 🟩 Successful for dir: `%s` %s", CommentPrefix, c.childPath, c.gitHubLogURL)
-		}
-		if result.commentDetails != "" {
-			fmt.Fprintf(&comment, "\n\n<details>\n<summary>Details</summary>\n\n```diff\n\n%s\n```\n</details>", result.commentDetails)
-		}
-		msgBody = comment.String()
-	}
+	msgBody := c.getMessageBody(result, resultErr)
 
 	if err := c.gitHubClient.UpdateIssueComment(
 		ctx,
@@ -302,6 +292,41 @@ func (c *PlanRunCommand) updateResultCommentForActions(ctx context.Context, star
 	}
 
 	return nil
+}
+
+func (c *PlanRunCommand) getMessageBody(result *RunResult, resultErr error) string {
+	msgBody := fmt.Sprintf("%s 🟦 No changes for dir: `%s` %s", CommentPrefix, c.childPath, c.gitHubLogURL)
+
+	if result.hasChanges || resultErr != nil {
+		var comment strings.Builder
+		if resultErr != nil {
+			fmt.Fprintf(&comment, "%s 🟥 Failed for dir: `%s` %s\n\n<details>\n<summary>Error</summary>\n\n```\n\n%s\n```\n</details>", CommentPrefix, c.childPath, c.gitHubLogURL, resultErr)
+		} else if result.hasChanges {
+			fmt.Fprintf(&comment, "%s 🟩 Successful for dir: `%s` %s", CommentPrefix, c.childPath, c.gitHubLogURL)
+		}
+		if result.commentDetails != "" {
+			// Ensure the comment is not over GitHub's limit. We need to account for the surrounding characters we will
+			// be adding in addition to the length of result.commentDetails.
+			fmtString := "\n\n<details>\n<summary>Details</summary>\n\n```diff\n\n%s\n```\n</details>"
+			truncationMsg := []rune("\n\nMessage has been truncated. See workflow logs to view the full message.")
+			ellipses := []rune("...")
+			cappedLength := gitHubMaxCommentLength - len(ellipses) - len(truncationMsg) - len([]rune(comment.String())) - len([]rune(fmtString)) + 2
+			truncated := false
+			if len([]rune(result.commentDetails)) > cappedLength {
+				runes := []rune(result.commentDetails)[:cappedLength]
+				runes = append(runes, ellipses...)
+				result.commentDetails = string(runes)
+				truncated = true
+			}
+			fmt.Fprintf(&comment, fmtString, result.commentDetails)
+			if truncated {
+				fmt.Fprint(&comment, string(truncationMsg))
+			}
+		}
+		msgBody = comment.String()
+	}
+
+	return msgBody
 }
 
 // terraformPlan runs the required Terraform commands for a full run of
