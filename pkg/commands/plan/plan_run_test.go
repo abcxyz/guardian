@@ -433,7 +433,7 @@ func TestGetMessageBody(t *testing.T) {
 				commentDetails: bigMessage,
 			},
 			resultErr: nil,
-			want:      fmt.Sprintf("**`🔱 Guardian 🔱 PLAN`** - 🟩 Successful for dir: `foo` http://github.com/logs\n\n<details>\n<summary>Details</summary>\n\n```diff\n\n%s...\n\nMessage has been truncated. See workflow logs to view the full message.\n```\n</details>", bigMessage[:gitHubMaxCommentLength-216]),
+			want:      fmt.Sprintf("**`🔱 Guardian 🔱 PLAN`** - 🟩 Successful for dir: `foo` http://github.com/logs\n\n<details>\n<summary>Details</summary>\n\n```diff\n\n%s...\n```\n</details>\n\nMessage has been truncated. See workflow logs to view the full message.", bigMessage[:gitHubMaxCommentLength-216]),
 		},
 	}
 
