@@ -267,7 +267,7 @@ func (c *PlanRunCommand) createStartCommentForActions(ctx context.Context) (*git
 	return startComment, nil
 }
 
-func (c *PlanRunCommand) updateResultCommentForActions(ctx context.Context, startComment *github.IssueComment, result *RunResult, resulErr error) error {
+func (c *PlanRunCommand) updateResultCommentForActions(ctx context.Context, startComment *github.IssueComment, result *RunResult, resultErr error) error {
 	logger := logging.FromContext(ctx)
 
 	if !c.GitHubFlags.FlagIsGitHubActions {
@@ -276,47 +276,19 @@ func (c *PlanRunCommand) updateResultCommentForActions(ctx context.Context, star
 	}
 
 	c.Outf("Updating result comment")
+	msgBody := fmt.Sprintf("%s 🟦 No changes for dir: `%s` %s", CommentPrefix, c.childPath, c.gitHubLogURL)
 
-	if resulErr != nil {
+	if result.hasChanges || resultErr != nil {
 		var comment strings.Builder
-
-		fmt.Fprintf(&comment, "%s 🟥 Failed for dir: `%s` %s\n\n<details>\n<summary>Error</summary>\n\n```\n\n%s\n```\n</details>", CommentPrefix, c.childPath, c.gitHubLogURL, resulErr)
+		if resultErr != nil {
+			fmt.Fprintf(&comment, "%s 🟥 Failed for dir: `%s` %s\n\n<details>\n<summary>Error</summary>\n\n```\n\n%s\n```\n</details>", CommentPrefix, c.childPath, c.gitHubLogURL, resultErr)
+		} else if result.hasChanges {
+			fmt.Fprintf(&comment, "%s 🟩 Successful for dir: `%s` %s", CommentPrefix, c.childPath, c.gitHubLogURL)
+		}
 		if result.commentDetails != "" {
 			fmt.Fprintf(&comment, "\n\n<details>\n<summary>Details</summary>\n\n```diff\n\n%s\n```\n</details>", result.commentDetails)
 		}
-
-		if err := c.gitHubClient.UpdateIssueComment(
-			ctx,
-			c.GitHubFlags.FlagGitHubOwner,
-			c.GitHubFlags.FlagGitHubRepo,
-			startComment.ID,
-			comment.String(),
-		); err != nil {
-			return fmt.Errorf("failed to update plan error comment: %w", err)
-		}
-
-		return nil
-	}
-
-	if result.hasChanges {
-		var comment strings.Builder
-
-		fmt.Fprintf(&comment, "%s 🟩 Successful for dir: `%s` %s", CommentPrefix, c.childPath, c.gitHubLogURL)
-		if result.commentDetails != "" {
-			fmt.Fprintf(&comment, "\n\n<details>\n<summary>Details</summary>\n\n```diff\n\n%s\n```\n</details>", result.commentDetails)
-		}
-
-		if commentErr := c.gitHubClient.UpdateIssueComment(
-			ctx,
-			c.GitHubFlags.FlagGitHubOwner,
-			c.GitHubFlags.FlagGitHubRepo,
-			startComment.ID,
-			comment.String(),
-		); commentErr != nil {
-			return fmt.Errorf("failed to create plan comment: %w", commentErr)
-		}
-
-		return nil
+		msgBody = comment.String()
 	}
 
 	if err := c.gitHubClient.UpdateIssueComment(
@@ -324,7 +296,7 @@ func (c *PlanRunCommand) updateResultCommentForActions(ctx context.Context, star
 		c.GitHubFlags.FlagGitHubOwner,
 		c.GitHubFlags.FlagGitHubRepo,
 		startComment.ID,
-		fmt.Sprintf("%s 🟦 No changes for dir: `%s` %s", CommentPrefix, c.childPath, c.gitHubLogURL),
+		msgBody,
 	); err != nil {
 		return fmt.Errorf("failed to update plan comment: %w", err)
 	}
@@ -346,11 +318,14 @@ func (c *PlanRunCommand) terraformPlan(ctx context.Context) (*RunResult, error) 
 			Check:     util.Ptr(true),
 			Diff:      util.Ptr(true),
 			Recursive: util.Ptr(true),
+			NoColor:   util.Ptr(true),
 		})
 		return err //nolint:wrapcheck // Want passthrough
 	}); err != nil {
 		return &RunResult{commentDetails: stderr.String()}, fmt.Errorf("failed to check formatting: %w", err)
 	}
+
+	stderr.Reset()
 
 	lockfileMode := "none"
 	if !c.flagAllowLockfileChanges {
