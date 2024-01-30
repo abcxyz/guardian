@@ -21,6 +21,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/sethvargo/go-githubactions"
@@ -370,4 +371,91 @@ func TestPlan_Process(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGetMessageBody(t *testing.T) {
+	t.Parallel()
+	bigMessage := messageOverLimit()
+	cases := []struct {
+		name      string
+		cmd       *PlanRunCommand
+		result    *RunResult
+		resultErr error
+		want      string
+	}{
+		{
+			name: "result_success",
+			cmd: &PlanRunCommand{
+				childPath:    "foo",
+				gitHubLogURL: "http://github.com/logs",
+			},
+			result: &RunResult{
+				hasChanges:     true,
+				commentDetails: "This comment is within the limits",
+			},
+			resultErr: nil,
+			want:      "**`🔱 Guardian 🔱 PLAN`** - 🟩 Successful for dir: `foo` http://github.com/logs\n\n<details>\n<summary>Details</summary>\n\n```diff\n\nThis comment is within the limits\n```\n</details>",
+		},
+		{
+			name: "result_error",
+			cmd: &PlanRunCommand{
+				childPath:    "foo",
+				gitHubLogURL: "http://github.com/logs",
+			},
+			result: &RunResult{
+				hasChanges:     true,
+				commentDetails: "This is a detailed error message",
+			},
+			resultErr: fmt.Errorf("the result had an error"),
+			want:      "**`🔱 Guardian 🔱 PLAN`** - 🟥 Failed for dir: `foo` http://github.com/logs\n\n<details>\n<summary>Error</summary>\n\n```\n\nthe result had an error\n```\n</details>\n\n<details>\n<summary>Details</summary>\n\n```diff\n\nThis is a detailed error message\n```\n</details>",
+		},
+		{
+			name: "result_no_changes",
+			cmd: &PlanRunCommand{
+				childPath:    "foo",
+				gitHubLogURL: "http://github.com/logs",
+			},
+			result: &RunResult{
+				hasChanges:     false,
+				commentDetails: "",
+			},
+			resultErr: nil,
+			want:      "**`🔱 Guardian 🔱 PLAN`** - 🟦 No changes for dir: `foo` http://github.com/logs",
+		},
+		{
+			name: "result_success_over_limit",
+			cmd: &PlanRunCommand{
+				childPath:    "foo",
+				gitHubLogURL: "http://github.com/logs",
+			},
+			result: &RunResult{
+				hasChanges:     true,
+				commentDetails: bigMessage,
+			},
+			resultErr: nil,
+			want:      fmt.Sprintf("**`🔱 Guardian 🔱 PLAN`** - 🟩 Successful for dir: `foo` http://github.com/logs\n\n<details>\n<summary>Details</summary>\n\n```diff\n\n%s...\n\nMessage has been truncated. See workflow logs to view the full message.\n```\n</details>", bigMessage[:gitHubMaxCommentLength-216]),
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got := tc.cmd.getMessageBody(tc.result, tc.resultErr)
+			if diff := cmp.Diff(got, tc.want); diff != "" {
+				t.Errorf("unexpected result; (-got,+want): %s", diff)
+			}
+			if length := utf8.RuneCountInString(got); length > gitHubMaxCommentLength {
+				t.Errorf("message produced had length %d over the maximum length: %s", length, got)
+			}
+		})
+	}
+}
+
+func messageOverLimit() string {
+	message := make([]rune, gitHubMaxCommentLength)
+	for i := 0; i < len(message); i++ {
+		message[i] = 'a'
+	}
+	return string(message)
 }
