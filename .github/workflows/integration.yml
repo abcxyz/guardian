@@ -24,10 +24,9 @@ on:
     branches:
       - 'main'
 
+# default permission for all jobs should just be read
 permissions:
   contents: 'read'
-  id-token: 'write'
-  pull-requests: 'write'
 
 # only one plan, per pr should run at a time
 concurrency:
@@ -42,10 +41,41 @@ env:
   GUARDIAN_BUCKET_NAME: 'guardian-ci-i-guardian-state-c79e1f4759'
   GUARDIAN_TERRAFORM_VERSION: '1.7.0'
 
-
 jobs:
-  init:
+  build:
     runs-on: 'ubuntu-latest'
+    permissions:
+      contents: 'read'
+    steps:
+      - name: 'Checkout'
+        uses: 'actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11' # ratchet:actions/checkout@v4
+
+      - name: 'Setup Go'
+        uses: 'actions/setup-go@93397bea11091df50f3d7e59dc26a7711a8bcfbe' # ratchet:actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: 'Build Guardian'
+        uses: 'goreleaser/goreleaser-action@5fdedb94abba051217030cc86d4523cf3f02243d' # ratchet:goreleaser/goreleaser-action@v4
+        with:
+          distribution: 'goreleaser'
+          version: 'v1.18.2'
+          args: 'build --snapshot --single-target --clean --id guardian --output dist/guardian'
+
+      - name: 'Upload Guardian Binary'
+        uses: 'actions/upload-artifact@26f96dfa697d77e81fd5907df203aa23a56210a8' # ratchet:actions/upload-artifact@v4
+        with:
+          name: 'guardian'
+          path: 'dist/guardian'
+          retention-days: 1
+
+  init:
+    needs:
+      - 'build'
+    runs-on: 'ubuntu-latest'
+    permissions:
+      contents: 'read'
+      pull-requests: 'write'
     outputs:
       directories: '${{ steps.dirs.outputs.directories }}'
     steps:
@@ -55,16 +85,17 @@ jobs:
           fetch-depth: 0 # get everything so we can use git diff
           ref: '${{ github.event.pull_request.head.sha }}'
 
-      - name: 'Setup Go'
-        uses: 'actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568' # ratchet:actions/setup-go@v3
+      - name: 'Download Guardian'
+        uses: 'actions/download-artifact@6b208ae046db98c579e8a3aa621ab581ff575935' # ratchet:actions/download-artifact@v4
         with:
-          go-version: '1.21'
+          name: 'guardian'
+          path: '${{ runner.temp }}/.guardian'
 
-      - name: 'Build Guardian Binary'
+      - name: 'Setup Guardian'
         env:
           INSTALL_PATH: '${{ runner.temp }}/.guardian'
         run: |-
-          go build -o ${INSTALL_PATH}/guardian cmd/guardian/main.go
+          chmod +x "${INSTALL_PATH}/guardian"
           echo "${INSTALL_PATH}" >> $GITHUB_PATH
 
       - name: 'Guardian Directories'
@@ -90,11 +121,14 @@ jobs:
             -github-token="${REPO_TOKEN}" \
             -pull-request-number="${PULL_REQUEST_NUMBER}"
 
-
   plan:
     needs:
       - 'init'
     runs-on: 'ubuntu-latest'
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+      pull-requests: 'write'
     strategy:
       fail-fast: false
       max-parallel: 100
@@ -107,7 +141,7 @@ jobs:
           ref: '${{ github.event.pull_request.head.sha }}'
 
       - name: 'Authenticate to Google Cloud'
-        uses: 'google-github-actions/auth@67e9c72af6e0492df856527b474995862b7b6591' # ratchet:google-github-actions/auth@v2
+        uses: 'google-github-actions/auth@5a50e581162a13f4baa8916d01180d2acbc04363' # ratchet:google-github-actions/auth@v2
         with:
           workload_identity_provider: '${{ env.GUARDIAN_WIF_PROVIDER }}'
           service_account: '${{ env.GUARDIAN_WIF_SERVICE_ACCOUNT }}'
@@ -121,16 +155,17 @@ jobs:
           protect_lockfile: true
           terraform_wrapper: false
 
-      - name: 'Setup Go'
-        uses: 'actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568' # ratchet:actions/setup-go@v3
+      - name: 'Download Guardian'
+        uses: 'actions/download-artifact@6b208ae046db98c579e8a3aa621ab581ff575935' # ratchet:actions/download-artifact@v4
         with:
-          go-version: '1.21'
+          name: 'guardian'
+          path: '${{ runner.temp }}/.guardian'
 
-      - name: 'Build Guardian Binary'
+      - name: 'Setup Guardian'
         env:
           INSTALL_PATH: '${{ runner.temp }}/.guardian'
         run: |-
-          go build -o ${INSTALL_PATH}/guardian cmd/guardian/main.go
+          chmod +x "${INSTALL_PATH}/guardian"
           echo "${INSTALL_PATH}" >> $GITHUB_PATH
 
       - name: 'Guardian Plan'
@@ -149,26 +184,30 @@ jobs:
           "${DIRECTORY}"
 
   plan_success:
-    runs-on: 'ubuntu-latest'
     needs:
       - 'init'
       - 'plan'
+    runs-on: 'ubuntu-latest'
+    permissions:
+      contents: 'read'
+      pull-requests: 'write'
     steps:
       - name: 'Checkout'
         uses: 'actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11' # ratchet:actions/checkout@v4
         with:
           ref: '${{ github.event.pull_request.head.sha }}'
 
-      - name: 'Setup Go'
-        uses: 'actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568' # ratchet:actions/setup-go@v3
+      - name: 'Download Guardian'
+        uses: 'actions/download-artifact@6b208ae046db98c579e8a3aa621ab581ff575935' # ratchet:actions/download-artifact@v4
         with:
-          go-version: '1.21'
+          name: 'guardian'
+          path: '${{ runner.temp }}/.guardian'
 
-      - name: 'Build Guardian Binary'
+      - name: 'Setup Guardian'
         env:
           INSTALL_PATH: '${{ runner.temp }}/.guardian'
         run: |-
-          go build -o ${INSTALL_PATH}/guardian cmd/guardian/main.go
+          chmod +x "${INSTALL_PATH}/guardian"
           echo "${INSTALL_PATH}" >> $GITHUB_PATH
 
       - name: 'Guardian Post Plan Status'
@@ -191,6 +230,10 @@ jobs:
       - 'plan'
       - 'plan_success'
     runs-on: 'ubuntu-latest'
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+      pull-requests: 'write'
     strategy:
       fail-fast: false
       max-parallel: 100
@@ -201,7 +244,7 @@ jobs:
         uses: 'actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11' # ratchet:actions/checkout@v4
 
       - name: 'Authenticate to Google Cloud'
-        uses: 'google-github-actions/auth@67e9c72af6e0492df856527b474995862b7b6591' # ratchet:google-github-actions/auth@v2
+        uses: 'google-github-actions/auth@5a50e581162a13f4baa8916d01180d2acbc04363' # ratchet:google-github-actions/auth@v2
         with:
           workload_identity_provider: '${{ env.GUARDIAN_WIF_PROVIDER }}'
           service_account: '${{ env.GUARDIAN_WIF_SERVICE_ACCOUNT }}'
@@ -215,16 +258,17 @@ jobs:
           protect_lockfile: true
           terraform_wrapper: false
 
-      - name: 'Setup Go'
-        uses: 'actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568' # ratchet:actions/setup-go@v3
+      - name: 'Download Guardian'
+        uses: 'actions/download-artifact@6b208ae046db98c579e8a3aa621ab581ff575935' # ratchet:actions/download-artifact@v4
         with:
-          go-version: '1.21'
+          name: 'guardian'
+          path: '${{ runner.temp }}/.guardian'
 
-      - name: 'Build Guardian Binary'
+      - name: 'Setup Guardian'
         env:
           INSTALL_PATH: '${{ runner.temp }}/.guardian'
         run: |-
-          go build -o ${INSTALL_PATH}/guardian cmd/guardian/main.go
+          chmod +x "${INSTALL_PATH}/guardian"
           echo "${INSTALL_PATH}" >> $GITHUB_PATH
 
       - name: 'Guardian Apply'
