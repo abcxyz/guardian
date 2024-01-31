@@ -50,8 +50,7 @@ type RunResult struct {
 	commentDetails string
 }
 
-// ApplyCommand is a subcommand of apply and implements the cli.Command interface.
-// It performs terraform apply on the given working directory.
+// ApplyCommand performs terraform apply on the given working directory.
 type ApplyCommand struct {
 	cli.BaseCommand
 
