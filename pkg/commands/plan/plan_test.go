@@ -65,7 +65,7 @@ func TestAfterParse(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			c := &PlanRunCommand{}
+			c := &PlanCommand{}
 
 			f := c.Flags()
 			err := f.Parse(tc.args)
@@ -326,7 +326,7 @@ func TestPlan_Process(t *testing.T) {
 			gitHubClient := &github.MockGitHubClient{}
 			storageClient := &storage.MockStorageClient{}
 
-			c := &PlanRunCommand{
+			c := &PlanCommand{
 				cfg: tc.config,
 
 				directory:    tc.directory,
@@ -378,14 +378,14 @@ func TestGetMessageBody(t *testing.T) {
 	bigMessage := messageOverLimit()
 	cases := []struct {
 		name      string
-		cmd       *PlanRunCommand
+		cmd       *PlanCommand
 		result    *RunResult
 		resultErr error
 		want      string
 	}{
 		{
 			name: "result_success",
-			cmd: &PlanRunCommand{
+			cmd: &PlanCommand{
 				childPath:    "foo",
 				gitHubLogURL: "http://github.com/logs",
 			},
@@ -398,7 +398,7 @@ func TestGetMessageBody(t *testing.T) {
 		},
 		{
 			name: "result_error",
-			cmd: &PlanRunCommand{
+			cmd: &PlanCommand{
 				childPath:    "foo",
 				gitHubLogURL: "http://github.com/logs",
 			},
@@ -411,7 +411,7 @@ func TestGetMessageBody(t *testing.T) {
 		},
 		{
 			name: "result_no_changes",
-			cmd: &PlanRunCommand{
+			cmd: &PlanCommand{
 				childPath:    "foo",
 				gitHubLogURL: "http://github.com/logs",
 			},
@@ -424,7 +424,7 @@ func TestGetMessageBody(t *testing.T) {
 		},
 		{
 			name: "result_success_over_limit",
-			cmd: &PlanRunCommand{
+			cmd: &PlanCommand{
 				childPath:    "foo",
 				gitHubLogURL: "http://github.com/logs",
 			},

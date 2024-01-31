@@ -43,7 +43,7 @@ const (
 	gitHubMaxCommentLength = 65536
 )
 
-var _ cli.Command = (*PlanRunCommand)(nil)
+var _ cli.Command = (*PlanCommand)(nil)
 
 // RunResult is the result of a plan operation.
 type RunResult struct {
@@ -51,7 +51,7 @@ type RunResult struct {
 	commentDetails string
 }
 
-type PlanRunCommand struct {
+type PlanCommand struct {
 	cli.BaseCommand
 
 	cfg *Config
@@ -75,11 +75,11 @@ type PlanRunCommand struct {
 	terraformClient terraform.Terraform
 }
 
-func (c *PlanRunCommand) Desc() string {
+func (c *PlanCommand) Desc() string {
 	return `Run Terraform plan for a directory`
 }
 
-func (c *PlanRunCommand) Help() string {
+func (c *PlanCommand) Help() string {
 	return `
 Usage: {{ COMMAND }} [options] <directory>
 
@@ -87,7 +87,7 @@ Usage: {{ COMMAND }} [options] <directory>
 `
 }
 
-func (c *PlanRunCommand) Flags() *cli.FlagSet {
+func (c *PlanCommand) Flags() *cli.FlagSet {
 	set := c.NewFlagSet()
 
 	c.GitHubFlags.Register(set)
@@ -147,7 +147,7 @@ func (c *PlanRunCommand) Flags() *cli.FlagSet {
 	return set
 }
 
-func (c *PlanRunCommand) Run(ctx context.Context, args []string) error {
+func (c *PlanCommand) Run(ctx context.Context, args []string) error {
 	logger := logging.FromContext(ctx)
 
 	f := c.Flags()
@@ -212,7 +212,7 @@ func (c *PlanRunCommand) Run(ctx context.Context, args []string) error {
 }
 
 // Process handles the main logic for the Guardian plan run process.
-func (c *PlanRunCommand) Process(ctx context.Context) error {
+func (c *PlanCommand) Process(ctx context.Context) error {
 	logger := logging.FromContext(ctx).
 		With("github_owner", c.GitHubFlags.FlagGitHubOwner).
 		With("github_repo", c.GitHubFlags.FlagGitHubOwner).
@@ -246,7 +246,7 @@ func (c *PlanRunCommand) Process(ctx context.Context) error {
 	return merr
 }
 
-func (c *PlanRunCommand) createStartCommentForActions(ctx context.Context) (*github.IssueComment, error) {
+func (c *PlanCommand) createStartCommentForActions(ctx context.Context) (*github.IssueComment, error) {
 	logger := logging.FromContext(ctx)
 
 	if !c.GitHubFlags.FlagIsGitHubActions {
@@ -270,7 +270,7 @@ func (c *PlanRunCommand) createStartCommentForActions(ctx context.Context) (*git
 	return startComment, nil
 }
 
-func (c *PlanRunCommand) updateResultCommentForActions(ctx context.Context, startComment *github.IssueComment, result *RunResult, resultErr error) error {
+func (c *PlanCommand) updateResultCommentForActions(ctx context.Context, startComment *github.IssueComment, result *RunResult, resultErr error) error {
 	logger := logging.FromContext(ctx)
 
 	if !c.GitHubFlags.FlagIsGitHubActions {
@@ -294,7 +294,7 @@ func (c *PlanRunCommand) updateResultCommentForActions(ctx context.Context, star
 	return nil
 }
 
-func (c *PlanRunCommand) getMessageBody(result *RunResult, resultErr error) string {
+func (c *PlanCommand) getMessageBody(result *RunResult, resultErr error) string {
 	msgBody := fmt.Sprintf("%s 🟦 No changes for dir: `%s` %s", CommentPrefix, c.childPath, c.gitHubLogURL)
 
 	if result.hasChanges || resultErr != nil {
@@ -331,7 +331,7 @@ func (c *PlanRunCommand) getMessageBody(result *RunResult, resultErr error) stri
 
 // terraformPlan runs the required Terraform commands for a full run of
 // a Guardian plan using the Terraform CLI.
-func (c *PlanRunCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
+func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 	var stdout, stderr strings.Builder
 	multiStdout := io.MultiWriter(c.Stdout(), &stdout)
 	multiStderr := io.MultiWriter(c.Stderr(), &stderr)
@@ -445,7 +445,7 @@ func (c *PlanRunCommand) terraformPlan(ctx context.Context) (*RunResult, error) 
 
 // withActionsOutGroup runs a function and ensures it is wrapped in GitHub actions
 // grouping syntax. If this is not in an action, output is printed without grouping syntax.
-func (c *PlanRunCommand) withActionsOutGroup(msg string, fn func() error) error {
+func (c *PlanCommand) withActionsOutGroup(msg string, fn func() error) error {
 	if c.GitHubFlags.FlagIsGitHubActions {
 		c.actions.Group(msg)
 		defer c.actions.EndGroup()
@@ -457,7 +457,7 @@ func (c *PlanRunCommand) withActionsOutGroup(msg string, fn func() error) error 
 }
 
 // uploadGuardianPlan uploads the Guardian plan binary to the configured Guardian storage bucket.
-func (c *PlanRunCommand) uploadGuardianPlan(ctx context.Context, path string, data []byte, exitCode int) error {
+func (c *PlanCommand) uploadGuardianPlan(ctx context.Context, path string, data []byte, exitCode int) error {
 	metadata := make(map[string]string)
 	metadata["plan_exit_code"] = strconv.Itoa(exitCode)
 

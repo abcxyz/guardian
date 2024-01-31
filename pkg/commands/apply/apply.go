@@ -43,16 +43,16 @@ const (
 	CommentPrefix       = "**`🔱 Guardian 🔱 APPLY`** -"
 )
 
-var _ cli.Command = (*ApplyRunCommand)(nil)
+var _ cli.Command = (*ApplyCommand)(nil)
 
 // RunResult is the result of a apply operation.
 type RunResult struct {
 	commentDetails string
 }
 
-// ApplyRunCommand is a subcommand of apply and implements the cli.Command interface.
+// ApplyCommand is a subcommand of apply and implements the cli.Command interface.
 // It performs terraform apply on the given working directory.
-type ApplyRunCommand struct {
+type ApplyCommand struct {
 	cli.BaseCommand
 
 	cfg *Config
@@ -80,13 +80,13 @@ type ApplyRunCommand struct {
 }
 
 // Desc provides a short, one-line description of the command.
-func (c *ApplyRunCommand) Desc() string {
+func (c *ApplyCommand) Desc() string {
 	return "Run Terraform apply for a directory"
 }
 
 // Help is the long-form help output to include usage instructions and flag
 // information.
-func (c *ApplyRunCommand) Help() string {
+func (c *ApplyCommand) Help() string {
 	return `
 Usage: {{ COMMAND }} [options] <directory>
 
@@ -94,7 +94,7 @@ Usage: {{ COMMAND }} [options] <directory>
 `
 }
 
-func (c *ApplyRunCommand) Flags() *cli.FlagSet {
+func (c *ApplyCommand) Flags() *cli.FlagSet {
 	set := c.NewFlagSet()
 
 	c.GitHubFlags.Register(set)
@@ -141,7 +141,7 @@ func (c *ApplyRunCommand) Flags() *cli.FlagSet {
 	return set
 }
 
-func (c *ApplyRunCommand) Run(ctx context.Context, args []string) error {
+func (c *ApplyCommand) Run(ctx context.Context, args []string) error {
 	logger := logging.FromContext(ctx)
 
 	f := c.Flags()
@@ -206,7 +206,7 @@ func (c *ApplyRunCommand) Run(ctx context.Context, args []string) error {
 }
 
 // Process handles the main logic for the Guardian apply run process.
-func (c *ApplyRunCommand) Process(ctx context.Context) (merr error) {
+func (c *ApplyCommand) Process(ctx context.Context) (merr error) {
 	logger := logging.FromContext(ctx).
 		With("github_owner", c.GitHubFlags.FlagGitHubOwner).
 		With("github_repo", c.GitHubFlags.FlagGitHubOwner).
@@ -302,7 +302,7 @@ func (c *ApplyRunCommand) Process(ctx context.Context) (merr error) {
 	return merr
 }
 
-func (c *ApplyRunCommand) createStartCommentForActions(ctx context.Context) (*github.IssueComment, error) {
+func (c *ApplyCommand) createStartCommentForActions(ctx context.Context) (*github.IssueComment, error) {
 	logger := logging.FromContext(ctx)
 
 	if !c.GitHubFlags.FlagIsGitHubActions {
@@ -326,7 +326,7 @@ func (c *ApplyRunCommand) createStartCommentForActions(ctx context.Context) (*gi
 	return startComment, nil
 }
 
-func (c *ApplyRunCommand) updateResultCommentForActions(ctx context.Context, startComment *github.IssueComment, result *RunResult, resulErr error) error {
+func (c *ApplyCommand) updateResultCommentForActions(ctx context.Context, startComment *github.IssueComment, result *RunResult, resulErr error) error {
 	logger := logging.FromContext(ctx)
 
 	if !c.GitHubFlags.FlagIsGitHubActions {
@@ -379,7 +379,7 @@ func (c *ApplyRunCommand) updateResultCommentForActions(ctx context.Context, sta
 
 // terraformApply runs the required Terraform commands for a full run of
 // a Guardian apply using the Terraform CLI.
-func (c *ApplyRunCommand) terraformApply(ctx context.Context) (*RunResult, error) {
+func (c *ApplyCommand) terraformApply(ctx context.Context) (*RunResult, error) {
 	var stdout, stderr strings.Builder
 	multiStdout := io.MultiWriter(c.Stdout(), &stdout)
 	multiStderr := io.MultiWriter(c.Stderr(), &stderr)
@@ -438,7 +438,7 @@ func (c *ApplyRunCommand) terraformApply(ctx context.Context) (*RunResult, error
 
 // withActionsOutGroup runs a function and ensures it is wrapped in GitHub actions
 // grouping syntax. If this is not in an action, output is printed without grouping syntax.
-func (c *ApplyRunCommand) withActionsOutGroup(msg string, fn func() error) error {
+func (c *ApplyCommand) withActionsOutGroup(msg string, fn func() error) error {
 	if c.GitHubFlags.FlagIsGitHubActions {
 		c.actions.Group(msg)
 		defer c.actions.EndGroup()
@@ -451,7 +451,7 @@ func (c *ApplyRunCommand) withActionsOutGroup(msg string, fn func() error) error
 
 // downloadGuardianPlan downloads the Guardian plan binary from the configured Guardian storage bucket
 // and returns the plan data and plan exit code.
-func (c *ApplyRunCommand) downloadGuardianPlan(ctx context.Context, path string) (planData []byte, planExitCode string, outErr error) {
+func (c *ApplyCommand) downloadGuardianPlan(ctx context.Context, path string) (planData []byte, planExitCode string, outErr error) {
 	c.Outf("Downloading Guardian plan file")
 
 	metadata, err := c.storageClient.ObjectMetadata(ctx, c.flagBucketName, path)
@@ -486,7 +486,7 @@ func (c *ApplyRunCommand) downloadGuardianPlan(ctx context.Context, path string)
 }
 
 // handleDeleteGuardianPlan deletes the Guardian plan binary from the configured Guardian storage bucket.
-func (c *ApplyRunCommand) deleteGuardianPlan(ctx context.Context, path string) error {
+func (c *ApplyCommand) deleteGuardianPlan(ctx context.Context, path string) error {
 	c.Outf("Deleting Guardian plan file")
 
 	if err := c.storageClient.DeleteObject(ctx, c.flagBucketName, path); err != nil {
