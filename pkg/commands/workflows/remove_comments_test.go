@@ -56,7 +56,7 @@ func TestRemoveGuardianCommentsAfterParse(t *testing.T) {
 		{
 			name: "wrong_comment_type",
 			args: []string{"-for-command=test", "-for-command=wrong", "-pull-request-number=1", "-github-owner=owner", "-github-repo=repo"},
-			err:  "invalid value for-command: test is not one of [\"apply\" \"plan\"]\ninvalid value for-command: wrong is not one of [\"apply\" \"plan\"]",
+			err:  "invalid value(s) for-command: [\"test\" \"wrong\"] must be one of [\"apply\" \"plan\"]",
 		},
 	}
 

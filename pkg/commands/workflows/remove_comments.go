@@ -31,6 +31,7 @@ import (
 	"github.com/abcxyz/guardian/pkg/util"
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
+	"github.com/abcxyz/pkg/sets"
 )
 
 var _ cli.Command = (*RemoveGuardianCommentsCommand)(nil)
@@ -88,8 +89,8 @@ func (c *RemoveGuardianCommentsCommand) Flags() *cli.FlagSet {
 	f.StringSliceVar(&cli.StringSliceVar{
 		Name:    "for-command",
 		Target:  &c.flagForCommands,
-		Example: "true",
-		Usage:   fmt.Sprintf("The Guardian command comments types to remove from the pull request. Valid values are %q", allowedCommands),
+		Example: "plan",
+		Usage:   fmt.Sprintf("The Guardian command to remove comments for. Valid values are %q", allowedCommands),
 		Predict: complete.PredictFunc(func(prefix string) []string {
 			return allowedCommands
 		}),
@@ -112,10 +113,9 @@ func (c *RemoveGuardianCommentsCommand) Flags() *cli.FlagSet {
 			merr = errors.Join(merr, fmt.Errorf("missing flag: for-command is required"))
 		}
 
-		for _, commentType := range c.flagForCommands {
-			if _, ok := commandCommentPrefixes[commentType]; !ok {
-				merr = errors.Join(merr, fmt.Errorf("invalid value for-command: %s is not one of %q", commentType, allowedCommands))
-			}
+		unknown := sets.Subtract(c.flagForCommands, allowedCommands)
+		if len(unknown) > 0 {
+			merr = errors.Join(merr, fmt.Errorf("invalid value(s) for-command: %q must be one of %q", unknown, allowedCommands))
 		}
 
 		return merr
