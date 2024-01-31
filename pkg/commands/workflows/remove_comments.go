@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package provides worklow helper functionality for Guardian.
 package workflows
 
 import (
@@ -24,31 +23,45 @@ import (
 
 	gh "github.com/google/go-github/v53/github"
 
+	"github.com/abcxyz/guardian/pkg/commands/apply"
 	"github.com/abcxyz/guardian/pkg/commands/plan"
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/github"
+	"github.com/abcxyz/guardian/pkg/util"
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
 )
 
-var _ cli.Command = (*RemovePlanCommentsCommand)(nil)
+var _ cli.Command = (*RemoveGuardianCommentsCommand)(nil)
 
-type RemovePlanCommentsCommand struct {
+// commentTypePrefixes are the allowed comment types that can be
+// removed from a pull request.
+var commentTypePrefixes = map[string]string{
+	"apply": apply.CommentPrefix,
+	"plan":  plan.CommentPrefix,
+}
+
+// allowedCommentTypeNames are the sorted allowed comment names for the comment-type flag.
+// This is used for printing messages and prediction.
+var allowedCommentTypeNames = util.SortedMapKeys(commentTypePrefixes)
+
+type RemoveGuardianCommentsCommand struct {
 	cli.BaseCommand
 
 	flags.GitHubFlags
 	flags.RetryFlags
 
 	flagPullRequestNumber int
+	flagCommentTypes      []string
 
 	gitHubClient github.GitHub
 }
 
-func (c *RemovePlanCommentsCommand) Desc() string {
+func (c *RemoveGuardianCommentsCommand) Desc() string {
 	return `Remove previous Guardian plan comments from a pull request`
 }
 
-func (c *RemovePlanCommentsCommand) Help() string {
+func (c *RemoveGuardianCommentsCommand) Help() string {
 	return `
 Usage: {{ COMMAND }} [options] <pull_request_number>
 
@@ -56,7 +69,7 @@ Usage: {{ COMMAND }} [options] <pull_request_number>
 `
 }
 
-func (c *RemovePlanCommentsCommand) Flags() *cli.FlagSet {
+func (c *RemoveGuardianCommentsCommand) Flags() *cli.FlagSet {
 	set := c.NewFlagSet()
 
 	c.GitHubFlags.Register(set)
@@ -69,6 +82,13 @@ func (c *RemovePlanCommentsCommand) Flags() *cli.FlagSet {
 		Target:  &c.flagPullRequestNumber,
 		Example: "100",
 		Usage:   "The GitHub pull request number to remove plan comments from.",
+	})
+
+	f.StringSliceVar(&cli.StringSliceVar{
+		Name:    "comment-type",
+		Target:  &c.flagCommentTypes,
+		Example: "true",
+		Usage:   fmt.Sprintf("The Guardian comment types to remove from the pull request. Valid values are %q", allowedCommentTypeNames),
 	})
 
 	set.AfterParse(func(existingErr error) (merr error) {
@@ -84,13 +104,23 @@ func (c *RemovePlanCommentsCommand) Flags() *cli.FlagSet {
 			merr = errors.Join(merr, fmt.Errorf("missing flag: pull-request-number is required"))
 		}
 
+		if len(c.flagCommentTypes) == 0 {
+			merr = errors.Join(merr, fmt.Errorf("missing flag: comment-type is required"))
+		}
+
+		for _, commentType := range c.flagCommentTypes {
+			if _, ok := commentTypePrefixes[commentType]; !ok {
+				merr = errors.Join(merr, fmt.Errorf("invalid value for comment-type: %s is not one of %q", commentType, allowedCommentTypeNames))
+			}
+		}
+
 		return merr
 	})
 
 	return set
 }
 
-func (c *RemovePlanCommentsCommand) Run(ctx context.Context, args []string) error {
+func (c *RemoveGuardianCommentsCommand) Run(ctx context.Context, args []string) error {
 	f := c.Flags()
 	if err := f.Parse(args); err != nil {
 		return fmt.Errorf("failed to parse flags: %w", err)
@@ -113,13 +143,14 @@ func (c *RemovePlanCommentsCommand) Run(ctx context.Context, args []string) erro
 }
 
 // Process handles the main logic for the Guardian remove plan comments process.
-func (c *RemovePlanCommentsCommand) Process(ctx context.Context) error {
+func (c *RemoveGuardianCommentsCommand) Process(ctx context.Context) error {
 	logger := logging.FromContext(ctx).
 		With("github_owner", c.GitHubFlags.FlagGitHubOwner).
 		With("github_repo", c.GitHubFlags.FlagGitHubOwner).
-		With("pull_request_number", c.flagPullRequestNumber)
+		With("pull_request_number", c.flagPullRequestNumber).
+		With("comment_types", c.flagCommentTypes)
 
-	logger.DebugContext(ctx, "removing outdated plan comments...")
+	logger.DebugContext(ctx, "removing outdated comments...")
 
 	listOpts := &gh.IssueListCommentsOptions{
 		ListOptions: gh.ListOptions{PerPage: 100},
@@ -136,12 +167,21 @@ func (c *RemovePlanCommentsCommand) Process(ctx context.Context) error {
 		}
 
 		for _, comment := range response.Comments {
-			if !strings.HasPrefix(comment.Body, plan.CommentPrefix) {
-				continue
-			}
+			for _, commentType := range c.flagCommentTypes {
+				prefix := commentTypePrefixes[commentType]
 
-			if err := c.gitHubClient.DeleteIssueComment(ctx, c.GitHubFlags.FlagGitHubOwner, c.GitHubFlags.FlagGitHubRepo, comment.ID); err != nil {
-				return fmt.Errorf("failed to delete comment: %w", err)
+				// prefix is not found, skip
+				if !strings.HasPrefix(comment.Body, prefix) {
+					continue
+				}
+
+				// found the prefix, delete the comment
+				if err := c.gitHubClient.DeleteIssueComment(ctx, c.GitHubFlags.FlagGitHubOwner, c.GitHubFlags.FlagGitHubRepo, comment.ID); err != nil {
+					return fmt.Errorf("failed to delete comment: %w", err)
+				}
+
+				// we deleted the comment, exit loop
+				break
 			}
 		}
 

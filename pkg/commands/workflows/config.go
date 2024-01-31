@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package workflows provides worklow helper functionality for Guardian.
 package workflows
 
 import (

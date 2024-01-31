@@ -39,7 +39,7 @@ env:
   GUARDIAN_WIF_PROVIDER: 'projects/1098665030124/locations/global/workloadIdentityPools/guardian-automation/providers/guardian-ci-i'
   GUARDIAN_WIF_SERVICE_ACCOUNT: 'guardian-automation-bot@ghg-guardian-ci-i-6ad437.iam.gserviceaccount.com'
   GUARDIAN_BUCKET_NAME: 'guardian-ci-i-guardian-state-c79e1f4759'
-  GUARDIAN_TERRAFORM_VERSION: '1.7.0'
+  GUARDIAN_TERRAFORM_VERSION: '1.7.1'
 
 jobs:
   build:
@@ -109,17 +109,19 @@ jobs:
           echo "entrypoints -> ${DIRECTORIES}"
           echo "directories=${DIRECTORIES}" >> $GITHUB_OUTPUT
 
-      - name: 'Guardian Remove Previous Plan Comments'
+      - name: 'Guardian Remove Previous Plan/Apply Comments'
         shell: 'bash'
         env:
           # used to delete old comments on pull requests (access to only this repo)
           REPO_TOKEN: '${{ github.token }}'
         run: |-
-          guardian workflows remove-plan-comments \
+          guardian workflows remove-guardian-comments \
             -github-owner="${GITHUB_OWNER_NAME}" \
             -github-repo="${GITHUB_REPO_NAME}" \
             -github-token="${REPO_TOKEN}" \
-            -pull-request-number="${PULL_REQUEST_NUMBER}"
+            -pull-request-number="${PULL_REQUEST_NUMBER}" \
+            -comment-type="plan" \
+            -comment-type="apply"
 
   plan:
     needs:
