@@ -251,7 +251,7 @@ func TestApply_Process(t *testing.T) {
 				},
 			}
 
-			c := &ApplyRunCommand{
+			c := &ApplyCommand{
 				cfg: tc.config,
 
 				directory:    tc.directory,

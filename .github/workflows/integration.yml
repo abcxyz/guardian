@@ -175,7 +175,7 @@ jobs:
           # used to create comments on pull requests (access to only this repo)
           REPO_TOKEN: '${{ github.token }}'
         run: |-
-          guardian plan run \
+          guardian plan \
           -github-owner="${GITHUB_OWNER_NAME}" \
           -github-repo="${GITHUB_REPO_NAME}" \
           -github-token="${REPO_TOKEN}" \
@@ -279,7 +279,7 @@ jobs:
           # used to create comments on pull requests (access to only this repo)
           REPO_TOKEN: '${{ github.token }}'
         run: |-
-          guardian apply run \
+          guardian apply \
           -github-owner="${GITHUB_OWNER_NAME}" \
           -github-repo="${GITHUB_REPO_NAME}" \
           -github-token="${REPO_TOKEN}" \

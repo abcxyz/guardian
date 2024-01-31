@@ -67,26 +67,10 @@ var rootCmd = func() cli.Command {
 				}
 			},
 			"plan": func() cli.Command {
-				return &cli.RootCommand{
-					Name:        "plan",
-					Description: "Perform operations related to Terraform planning",
-					Commands: map[string]cli.CommandFactory{
-						"run": func() cli.Command {
-							return &plan.PlanRunCommand{}
-						},
-					},
-				}
+				return &plan.PlanCommand{}
 			},
 			"apply": func() cli.Command {
-				return &cli.RootCommand{
-					Name:        "apply",
-					Description: "Perform operations related to Terraform apply",
-					Commands: map[string]cli.CommandFactory{
-						"run": func() cli.Command {
-							return &apply.ApplyRunCommand{}
-						},
-					},
-				}
+				return &apply.ApplyCommand{}
 			},
 			"iam": func() cli.Command {
 				return &cli.RootCommand{
