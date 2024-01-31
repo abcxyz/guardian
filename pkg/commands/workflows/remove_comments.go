@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	gh "github.com/google/go-github/v53/github"
+	"github.com/posener/complete/v2"
 
 	"github.com/abcxyz/guardian/pkg/commands/apply"
 	"github.com/abcxyz/guardian/pkg/commands/plan"
@@ -34,16 +35,16 @@ import (
 
 var _ cli.Command = (*RemoveGuardianCommentsCommand)(nil)
 
-// commentTypePrefixes are the allowed comment types that can be
+// commandCommentPrefixes are the allowed commands comment prefixes that can be
 // removed from a pull request.
-var commentTypePrefixes = map[string]string{
+var commandCommentPrefixes = map[string]string{
 	"apply": apply.CommentPrefix,
 	"plan":  plan.CommentPrefix,
 }
 
-// allowedCommentTypeNames are the sorted allowed comment names for the comment-type flag.
+// allowedCommands are the sorted allowed Guardian command names for the for-command flag.
 // This is used for printing messages and prediction.
-var allowedCommentTypeNames = util.SortedMapKeys(commentTypePrefixes)
+var allowedCommands = util.SortedMapKeys(commandCommentPrefixes)
 
 type RemoveGuardianCommentsCommand struct {
 	cli.BaseCommand
@@ -52,7 +53,7 @@ type RemoveGuardianCommentsCommand struct {
 	flags.RetryFlags
 
 	flagPullRequestNumber int
-	flagCommentTypes      []string
+	flagForCommands       []string
 
 	gitHubClient github.GitHub
 }
@@ -85,10 +86,13 @@ func (c *RemoveGuardianCommentsCommand) Flags() *cli.FlagSet {
 	})
 
 	f.StringSliceVar(&cli.StringSliceVar{
-		Name:    "comment-type",
-		Target:  &c.flagCommentTypes,
+		Name:    "for-command",
+		Target:  &c.flagForCommands,
 		Example: "true",
-		Usage:   fmt.Sprintf("The Guardian comment types to remove from the pull request. Valid values are %q", allowedCommentTypeNames),
+		Usage:   fmt.Sprintf("The Guardian command comments types to remove from the pull request. Valid values are %q", allowedCommands),
+		Predict: complete.PredictFunc(func(prefix string) []string {
+			return allowedCommands
+		}),
 	})
 
 	set.AfterParse(func(existingErr error) (merr error) {
@@ -104,13 +108,13 @@ func (c *RemoveGuardianCommentsCommand) Flags() *cli.FlagSet {
 			merr = errors.Join(merr, fmt.Errorf("missing flag: pull-request-number is required"))
 		}
 
-		if len(c.flagCommentTypes) == 0 {
-			merr = errors.Join(merr, fmt.Errorf("missing flag: comment-type is required"))
+		if len(c.flagForCommands) == 0 {
+			merr = errors.Join(merr, fmt.Errorf("missing flag: for-command is required"))
 		}
 
-		for _, commentType := range c.flagCommentTypes {
-			if _, ok := commentTypePrefixes[commentType]; !ok {
-				merr = errors.Join(merr, fmt.Errorf("invalid value for comment-type: %s is not one of %q", commentType, allowedCommentTypeNames))
+		for _, commentType := range c.flagForCommands {
+			if _, ok := commandCommentPrefixes[commentType]; !ok {
+				merr = errors.Join(merr, fmt.Errorf("invalid value for-command: %s is not one of %q", commentType, allowedCommands))
 			}
 		}
 
@@ -148,7 +152,7 @@ func (c *RemoveGuardianCommentsCommand) Process(ctx context.Context) error {
 		With("github_owner", c.GitHubFlags.FlagGitHubOwner).
 		With("github_repo", c.GitHubFlags.FlagGitHubOwner).
 		With("pull_request_number", c.flagPullRequestNumber).
-		With("comment_types", c.flagCommentTypes)
+		With("for_commands", c.flagForCommands)
 
 	logger.DebugContext(ctx, "removing outdated comments...")
 
@@ -167,8 +171,8 @@ func (c *RemoveGuardianCommentsCommand) Process(ctx context.Context) error {
 		}
 
 		for _, comment := range response.Comments {
-			for _, commentType := range c.flagCommentTypes {
-				prefix := commentTypePrefixes[commentType]
+			for _, commentType := range c.flagForCommands {
+				prefix := commandCommentPrefixes[commentType]
 
 				// prefix is not found, skip
 				if !strings.HasPrefix(comment.Body, prefix) {

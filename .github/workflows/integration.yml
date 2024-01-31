@@ -120,8 +120,8 @@ jobs:
             -github-repo="${GITHUB_REPO_NAME}" \
             -github-token="${REPO_TOKEN}" \
             -pull-request-number="${PULL_REQUEST_NUMBER}" \
-            -comment-type="plan" \
-            -comment-type="apply"
+            -for-command="plan" \
+            -for-command="apply"
 
   plan:
     needs:

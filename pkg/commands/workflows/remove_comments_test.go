@@ -40,23 +40,23 @@ func TestRemoveGuardianCommentsAfterParse(t *testing.T) {
 	}{
 		{
 			name: "validate_github_flags",
-			args: []string{"-pull-request-number=1", "-comment-type=plan"},
+			args: []string{"-pull-request-number=1", "-for-command=plan"},
 			err:  "missing flag: github-owner is required\nmissing flag: github-repo is required",
 		},
 		{
 			name: "validate_pull_request_number",
-			args: []string{"-comment-type=plan", "-github-owner=owner", "-github-repo=repo"},
+			args: []string{"-for-command=plan", "-github-owner=owner", "-github-repo=repo"},
 			err:  "missing flag: pull-request-number is required",
 		},
 		{
 			name: "validate_comment_type",
 			args: []string{"-pull-request-number=1", "-github-owner=owner", "-github-repo=repo"},
-			err:  "missing flag: comment-type is required",
+			err:  "missing flag: for-command is required",
 		},
 		{
 			name: "wrong_comment_type",
-			args: []string{"-comment-type=test", "-comment-type=wrong", "-pull-request-number=1", "-github-owner=owner", "-github-repo=repo"},
-			err:  "invalid value for comment-type: test is not one of [\"apply\" \"plan\"]\ninvalid value for comment-type: wrong is not one of [\"apply\" \"plan\"]",
+			args: []string{"-for-command=test", "-for-command=wrong", "-pull-request-number=1", "-github-owner=owner", "-github-repo=repo"},
+			err:  "invalid value for-command: test is not one of [\"apply\" \"plan\"]\ninvalid value for-command: wrong is not one of [\"apply\" \"plan\"]",
 		},
 	}
 
@@ -89,7 +89,7 @@ func TestRemoveGuardianCommentsProcess(t *testing.T) {
 		flagGitHubOwner       string
 		flagGitHubRepo        string
 		flagPullRequestNumber int
-		flagCommentTypes      []string
+		flagForCommands       []string
 		gitHubClient          *github.MockGitHubClient
 		err                   string
 		expGitHubClientReqs   []*github.Request
@@ -102,7 +102,7 @@ func TestRemoveGuardianCommentsProcess(t *testing.T) {
 			flagGitHubOwner:       "owner",
 			flagGitHubRepo:        "repo",
 			flagPullRequestNumber: 1,
-			flagCommentTypes:      []string{"plan"},
+			flagForCommands:       []string{"plan"},
 			gitHubClient: &github.MockGitHubClient{
 				ListIssueCommentResponse: &github.IssueCommentResponse{
 					Comments: []*github.IssueComment{
@@ -137,7 +137,7 @@ func TestRemoveGuardianCommentsProcess(t *testing.T) {
 			flagGitHubOwner:       "owner",
 			flagGitHubRepo:        "repo",
 			flagPullRequestNumber: 2,
-			flagCommentTypes:      []string{"plan"},
+			flagForCommands:       []string{"plan"},
 			gitHubClient: &github.MockGitHubClient{
 				ListIssueCommentsErr: fmt.Errorf("error getting comments"),
 			},
@@ -166,7 +166,7 @@ func TestRemoveGuardianCommentsProcess(t *testing.T) {
 					FlagGitHubRepo:      tc.flagGitHubRepo,
 				},
 				flagPullRequestNumber: tc.flagPullRequestNumber,
-				flagCommentTypes:      tc.flagCommentTypes,
+				flagForCommands:       tc.flagForCommands,
 				gitHubClient:          tc.gitHubClient,
 			}
 
