@@ -3,3 +3,5 @@ terraform {
 }
 
 resource "null_resource" "empty" {}
+
+invalid
