@@ -339,7 +339,7 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 	c.Outf("Running Terraform commands")
 
 	if err := c.withActionsOutGroup("Check Terraform Format", func() error {
-		_, err := c.terraformClient.Format(ctx, c.Stdout(), multiStderr, &terraform.FormatOptions{
+		_, err := c.terraformClient.Format(ctx, multiStdout, multiStderr, &terraform.FormatOptions{
 			Check:     util.Ptr(true),
 			Diff:      util.Ptr(true),
 			Recursive: util.Ptr(true),
@@ -347,9 +347,14 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 		})
 		return err //nolint:wrapcheck // Want passthrough
 	}); err != nil {
-		return &RunResult{commentDetails: stderr.String()}, fmt.Errorf("failed to check formatting: %w", err)
+		commentDetails := stderr.String()
+		if commentDetails == "" {
+			commentDetails = stdout.String()
+		}
+		return &RunResult{commentDetails: commentDetails}, fmt.Errorf("failed to check formatting: %w", err)
 	}
 
+	stdout.Reset()
 	stderr.Reset()
 
 	lockfileMode := "none"
@@ -358,7 +363,7 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 	}
 
 	if err := c.withActionsOutGroup("Initializing Terraform", func() error {
-		_, err := c.terraformClient.Init(ctx, c.Stdout(), multiStderr, &terraform.InitOptions{
+		_, err := c.terraformClient.Init(ctx, multiStdout, multiStderr, &terraform.InitOptions{
 			Input:       util.Ptr(false),
 			NoColor:     util.Ptr(true),
 			Lockfile:    util.Ptr(lockfileMode),
@@ -366,25 +371,35 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 		})
 		return err //nolint:wrapcheck // Want passthrough
 	}); err != nil {
-		return &RunResult{commentDetails: stderr.String()}, fmt.Errorf("failed to initialize: %w", err)
+		commentDetails := stderr.String()
+		if commentDetails == "" {
+			commentDetails = stdout.String()
+		}
+		return &RunResult{commentDetails: commentDetails}, fmt.Errorf("failed to initialize: %w", err)
 	}
 
+	stdout.Reset()
 	stderr.Reset()
 
 	if err := c.withActionsOutGroup("Validating Terraform", func() error {
-		_, err := c.terraformClient.Validate(ctx, c.Stdout(), multiStderr, &terraform.ValidateOptions{NoColor: util.Ptr(true)})
+		_, err := c.terraformClient.Validate(ctx, multiStdout, multiStderr, &terraform.ValidateOptions{NoColor: util.Ptr(true)})
 		return err //nolint:wrapcheck // Want passthrough
 	}); err != nil {
-		return &RunResult{commentDetails: stderr.String()}, fmt.Errorf("failed to validate: %w", err)
+		commentDetails := stderr.String()
+		if commentDetails == "" {
+			commentDetails = stdout.String()
+		}
+		return &RunResult{commentDetails: commentDetails}, fmt.Errorf("failed to validate: %w", err)
 	}
 
+	stdout.Reset()
 	stderr.Reset()
 
 	var hasChanges bool
 	var planExitCode int
 
 	if err := c.withActionsOutGroup("Planning Terraform", func() error {
-		exitCode, err := c.terraformClient.Plan(ctx, c.Stdout(), multiStderr, &terraform.PlanOptions{
+		exitCode, err := c.terraformClient.Plan(ctx, multiStdout, multiStderr, &terraform.PlanOptions{
 			Out:              util.Ptr(c.planFilename),
 			Input:            util.Ptr(false),
 			NoColor:          util.Ptr(true),
@@ -399,9 +414,14 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 
 		return err //nolint:wrapcheck // Want passthrough
 	}); err != nil && !hasChanges {
-		return &RunResult{commentDetails: stderr.String()}, fmt.Errorf("failed to plan: %w", err)
+		commentDetails := stderr.String()
+		if commentDetails == "" {
+			commentDetails = stdout.String()
+		}
+		return &RunResult{commentDetails: commentDetails}, fmt.Errorf("failed to plan: %w", err)
 	}
 
+	stdout.Reset()
 	stderr.Reset()
 
 	if err := c.withActionsOutGroup("Formatting output", func() error {
