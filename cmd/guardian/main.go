@@ -54,8 +54,8 @@ var rootCmd = func() cli.Command {
 					Name:        "workflows",
 					Description: "Perform operations related to running Guardian using workflows",
 					Commands: map[string]cli.CommandFactory{
-						"remove-plan-comments": func() cli.Command {
-							return &workflows.RemovePlanCommentsCommand{}
+						"remove-guardian-comments": func() cli.Command {
+							return &workflows.RemoveGuardianCommentsCommand{}
 						},
 						"validate-permissions": func() cli.Command {
 							return &workflows.ValidatePermissionsCommand{}

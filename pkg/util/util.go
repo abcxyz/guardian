@@ -16,11 +16,22 @@
 package util
 
 import (
+	"cmp"
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
+
+	"golang.org/x/exp/maps"
 )
+
+// SortedMapKeys returns the sorted slice of map key strings.
+func SortedMapKeys[M ~map[K]V, K cmp.Ordered, V any](m M) []K {
+	k := maps.Keys(m)
+	slices.Sort(k)
+	return k
+}
 
 // Ptr returns the pointer of a given value.
 func Ptr[T any](v T) *T {

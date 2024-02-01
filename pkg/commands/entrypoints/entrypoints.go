@@ -26,7 +26,6 @@ import (
 
 	"github.com/posener/complete/v2"
 	"golang.org/x/exp/maps"
-	"golang.org/x/exp/slices"
 
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/git"
@@ -46,7 +45,7 @@ var allowedFormats = map[string]struct{}{
 
 // allowedFormatNames are the sorted allowed format names for the format flag.
 // This is used for printing messages and prediction.
-var allowedFormatNames = sortedMapKeys(allowedFormats)
+var allowedFormatNames = util.SortedMapKeys(allowedFormats)
 
 type EntrypointsCommand struct {
 	cli.BaseCommand
@@ -277,11 +276,4 @@ func (c *EntrypointsCommand) writeOutput(dirs []string) error {
 	}
 
 	return nil
-}
-
-// sortedMapKeys returns the sorted slice of map key strings.
-func sortedMapKeys(m map[string]struct{}) []string {
-	k := maps.Keys(m)
-	slices.Sort(k)
-	return k
 }

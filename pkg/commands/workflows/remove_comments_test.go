@@ -22,6 +22,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
+	"github.com/abcxyz/guardian/pkg/commands/apply"
 	"github.com/abcxyz/guardian/pkg/commands/plan"
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/github"
@@ -29,7 +30,7 @@ import (
 	"github.com/abcxyz/pkg/testutil"
 )
 
-func TestRemovePlanCommentsAfterParse(t *testing.T) {
+func TestRemoveGuardianCommentsAfterParse(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
@@ -39,13 +40,23 @@ func TestRemovePlanCommentsAfterParse(t *testing.T) {
 	}{
 		{
 			name: "validate_github_flags",
-			args: []string{"-pull-request-number=1"},
+			args: []string{"-pull-request-number=1", "-for-command=plan"},
 			err:  "missing flag: github-owner is required\nmissing flag: github-repo is required",
 		},
 		{
 			name: "validate_pull_request_number",
-			args: []string{"-github-owner=owner", "-github-repo=repo"},
+			args: []string{"-for-command=plan", "-github-owner=owner", "-github-repo=repo"},
 			err:  "missing flag: pull-request-number is required",
+		},
+		{
+			name: "validate_comment_type",
+			args: []string{"-pull-request-number=1", "-github-owner=owner", "-github-repo=repo"},
+			err:  "missing flag: for-command is required",
+		},
+		{
+			name: "wrong_comment_type",
+			args: []string{"-for-command=test", "-for-command=wrong", "-pull-request-number=1", "-github-owner=owner", "-github-repo=repo"},
+			err:  "invalid value(s) for-command: [\"test\" \"wrong\"] must be one of [\"apply\" \"plan\"]",
 		},
 	}
 
@@ -55,7 +66,7 @@ func TestRemovePlanCommentsAfterParse(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			c := &RemovePlanCommentsCommand{}
+			c := &RemoveGuardianCommentsCommand{}
 
 			f := c.Flags()
 			err := f.Parse(tc.args)
@@ -66,7 +77,7 @@ func TestRemovePlanCommentsAfterParse(t *testing.T) {
 	}
 }
 
-func TestRemovePlanCommentsProcess(t *testing.T) {
+func TestRemoveGuardianCommentsProcess(t *testing.T) {
 	t.Parallel()
 
 	ctx := logging.WithLogger(context.Background(), logging.TestLogger(t))
@@ -78,6 +89,7 @@ func TestRemovePlanCommentsProcess(t *testing.T) {
 		flagGitHubOwner       string
 		flagGitHubRepo        string
 		flagPullRequestNumber int
+		flagForCommands       []string
 		gitHubClient          *github.MockGitHubClient
 		err                   string
 		expGitHubClientReqs   []*github.Request
@@ -90,12 +102,17 @@ func TestRemovePlanCommentsProcess(t *testing.T) {
 			flagGitHubOwner:       "owner",
 			flagGitHubRepo:        "repo",
 			flagPullRequestNumber: 1,
+			flagForCommands:       []string{"plan"},
 			gitHubClient: &github.MockGitHubClient{
 				ListIssueCommentResponse: &github.IssueCommentResponse{
 					Comments: []*github.IssueComment{
 						{
 							ID:   1,
 							Body: plan.CommentPrefix + " comment message",
+						},
+						{
+							ID:   2,
+							Body: apply.CommentPrefix + " comment message",
 						},
 					},
 				},
@@ -120,6 +137,7 @@ func TestRemovePlanCommentsProcess(t *testing.T) {
 			flagGitHubOwner:       "owner",
 			flagGitHubRepo:        "repo",
 			flagPullRequestNumber: 2,
+			flagForCommands:       []string{"plan"},
 			gitHubClient: &github.MockGitHubClient{
 				ListIssueCommentsErr: fmt.Errorf("error getting comments"),
 			},
@@ -141,13 +159,14 @@ func TestRemovePlanCommentsProcess(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			c := &RemovePlanCommentsCommand{
+			c := &RemoveGuardianCommentsCommand{
 				GitHubFlags: flags.GitHubFlags{
 					FlagIsGitHubActions: tc.flagIsGitHubActions,
 					FlagGitHubOwner:     tc.flagGitHubOwner,
 					FlagGitHubRepo:      tc.flagGitHubRepo,
 				},
 				flagPullRequestNumber: tc.flagPullRequestNumber,
+				flagForCommands:       tc.flagForCommands,
 				gitHubClient:          tc.gitHubClient,
 			}
 
