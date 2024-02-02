@@ -18,7 +18,6 @@ package apply
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -145,6 +144,14 @@ func (c *ApplyCommand) Flags() *cli.FlagSet {
 		Usage:   "The duration Terraform should wait to obtain a lock when running commands that modify state.",
 	})
 
+	set.AfterParse(func(existingErr error) (merr error) {
+		if c.flagDir == "" {
+			merr = errors.Join(merr, fmt.Errorf("missing flag: dir is required"))
+		}
+
+		return merr
+	})
+
 	return set
 }
 
@@ -154,10 +161,6 @@ func (c *ApplyCommand) Run(ctx context.Context, args []string) error {
 	f := c.Flags()
 	if err := f.Parse(args); err != nil {
 		return fmt.Errorf("failed to parse flags: %w", err)
-	}
-
-	if c.flagDir == "" {
-		return flag.ErrHelp
 	}
 
 	dirAbs, err := util.PathEvalAbs(c.flagDir)

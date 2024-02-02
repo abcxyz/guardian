@@ -19,7 +19,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"sort"
 	"strings"
@@ -161,6 +160,10 @@ func (c *EntrypointsCommand) Flags() *cli.FlagSet {
 			c.parsedFlagMaxDepth = &c.flagMaxDepth
 		}
 
+		if c.flagDir == "" {
+			merr = errors.Join(merr, fmt.Errorf("missing flag: dir is required"))
+		}
+
 		return merr
 	})
 
@@ -171,10 +174,6 @@ func (c *EntrypointsCommand) Run(ctx context.Context, args []string) error {
 	f := c.Flags()
 	if err := f.Parse(args); err != nil {
 		return fmt.Errorf("failed to parse flags: %w", err)
-	}
-
-	if c.flagDir == "" {
-		return flag.ErrHelp
 	}
 
 	dirAbs, err := util.PathEvalAbs(c.flagDir)

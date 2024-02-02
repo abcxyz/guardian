@@ -18,7 +18,6 @@ package plan
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -149,6 +148,10 @@ func (c *PlanCommand) Flags() *cli.FlagSet {
 			merr = errors.Join(merr, fmt.Errorf("missing flag: bucket-name is required"))
 		}
 
+		if c.flagDir == "" {
+			merr = errors.Join(merr, fmt.Errorf("missing flag: dir is required"))
+		}
+
 		return merr
 	})
 
@@ -161,10 +164,6 @@ func (c *PlanCommand) Run(ctx context.Context, args []string) error {
 	f := c.Flags()
 	if err := f.Parse(args); err != nil {
 		return fmt.Errorf("failed to parse flags: %w", err)
-	}
-
-	if c.flagDir == "" {
-		return flag.ErrHelp
 	}
 
 	dirAbs, err := util.PathEvalAbs(c.flagDir)
