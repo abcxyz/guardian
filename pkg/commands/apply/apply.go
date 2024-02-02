@@ -66,6 +66,7 @@ type ApplyCommand struct {
 	flags.GitHubFlags
 	flags.RetryFlags
 
+	flagDir                  string
 	flagBucketName           string
 	flagCommitSHA            string
 	flagPullRequestNumber    int
@@ -100,6 +101,13 @@ func (c *ApplyCommand) Flags() *cli.FlagSet {
 	c.RetryFlags.Register(set)
 
 	f := set.NewSection("COMMAND OPTIONS")
+
+	f.StringVar(&cli.StringVar{
+		Name:    "dir",
+		Target:  &c.flagDir,
+		Example: "-dir=terraform",
+		Usage:   "The location of the terraform directory",
+	})
 
 	f.IntVar(&cli.IntVar{
 		Name:    "pull-request-number",
@@ -148,12 +156,11 @@ func (c *ApplyCommand) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("failed to parse flags: %w", err)
 	}
 
-	parsedArgs := f.Args()
-	if len(parsedArgs) != 1 {
+	if c.flagDir == "" {
 		return flag.ErrHelp
 	}
 
-	dirAbs, err := util.PathEvalAbs(parsedArgs[0])
+	dirAbs, err := util.PathEvalAbs(c.flagDir)
 	if err != nil {
 		return fmt.Errorf("failed to absolute path for directory: %w", err)
 	}

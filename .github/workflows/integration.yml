@@ -183,7 +183,7 @@ jobs:
           -github-token="${REPO_TOKEN}" \
           -pull-request-number="${PULL_REQUEST_NUMBER}" \
           -bucket-name="${GUARDIAN_BUCKET_NAME}" \
-          "${DIRECTORY}"
+          -dir="${DIRECTORY}"
 
   plan_success:
     needs:
@@ -287,7 +287,7 @@ jobs:
           -github-token="${REPO_TOKEN}" \
           -pull-request-number="${PULL_REQUEST_NUMBER}" \
           -bucket-name="${GUARDIAN_BUCKET_NAME}" \
-          "${DIRECTORY}"
+          -dir="${DIRECTORY}"
 
       - name: 'Guardian Destroy'
         env:
