@@ -75,7 +75,7 @@ func (c *RunCommand) Flags() *cli.FlagSet {
 	f.StringVar(&cli.StringVar{
 		Name:    "dir",
 		Target:  &c.flagDir,
-		Example: "-dir=terraform",
+		Example: "./terraform",
 		Usage:   "The location of the terraform directory",
 	})
 
