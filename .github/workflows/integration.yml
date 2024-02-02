@@ -295,6 +295,7 @@ jobs:
         shell: 'bash'
         run: |-
           guardian run \
-          -terraform-command="destroy" \
-          -terraform-args="-input=false,-auto-approve" \
-          "${DIRECTORY}"
+          -dir="${DIRECTORY}" \
+          -- destroy \
+          -input=false \
+          -auto-approve

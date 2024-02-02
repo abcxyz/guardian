@@ -125,8 +125,8 @@ func TestPlan_Process(t *testing.T) {
 				childPath: "testdir",
 
 				flagAllowedTerraformCommands: tc.flagAllowedTerraformCommands,
-				flagTerraformCommand:         tc.flagTerraformCommand,
-				flagTerraformArgs:            tc.flagTerraformArgs,
+				terraformCommand:             tc.flagTerraformCommand,
+				terraformArgs:                tc.flagTerraformArgs,
 				flagAllowLockfileChanges:     tc.flagAllowLockfileChanges,
 				flagLockTimeout:              tc.flagLockTimeout,
 				GitHubFlags: flags.GitHubFlags{

@@ -35,15 +35,16 @@ var _ cli.Command = (*RunCommand)(nil)
 type RunCommand struct {
 	cli.BaseCommand
 
-	directory string
-	childPath string
+	directory        string
+	childPath        string
+	terraformCommand string
+	terraformArgs    []string
 
 	flags.GitHubFlags
 	flags.RetryFlags
 
+	flagDir                      string
 	flagAllowedTerraformCommands []string
-	flagTerraformCommand         string
-	flagTerraformArgs            []string
 	flagAllowLockfileChanges     bool
 	flagLockTimeout              time.Duration
 
@@ -71,25 +72,18 @@ func (c *RunCommand) Flags() *cli.FlagSet {
 
 	f := set.NewSection("COMMAND OPTIONS")
 
+	f.StringVar(&cli.StringVar{
+		Name:    "dir",
+		Target:  &c.flagDir,
+		Example: "-dir=terraform",
+		Usage:   "The location of the terraform directory",
+	})
+
 	f.StringSliceVar(&cli.StringSliceVar{
 		Name:    "allowed-terraform-commands",
 		Target:  &c.flagAllowedTerraformCommands,
 		Example: "plan, apply, destroy",
 		Usage:   "The list of allowed Terraform commands to be run. Defaults to all commands.",
-	})
-
-	f.StringVar(&cli.StringVar{
-		Name:    "terraform-command",
-		Target:  &c.flagTerraformCommand,
-		Example: "plan",
-		Usage:   "The Terraform command to run.",
-	})
-
-	f.StringSliceVar(&cli.StringSliceVar{
-		Name:    "terraform-args",
-		Target:  &c.flagTerraformArgs,
-		Example: "-no-color,-input=false",
-		Usage:   "The list arguments to provide to the Terraform CLI command.",
 	})
 
 	f.BoolVar(&cli.BoolVar{
@@ -117,11 +111,12 @@ func (c *RunCommand) Run(ctx context.Context, args []string) error {
 	}
 
 	parsedArgs := f.Args()
-	if len(parsedArgs) != 1 {
+	if len(parsedArgs) < 1 {
 		return flag.ErrHelp
 	}
+	c.terraformCommand, c.terraformArgs = parsedArgs[0], parsedArgs[1:]
 
-	dirAbs, err := util.PathEvalAbs(parsedArgs[0])
+	dirAbs, err := util.PathEvalAbs(c.flagDir)
 	if err != nil {
 		return fmt.Errorf("failed to absolute path for directory: %w", err)
 	}
@@ -150,12 +145,12 @@ func (c *RunCommand) Process(ctx context.Context) error {
 
 	c.Outf("Starting Guardian run")
 
-	if len(c.flagAllowedTerraformCommands) > 0 && !slices.Contains(c.flagAllowedTerraformCommands, c.flagTerraformCommand) {
+	if len(c.flagAllowedTerraformCommands) > 0 && !slices.Contains(c.flagAllowedTerraformCommands, c.terraformCommand) {
 		sort.Strings(c.flagAllowedTerraformCommands)
-		return fmt.Errorf("%s is not an allowed Terraform command.\n\nAllowed commands are %q", c.flagTerraformCommand, c.flagAllowedTerraformCommands)
+		return fmt.Errorf("%s is not an allowed Terraform command.\n\nAllowed commands are %q", c.terraformCommand, c.flagAllowedTerraformCommands)
 	}
 
-	if _, ok := terraform.InitRequiredCommands[c.flagTerraformCommand]; ok {
+	if _, ok := terraform.InitRequiredCommands[c.terraformCommand]; ok {
 		c.Outf("Running Terraform init")
 
 		lockfileMode := "none"
@@ -176,7 +171,7 @@ func (c *RunCommand) Process(ctx context.Context) error {
 	}
 
 	if err := c.withActionsOutGroup("Running Terraform command", func() error {
-		_, err := c.terraformClient.Run(ctx, c.Stdout(), c.Stderr(), c.flagTerraformCommand, c.flagTerraformArgs...)
+		_, err := c.terraformClient.Run(ctx, c.Stdout(), c.Stderr(), c.terraformCommand, c.terraformArgs...)
 		return err //nolint:wrapcheck // Want passthrough
 	}); err != nil {
 		return fmt.Errorf("failed to run command: %w", err)
