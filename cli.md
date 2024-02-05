@@ -4,7 +4,7 @@ Supported commands:
 
 | **Command**                 | **Subcommand**                                          | **Required Github Permission**                                    | **Description**                                               |
 |-----------------------------|---------------------------------------------------------|-------------------------------------------------------------------|---------------------------------------------------------------|
-| [entrypoints](#entrypoints) |                                                         | `contents: read`<br> `pull-requests: write`                       | Determine the entrypoint directories to run Guardian commands |
+| [entrypoints](#entrypoints) |                                                         |                                                                   | Determine the entrypoint directories to run Guardian commands |
 | [apply](#apply)             |                                                         | `contents: read`<br> `pull-requests: write`<br> `id-token: write` | Run Terraform apply for a directory                           |
 | [plan](#plan)               |                                                         | `contents: read`<br> `pull-requests: write`<br> `id-token: write` | Run Terraform plan for a directory                            |
 | [run](#run)                 |                                                         | none                                                              | Run a Terraform command for a directory                       |
@@ -12,7 +12,7 @@ Supported commands:
 |                             | [detect-drift](#iam-detect-drift)                       | `issues: write`                                                   | Detect IAM drift in a GCP organization                        |
 | drift                       | [statefiles](#drift-statefiles)                         | `issues: write`<br> `contents: read`                              | Detect drift for terraform statefiles                         |
 | workflows                   | [plan-status-comment](#workflows-plan-status-comment)   | `pull-requests: write`                                            | Add Guardian plan comment to a pull request                   |
-|                             | [remove-plan-comments](#workflows-remove-plan-comments) | `pull-requests: write`                                            | Remove previous Guardian plan comments from a pull request    |
+|                             | [remove-plan-comments](#workflows-remove-plan-comments) | `contents: read`<br> `pull-requests: write`                       | Remove previous Guardian plan comments from a pull request    |
 |                             | [validate-permissions](#workflows-validate-permissions) | `contents: read`                                                  | Validate required permissions for the current GitHub workflow |
 
 ## Shared Options
@@ -74,8 +74,8 @@ Usage: guardian apply [options]
 
 ### Prerequisites
 
+* Required GitHub [permissions](#guardian-cli).
 * The environment where you run this command must have Terraform installed locally.
-* Write permission to the target GitHub repository `pull-requests`.
 * The appropriate permissions to change all resources in your terraform configuration
   (e.g. write access to all GCP/AWS/GitHub resources in your terraform).
 * The user must be authenticated to the appropriate provider (e.g. for GCP they must
@@ -104,8 +104,8 @@ Usage: guardian plan [options]
 
 ### Prerequisites
 
+* Required GitHub [permissions](#guardian-cli).
 * The environment where you run this command must have Terraform installed locally.
-* Write permission to the target GitHub repository `pull-requests`.
 * The appropriate permissions to view all resources in your terraform configuration
   (e.g. read access to all GCP/AWS/GitHub resources in your terraform).
 * The user must be authenticated to the appropriate provider (e.g. for GCP they must
@@ -195,13 +195,13 @@ Usage: guardian iam detect-drift [options]
 
 The actor that runs this command must have:
 
+* Required GitHub [permissions](#guardian-cli).
 * A GCP project with Asset Inventory API enabled (`cloudasset.googleapis.com`)
   and Resource Manager enabled (`cloudresourcemanager.googleapis.com`).
   If running as yourself, be sure to set this as your default project via gcloud.
 * Authentication to GCP via gcloud auth.
 * Read-access to view all IAM for all projects, folders, and as well as organization-level
   IAM for the organization in question.
-* Write permission to the target GitHub repository `issues`.
 
 ### Options
 
@@ -270,15 +270,13 @@ Usage: guardian drift statefiles [options] <directory>
 
 The actor that runs this command must have:
 
+* Required GitHub [permissions](#guardian-cli).
 * A GCP project with Asset Inventory API enabled (`cloudasset.googleapis.com`)
   and Resource Manager API enabled (`cloudresourcemanager.googleapis.com`).
   If running as yourself, be sure to set this as your default project via gcloud.
 * Authentication to GCP via gcloud auth.
 * Read-access to view all IAM for all projects, folders, and as well as organization-level
   IAM for the organization in question.
-* Write permission to the target GitHub repository `issues`.
-* Read permissions to clone all GitHub repositories containing relevant terraform in the
-  target GitHub organization (if necessary).
 
 ### Options
 
@@ -312,7 +310,7 @@ Usage: guardian workflows plan-status-comment [options] <pull_request_number>
 
 ### Prerequisites
 
-* Write permission to the target GitHub repository `pull-requests`.
+* Required GitHub [permissions](#guardian-cli).
 
 ### Options
 
@@ -331,7 +329,7 @@ Usage: guardian workflows remove-plan-comments [options] <pull_request_number>
 
 ### Prerequisites
 
-* Write permission to the target GitHub repository `pull-requests`.
+* Required GitHub [permissions](#guardian-cli).
 
 ### Options
 
