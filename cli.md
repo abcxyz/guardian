@@ -46,12 +46,13 @@ These options influence how Guardian attempts to retry failed requests:
 
 Determine the entrypoint directories to run Guardian commands.
 
-Usage: guardian entrypoints [options] <directory>
+Usage: guardian entrypoints [options]
 
 ### Options
 
 Also supports [GitHub Options](#github-options) and [Retry Options](#retry-options).
 
+* **-dir** - The root directory to search for entrypoint directories. Defaults to the current working directory.
 * **-dest-ref="ref-name"** - The destination GitHub ref name for finding file changes.
 * **-detect-changes** - Detect file changes, including all local module dependencies,
   and run for all entrypoint directories. The default value is "false".
@@ -69,7 +70,7 @@ Also supports [GitHub Options](#github-options) and [Retry Options](#retry-optio
 
 Run Terraform apply for a directory.
 
-Usage: guardian apply [options] <directory>.
+Usage: guardian apply [options]
 
 ### Prerequisites
 
@@ -84,6 +85,7 @@ Usage: guardian apply [options] <directory>.
 
 Also supports [GitHub Options](#github-options) and [Retry Options](#retry-options).
 
+* **-dir** - The Terraform directory to run the apply command. Defaults to the current working directory.
 * **-allow-lockfile-changes** - Allow modification of the Terraform lockfile. The default value is "false".
 * **-bucket-name="my-guardian-state-bucket"** - The Google Cloud Storage bucket name to store Guardian plan files.
 * **-commit-sha="e538db9a29f2ff7a404a2ef40bb62a6df88c98c1"** - The commit sha to determine
@@ -98,7 +100,7 @@ Also supports [GitHub Options](#github-options) and [Retry Options](#retry-optio
 
 Run Terraform plan for a directory.
 
-Usage: guardian plan [options] <directory>
+Usage: guardian plan [options]
 
 ### Prerequisites
 
@@ -113,6 +115,7 @@ Usage: guardian plan [options] <directory>
 
 Also supports [GitHub Options](#github-options) and [Retry Options](#retry-options).
 
+* **-dir** - The Terraform directory to run the plan command. Defaults to the current working directory.
 * **-allow-lockfile-changes** - Allow modification of the Terraform lockfile. The default value is "false".
 * **-bucket-name="my-guardian-state-bucket"** - The Google Cloud Storage bucket name to store Guardian plan files.
 * **-lock-timeout="10m"** - The duration Terraform should wait to obtain a lock when
@@ -124,7 +127,7 @@ Also supports [GitHub Options](#github-options) and [Retry Options](#retry-optio
 
 Run a Terraform command for a directory.
 
-Usage: guardian run [options] <directory>
+Usage: guardian run [options]
 
 ### Prerequisites
 
@@ -138,6 +141,7 @@ Usage: guardian run [options] <directory>
 
 Also supports [GitHub Options](#github-options) and [Retry Options](#retry-options).
 
+* **-dir** - The Terraform directory to run the command. Defaults to the current working directory.
 * **-allow-lockfile-changes** - Allow modification of the Terraform lockfile. The default value is "false".
 * **-bucket-name="my-guardian-state-bucket"** - The Google Cloud Storage bucket name to store Guardian plan files.
 * **-commit-sha="e538db9a29f2ff7a404a2ef40bb62a6df88c98c1"** - The commit sha to determine
