@@ -63,8 +63,8 @@ type PlanCommand struct {
 
 	flags.GitHubFlags
 	flags.RetryFlags
+	flags.CommonFlags
 
-	flagDir                  string
 	flagBucketName           string
 	flagPullRequestNumber    int
 	flagAllowLockfileChanges bool
@@ -93,15 +93,9 @@ func (c *PlanCommand) Flags() *cli.FlagSet {
 
 	c.GitHubFlags.Register(set)
 	c.RetryFlags.Register(set)
+	c.CommonFlags.Register(set)
 
 	f := set.NewSection("COMMAND OPTIONS")
-
-	f.StringVar(&cli.StringVar{
-		Name:    "dir",
-		Target:  &c.flagDir,
-		Example: "./terraform",
-		Usage:   "The location of the terraform directory",
-	})
 
 	f.IntVar(&cli.IntVar{
 		Name:    "pull-request-number",
@@ -149,10 +143,6 @@ func (c *PlanCommand) Flags() *cli.FlagSet {
 			merr = errors.Join(merr, fmt.Errorf("missing flag: bucket-name is required"))
 		}
 
-		if c.flagDir == "" {
-			merr = errors.Join(merr, fmt.Errorf("missing flag: dir is required"))
-		}
-
 		return merr
 	})
 
@@ -172,7 +162,7 @@ func (c *PlanCommand) Run(ctx context.Context, args []string) error {
 		return flag.ErrHelp
 	}
 
-	dirAbs, err := util.PathEvalAbs(c.flagDir)
+	dirAbs, err := util.PathEvalAbs(c.FlagDir)
 	if err != nil {
 		return fmt.Errorf("failed to absolute path for directory: %w", err)
 	}
