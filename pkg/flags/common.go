@@ -15,8 +15,6 @@
 package flags
 
 import (
-	"os"
-
 	"github.com/abcxyz/pkg/cli"
 )
 
@@ -27,16 +25,10 @@ type CommonFlags struct {
 func (c *CommonFlags) Register(set *cli.FlagSet) {
 	f := set.NewSection("COMMON OPTIONS")
 
-	cwd, err := os.Getwd()
-	if err != nil {
-		panic(err)
-	}
-
 	f.StringVar(&cli.StringVar{
 		Name:    "dir",
 		Target:  &c.FlagDir,
 		Example: "./terraform",
-		Default: cwd,
 		Usage:   "The location of the terraform directory",
 	})
 }

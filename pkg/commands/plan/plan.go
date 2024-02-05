@@ -162,16 +162,20 @@ func (c *PlanCommand) Run(ctx context.Context, args []string) error {
 		return flag.ErrHelp
 	}
 
+	cwd, err := c.WorkingDir()
+	if err != nil {
+		return fmt.Errorf("failed to get current working directory: %w", err)
+	}
+
+	if c.FlagDir == "" {
+		c.FlagDir = cwd
+	}
+
 	dirAbs, err := util.PathEvalAbs(c.FlagDir)
 	if err != nil {
 		return fmt.Errorf("failed to absolute path for directory: %w", err)
 	}
 	c.directory = dirAbs
-
-	cwd, err := c.WorkingDir()
-	if err != nil {
-		return fmt.Errorf("failed to get current working directory: %w", err)
-	}
 
 	childPath, err := util.ChildPath(cwd, c.directory)
 	if err != nil {
