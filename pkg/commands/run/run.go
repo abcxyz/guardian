@@ -42,8 +42,8 @@ type RunCommand struct {
 
 	flags.GitHubFlags
 	flags.RetryFlags
+	flags.CommonFlags
 
-	flagDir                      string
 	flagAllowedTerraformCommands []string
 	flagAllowLockfileChanges     bool
 	flagLockTimeout              time.Duration
@@ -69,15 +69,9 @@ func (c *RunCommand) Flags() *cli.FlagSet {
 
 	c.GitHubFlags.Register(set)
 	c.RetryFlags.Register(set)
+	c.CommonFlags.Register(set)
 
 	f := set.NewSection("COMMAND OPTIONS")
-
-	f.StringVar(&cli.StringVar{
-		Name:    "dir",
-		Target:  &c.flagDir,
-		Example: "./terraform",
-		Usage:   "The location of the terraform directory",
-	})
 
 	f.StringSliceVar(&cli.StringSliceVar{
 		Name:    "allowed-terraform-commands",
@@ -116,16 +110,16 @@ func (c *RunCommand) Run(ctx context.Context, args []string) error {
 	}
 	c.terraformCommand, c.terraformArgs = parsedArgs[0], parsedArgs[1:]
 
-	dirAbs, err := util.PathEvalAbs(c.flagDir)
-	if err != nil {
-		return fmt.Errorf("failed to absolute path for directory: %w", err)
-	}
-	c.directory = dirAbs
-
 	cwd, err := c.WorkingDir()
 	if err != nil {
 		return fmt.Errorf("failed to get current working directory: %w", err)
 	}
+
+	dirAbs, err := util.PathEvalAbs(c.FlagDir)
+	if err != nil {
+		return fmt.Errorf("failed to absolute path for directory: %w", err)
+	}
+	c.directory = dirAbs
 
 	childPath, err := util.ChildPath(cwd, c.directory)
 	if err != nil {
