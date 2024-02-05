@@ -18,6 +18,7 @@ package apply
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -161,6 +162,11 @@ func (c *ApplyCommand) Run(ctx context.Context, args []string) error {
 	f := c.Flags()
 	if err := f.Parse(args); err != nil {
 		return fmt.Errorf("failed to parse flags: %w", err)
+	}
+
+	parsedArgs := f.Args()
+	if len(parsedArgs) > 0 {
+		return flag.ErrHelp
 	}
 
 	dirAbs, err := util.PathEvalAbs(c.flagDir)
