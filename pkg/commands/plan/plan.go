@@ -63,6 +63,7 @@ type PlanCommand struct {
 
 	flags.GitHubFlags
 	flags.RetryFlags
+	flags.CommonFlags
 
 	flagBucketName           string
 	flagPullRequestNumber    int
@@ -92,6 +93,7 @@ func (c *PlanCommand) Flags() *cli.FlagSet {
 
 	c.GitHubFlags.Register(set)
 	c.RetryFlags.Register(set)
+	c.CommonFlags.Register(set)
 
 	f := set.NewSection("COMMAND OPTIONS")
 
@@ -156,20 +158,24 @@ func (c *PlanCommand) Run(ctx context.Context, args []string) error {
 	}
 
 	parsedArgs := f.Args()
-	if len(parsedArgs) != 1 {
+	if len(parsedArgs) > 0 {
 		return flag.ErrHelp
 	}
-
-	dirAbs, err := util.PathEvalAbs(parsedArgs[0])
-	if err != nil {
-		return fmt.Errorf("failed to absolute path for directory: %w", err)
-	}
-	c.directory = dirAbs
 
 	cwd, err := c.WorkingDir()
 	if err != nil {
 		return fmt.Errorf("failed to get current working directory: %w", err)
 	}
+
+	if c.FlagDir == "" {
+		c.FlagDir = cwd
+	}
+
+	dirAbs, err := util.PathEvalAbs(c.FlagDir)
+	if err != nil {
+		return fmt.Errorf("failed to absolute path for directory: %w", err)
+	}
+	c.directory = dirAbs
 
 	childPath, err := util.ChildPath(cwd, c.directory)
 	if err != nil {

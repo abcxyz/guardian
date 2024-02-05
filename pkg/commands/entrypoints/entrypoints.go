@@ -54,6 +54,7 @@ type EntrypointsCommand struct {
 
 	flags.GitHubFlags
 	flags.RetryFlags
+	flags.CommonFlags
 
 	flagPullRequestNumber       int
 	flagDestRef                 string
@@ -85,6 +86,7 @@ func (c *EntrypointsCommand) Flags() *cli.FlagSet {
 
 	c.GitHubFlags.Register(set)
 	c.RetryFlags.Register(set)
+	c.CommonFlags.Register(set)
 
 	f := set.NewSection("COMMAND OPTIONS")
 
@@ -166,12 +168,20 @@ func (c *EntrypointsCommand) Run(ctx context.Context, args []string) error {
 	}
 
 	parsedArgs := f.Args()
-
-	if len(parsedArgs) != 1 {
+	if len(parsedArgs) > 0 {
 		return flag.ErrHelp
 	}
 
-	dirAbs, err := util.PathEvalAbs(parsedArgs[0])
+	cwd, err := c.WorkingDir()
+	if err != nil {
+		return fmt.Errorf("failed to get current working directory: %w", err)
+	}
+
+	if c.FlagDir == "" {
+		c.FlagDir = cwd
+	}
+
+	dirAbs, err := util.PathEvalAbs(c.FlagDir)
 	if err != nil {
 		return fmt.Errorf("failed to absolute path for directory: %w", err)
 	}
