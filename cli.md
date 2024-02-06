@@ -12,7 +12,7 @@ Supported commands:
 |                             | [detect-drift](#iam-detect-drift)                               | `issues: write`                                                   | Detect IAM drift in a GCP organization                        |
 | drift                       | [statefiles](#drift-statefiles)                                 | `issues: write`<br> `contents: read`                              | Detect drift for terraform statefiles                         |
 | workflows                   | [plan-status-comment](#workflows-plan-status-comment)           | `pull-requests: write`                                            | Add Guardian plan comment to a pull request                   |
-|                             | [remove-guardian-comments](#workflows-remove-guardian-comments) | `contents: read`<br> `pull-requests: write`                       | Remove previous Guardian plan comments from a pull request    |
+|                             | [remove-guardian-comments](#workflows-remove-guardian-comments) | `contents: read`<br> `pull-requests: write`                       | Remove previous Guardian comments from a pull request         |
 |                             | [validate-permissions](#workflows-validate-permissions)         | `contents: read`                                                  | Validate required permissions for the current GitHub workflow |
 
 ## Shared Options
