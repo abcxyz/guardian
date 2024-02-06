@@ -2,18 +2,18 @@
 
 Supported commands:
 
-| **Command**                 | **Subcommand**                                          | **Required Github Permission**                                    | **Description**                                               |
-|-----------------------------|---------------------------------------------------------|-------------------------------------------------------------------|---------------------------------------------------------------|
-| [entrypoints](#entrypoints) |                                                         |                                                                   | Determine the entrypoint directories to run Guardian commands |
-| [apply](#apply)             |                                                         | `contents: read`<br> `pull-requests: write`<br> `id-token: write` | Run Terraform apply for a directory                           |
-| [plan](#plan)               |                                                         | `contents: read`<br> `pull-requests: write`<br> `id-token: write` | Run Terraform plan for a directory                            |
-| [run](#run)                 |                                                         | none                                                              | Run a Terraform command for a directory                       |
-| iam                         | [cleanup](#iam-cleanup)                                 | none                                                              | Remove any expired IAM in a GCP organization                  |
-|                             | [detect-drift](#iam-detect-drift)                       | `issues: write`                                                   | Detect IAM drift in a GCP organization                        |
-| drift                       | [statefiles](#drift-statefiles)                         | `issues: write`<br> `contents: read`                              | Detect drift for terraform statefiles                         |
-| workflows                   | [plan-status-comment](#workflows-plan-status-comment)   | `pull-requests: write`                                            | Add Guardian plan comment to a pull request                   |
-|                             | [remove-plan-comments](#workflows-remove-plan-comments) | `contents: read`<br> `pull-requests: write`                       | Remove previous Guardian plan comments from a pull request    |
-|                             | [validate-permissions](#workflows-validate-permissions) | `contents: read`                                                  | Validate required permissions for the current GitHub workflow |
+| **Command**                 | **Subcommand**                                                  | **Required Github Permission**                                    | **Description**                                               |
+|-----------------------------|-----------------------------------------------------------------|-------------------------------------------------------------------|---------------------------------------------------------------|
+| [entrypoints](#entrypoints) |                                                                 |                                                                   | Determine the entrypoint directories to run Guardian commands |
+| [apply](#apply)             |                                                                 | `contents: read`<br> `pull-requests: write`<br> `id-token: write` | Run Terraform apply for a directory                           |
+| [plan](#plan)               |                                                                 | `contents: read`<br> `pull-requests: write`<br> `id-token: write` | Run Terraform plan for a directory                            |
+| [run](#run)                 |                                                                 | none                                                              | Run a Terraform command for a directory                       |
+| iam                         | [cleanup](#iam-cleanup)                                         | none                                                              | Remove any expired IAM in a GCP organization                  |
+|                             | [detect-drift](#iam-detect-drift)                               | `issues: write`                                                   | Detect IAM drift in a GCP organization                        |
+| drift                       | [statefiles](#drift-statefiles)                                 | `issues: write`<br> `contents: read`                              | Detect drift for terraform statefiles                         |
+| workflows                   | [plan-status-comment](#workflows-plan-status-comment)           | `pull-requests: write`                                            | Add Guardian plan comment to a pull request                   |
+|                             | [remove-guardian-comments](#workflows-remove-guardian-comments) | `contents: read`<br> `pull-requests: write`                       | Remove previous Guardian comments from a pull request         |
+|                             | [validate-permissions](#workflows-validate-permissions)         | `contents: read`                                                  | Validate required permissions for the current GitHub workflow |
 
 ## Shared Options
 
@@ -310,7 +310,7 @@ Also supports [GitHub Options](#github-options) and [Retry Options](#retry-optio
 
 Add Guardian plan comments to a pull request.
 
-Usage: guardian workflows plan-status-comment [options] <pull_request_number>
+Usage: guardian workflows plan-status-comment [options]
 
 ### Prerequisites
 
@@ -325,11 +325,11 @@ Also supports [GitHub Options](#github-options) and [Retry Options](#retry-optio
 * **-pull-request-number="100"** - The GitHub pull request number to remove plan
   comments from. The default value is "0".
 
-## Workflows remove-plan-comments
+## Workflows remove-guardian-comments
 
-Remove previous Guardian plan comments from a pull request.
+Remove previous Guardian comments from a pull request.
 
-Usage: guardian workflows remove-plan-comments [options] <pull_request_number>
+Usage: guardian workflows remove-guardian-comments [options]
 
 ### Prerequisites
 
@@ -341,6 +341,7 @@ Also supports [GitHub Options](#github-options) and [Retry Options](#retry-optio
 
 * **-pull-request-number="100"** - The GitHub pull request number to remove plan
   comments from. The default value is "0".
+* **-for-command="plan,apply"** - The Guardian command to remove comments for. Valid values are ["apply", "plan"]
 
 ## Workflows validate-permissions
 

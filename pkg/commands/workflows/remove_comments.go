@@ -60,14 +60,14 @@ type RemoveGuardianCommentsCommand struct {
 }
 
 func (c *RemoveGuardianCommentsCommand) Desc() string {
-	return `Remove previous Guardian plan comments from a pull request`
+	return `Remove previous Guardian comments from a pull request`
 }
 
 func (c *RemoveGuardianCommentsCommand) Help() string {
 	return `
 Usage: {{ COMMAND }} [options] <pull_request_number>
 
-	Remove previous Guardian plan comments from a pull request.
+	Remove previous Guardian comments from a pull request.
 `
 }
 
