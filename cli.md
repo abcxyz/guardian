@@ -48,6 +48,10 @@ Determine the entrypoint directories to run Guardian commands.
 
 Usage: guardian entrypoints [options]
 
+### Prerequisites
+
+* Required GitHub [permissions](#guardian-cli).
+
 ### Options
 
 Also supports [GitHub Options](#github-options) and [Retry Options](#retry-options).
@@ -175,15 +179,15 @@ The actor that runs this command must have:
 
 Also supports [Retry Options](#retry-options).
 
-* **-disable-evaluate-condition** - Whether or not to evaluate the IAM Condition Expression
+* **-disable-evaluate-condition** - Whether to evaluate the IAM Condition Expression
   and only delete those IAM with false evaluation. Defaults to false. Example: An IAM
   condition with expression `request.time < timestamp("2019-01-01T00:00:00Z")` will
   evaluate to false and the IAM will be deleted. The default value is "false".
 * **-iam-query="policy:abcxyz-aod-expiry"** - The query to use to filter on IAM.
 * **-max-conncurrent-requests="2"** - The maximum number of concurrent requests
   allowed at any time to GCP. The default value is "10".
-* **-scope="123435456456"** - The scope to cleanup IAM for - organizations/123456 will
-  cleanup all IAM matching your query in the organization and all folders and projects beneath it.
+* **-scope="123435456456"** - The scope to clean up IAM for - organizations/123456 will
+  clean up all IAM matching your query in the organization and all folders and projects beneath it.
 
 ## IAM detect-drift
 
@@ -222,14 +226,14 @@ Also supports [GitHub Options](#github-options).
   GitHub Issues.
 * **-github-issue-labels="guardian-iam-drift"** - The labels to use on any created
   GitHub Issues.
-* **-skip-github-issue** - Whether or not to create a GitHub Issue when a drift is
+* **-skip-github-issue** - Whether to create a GitHub Issue when a drift is
   detected. The default value is "false".
 
 ### Using driftignore
 
 With a `.driftignore` file you can define iam resources that you do not want to be
 alerted for. This is especially useful for resources that are configured outside
-of terraform. Put this file at the root of your repository or indicate its location
+terraform. Put this file at the root of your repository or indicate its location
 using the `-driftignore-file` option.
 
 #### Supported syntax:
@@ -287,7 +291,7 @@ Also supports [GitHub Options](#github-options) and [Retry Options](#retry-optio
 * **-gcs-bucket-query="labels.terraform:*"** - The label to use to find GCS
   buckets with Terraform statefiles.
 * **-github-repo-terraform-topics="terraform,guardian"** - Topics to use to
-  identify github repositories that contain terraform configurations.
+  identify GitHub repositories that contain terraform configurations.
 * **-ignore-dir-patterns="templates\\/&ast;&ast;,test\\/&ast;&ast;"** - Directories to filter
   from the possible terraform entrypoint locations. Paths will be matched against
   the root of each cloned repository.
@@ -299,7 +303,7 @@ Also supports [GitHub Options](#github-options) and [Retry Options](#retry-optio
   GitHub Issues.
 * **-github-issue-labels="guardian-iam-drift"** - The labels to use on any created
   GitHub Issues.
-* **-skip-github-issue** - Whether or not to create a GitHub Issue when a drift is
+* **-skip-github-issue** - Whether to create a GitHub Issue when a drift is
   detected. The default value is "false".
 
 ## Workflows plan-status-comment
