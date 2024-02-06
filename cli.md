@@ -2,18 +2,18 @@
 
 Supported commands:
 
-| **Command**                 | **Subcommand**                                          | **Description**                                               |
-|-----------------------------|---------------------------------------------------------|---------------------------------------------------------------|
-| [entrypoints](#entrypoints) |                                                         | Determine the entrypoint directories to run Guardian commands |
-| apply                       | [run](#apply-run)                                       | Run Terraform apply for a directory                           |
-| plan                        | [run](#plan-run)                                        | Run Terraform plan for a directory                            |
-| [run](#run)                 |                                                         | Run a Terraform command for a directory                       |
-| iam                         | [cleanup](#iam-cleanup)                                 | Remove any expired IAM in a GCP organization                  |
-|                             | [detect-drift](#iam-detect-drift)                       | Detect IAM drift in a GCP organization                        |
-| drift                       | [statefiles](#drift-statefiles)                         | Detect drift for terraform statefiles                         |
-| workflows                   | [plan-status-comment](#workflows-plan-status-comment)   | Add Guardian plan comment to a pull request                   |
-|                             | [remove-plan-comments](#workflows-remove-plan-comments) | Remove previous Guardian plan comments from a pull request    |
-|                             | [validate-permissions](#workflows-validate-permissions) | Validate required permissions for the current GitHub workflow |
+| **Command**                 | **Subcommand**                                          | **Required Github Permission**                                    | **Description**                                               |
+|-----------------------------|---------------------------------------------------------|-------------------------------------------------------------------|---------------------------------------------------------------|
+| [entrypoints](#entrypoints) |                                                         |                                                                   | Determine the entrypoint directories to run Guardian commands |
+| [apply](#apply)             |                                                         | `contents: read`<br> `pull-requests: write`<br> `id-token: write` | Run Terraform apply for a directory                           |
+| [plan](#plan)               |                                                         | `contents: read`<br> `pull-requests: write`<br> `id-token: write` | Run Terraform plan for a directory                            |
+| [run](#run)                 |                                                         | none                                                              | Run a Terraform command for a directory                       |
+| iam                         | [cleanup](#iam-cleanup)                                 | none                                                              | Remove any expired IAM in a GCP organization                  |
+|                             | [detect-drift](#iam-detect-drift)                       | `issues: write`                                                   | Detect IAM drift in a GCP organization                        |
+| drift                       | [statefiles](#drift-statefiles)                         | `issues: write`<br> `contents: read`                              | Detect drift for terraform statefiles                         |
+| workflows                   | [plan-status-comment](#workflows-plan-status-comment)   | `pull-requests: write`                                            | Add Guardian plan comment to a pull request                   |
+|                             | [remove-plan-comments](#workflows-remove-plan-comments) | `contents: read`<br> `pull-requests: write`                       | Remove previous Guardian plan comments from a pull request    |
+|                             | [validate-permissions](#workflows-validate-permissions) | `contents: read`                                                  | Validate required permissions for the current GitHub workflow |
 
 ## Shared Options
 
@@ -46,12 +46,17 @@ These options influence how Guardian attempts to retry failed requests:
 
 Determine the entrypoint directories to run Guardian commands.
 
-Usage: guardian entrypoints [options] <directory>
+Usage: guardian entrypoints [options]
+
+### Prerequisites
+
+* Required GitHub [permissions](#guardian-cli).
 
 ### Options
 
 Also supports [GitHub Options](#github-options) and [Retry Options](#retry-options).
 
+* **-dir** - The root directory to search for entrypoint directories. Defaults to the current working directory.
 * **-dest-ref="ref-name"** - The destination GitHub ref name for finding file changes.
 * **-detect-changes** - Detect file changes, including all local module dependencies,
   and run for all entrypoint directories. The default value is "false".
@@ -62,19 +67,19 @@ Also supports [GitHub Options](#github-options) and [Retry Options](#retry-optio
 * **-max-depth="int"** - How far to traverse the filesystem beneath the target
   directory for entrypoints. The default value is "-1".
 * **-pull-request-number="100"** - The GitHub pull request number associated with
-  this plan run. The default value is "0".
+  this plan. The default value is "0".
 * **-source-ref="ref-name"** - The source GitHub ref name for finding file changes.
 
-## Apply Run
+## Apply
 
 Run Terraform apply for a directory.
 
-Usage: guardian apply run [options] <directory>.
+Usage: guardian apply [options]
 
 ### Prerequisites
 
+* Required GitHub [permissions](#guardian-cli).
 * The environment where you run this command must have Terraform installed locally.
-* Write permission to the target GitHub repository `pull-requests`.
 * The appropriate permissions to change all resources in your terraform configuration
   (e.g. write access to all GCP/AWS/GitHub resources in your terraform).
 * The user must be authenticated to the appropriate provider (e.g. for GCP they must
@@ -84,26 +89,27 @@ Usage: guardian apply run [options] <directory>.
 
 Also supports [GitHub Options](#github-options) and [Retry Options](#retry-options).
 
+* **-dir** - The Terraform directory to run the apply command. Defaults to the current working directory.
 * **-allow-lockfile-changes** - Allow modification of the Terraform lockfile. The default value is "false".
 * **-bucket-name="my-guardian-state-bucket"** - The Google Cloud Storage bucket name to store Guardian plan files.
 * **-commit-sha="e538db9a29f2ff7a404a2ef40bb62a6df88c98c1"** - The commit sha to determine
-  the pull request number associated with this apply run. Only one of pull-request-number
+  the pull request number associated with this apply. Only one of pull-request-number
   and commit-sha can be given.
 * **-lock-timeout="10m"** - The duration Terraform should wait to obtain a lock when
   running commands that modify state. The default value is "10m".
 * **-pull-request-number="100"** The GitHub pull request number associated with this
-  apply run. Only one of pull-request-number and commit-sha can be given. The  default value is "0".
+  apply. Only one of pull-request-number and commit-sha can be given. The default value is "0".
 
-## Plan Run
+## Plan
 
 Run Terraform plan for a directory.
 
-Usage: guardian plan run [options] <directory>
+Usage: guardian plan [options]
 
 ### Prerequisites
 
+* Required GitHub [permissions](#guardian-cli).
 * The environment where you run this command must have Terraform installed locally.
-* Write permission to the target GitHub repository `pull-requests`.
 * The appropriate permissions to view all resources in your terraform configuration
   (e.g. read access to all GCP/AWS/GitHub resources in your terraform).
 * The user must be authenticated to the appropriate provider (e.g. for GCP they must
@@ -113,18 +119,19 @@ Usage: guardian plan run [options] <directory>
 
 Also supports [GitHub Options](#github-options) and [Retry Options](#retry-options).
 
+* **-dir** - The Terraform directory to run the plan command. Defaults to the current working directory.
 * **-allow-lockfile-changes** - Allow modification of the Terraform lockfile. The default value is "false".
 * **-bucket-name="my-guardian-state-bucket"** - The Google Cloud Storage bucket name to store Guardian plan files.
 * **-lock-timeout="10m"** - The duration Terraform should wait to obtain a lock when
   running commands that modify state. The default value is "10m".
 * **-pull-request-number="100"** The GitHub pull request number associated with this
-  plan run. Only one of pull-request-number and commit-sha can be given. The  default value is "0".
+  plan. Only one of pull-request-number and commit-sha can be given. The default value is "0".
 
 ## Run
 
 Run a Terraform command for a directory.
 
-Usage: guardian run [options] <directory>
+Usage: guardian run [options]
 
 ### Prerequisites
 
@@ -138,6 +145,7 @@ Usage: guardian run [options] <directory>
 
 Also supports [GitHub Options](#github-options) and [Retry Options](#retry-options).
 
+* **-dir** - The Terraform directory to run the command. Defaults to the current working directory.
 * **-allow-lockfile-changes** - Allow modification of the Terraform lockfile. The default value is "false".
 * **-bucket-name="my-guardian-state-bucket"** - The Google Cloud Storage bucket name to store Guardian plan files.
 * **-commit-sha="e538db9a29f2ff7a404a2ef40bb62a6df88c98c1"** - The commit sha to determine
@@ -146,7 +154,7 @@ Also supports [GitHub Options](#github-options) and [Retry Options](#retry-optio
 * **-lock-timeout="10m"** - The duration Terraform should wait to obtain a lock when
   running commands that modify state. The default value is "10m".
 * **-pull-request-number="100"** The GitHub pull request number associated with this
-  apply run. Only one of pull-request-number and commit-sha can be given. The  default value is "0".
+  apply run. Only one of pull-request-number and commit-sha can be given. The default value is "0".
 
 ## IAM cleanup
 
@@ -171,15 +179,15 @@ The actor that runs this command must have:
 
 Also supports [Retry Options](#retry-options).
 
-* **-disable-evaluate-condition** - Whether or not to evaluate the IAM Condition Expression
+* **-disable-evaluate-condition** - Whether to evaluate the IAM Condition Expression
   and only delete those IAM with false evaluation. Defaults to false. Example: An IAM
   condition with expression `request.time < timestamp("2019-01-01T00:00:00Z")` will
   evaluate to false and the IAM will be deleted. The default value is "false".
 * **-iam-query="policy:abcxyz-aod-expiry"** - The query to use to filter on IAM.
 * **-max-conncurrent-requests="2"** - The maximum number of concurrent requests
   allowed at any time to GCP. The default value is "10".
-* **-scope="123435456456"** - The scope to cleanup IAM for - organizations/123456 will
-  cleanup all IAM matching your query in the organization and all folders and projects beneath it.
+* **-scope="123435456456"** - The scope to clean up IAM for - organizations/123456 will
+  clean up all IAM matching your query in the organization and all folders and projects beneath it.
 
 ## IAM detect-drift
 
@@ -191,13 +199,13 @@ Usage: guardian iam detect-drift [options]
 
 The actor that runs this command must have:
 
+* Required GitHub [permissions](#guardian-cli).
 * A GCP project with Asset Inventory API enabled (`cloudasset.googleapis.com`)
   and Resource Manager enabled (`cloudresourcemanager.googleapis.com`).
   If running as yourself, be sure to set this as your default project via gcloud.
 * Authentication to GCP via gcloud auth.
 * Read-access to view all IAM for all projects, folders, and as well as organization-level
   IAM for the organization in question.
-* Write permission to the target GitHub repository `issues`.
 
 ### Options
 
@@ -218,14 +226,14 @@ Also supports [GitHub Options](#github-options).
   GitHub Issues.
 * **-github-issue-labels="guardian-iam-drift"** - The labels to use on any created
   GitHub Issues.
-* **-skip-github-issue** - Whether or not to create a GitHub Issue when a drift is
+* **-skip-github-issue** - Whether to create a GitHub Issue when a drift is
   detected. The default value is "false".
 
 ### Using driftignore
 
 With a `.driftignore` file you can define iam resources that you do not want to be
 alerted for. This is especially useful for resources that are configured outside
-of terraform. Put this file at the root of your repository or indicate its location
+terraform. Put this file at the root of your repository or indicate its location
 using the `-driftignore-file` option.
 
 #### Supported syntax:
@@ -266,15 +274,13 @@ Usage: guardian drift statefiles [options] <directory>
 
 The actor that runs this command must have:
 
+* Required GitHub [permissions](#guardian-cli).
 * A GCP project with Asset Inventory API enabled (`cloudasset.googleapis.com`)
   and Resource Manager API enabled (`cloudresourcemanager.googleapis.com`).
   If running as yourself, be sure to set this as your default project via gcloud.
 * Authentication to GCP via gcloud auth.
 * Read-access to view all IAM for all projects, folders, and as well as organization-level
   IAM for the organization in question.
-* Write permission to the target GitHub repository `issues`.
-* Read permissions to clone all GitHub repositories containing relevant terraform in the
-  target GitHub organization (if necessary).
 
 ### Options
 
@@ -285,7 +291,7 @@ Also supports [GitHub Options](#github-options) and [Retry Options](#retry-optio
 * **-gcs-bucket-query="labels.terraform:*"** - The label to use to find GCS
   buckets with Terraform statefiles.
 * **-github-repo-terraform-topics="terraform,guardian"** - Topics to use to
-  identify github repositories that contain terraform configurations.
+  identify GitHub repositories that contain terraform configurations.
 * **-ignore-dir-patterns="templates\\/&ast;&ast;,test\\/&ast;&ast;"** - Directories to filter
   from the possible terraform entrypoint locations. Paths will be matched against
   the root of each cloned repository.
@@ -297,7 +303,7 @@ Also supports [GitHub Options](#github-options) and [Retry Options](#retry-optio
   GitHub Issues.
 * **-github-issue-labels="guardian-iam-drift"** - The labels to use on any created
   GitHub Issues.
-* **-skip-github-issue** - Whether or not to create a GitHub Issue when a drift is
+* **-skip-github-issue** - Whether to create a GitHub Issue when a drift is
   detected. The default value is "false".
 
 ## Workflows plan-status-comment
@@ -308,7 +314,7 @@ Usage: guardian workflows plan-status-comment [options] <pull_request_number>
 
 ### Prerequisites
 
-* Read permission to the target GitHub repository `pull-requests`.
+* Required GitHub [permissions](#guardian-cli).
 
 ### Options
 
@@ -327,7 +333,7 @@ Usage: guardian workflows remove-plan-comments [options] <pull_request_number>
 
 ### Prerequisites
 
-* Read permission to the target GitHub repository `pull-requests`.
+* Required GitHub [permissions](#guardian-cli).
 
 ### Options
 
