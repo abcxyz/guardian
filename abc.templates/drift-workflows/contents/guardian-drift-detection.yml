@@ -23,7 +23,7 @@ on:
 permissions:
   contents: 'read'
   id-token: 'write'
-  issues: 'write'   # For creating issues.
+  issues: 'write' # For creating issues.
 
 env:
   GITHUB_OWNER_NAME: '${{ github.event.repository.owner.login }}'
@@ -100,12 +100,13 @@ jobs:
         env:
           REPO_TOKEN: '${{ github.token }}'
         run: |
-            guardian drift statefiles \
-              -organization-id="$ORGANIZATION_ID" \
-              -gcs-bucket-query="labels:terraform" \
-              -github-token="$REPO_TOKEN" \
-              -github-owner="$GITHUB_OWNER_NAME" \
-              -github-repo="$GITHUB_REPO_NAME" \
-              -github-issue-labels="guardian-statefile-drift,security" \
-              -github-repo-terraform-topics="terraform,guardian" \
-              ./
+          guardian drift statefiles \
+            -organization-id="$ORGANIZATION_ID" \
+            -gcs-bucket-query="labels:terraform" \
+            -github-token="$REPO_TOKEN" \
+            -github-owner="$GITHUB_OWNER_NAME" \
+            -github-repo="$GITHUB_REPO_NAME" \
+            -github-issue-labels="guardian-statefile-drift,security" \
+            -github-repo-terraform-topics="terraform,guardian" \
+            -ignore-dir-patterns="REPLACE_GUARDIAN_IGNORE_DIR_PATTERNS" \
+            ./
