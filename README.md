@@ -39,8 +39,8 @@ experience, see [Guardian Admin](#guardian-admin).
 For more details on how to use the Guardian CLI for terraform actuation see the relevant
 CLI doc:
 
-* [Plan Run CLI Docs](./cli.md#plan-run)
-* [Apply Run CLI Docs](./cli.md#apply-run)
+* [Plan CLI Docs](./cli.md#plan)
+* [Apply CLI Docs](./cli.md#apply)
 * [Run CLI Docs](./cli.md#run)
 * [Entrypoints CLI Docs](./cli.md#entrypoints)
 
@@ -177,9 +177,9 @@ the pull request.
 - Ensure that `Allow forking` is disabled, Guardian recommends the use of
   `pull_request_target`, see [above](#security)
 
-### Branch protection
+### Rulesets
 
-Branch protection is required to enable a safe and secure process. Ensuring
+Rulesets are required to enable a safe and secure process. Ensuring
 these values are set properly prevents multiple pull requests from stepping on
 each other. By enabling `Require branches to be up to date before merging`, pull
 requests merged at the same time will cause one to fail and be forced to pull
@@ -187,14 +187,14 @@ the changes from the default branch. This will kick of the planning process to
 ensure the latest changes are always merged.
 
 - [x] Require a pull request before merging
-- [x] Require approvals, minimum 1, suggested 2
-- [x] Require review from Code Owners
+  - [x] Required approvals: minimum 1, suggested 2
+  - [x] Require review from Code Owners
+  - [x] Require conversation resolution before merging
 - [x] Require status checks to pass before merging
   - [x] Require branches to be up to date before merging
   - After you create your first PR, make sure you require the `plan_success` job
     status check, this is required to ensure the
     `Require branches to be up to date before merging` is enforced.
-- [x] Require conversation resolution before merging
 - [x] Require signed commits (optional)
 - [x] Require linear history
 
