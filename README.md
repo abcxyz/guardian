@@ -6,6 +6,15 @@ Guardian is a Terraform actuation and enforcement tool using GitHub actions.
 
 **This is not an official Google product.**
 
+## Support
+
+For support related item please open a [GitHub Issue](https://github.com/abcxyz/guardian/issues/new/choose).
+
+## Releases
+
+Guardian release announcements are done via GitHub and can be found [here](https://github.com/abcxyz/guardian/releases).
+You can watch the Guardian repository in order to be notified each time a release is made.  
+
 ## Guardian CLI
 
 This is the underlying tool written in Golang that is enables all features. For more
