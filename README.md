@@ -156,7 +156,7 @@ write permissions for the repository can run this workflow.
 - Click the `Run workflow` drop down in the top right area
 - Fill out the inputs
   - BRANCH: Only works from the default branch e.g. `main`
-  - COMMAND: Choose whichever of `plan`, `apply`, or `option` you want to run.
+  - COMMAND: Choose from the list of options you want to run.
     The default command is `plan`.
   - ENTRYPOINT: A directory to find all child directories containing Terraform
     configurations. If left blank, the Terraform command will run for all
