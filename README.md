@@ -218,7 +218,7 @@ git config --global url."https://${USERNAME}:${TOKEN}@github.com".insteadOf "htt
 ```
 
 The `USERNAME` variable has no functional purpose and can be an arbitrary string. It is required
-to be present in the URL, but GitHub will identify the user based on the token.
+to be present in the URL, but GitHub will identify the user based on the token. It is recommended to provide a descriptive username and/or comment here so that developers know where this token came from (e.g. guardian-pat-token).
 
 You can use [github-token-minter](https://github.com/abcxyz/github-token-minter) to mint tokens on demand for this purpose in your GitHub Actions.
 
