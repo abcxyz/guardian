@@ -268,7 +268,7 @@ Each line in your `.driftignore` file can contain one of the following
 
 Run the drift detection for terraform statefiles in a directory.
 
-Usage: guardian drift statefiles [options] <directory>
+Usage: guardian drift statefiles [options]
 
 ### Prerequisites
 
@@ -286,6 +286,7 @@ The actor that runs this command must have:
 
 Also supports [GitHub Options](#github-options) and [Retry Options](#retry-options).
 
+* **-dir** - The directory to use to determine Terraform entrypoints. Defaults to the current working directory.
 * **-detect-gcs-buckets-from-terraform** - Whether or not to use the terraform
   backend configs to determine gcs buckets. The default value is "false".
 * **-gcs-bucket-query="labels.terraform:*"** - The label to use to find GCS

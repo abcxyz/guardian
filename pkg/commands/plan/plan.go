@@ -82,7 +82,7 @@ func (c *PlanCommand) Desc() string {
 
 func (c *PlanCommand) Help() string {
 	return `
-Usage: {{ COMMAND }} [options] <directory>
+Usage: {{ COMMAND }} [options]
 
   Run Terraform plan for a directory.
 `

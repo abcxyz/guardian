@@ -65,7 +65,7 @@ func (c *RemoveGuardianCommentsCommand) Desc() string {
 
 func (c *RemoveGuardianCommentsCommand) Help() string {
 	return `
-Usage: {{ COMMAND }} [options] <pull_request_number>
+Usage: {{ COMMAND }} [options]
 
 	Remove previous Guardian comments from a pull request.
 `
