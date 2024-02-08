@@ -151,6 +151,24 @@ scenarios with Terraform.
   - BRANCH: Only works from the default branch e.g. `main`
   - COMMAND: The Terraform command to run e.g.
     `apply -input=false -auto-approve`
+  - ENTRYPOINT: A directory to find all child directories containing Terraform
+    configurations. If left blank, the Terraform command will run
+    for all configured directories.
+
+### Guardian Run
+
+The `Guardian Run` workflow can be used to run a limited set of Terraform commands manually as the service account for Guardian. This allows any user with
+write permissions for the repository to run this workflow and maintain their Terraform configurations.
+
+- Navigate to the Actions tab and select `Guardian Run`
+- Click the `Run workflow` drop down in the top right area
+- Fill out the inputs
+  - BRANCH: Only works from the default branch e.g. `main`
+  - COMMAND: Choose from the list of options you want to run.
+    The default command is `plan`.
+  - ENTRYPOINT: A directory to find all child directories containing Terraform
+    configurations. If left blank, the Terraform command will run for all
+    configured directories.
 
 ## Security
 
