@@ -6,6 +6,15 @@ Guardian is a Terraform actuation and enforcement tool using GitHub actions.
 
 **This is not an official Google product.**
 
+## Support
+
+For support related items, please open a [GitHub Issue](https://github.com/abcxyz/guardian/issues/new/choose).
+
+## Releases
+
+Guardian release announcements are done via GitHub and can be found [here](https://github.com/abcxyz/guardian/releases).
+You can watch the Guardian repository in order to be notified each time a release is made.
+
 ## Guardian CLI
 
 This is the underlying tool written in Golang that is enables all features. For more
@@ -197,6 +206,21 @@ ensure the latest changes are always merged.
     `Require branches to be up to date before merging` is enforced.
 - [x] Require signed commits (optional)
 - [x] Require linear history
+
+### Using Private Repositories as Modules
+If you want to use Terraform modules located in private GitHub repositories then you will need to
+configure git with the necessary permissions in order for Guardian to access these modules.
+
+```shell
+USERNAME=user-defined-name
+TOKEN=your-token-with-read-acccess
+git config --global url."https://${USERNAME}:${TOKEN}@github.com".insteadOf "https://github.com"
+```
+
+The `USERNAME` variable has no functional purpose and can be an arbitrary string. It is required
+to be present in the URL, but GitHub will identify the user based on the token. It is recommended to provide a descriptive username and/or comment here so that developers know where this token came from (e.g. guardian-pat-token).
+
+We recommend using [github-token-minter](https://github.com/abcxyz/github-token-minter) to generate short-lived access tokens token on demand for this purpose in your GitHub Actions.
 
 ### Directories
 
