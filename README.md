@@ -8,7 +8,7 @@ Guardian is a Terraform actuation and enforcement tool using GitHub actions.
 
 ## Support
 
-For support related item please open a [GitHub Issue](https://github.com/abcxyz/guardian/issues/new/choose).
+For support related items, please open a [GitHub Issue](https://github.com/abcxyz/guardian/issues/new/choose).
 
 ## Releases
 
