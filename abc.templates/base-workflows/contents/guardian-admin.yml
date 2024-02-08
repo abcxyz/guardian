@@ -134,6 +134,6 @@ jobs:
         shell: 'bash'
         run: |-
           guardian run \
-          -terraform-command="${TERRAFORM_COMMAND}" \
-          -terraform-args="${TERRAFORM_ARGS}" \
-          "${DIRECTORY}"
+          -dir="${DIRECTORY}" \
+          -- ${TERRAFORM_COMMAND}" \
+          ${TERRAFORM_ARGS}

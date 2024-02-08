@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Guardian fix is used to run Terraform commands that are most often used
+# Guardian run is used to run Terraform commands that are most often used
 # to fix state after a failed workflow or get outputs for a given module
 # directory. Any user with write permissions on the repo can run this workflow.
 name: 'guardian_run'
@@ -122,7 +122,7 @@ jobs:
           DIRECTORY: '${{ matrix.working_directory }}'
         shell: 'bash'
         run: |-
-          guardian run -terraform-command="output" "${DIRECTORY}"
+          guardian run -dir="${DIRECTORY}" -- output
 
       - name: 'Guardian Plan'
         if: |
@@ -131,7 +131,7 @@ jobs:
           DIRECTORY: '${{ matrix.working_directory }}'
         shell: 'bash'
         run: |-
-          guardian run -terraform-command="plan" -terraform-args="-input=false" "${DIRECTORY}"
+          guardian run -dir="${DIRECTORY}" -- plan -input=false
 
       - name: 'Guardian Apply'
         if: |
@@ -140,4 +140,4 @@ jobs:
           DIRECTORY: '${{ matrix.working_directory }}'
         shell: 'bash'
         run: |-
-          guardian run -terraform-command="apply" -terraform-args="-input=false,-auto-approve" "${DIRECTORY}"
+          guardian run -dir="${DIRECTORY}" -- apply -input=false -auto-approve
