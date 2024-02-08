@@ -56,7 +56,7 @@ func (c *PlanStatusCommentCommand) Desc() string {
 
 func (c *PlanStatusCommentCommand) Help() string {
 	return `
-Usage: {{ COMMAND }} [options] <pull_request_number>
+Usage: {{ COMMAND }} [options]
 
 	Remove previous Guardian plan comments from a pull request.
 `

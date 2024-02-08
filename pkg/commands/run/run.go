@@ -58,7 +58,7 @@ func (c *RunCommand) Desc() string {
 
 func (c *RunCommand) Help() string {
 	return `
-Usage: {{ COMMAND }} [options] <directory>
+Usage: {{ COMMAND }} [options]
 
   Run a Terraform command for a directory.
 `

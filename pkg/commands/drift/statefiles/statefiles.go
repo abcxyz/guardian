@@ -69,6 +69,7 @@ type DriftStatefilesCommand struct {
 
 	flags.GitHubFlags
 	flags.RetryFlags
+	flags.CommonFlags
 	driftflags.DriftIssueFlags
 
 	flagOrganizationID                string
@@ -92,7 +93,7 @@ func (c *DriftStatefilesCommand) Desc() string {
 
 func (c *DriftStatefilesCommand) Help() string {
 	return `
-Usage: {{ COMMAND }} [options] <directory>
+Usage: {{ COMMAND }} [options]
 
   Run the drift detection for terraform statefiles in a directory.
 `
@@ -103,6 +104,7 @@ func (c *DriftStatefilesCommand) Flags() *cli.FlagSet {
 
 	c.GitHubFlags.Register(set)
 	c.RetryFlags.Register(set)
+	c.CommonFlags.Register(set)
 	c.DriftIssueFlags.Register(set)
 
 	// Command options
@@ -168,11 +170,20 @@ func (c *DriftStatefilesCommand) Run(ctx context.Context, args []string) error {
 
 	parsedArgs := f.Args()
 
-	if len(parsedArgs) != 1 {
+	if len(parsedArgs) > 0 {
 		return flag.ErrHelp
 	}
 
-	dirAbs, err := util.PathEvalAbs(parsedArgs[0])
+	cwd, err := c.WorkingDir()
+	if err != nil {
+		return fmt.Errorf("failed to get current working directory: %w", err)
+	}
+
+	if c.FlagDir == "" {
+		c.FlagDir = cwd
+	}
+
+	dirAbs, err := util.PathEvalAbs(c.FlagDir)
 	if err != nil {
 		return fmt.Errorf("failed to absolute path for directory: %w", err)
 	}

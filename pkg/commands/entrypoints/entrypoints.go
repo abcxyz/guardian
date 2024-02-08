@@ -75,7 +75,7 @@ func (c *EntrypointsCommand) Desc() string {
 
 func (c *EntrypointsCommand) Help() string {
 	return `
-Usage: {{ COMMAND }} [options] <directory>
+Usage: {{ COMMAND }} [options]
 
 	Determine the entrypoint directories to run Guardian commands.
 `

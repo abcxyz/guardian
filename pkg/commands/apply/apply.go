@@ -88,7 +88,7 @@ func (c *ApplyCommand) Desc() string {
 // information.
 func (c *ApplyCommand) Help() string {
 	return `
-Usage: {{ COMMAND }} [options] <directory>
+Usage: {{ COMMAND }} [options]
 
 	Run Terraform apply for a directory.
 `
