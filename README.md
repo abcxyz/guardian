@@ -148,9 +148,8 @@ scenarios with Terraform.
 
 ### Guardian Run
 
-The `Guardian Run` workflow can be used to run the `plan`, `apply`, or `output`
-Terraform commands manually as the service account for Guardian.  Any user with
-write permissions for the repository can run this workflow.
+The `Guardian Run` workflow can be used to run a limited set of Terraform commands manually as the service account for Guardian. This allows any user with
+write permissions for the repository to run this workflow and maintain their Terraform configurations.
 
 - Navigate to the Actions tab and select `Guardian Run`
 - Click the `Run workflow` drop down in the top right area
