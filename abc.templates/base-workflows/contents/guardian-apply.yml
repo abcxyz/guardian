@@ -63,7 +63,7 @@ jobs:
         id: 'dirs'
         shell: 'bash'
         run: |-
-          DIRECTORIES=$(guardian entrypoints -detect-changes -source-ref=HEAD~1 -dest-ref=HEAD -format=json REPLACE_TERRAFORM_DIRECTORY)
+          DIRECTORIES=$(guardian entrypoints -dir="REPLACE_TERRAFORM_DIRECTORY" -detect-changes -source-ref=HEAD~1 -dest-ref=HEAD -format=json)
           echo "entrypoints -> ${DIRECTORIES}"
           echo "directories=${DIRECTORIES}" >> $GITHUB_OUTPUT
 
@@ -113,10 +113,10 @@ jobs:
           # used to create comments on pull requests (access to only this repo)
           REPO_TOKEN: '${{ github.token }}'
         run: |-
-          guardian apply run \
+          guardian apply \
+          -dir="${DIRECTORY}" \
           -github-owner="${GITHUB_OWNER_NAME}" \
           -github-repo="${GITHUB_REPO_NAME}" \
           -github-token="${REPO_TOKEN}" \
           -commit-sha="${COMMIT_SHA}" \
           -bucket-name="${GUARDIAN_BUCKET_NAME}" \
-          "${DIRECTORY}"

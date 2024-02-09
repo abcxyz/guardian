@@ -22,10 +22,8 @@ on:
   workflow_dispatch:
     inputs:
       command:
-        description: 'COMMAND - The Terraform command to run, e.g. plan, apply, etc.'
+        description: 'COMMAND - The Terraform command to run along with any arguments, e.g. plan -input=false, apply -auto-approve, etc.'
         required: true
-      args:
-        description: 'ARGS - The Terraform command arguments to include as a CSV string, e.g. -input=false,-auto-approve.'
       entrypoint:
         description: 'ENTRYPOINT - A directory find to all child directories containing Terraform configurations. If left blank, the Terraform command will run for all configured directories.'
         default: 'REPLACE_TERRAFORM_DIRECTORY'
@@ -83,7 +81,7 @@ jobs:
         env:
           ENTRYPOINT: '${{ inputs.entrypoint }}'
         run: |-
-          DIRECTORIES=$(guardian entrypoints -format=json "${ENTRYPOINT}")
+          DIRECTORIES=$(guardian entrypoints -dir="${ENTRYPOINT}" -format=json)
           echo "entrypoints -> ${DIRECTORIES}"
           echo "directories=${DIRECTORIES}" >> $GITHUB_OUTPUT
 
@@ -129,11 +127,9 @@ jobs:
         env:
           # used by terraform when using the github provider
           TERRAFORM_COMMAND: '${{ inputs.command }}'
-          TERRAFORM_ARGS: '${{ inputs.args }}'
           DIRECTORY: '${{ matrix.working_directory }}'
         shell: 'bash'
         run: |-
           guardian run \
-          -terraform-command="${TERRAFORM_COMMAND}" \
-          -terraform-args="${TERRAFORM_ARGS}" \
-          "${DIRECTORY}"
+          -dir="${DIRECTORY}" \
+          -- ${TERRAFORM_COMMAND}

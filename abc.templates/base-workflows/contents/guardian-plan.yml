@@ -72,7 +72,7 @@ jobs:
           SOURCE_REF: '${{ github.event.pull_request.base.sha }}'
           DEST_REF: '${{ github.event.pull_request.head.sha }}'
         run: |-
-          DIRECTORIES=$(guardian entrypoints -detect-changes -source-ref="${SOURCE_REF}" -dest-ref="${DEST_REF}" -format=json REPLACE_TERRAFORM_DIRECTORY)
+          DIRECTORIES=$(guardian entrypoints -dir="REPLACE_TERRAFORM_DIRECTORY" -detect-changes -source-ref="${SOURCE_REF}" -dest-ref="${DEST_REF}" -format=json)
           echo "entrypoints -> ${DIRECTORIES}"
           echo "directories=${DIRECTORIES}" >> $GITHUB_OUTPUT
 
@@ -82,7 +82,7 @@ jobs:
           # used to delete old comments on pull requests (access to only this repo)
           REPO_TOKEN: '${{ github.token }}'
         run: |-
-          guardian workflows remove-plan-comments \
+          guardian workflows remove-guardian-comments \
             -github-owner="${GITHUB_OWNER_NAME}" \
             -github-repo="${GITHUB_REPO_NAME}" \
             -github-token="${REPO_TOKEN}" \
@@ -135,13 +135,13 @@ jobs:
           # used to create comments on pull requests (access to only this repo)
           REPO_TOKEN: '${{ github.token }}'
         run: |-
-          guardian plan run \
+          guardian plan \
+          -dir="${DIRECTORY}" \
           -github-owner="${GITHUB_OWNER_NAME}" \
           -github-repo="${GITHUB_REPO_NAME}" \
           -github-token="${REPO_TOKEN}" \
           -pull-request-number="${PULL_REQUEST_NUMBER}" \
-          -bucket-name="${GUARDIAN_BUCKET_NAME}" \
-          "${DIRECTORY}"
+          -bucket-name="${GUARDIAN_BUCKET_NAME}"
 
   plan_success:
     if: '${{ always() }}'
