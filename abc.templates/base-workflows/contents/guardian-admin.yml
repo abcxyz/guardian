@@ -132,4 +132,4 @@ jobs:
         run: |-
           guardian run \
           -dir="${DIRECTORY}" \
-          -- ${TERRAFORM_COMMAND}"
+          -- ${TERRAFORM_COMMAND}

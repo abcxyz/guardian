@@ -63,7 +63,7 @@ jobs:
         id: 'dirs'
         shell: 'bash'
         run: |-
-          DIRECTORIES=$(guardian entrypoints -dir=REPLACE_TERRAFORM_DIRECTORY -detect-changes -source-ref=HEAD~1 -dest-ref=HEAD -format=json)
+          DIRECTORIES=$(guardian entrypoints -dir="REPLACE_TERRAFORM_DIRECTORY" -detect-changes -source-ref=HEAD~1 -dest-ref=HEAD -format=json)
           echo "entrypoints -> ${DIRECTORIES}"
           echo "directories=${DIRECTORIES}" >> $GITHUB_OUTPUT
 
