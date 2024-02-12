@@ -56,6 +56,7 @@ steps:
         - to_replace: 'REPLACE_GUARDIAN_VERSION_TAG'
           with: '{{._git_tag}}'
 
+        # TODO: once https://github.com/abcxyz/abc/pull/423 is available, switch to a rule requiring a '_git_tag' value
         - desc: 'Print warning if rendered without git tag'
           action: 'print'
           if: '_git_tag == ""'
