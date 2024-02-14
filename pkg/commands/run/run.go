@@ -24,6 +24,7 @@ import (
 	"github.com/sethvargo/go-githubactions"
 	"golang.org/x/exp/slices"
 
+	"github.com/abcxyz/guardian/pkg/commands/actions"
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/terraform"
 	"github.com/abcxyz/guardian/pkg/util"
@@ -33,14 +34,13 @@ import (
 var _ cli.Command = (*RunCommand)(nil)
 
 type RunCommand struct {
-	cli.BaseCommand
+	actions.GitHubActionCommand
 
 	directory        string
 	childPath        string
 	terraformCommand string
 	terraformArgs    []string
 
-	flags.GitHubFlags
 	flags.RetryFlags
 	flags.CommonFlags
 
@@ -48,7 +48,6 @@ type RunCommand struct {
 	flagAllowLockfileChanges     bool
 	flagLockTimeout              time.Duration
 
-	actions         *githubactions.Action
 	terraformClient terraform.Terraform
 }
 
@@ -127,7 +126,7 @@ func (c *RunCommand) Run(ctx context.Context, args []string) error {
 	}
 	c.childPath = childPath
 
-	c.actions = githubactions.New(githubactions.WithWriter(c.Stdout()))
+	c.Action = githubactions.New(githubactions.WithWriter(c.Stdout()))
 	c.terraformClient = terraform.NewTerraformClient(c.directory)
 
 	return c.Process(ctx)
@@ -152,7 +151,7 @@ func (c *RunCommand) Process(ctx context.Context) error {
 			lockfileMode = "readonly"
 		}
 
-		if err := c.withActionsOutGroup("Initializing Terraform", func() error {
+		if err := c.WithActionsOutGroup("Initializing Terraform", func() error {
 			_, err := c.terraformClient.Init(ctx, c.Stdout(), c.Stderr(), &terraform.InitOptions{
 				Input:       util.Ptr(false),
 				Lockfile:    util.Ptr(lockfileMode),
@@ -164,7 +163,7 @@ func (c *RunCommand) Process(ctx context.Context) error {
 		}
 	}
 
-	if err := c.withActionsOutGroup("Running Terraform command", func() error {
+	if err := c.WithActionsOutGroup("Running Terraform command", func() error {
 		_, err := c.terraformClient.Run(ctx, c.Stdout(), c.Stderr(), c.terraformCommand, c.terraformArgs...)
 		return err //nolint:wrapcheck // Want passthrough
 	}); err != nil {
@@ -172,17 +171,4 @@ func (c *RunCommand) Process(ctx context.Context) error {
 	}
 
 	return merr
-}
-
-// withActionsOutGroup runs a function and ensures it is wrapped in GitHub actions
-// grouping syntax. If this is not in an action, output is printed without grouping syntax.
-func (c *RunCommand) withActionsOutGroup(msg string, fn func() error) error {
-	if c.GitHubFlags.FlagIsGitHubActions {
-		c.actions.Group(msg)
-		defer c.actions.EndGroup()
-	} else {
-		c.Outf(msg)
-	}
-
-	return fn()
 }

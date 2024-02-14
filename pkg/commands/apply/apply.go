@@ -29,6 +29,7 @@ import (
 
 	"github.com/sethvargo/go-githubactions"
 
+	"github.com/abcxyz/guardian/pkg/commands/actions"
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/github"
 	"github.com/abcxyz/guardian/pkg/storage"
@@ -52,7 +53,7 @@ type RunResult struct {
 
 // ApplyCommand performs terraform apply on the given working directory.
 type ApplyCommand struct {
-	cli.BaseCommand
+	actions.GitHubActionCommand
 
 	cfg *Config
 
@@ -63,7 +64,6 @@ type ApplyCommand struct {
 	gitHubLogURL              string
 	computedPullRequestNumber int
 
-	flags.GitHubFlags
 	flags.RetryFlags
 	flags.CommonFlags
 
@@ -73,7 +73,6 @@ type ApplyCommand struct {
 	flagAllowLockfileChanges bool
 	flagLockTimeout          time.Duration
 
-	actions         *githubactions.Action
 	gitHubClient    github.GitHub
 	storageClient   storage.Storage
 	terraformClient terraform.Terraform
@@ -176,8 +175,8 @@ func (c *ApplyCommand) Run(ctx context.Context, args []string) error {
 	}
 	c.childPath = childPath
 
-	c.actions = githubactions.New(githubactions.WithWriter(c.Stdout()))
-	actionsCtx, err := c.actions.Context()
+	c.Action = githubactions.New(githubactions.WithWriter(c.Stdout()))
+	actionsCtx, err := c.Action.Context()
 	if err != nil {
 		return fmt.Errorf("failed to load github context: %w", err)
 	}
@@ -396,7 +395,7 @@ func (c *ApplyCommand) terraformApply(ctx context.Context) (*RunResult, error) {
 		lockfileMode = "readonly"
 	}
 
-	if err := c.withActionsOutGroup("Initializing Terraform", func() error {
+	if err := c.WithActionsOutGroup("Initializing Terraform", func() error {
 		_, err := c.terraformClient.Init(ctx, c.Stdout(), multiStderr, &terraform.InitOptions{
 			Input:       util.Ptr(false),
 			NoColor:     util.Ptr(true),
@@ -410,7 +409,7 @@ func (c *ApplyCommand) terraformApply(ctx context.Context) (*RunResult, error) {
 
 	stderr.Reset()
 
-	if err := c.withActionsOutGroup("Validating Terraform", func() error {
+	if err := c.WithActionsOutGroup("Validating Terraform", func() error {
 		_, err := c.terraformClient.Validate(ctx, c.Stdout(), multiStderr, &terraform.ValidateOptions{NoColor: util.Ptr(true)})
 		return err //nolint:wrapcheck // Want passthrough
 	}); err != nil {
@@ -419,7 +418,7 @@ func (c *ApplyCommand) terraformApply(ctx context.Context) (*RunResult, error) {
 
 	stderr.Reset()
 
-	if err := c.withActionsOutGroup("Applying Terraform", func() error {
+	if err := c.WithActionsOutGroup("Applying Terraform", func() error {
 		_, err := c.terraformClient.Apply(ctx, multiStdout, multiStderr, &terraform.ApplyOptions{
 			File:            util.Ptr(c.planFilePath),
 			CompactWarnings: util.Ptr(true),
@@ -439,19 +438,6 @@ func (c *ApplyCommand) terraformApply(ctx context.Context) (*RunResult, error) {
 	githubOutput := terraform.FormatOutputForGitHubDiff(stdout.String())
 
 	return &RunResult{commentDetails: githubOutput}, nil
-}
-
-// withActionsOutGroup runs a function and ensures it is wrapped in GitHub actions
-// grouping syntax. If this is not in an action, output is printed without grouping syntax.
-func (c *ApplyCommand) withActionsOutGroup(msg string, fn func() error) error {
-	if c.GitHubFlags.FlagIsGitHubActions {
-		c.actions.Group(msg)
-		defer c.actions.EndGroup()
-	} else {
-		c.Outf(msg)
-	}
-
-	return fn()
 }
 
 // downloadGuardianPlan downloads the Guardian plan binary from the configured Guardian storage bucket

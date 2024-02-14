@@ -29,6 +29,7 @@ import (
 
 	"github.com/sethvargo/go-githubactions"
 
+	"github.com/abcxyz/guardian/pkg/commands/actions"
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/github"
 	"github.com/abcxyz/guardian/pkg/storage"
@@ -52,7 +53,7 @@ type RunResult struct {
 }
 
 type PlanCommand struct {
-	cli.BaseCommand
+	actions.GitHubActionCommand
 
 	cfg *Config
 
@@ -61,7 +62,6 @@ type PlanCommand struct {
 	planFilename string
 	gitHubLogURL string
 
-	flags.GitHubFlags
 	flags.RetryFlags
 	flags.CommonFlags
 
@@ -70,7 +70,6 @@ type PlanCommand struct {
 	flagAllowLockfileChanges bool
 	flagLockTimeout          time.Duration
 
-	actions         *githubactions.Action
 	gitHubClient    github.GitHub
 	storageClient   storage.Storage
 	terraformClient terraform.Terraform
@@ -183,8 +182,8 @@ func (c *PlanCommand) Run(ctx context.Context, args []string) error {
 	}
 	c.childPath = childPath
 
-	c.actions = githubactions.New(githubactions.WithWriter(c.Stdout()))
-	actionsCtx, err := c.actions.Context()
+	c.Action = githubactions.New(githubactions.WithWriter(c.Stdout()))
+	actionsCtx, err := c.Action.Context()
 	if err != nil {
 		return fmt.Errorf("failed to load github context: %w", err)
 	}
@@ -344,7 +343,7 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 
 	c.Outf("Running Terraform commands")
 
-	if err := c.withActionsOutGroup("Check Terraform Format", func() error {
+	if err := c.WithActionsOutGroup("Check Terraform Format", func() error {
 		_, err := c.terraformClient.Format(ctx, multiStdout, multiStderr, &terraform.FormatOptions{
 			Check:     util.Ptr(true),
 			Diff:      util.Ptr(true),
@@ -368,7 +367,7 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 		lockfileMode = "readonly"
 	}
 
-	if err := c.withActionsOutGroup("Initializing Terraform", func() error {
+	if err := c.WithActionsOutGroup("Initializing Terraform", func() error {
 		_, err := c.terraformClient.Init(ctx, multiStdout, multiStderr, &terraform.InitOptions{
 			Input:       util.Ptr(false),
 			NoColor:     util.Ptr(true),
@@ -387,7 +386,7 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 	stdout.Reset()
 	stderr.Reset()
 
-	if err := c.withActionsOutGroup("Validating Terraform", func() error {
+	if err := c.WithActionsOutGroup("Validating Terraform", func() error {
 		_, err := c.terraformClient.Validate(ctx, multiStdout, multiStderr, &terraform.ValidateOptions{NoColor: util.Ptr(true)})
 		return err //nolint:wrapcheck // Want passthrough
 	}); err != nil {
@@ -404,7 +403,7 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 	var hasChanges bool
 	var planExitCode int
 
-	if err := c.withActionsOutGroup("Planning Terraform", func() error {
+	if err := c.WithActionsOutGroup("Planning Terraform", func() error {
 		exitCode, err := c.terraformClient.Plan(ctx, multiStdout, multiStderr, &terraform.PlanOptions{
 			Out:              util.Ptr(c.planFilename),
 			Input:            util.Ptr(false),
@@ -430,7 +429,7 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 	stdout.Reset()
 	stderr.Reset()
 
-	if err := c.withActionsOutGroup("Formatting output", func() error {
+	if err := c.WithActionsOutGroup("Formatting output", func() error {
 		_, err := c.terraformClient.Show(ctx, multiStdout, multiStderr, &terraform.ShowOptions{
 			File:    util.Ptr(c.planFilename),
 			NoColor: util.Ptr(true),
@@ -467,19 +466,6 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 		commentDetails: githubOutput,
 		hasChanges:     hasChanges,
 	}, nil
-}
-
-// withActionsOutGroup runs a function and ensures it is wrapped in GitHub actions
-// grouping syntax. If this is not in an action, output is printed without grouping syntax.
-func (c *PlanCommand) withActionsOutGroup(msg string, fn func() error) error {
-	if c.GitHubFlags.FlagIsGitHubActions {
-		c.actions.Group(msg)
-		defer c.actions.EndGroup()
-	} else {
-		c.Outf(msg)
-	}
-
-	return fn()
 }
 
 // uploadGuardianPlan uploads the Guardian plan binary to the configured Guardian storage bucket.
