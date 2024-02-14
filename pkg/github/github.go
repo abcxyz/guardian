@@ -179,10 +179,11 @@ func (g *GitHubClient) ListRepositories(ctx context.Context, owner string, opts 
 			}
 			repos, resp, err := g.client.Repositories.ListByOrg(ctx, owner, &opt)
 			if err != nil {
-				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
-					return retry.RetryableError(err)
+				if resp != nil {
+					if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
+						return retry.RetryableError(err)
+					}
 				}
-
 				return fmt.Errorf("failed to list repositories: %w", err)
 			}
 
@@ -230,10 +231,11 @@ func (g *GitHubClient) ListIssues(ctx context.Context, owner, repo string, opts 
 			}
 			issues, resp, err := g.client.Issues.ListByRepo(ctx, owner, repo, &opt)
 			if err != nil {
-				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
-					return retry.RetryableError(err)
+				if resp != nil {
+					if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
+						return retry.RetryableError(err)
+					}
 				}
-
 				return fmt.Errorf("failed to list issues: %w", err)
 			}
 
@@ -276,10 +278,11 @@ func (g *GitHubClient) CreateIssue(ctx context.Context, owner, repo, title, body
 	if err := g.withRetries(ctx, func(ctx context.Context) error {
 		issue, resp, err := g.client.Issues.Create(ctx, owner, repo, req)
 		if err != nil {
-			if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
-				return retry.RetryableError(err)
+			if resp != nil {
+				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
+					return retry.RetryableError(err)
+				}
 			}
-
 			return fmt.Errorf("failed to create issue: %w", err)
 		}
 
@@ -298,10 +301,11 @@ func (g *GitHubClient) CloseIssue(ctx context.Context, owner, repo string, numbe
 	if err := g.withRetries(ctx, func(ctx context.Context) error {
 		_, resp, err := g.client.Issues.Edit(ctx, owner, repo, number, &github.IssueRequest{State: util.Ptr(Closed)})
 		if err != nil {
-			if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
-				return retry.RetryableError(err)
+			if resp != nil {
+				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
+					return retry.RetryableError(err)
+				}
 			}
-
 			return fmt.Errorf("failed to close issue: %w", err)
 		}
 
@@ -322,10 +326,11 @@ func (g *GitHubClient) CreateIssueComment(ctx context.Context, owner, repo strin
 			Body: &body,
 		})
 		if err != nil {
-			if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
-				return retry.RetryableError(err)
+			if resp != nil {
+				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
+					return retry.RetryableError(err)
+				}
 			}
-
 			return fmt.Errorf("failed to create pull-request/issue comment: %w", err)
 		}
 		response = &IssueComment{ID: comment.GetID()}
@@ -344,8 +349,10 @@ func (g *GitHubClient) UpdateIssueComment(ctx context.Context, owner, repo strin
 			Body: &body,
 		})
 		if err != nil {
-			if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
-				return retry.RetryableError(err)
+			if resp != nil {
+				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
+					return retry.RetryableError(err)
+				}
 			}
 			return fmt.Errorf("failed to update pull request comment: %w", err)
 		}
@@ -363,8 +370,10 @@ func (g *GitHubClient) DeleteIssueComment(ctx context.Context, owner, repo strin
 	if err := g.withRetries(ctx, func(ctx context.Context) error {
 		resp, err := g.client.Issues.DeleteComment(ctx, owner, repo, id)
 		if err != nil {
-			if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
-				return retry.RetryableError(err)
+			if resp != nil {
+				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
+					return retry.RetryableError(err)
+				}
 			}
 			return fmt.Errorf("failed to delete pull request comment: %w", err)
 		}
@@ -385,8 +394,10 @@ func (g *GitHubClient) ListIssueComments(ctx context.Context, owner, repo string
 	if err := g.withRetries(ctx, func(ctx context.Context) error {
 		ghComments, resp, err := g.client.Issues.ListComments(ctx, owner, repo, number, opts)
 		if err != nil {
-			if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
-				return retry.RetryableError(err)
+			if resp != nil {
+				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
+					return retry.RetryableError(err)
+				}
 			}
 			return fmt.Errorf("failed to list pull request comments: %w", err)
 		}
@@ -415,8 +426,10 @@ func (g *GitHubClient) ListPullRequestsForCommit(ctx context.Context, owner, rep
 	if err := g.withRetries(ctx, func(ctx context.Context) error {
 		ghPullRequests, resp, err := g.client.PullRequests.ListPullRequestsWithCommit(ctx, owner, repo, sha, opts)
 		if err != nil {
-			if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
-				return retry.RetryableError(err)
+			if resp != nil {
+				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
+					return retry.RetryableError(err)
+				}
 			}
 			return fmt.Errorf("failed to list pull request comments: %w", err)
 		}
@@ -445,8 +458,10 @@ func (g *GitHubClient) RepoUserPermissionLevel(ctx context.Context, owner, repo,
 	if err := g.withRetries(ctx, func(ctx context.Context) error {
 		ghPermissionLevel, resp, err := g.client.Repositories.GetPermissionLevel(ctx, owner, repo, user)
 		if err != nil {
-			if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
-				return retry.RetryableError(err)
+			if resp != nil {
+				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
+					return retry.RetryableError(err)
+				}
 			}
 			return fmt.Errorf("failed to get repository permission level: %w", err)
 		}
