@@ -13,14 +13,17 @@
 # limitations under the License.
 
 name: 'release'
+
 on:
   workflow_dispatch:
   workflow_call:
   push:
     tags:
       - 'v*'
+
 permissions:
   contents: 'write'
+
 jobs:
   # Double check that tests pass and lint is clean.
   lint-test:
