@@ -196,6 +196,28 @@ To make this process secure, Guardian should only be run in `internal` or
 but still ensures only the approved and merged workflow is being executed for
 the pull request.
 
+## Workload Identity Federation
+Terraform service accounts have elevated privileges, following [WIF Best Practices](https://cloud.google.com/iam/docs/best-practices-for-using-workload-identity-federation)
+is recommended when setting up guardian to use Workload Identity Federation. Below is an example attribute
+configuration that can be used to set up guardian in a secure manner.
+
+The following [attribute mappings](https://cloud.google.com/iam/docs/workload-identity-federation#mapping) map claims from the [Github Actions JWT](https://token.actions.githubusercontent.com/.well-known/openid-configuration)
+to Google STS token attributes.
+  * `google.subject=assertion.sub`
+  * `attribute.actor=assertion.actor`
+  * `attribute.aud=assertion.aud`
+  * `attribute.repository_owner_id=assertion.repository_owner_id`
+  * `attribute.repository_id=assertion.repository_owner_id`
+  * `attribute.repository_visibility=assertion.repository_owner_id`
+  * `attribute.workflow_ref=assertion.repository_owner_id`
+
+The following [attribute conditions](https://cloud.google.com/iam/docs/workload-identity-federation#conditions) verify that the request is coming from your GitHub organization
+and repository as well as restricting access to only the guardian workflows that run on the main branch.
+  * `attribute.repository_owner_id=<your-github-org>` 
+  * `attribute.repository_id=<your-repository-id>`
+  * `attribute.repository_visibility != "public"`
+  * `attribute.workflow_ref in ["guardian-admin", "guardian-plan", "guardian-apply", "guardian-run"]`
+
 ## Repository Setup
 
 ### General
