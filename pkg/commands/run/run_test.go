@@ -24,6 +24,7 @@ import (
 
 	"github.com/sethvargo/go-githubactions"
 
+	"github.com/abcxyz/guardian/pkg/commands/actions"
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/terraform"
 	"github.com/abcxyz/pkg/logging"
@@ -118,9 +119,17 @@ func TestPlan_Process(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			actions := githubactions.New(githubactions.WithWriter(io.Discard))
+			action := githubactions.New(githubactions.WithWriter(io.Discard))
 
 			c := &RunCommand{
+				GitHubActionCommand: actions.GitHubActionCommand{
+					GitHubFlags: flags.GitHubFlags{
+						FlagIsGitHubActions: tc.flagIsGitHubActions,
+						FlagGitHubOwner:     tc.flagGitHubOwner,
+						FlagGitHubRepo:      tc.flagGitHubRepo,
+					},
+					Action: action,
+				},
 				directory: "testdir",
 				childPath: "testdir",
 
@@ -129,13 +138,7 @@ func TestPlan_Process(t *testing.T) {
 				terraformArgs:                tc.flagTerraformArgs,
 				flagAllowLockfileChanges:     tc.flagAllowLockfileChanges,
 				flagLockTimeout:              tc.flagLockTimeout,
-				GitHubFlags: flags.GitHubFlags{
-					FlagIsGitHubActions: tc.flagIsGitHubActions,
-					FlagGitHubOwner:     tc.flagGitHubOwner,
-					FlagGitHubRepo:      tc.flagGitHubRepo,
-				},
-				actions:         actions,
-				terraformClient: tc.terraformClient,
+				terraformClient:              tc.terraformClient,
 			}
 
 			_, stdout, stderr := c.Pipe()

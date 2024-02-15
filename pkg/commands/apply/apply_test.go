@@ -25,6 +25,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/sethvargo/go-githubactions"
 
+	"github.com/abcxyz/guardian/pkg/commands/actions"
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/github"
 	"github.com/abcxyz/guardian/pkg/storage"
@@ -243,7 +244,7 @@ func TestApply_Process(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			actions := githubactions.New(githubactions.WithWriter(os.Stdout))
+			action := githubactions.New(githubactions.WithWriter(os.Stdout))
 			gitHubClient := &github.MockGitHubClient{}
 			storageClient := &storage.MockStorageClient{
 				Metadata: map[string]string{
@@ -252,6 +253,14 @@ func TestApply_Process(t *testing.T) {
 			}
 
 			c := &ApplyCommand{
+				GitHubActionCommand: actions.GitHubActionCommand{
+					GitHubFlags: flags.GitHubFlags{
+						FlagIsGitHubActions: tc.flagIsGitHubActions,
+						FlagGitHubOwner:     tc.flagGitHubOwner,
+						FlagGitHubRepo:      tc.flagGitHubRepo,
+					},
+					Action: action,
+				},
 				cfg: tc.config,
 
 				directory:    tc.directory,
@@ -263,15 +272,9 @@ func TestApply_Process(t *testing.T) {
 				flagBucketName:           tc.flagBucketName,
 				flagAllowLockfileChanges: tc.flagAllowLockfileChanges,
 				flagLockTimeout:          tc.flagLockTimeout,
-				GitHubFlags: flags.GitHubFlags{
-					FlagIsGitHubActions: tc.flagIsGitHubActions,
-					FlagGitHubOwner:     tc.flagGitHubOwner,
-					FlagGitHubRepo:      tc.flagGitHubRepo,
-				},
-				actions:         actions,
-				gitHubClient:    gitHubClient,
-				storageClient:   storageClient,
-				terraformClient: tc.terraformClient,
+				gitHubClient:             gitHubClient,
+				storageClient:            storageClient,
+				terraformClient:          tc.terraformClient,
 			}
 
 			_, stdout, stderr := c.Pipe()
