@@ -208,8 +208,8 @@ to Google STS token attributes.
   * `attribute.aud=assertion.aud`
   * `attribute.repository_owner_id=assertion.repository_owner_id`
   * `attribute.repository_id=assertion.repository_owner_id`
-  * `attribute.repository_visibility=assertion.repository_owner_id`
-  * `attribute.workflow_ref=assertion.repository_owner_id`
+  * `attribute.repository_visibility=assertion.repository_visibility`
+  * `attribute.workflow_ref=assertion.workflow_ref`
 
 The following [attribute conditions](https://cloud.google.com/iam/docs/workload-identity-federation#conditions) verify that the request is coming from your GitHub organization
 and repository as well as restricting access to only the guardian workflows that run on the main branch.
