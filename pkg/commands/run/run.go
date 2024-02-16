@@ -66,7 +66,7 @@ Usage: {{ COMMAND }} [options]
 func (c *RunCommand) Flags() *cli.FlagSet {
 	set := c.NewFlagSet()
 
-	c.GitHubFlags.Register(set)
+	c.GitHubActionCommand.Register(set)
 	c.RetryFlags.Register(set)
 	c.CommonFlags.Register(set)
 

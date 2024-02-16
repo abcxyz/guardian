@@ -161,9 +161,8 @@ func TestRemoveGuardianCommentsProcess(t *testing.T) {
 
 			c := &RemoveGuardianCommentsCommand{
 				GitHubFlags: flags.GitHubFlags{
-					FlagIsGitHubActions: tc.flagIsGitHubActions,
-					FlagGitHubOwner:     tc.flagGitHubOwner,
-					FlagGitHubRepo:      tc.flagGitHubRepo,
+					FlagGitHubOwner: tc.flagGitHubOwner,
+					FlagGitHubRepo:  tc.flagGitHubRepo,
 				},
 				flagPullRequestNumber: tc.flagPullRequestNumber,
 				flagForCommands:       tc.flagForCommands,

@@ -190,9 +190,8 @@ func TestPlanStatusCommentsProcess(t *testing.T) {
 				cfg: defaultConfig,
 
 				GitHubFlags: flags.GitHubFlags{
-					FlagIsGitHubActions: tc.flagIsGitHubActions,
-					FlagGitHubOwner:     tc.flagGitHubOwner,
-					FlagGitHubRepo:      tc.flagGitHubRepo,
+					FlagGitHubOwner: tc.flagGitHubOwner,
+					FlagGitHubRepo:  tc.flagGitHubRepo,
 				},
 				flagPullRequestNumber: tc.flagPullRequestNumber,
 				flagInitResult:        tc.flagInitResult,

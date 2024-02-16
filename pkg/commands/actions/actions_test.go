@@ -22,7 +22,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/sethvargo/go-githubactions"
 
-	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/pkg/testutil"
 )
 
@@ -101,10 +100,8 @@ func TestWithActionsOutGroup(t *testing.T) {
 			action := githubactions.New(githubactions.WithWriter(tc.actionout))
 
 			cmd := &GitHubActionCommand{
-				GitHubFlags: flags.GitHubFlags{
-					FlagIsGitHubActions: tc.flagIsGitHubActions,
-				},
-				Action: action,
+				FlagIsGitHubActions: tc.flagIsGitHubActions,
+				Action:              action,
 			}
 
 			cmd.SetStdout(tc.stdout)

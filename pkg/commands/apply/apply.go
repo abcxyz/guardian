@@ -66,6 +66,7 @@ type ApplyCommand struct {
 
 	flags.RetryFlags
 	flags.CommonFlags
+	flags.GitHubFlags
 
 	flagBucketName           string
 	flagCommitSHA            string
@@ -96,6 +97,7 @@ Usage: {{ COMMAND }} [options]
 func (c *ApplyCommand) Flags() *cli.FlagSet {
 	set := c.NewFlagSet()
 
+	c.GitHubActionCommand.Register(set)
 	c.GitHubFlags.Register(set)
 	c.RetryFlags.Register(set)
 	c.CommonFlags.Register(set)
@@ -320,8 +322,8 @@ func (c *ApplyCommand) Process(ctx context.Context) (merr error) {
 func (c *ApplyCommand) createStartCommentForActions(ctx context.Context) (*github.IssueComment, error) {
 	logger := logging.FromContext(ctx)
 
-	if !c.GitHubFlags.FlagIsGitHubActions {
-		logger.DebugContext(ctx, "skipping start comment", "is_github_action", c.GitHubFlags.FlagIsGitHubActions)
+	if !c.FlagIsGitHubActions {
+		logger.DebugContext(ctx, "skipping start comment", "is_github_action", c.FlagIsGitHubActions)
 		return nil, nil
 	}
 
@@ -344,8 +346,8 @@ func (c *ApplyCommand) createStartCommentForActions(ctx context.Context) (*githu
 func (c *ApplyCommand) updateResultCommentForActions(ctx context.Context, startComment *github.IssueComment, result *RunResult, resulErr error) error {
 	logger := logging.FromContext(ctx)
 
-	if !c.GitHubFlags.FlagIsGitHubActions {
-		logger.DebugContext(ctx, "skipping update result comment", "is_github_action", c.GitHubFlags.FlagIsGitHubActions)
+	if !c.FlagIsGitHubActions {
+		logger.DebugContext(ctx, "skipping update result comment", "is_github_action", c.FlagIsGitHubActions)
 		return nil
 	}
 

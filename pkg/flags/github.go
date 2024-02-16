@@ -30,7 +30,6 @@ import (
 // GitHubFlags represent the shared GitHub flags among all commands.
 // Embed this struct into any commands that interact with GitHub.
 type GitHubFlags struct {
-	FlagIsGitHubActions                 bool
 	FlagGitHubToken                     string
 	FlagGitHubOwner                     string
 	FlagGitHubRepo                      string
@@ -41,14 +40,6 @@ type GitHubFlags struct {
 
 func (g *GitHubFlags) Register(set *cli.FlagSet) {
 	f := set.NewSection("GITHUB OPTIONS")
-
-	f.BoolVar(&cli.BoolVar{
-		Name:    "github-actions",
-		EnvVar:  "GITHUB_ACTIONS",
-		Target:  &g.FlagIsGitHubActions,
-		Default: false,
-		Usage:   "Is this running as a GitHub action.",
-	})
 
 	f.StringVar(&cli.StringVar{
 		Name:   "github-token",

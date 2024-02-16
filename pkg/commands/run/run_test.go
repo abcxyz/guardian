@@ -25,7 +25,6 @@ import (
 	"github.com/sethvargo/go-githubactions"
 
 	"github.com/abcxyz/guardian/pkg/commands/actions"
-	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/terraform"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/testutil"
@@ -123,12 +122,8 @@ func TestPlan_Process(t *testing.T) {
 
 			c := &RunCommand{
 				GitHubActionCommand: actions.GitHubActionCommand{
-					GitHubFlags: flags.GitHubFlags{
-						FlagIsGitHubActions: tc.flagIsGitHubActions,
-						FlagGitHubOwner:     tc.flagGitHubOwner,
-						FlagGitHubRepo:      tc.flagGitHubRepo,
-					},
-					Action: action,
+					FlagIsGitHubActions: tc.flagIsGitHubActions,
+					Action:              action,
 				},
 				directory: "testdir",
 				childPath: "testdir",

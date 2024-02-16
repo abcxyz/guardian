@@ -18,16 +18,27 @@ package actions
 import (
 	"github.com/sethvargo/go-githubactions"
 
-	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/pkg/cli"
 )
 
 type GitHubActionCommand struct {
 	cli.BaseCommand
 
-	flags.GitHubFlags
+	FlagIsGitHubActions bool
 
 	Action *githubactions.Action
+}
+
+func (c *GitHubActionCommand) Register(set *cli.FlagSet) {
+	f := set.NewSection("GITHUB ACTION OPTIONS")
+
+	f.BoolVar(&cli.BoolVar{
+		Name:    "github-actions",
+		EnvVar:  "GITHUB_ACTIONS",
+		Target:  &c.FlagIsGitHubActions,
+		Default: false,
+		Usage:   "Is this running as a GitHub action.",
+	})
 }
 
 // WithActionsOutGroup runs a function and ensures it is wrapped in GitHub actions
