@@ -113,9 +113,19 @@ func (c *ValidatePermissionsCommand) Run(ctx context.Context, args []string) err
 	}
 	logger.DebugContext(ctx, "loaded configuration", "validate_permissions_config", c.cfg)
 
+	tokenSource, err := c.GitHubFlags.GetTokenSource(ctx, map[string]string{
+		"contents": "read",
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get token source: %w", err)
+	}
+	token, err := tokenSource.GitHubToken(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get token: %w", err)
+	}
 	c.gitHubClient = github.NewClient(
 		ctx,
-		c.GitHubFlags.FlagGitHubToken,
+		token,
 		github.WithRetryInitialDelay(c.RetryFlags.FlagRetryInitialDelay),
 		github.WithRetryMaxAttempts(c.RetryFlags.FlagRetryMaxAttempts),
 		github.WithRetryMaxDelay(c.RetryFlags.FlagRetryMaxDelay),

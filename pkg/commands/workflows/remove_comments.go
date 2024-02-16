@@ -135,9 +135,20 @@ func (c *RemoveGuardianCommentsCommand) Run(ctx context.Context, args []string) 
 		return flag.ErrHelp
 	}
 
+	tokenSource, err := c.GitHubFlags.GetTokenSource(ctx, map[string]string{
+		"contents":      "read",
+		"pull_requests": "write",
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get token source: %w", err)
+	}
+	token, err := tokenSource.GitHubToken(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get token: %w", err)
+	}
 	c.gitHubClient = github.NewClient(
 		ctx,
-		c.GitHubFlags.FlagGitHubToken,
+		token,
 		github.WithRetryInitialDelay(c.RetryFlags.FlagRetryInitialDelay),
 		github.WithRetryMaxAttempts(c.RetryFlags.FlagRetryMaxAttempts),
 		github.WithRetryMaxDelay(c.RetryFlags.FlagRetryMaxDelay),
