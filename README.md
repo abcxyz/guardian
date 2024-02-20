@@ -206,17 +206,26 @@ to Google STS token attributes.
   * `google.subject=assertion.sub`
   * `attribute.actor=assertion.actor`
   * `attribute.aud=assertion.aud`
+  * `attribute.ref=assertion.ref`
   * `attribute.repository_owner_id=assertion.repository_owner_id`
-  * `attribute.repository_id=assertion.repository_owner_id`
+  * `attribute.repository_id=assertion.repository_id`
   * `attribute.repository_visibility=assertion.repository_visibility`
   * `attribute.workflow_ref=assertion.workflow_ref`
 
-The following [attribute conditions](https://cloud.google.com/iam/docs/workload-identity-federation#conditions) verify that the request is coming from your GitHub organization
+The following [attribute condition](https://cloud.google.com/iam/docs/workload-identity-federation#conditions) verifies that the request is coming from your GitHub organization
 and repository as well as restricting access to only the guardian workflows that run on the main branch.
-  * `attribute.repository_owner_id=<your-repository-owner-id>` 
-  * `attribute.repository_id=<your-repository-id>`
-  * `attribute.repository_visibility != "public"`
-  * `attribute.workflow_ref in ["guardian-admin", "guardian-plan", "guardian-apply", "guardian-run"]`
+```
+attribute.repository_owner_id == "<your-repository-owner-id>" &&
+attribute.repository_id == "<your-repository-id>" &&
+attribute.repository_visibility != "public" &&
+attribute.ref == "refs/heads/main" &&
+attribute.workflow_ref in [
+  "<your-repository-owner-name>/<your-repository-name>/.github/workflows/guardian-admin.yml@refs/heads/main",
+  "<your-repository-owner-name>/<your-repository-name>/.github/workflows/guardian-apply.yml@refs/heads/main",
+  "<your-repository-owner-name>/<your-repository-name>/.github/workflows/guardian-plan.yml@refs/heads/main",
+  "<your-repository-owner-name>/<your-repository-name>/.github/workflows/guardian-run.yml@refs/heads/main",
+]
+```
 
 You can find the `id` and `owner.id` of your repository by using GitHub's REST API.
 ```shell
