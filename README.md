@@ -213,10 +213,24 @@ to Google STS token attributes.
 
 The following [attribute conditions](https://cloud.google.com/iam/docs/workload-identity-federation#conditions) verify that the request is coming from your GitHub organization
 and repository as well as restricting access to only the guardian workflows that run on the main branch.
-  * `attribute.repository_owner_id=<your-github-org>` 
+  * `attribute.repository_owner_id=<your-repository-owner-id>` 
   * `attribute.repository_id=<your-repository-id>`
   * `attribute.repository_visibility != "public"`
   * `attribute.workflow_ref in ["guardian-admin", "guardian-plan", "guardian-apply", "guardian-run"]`
+
+You can find the `id` and `owner.id` of your repository by using GitHub's REST API.
+```shell
+$ OWNER_NAME="owner"
+$ REPO_NAME="repo"
+$ curl https://api.github.com/repos/$OWNER_NAME/$REPO_NAME | jq '. | {"id": .id, "owner": { "id": .owner.id }}'
+{
+  "id": 12345,
+  "owner": {
+    "id": 9876
+  }
+}
+```
+
 
 ## Repository Setup
 
