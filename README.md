@@ -196,6 +196,51 @@ To make this process secure, Guardian should only be run in `internal` or
 but still ensures only the approved and merged workflow is being executed for
 the pull request.
 
+## Workload Identity Federation
+Terraform service accounts have elevated privileges, following [WIF Best Practices](https://cloud.google.com/iam/docs/best-practices-for-using-workload-identity-federation)
+is recommended when setting up guardian to use Workload Identity Federation. Below is an example attribute
+configuration that can be used to set up guardian in a secure manner.
+
+The following [attribute mappings](https://cloud.google.com/iam/docs/workload-identity-federation#mapping) map claims from the [GitHub Actions JWT](https://token.actions.githubusercontent.com/.well-known/openid-configuration)
+to Google STS token attributes.
+  * `google.subject=assertion.sub`
+  * `attribute.actor=assertion.actor`
+  * `attribute.aud=assertion.aud`
+  * `attribute.ref=assertion.ref`
+  * `attribute.repository_owner_id=assertion.repository_owner_id`
+  * `attribute.repository_id=assertion.repository_id`
+  * `attribute.repository_visibility=assertion.repository_visibility`
+  * `attribute.workflow_ref=assertion.workflow_ref`
+
+The following [attribute condition](https://cloud.google.com/iam/docs/workload-identity-federation#conditions) verifies that the request is coming from your GitHub organization
+and repository as well as restricting access to only the guardian workflows that run on the main branch.
+```
+attribute.repository_owner_id == "<your-repository-owner-id>" &&
+attribute.repository_id == "<your-repository-id>" &&
+attribute.repository_visibility != "public" &&
+attribute.ref == "refs/heads/main" &&
+attribute.workflow_ref in [
+  "<your-repository-owner-name>/<your-repository-name>/.github/workflows/guardian-admin.yml@refs/heads/main",
+  "<your-repository-owner-name>/<your-repository-name>/.github/workflows/guardian-apply.yml@refs/heads/main",
+  "<your-repository-owner-name>/<your-repository-name>/.github/workflows/guardian-plan.yml@refs/heads/main",
+  "<your-repository-owner-name>/<your-repository-name>/.github/workflows/guardian-run.yml@refs/heads/main",
+]
+```
+
+You can find the `id` and `owner.id` of your repository by using GitHub's REST API.
+```shell
+$ OWNER_NAME="owner"
+$ REPO_NAME="repo"
+$ curl https://api.github.com/repos/$OWNER_NAME/$REPO_NAME | jq '. | {"id": .id, "owner": { "id": .owner.id }}'
+{
+  "id": 12345,
+  "owner": {
+    "id": 9876
+  }
+}
+```
+
+
 ## Repository Setup
 
 ### General
