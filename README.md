@@ -201,7 +201,7 @@ Terraform service accounts have elevated privileges, following [WIF Best Practic
 is recommended when setting up guardian to use Workload Identity Federation. Below is an example attribute
 configuration that can be used to set up guardian in a secure manner.
 
-The following [attribute mappings](https://cloud.google.com/iam/docs/workload-identity-federation#mapping) map claims from the [Github Actions JWT](https://token.actions.githubusercontent.com/.well-known/openid-configuration)
+The following [attribute mappings](https://cloud.google.com/iam/docs/workload-identity-federation#mapping) map claims from the [GitHub Actions JWT](https://token.actions.githubusercontent.com/.well-known/openid-configuration)
 to Google STS token attributes.
   * `google.subject=assertion.sub`
   * `attribute.actor=assertion.actor`
