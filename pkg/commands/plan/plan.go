@@ -196,7 +196,7 @@ func (c *PlanCommand) Run(ctx context.Context, args []string) error {
 	}
 	logger.DebugContext(ctx, "loaded configuration", "config", c.cfg)
 
-	tokenSource, err := c.GitHubFlags.GetTokenSource(ctx, map[string]string{
+	tokenSource, err := c.GitHubFlags.TokenSource(ctx, map[string]string{
 		"contents":      "read",
 		"pull_requests": "write",
 	})

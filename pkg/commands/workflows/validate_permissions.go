@@ -113,7 +113,7 @@ func (c *ValidatePermissionsCommand) Run(ctx context.Context, args []string) err
 	}
 	logger.DebugContext(ctx, "loaded configuration", "validate_permissions_config", c.cfg)
 
-	tokenSource, err := c.GitHubFlags.GetTokenSource(ctx, map[string]string{
+	tokenSource, err := c.GitHubFlags.TokenSource(ctx, map[string]string{
 		"contents": "read",
 	})
 	if err != nil {
