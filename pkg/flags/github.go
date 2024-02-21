@@ -100,7 +100,7 @@ func (g *GitHubFlags) Register(set *cli.FlagSet) {
 	})
 }
 
-func (g *GitHubFlags) GetTokenSource(ctx context.Context, permissions map[string]string) (githubauth.TokenSource, error) {
+func (g *GitHubFlags) TokenSource(ctx context.Context, permissions map[string]string) (githubauth.TokenSource, error) {
 	if g.FlagGitHubToken != "" {
 		githubTokenSource, err := githubauth.NewStaticTokenSource(g.FlagGitHubToken)
 		if err != nil {
