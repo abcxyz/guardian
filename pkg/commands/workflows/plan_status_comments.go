@@ -143,7 +143,7 @@ func (c *PlanStatusCommentCommand) Run(ctx context.Context, args []string) error
 	}
 	logger.DebugContext(ctx, "loaded configuration", "plan_status_comments_config", c.cfg)
 
-	tokenSource, err := c.GitHubFlags.TokenSource(ctx, map[string]string{
+	tokenSource, err := c.GitHubFlags.TokenSource(map[string]string{
 		"pull_requests": "write",
 	})
 	if err != nil {

@@ -4,7 +4,6 @@ go 1.21
 
 require (
 	cloud.google.com/go/asset v1.17.1
-	cloud.google.com/go/secretmanager v1.11.5
 	cloud.google.com/go/storage v1.36.0
 	github.com/abcxyz/pkg v1.0.0
 	github.com/google/cel-go v0.18.2
