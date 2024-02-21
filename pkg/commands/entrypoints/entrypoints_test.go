@@ -22,7 +22,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/git"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/testutil"
@@ -153,18 +152,12 @@ func TestEntrypointsProcess(t *testing.T) {
 			c := &EntrypointsCommand{
 				directory: tc.directory,
 
-				flagPullRequestNumber: tc.flagPullRequestNumber,
-				flagFormat:            tc.flagFormat,
-				flagDestRef:           tc.flagDestRef,
-				flagSourceRef:         tc.flagSourceRef,
-				flagDetectChanges:     tc.flagDetectChanges,
-				flagMaxDepth:          tc.flagMaxDepth,
-				GitHubFlags: flags.GitHubFlags{
-					FlagIsGitHubActions: tc.flagIsGitHubActions,
-					FlagGitHubOwner:     tc.flagGitHubOwner,
-					FlagGitHubRepo:      tc.flagGitHubRepo,
-				},
-				gitClient: tc.gitClient,
+				flagFormat:        tc.flagFormat,
+				flagDestRef:       tc.flagDestRef,
+				flagSourceRef:     tc.flagSourceRef,
+				flagDetectChanges: tc.flagDetectChanges,
+				flagMaxDepth:      tc.flagMaxDepth,
+				gitClient:         tc.gitClient,
 			}
 
 			_, stdout, stderr := c.Pipe()

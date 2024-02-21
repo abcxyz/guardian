@@ -329,12 +329,12 @@ func TestPlan_Process(t *testing.T) {
 
 			c := &PlanCommand{
 				GitHubActionCommand: actions.GitHubActionCommand{
-					GitHubFlags: flags.GitHubFlags{
-						FlagIsGitHubActions: tc.flagIsGitHubActions,
-						FlagGitHubOwner:     tc.flagGitHubOwner,
-						FlagGitHubRepo:      tc.flagGitHubRepo,
-					},
-					Action: action,
+					FlagIsGitHubActions: tc.flagIsGitHubActions,
+					Action:              action,
+				},
+				GitHubFlags: flags.GitHubFlags{
+					FlagGitHubOwner: tc.flagGitHubOwner,
+					FlagGitHubRepo:  tc.flagGitHubRepo,
 				},
 				cfg: tc.config,
 

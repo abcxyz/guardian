@@ -143,9 +143,19 @@ func (c *PlanStatusCommentCommand) Run(ctx context.Context, args []string) error
 	}
 	logger.DebugContext(ctx, "loaded configuration", "plan_status_comments_config", c.cfg)
 
+	tokenSource, err := c.GitHubFlags.TokenSource(map[string]string{
+		"pull_requests": "write",
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get token source: %w", err)
+	}
+	token, err := tokenSource.GitHubToken(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get token: %w", err)
+	}
 	c.gitHubClient = github.NewClient(
 		ctx,
-		c.GitHubFlags.FlagGitHubToken,
+		token,
 		github.WithRetryInitialDelay(c.RetryFlags.FlagRetryInitialDelay),
 		github.WithRetryMaxAttempts(c.RetryFlags.FlagRetryMaxAttempts),
 		github.WithRetryMaxDelay(c.RetryFlags.FlagRetryMaxDelay),

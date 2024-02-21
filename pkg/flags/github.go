@@ -14,27 +14,27 @@
 
 package flags
 
-import "github.com/abcxyz/pkg/cli"
+import (
+	"errors"
+	"fmt"
+
+	"github.com/abcxyz/pkg/cli"
+	"github.com/abcxyz/pkg/githubauth"
+)
 
 // GitHubFlags represent the shared GitHub flags among all commands.
 // Embed this struct into any commands that interact with GitHub.
 type GitHubFlags struct {
-	FlagIsGitHubActions bool
-	FlagGitHubToken     string
-	FlagGitHubOwner     string
-	FlagGitHubRepo      string
+	FlagGitHubToken             string
+	FlagGitHubOwner             string
+	FlagGitHubRepo              string
+	FlagGitHubAppID             string
+	FlagGitHubAppInstallationID string
+	FlagGitHubAppPrivateKeyPEM  string
 }
 
 func (g *GitHubFlags) Register(set *cli.FlagSet) {
 	f := set.NewSection("GITHUB OPTIONS")
-
-	f.BoolVar(&cli.BoolVar{
-		Name:    "github-actions",
-		EnvVar:  "GITHUB_ACTIONS",
-		Target:  &g.FlagIsGitHubActions,
-		Default: false,
-		Usage:   "Is this running as a GitHub action.",
-	})
 
 	f.StringVar(&cli.StringVar{
 		Name:   "github-token",
@@ -56,4 +56,62 @@ func (g *GitHubFlags) Register(set *cli.FlagSet) {
 		Example: "repository-name",
 		Usage:   "The GitHub repository name.",
 	})
+
+	f.StringVar(&cli.StringVar{
+		Name:   "github-app-id",
+		EnvVar: "GITHUB_APP_ID",
+		Target: &g.FlagGitHubAppID,
+		Usage:  "The ID of GitHub App to use for requesting tokens to make GitHub API calls.",
+	})
+
+	f.StringVar(&cli.StringVar{
+		Name:   "github-app-installation-id",
+		EnvVar: "GITHUB_APP_INSTALLATION_ID",
+		Target: &g.FlagGitHubAppInstallationID,
+		Usage:  "The Installation ID of GitHub App to use for requesting tokens to make GitHub API calls.",
+	})
+
+	f.StringVar(&cli.StringVar{
+		Name:   "github-app-private-key-pem",
+		EnvVar: "GITHUB_APP_PRIVATE_KEY_PEM",
+		Target: &g.FlagGitHubAppPrivateKeyPEM,
+		Usage:  "The PEM formatted private key to use with the GitHub App.",
+	})
+
+	set.AfterParse(func(merr error) error {
+		if g.FlagGitHubToken == "" && g.FlagGitHubAppID == "" {
+			merr = errors.Join(merr, fmt.Errorf("one of github token or github app id are required"))
+		}
+		if g.FlagGitHubToken != "" && g.FlagGitHubAppID != "" {
+			merr = errors.Join(merr, fmt.Errorf("only one of github token or github app id are allowed"))
+		}
+		if g.FlagGitHubAppID != "" && g.FlagGitHubAppInstallationID == "" {
+			merr = errors.Join(merr, fmt.Errorf("a github app installation id is required when using a github app id"))
+		}
+		if g.FlagGitHubAppID != "" && g.FlagGitHubAppPrivateKeyPEM == "" {
+			merr = errors.Join(merr, fmt.Errorf("a github app private key is required when using a github app id"))
+		}
+		return merr
+	})
+}
+
+func (g *GitHubFlags) TokenSource(permissions map[string]string) (githubauth.TokenSource, error) {
+	if g.FlagGitHubToken != "" {
+		githubTokenSource, err := githubauth.NewStaticTokenSource(g.FlagGitHubToken)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create github static token source: %w", err)
+		}
+		return githubTokenSource, nil
+	} else {
+		app, err := githubauth.NewApp(
+			g.FlagGitHubAppID,
+			g.FlagGitHubAppInstallationID,
+			g.FlagGitHubAppPrivateKeyPEM,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create github app token source: %w", err)
+		}
+
+		return app.SelectedReposTokenSource(permissions, g.FlagGitHubRepo), nil
+	}
 }

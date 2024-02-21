@@ -66,6 +66,7 @@ type ApplyCommand struct {
 
 	flags.RetryFlags
 	flags.CommonFlags
+	flags.GitHubFlags
 
 	flagBucketName           string
 	flagCommitSHA            string
@@ -96,6 +97,7 @@ Usage: {{ COMMAND }} [options]
 func (c *ApplyCommand) Flags() *cli.FlagSet {
 	set := c.NewFlagSet()
 
+	c.GitHubActionCommand.Register(set)
 	c.GitHubFlags.Register(set)
 	c.RetryFlags.Register(set)
 	c.CommonFlags.Register(set)
@@ -187,9 +189,20 @@ func (c *ApplyCommand) Run(ctx context.Context, args []string) error {
 	}
 	logger.DebugContext(ctx, "loaded configuration", "config", c.cfg)
 
+	tokenSource, err := c.GitHubFlags.TokenSource(map[string]string{
+		"contents":      "read",
+		"pull_requests": "write",
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get token source: %w", err)
+	}
+	token, err := tokenSource.GitHubToken(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get token: %w", err)
+	}
 	c.gitHubClient = github.NewClient(
 		ctx,
-		c.GitHubFlags.FlagGitHubToken,
+		token,
 		github.WithRetryInitialDelay(c.RetryFlags.FlagRetryInitialDelay),
 		github.WithRetryMaxAttempts(c.RetryFlags.FlagRetryMaxAttempts),
 		github.WithRetryMaxDelay(c.RetryFlags.FlagRetryMaxDelay),
@@ -309,8 +322,8 @@ func (c *ApplyCommand) Process(ctx context.Context) (merr error) {
 func (c *ApplyCommand) createStartCommentForActions(ctx context.Context) (*github.IssueComment, error) {
 	logger := logging.FromContext(ctx)
 
-	if !c.GitHubFlags.FlagIsGitHubActions {
-		logger.DebugContext(ctx, "skipping start comment", "is_github_action", c.GitHubFlags.FlagIsGitHubActions)
+	if !c.FlagIsGitHubActions {
+		logger.DebugContext(ctx, "skipping start comment", "is_github_action", c.FlagIsGitHubActions)
 		return nil, nil
 	}
 
@@ -333,8 +346,8 @@ func (c *ApplyCommand) createStartCommentForActions(ctx context.Context) (*githu
 func (c *ApplyCommand) updateResultCommentForActions(ctx context.Context, startComment *github.IssueComment, result *RunResult, resulErr error) error {
 	logger := logging.FromContext(ctx)
 
-	if !c.GitHubFlags.FlagIsGitHubActions {
-		logger.DebugContext(ctx, "skipping update result comment", "is_github_action", c.GitHubFlags.FlagIsGitHubActions)
+	if !c.FlagIsGitHubActions {
+		logger.DebugContext(ctx, "skipping update result comment", "is_github_action", c.FlagIsGitHubActions)
 		return nil
 	}
 

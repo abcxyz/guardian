@@ -129,9 +129,8 @@ func TestValidatePermissionsProcess(t *testing.T) {
 				cfg: tc.config,
 
 				GitHubFlags: flags.GitHubFlags{
-					FlagIsGitHubActions: tc.flagIsGitHubActions,
-					FlagGitHubOwner:     tc.flagGitHubOwner,
-					FlagGitHubRepo:      tc.flagGitHubRepo,
+					FlagGitHubOwner: tc.flagGitHubOwner,
+					FlagGitHubRepo:  tc.flagGitHubRepo,
 				},
 				flagAllowedPermissions: tc.flagAllowedPermissions,
 				actions:                actions,

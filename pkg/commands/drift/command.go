@@ -161,8 +161,18 @@ func (c *DetectIamDriftCommand) Run(ctx context.Context, args []string) error {
 	if c.DriftIssueFlags.FlagGitHubCommentMessageAppend != "" {
 		m = strings.Join([]string{m, c.DriftIssueFlags.FlagGitHubCommentMessageAppend}, "\n\n")
 	}
+	tokenSource, err := c.GitHubFlags.TokenSource(map[string]string{
+		"issues": "write",
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get token source: %w", err)
+	}
+	token, err := tokenSource.GitHubToken(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get token: %w", err)
+	}
 	issueService := NewGitHubDriftIssueService(
-		github.NewClient(ctx, c.GitHubFlags.FlagGitHubToken),
+		github.NewClient(ctx, token),
 		c.GitHubFlags.FlagGitHubOwner,
 		c.GitHubFlags.FlagGitHubRepo,
 		issueTitle,

@@ -52,11 +52,9 @@ type EntrypointsCommand struct {
 
 	directory string
 
-	flags.GitHubFlags
 	flags.RetryFlags
 	flags.CommonFlags
 
-	flagPullRequestNumber       int
 	flagDestRef                 string
 	flagSourceRef               string
 	flagDetectChanges           bool
@@ -84,18 +82,10 @@ Usage: {{ COMMAND }} [options]
 func (c *EntrypointsCommand) Flags() *cli.FlagSet {
 	set := c.NewFlagSet()
 
-	c.GitHubFlags.Register(set)
 	c.RetryFlags.Register(set)
 	c.CommonFlags.Register(set)
 
 	f := set.NewSection("COMMAND OPTIONS")
-
-	f.IntVar(&cli.IntVar{
-		Name:    "pull-request-number",
-		Target:  &c.flagPullRequestNumber,
-		Example: "100",
-		Usage:   "The GitHub pull request number associated with this plan run.",
-	})
 
 	f.StringVar(&cli.StringVar{
 		Name:    "dest-ref",
@@ -194,10 +184,7 @@ func (c *EntrypointsCommand) Run(ctx context.Context, args []string) error {
 
 // Process handles the main logic for the Guardian init process.
 func (c *EntrypointsCommand) Process(ctx context.Context) error {
-	logger := logging.FromContext(ctx).
-		With("github_owner", c.GitHubFlags.FlagGitHubOwner).
-		With("github_repo", c.GitHubFlags.FlagGitHubOwner).
-		With("pull_request_number", c.flagPullRequestNumber)
+	logger := logging.FromContext(ctx)
 
 	logger.DebugContext(ctx, "finding entrypoint directories")
 
