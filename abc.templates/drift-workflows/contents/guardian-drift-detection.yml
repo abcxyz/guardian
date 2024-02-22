@@ -100,7 +100,7 @@ jobs:
       - name: 'Guardian Statefile Drift Detection'
         shell: 'bash'
         env:
-          GTIHUB_TOKEN: '${{ github.token }}'
+          GITHUB_TOKEN: '${{ github.token }}'
         run: |
           guardian drift statefiles \
             -dir="./"
