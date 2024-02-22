@@ -83,6 +83,7 @@ jobs:
           REPO_TOKEN: '${{ github.token }}'
         run: |-
           guardian workflows remove-guardian-comments \
+            -for-command="plan" \
             -github-owner="${GITHUB_OWNER_NAME}" \
             -github-repo="${GITHUB_REPO_NAME}" \
             -github-token="${REPO_TOKEN}" \
