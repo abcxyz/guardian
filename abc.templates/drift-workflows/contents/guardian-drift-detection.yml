@@ -43,7 +43,7 @@ jobs:
     runs-on: 'ubuntu-latest'
     steps:
       - name: 'Checkout'
-        uses: 'actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744' # ratchet:actions/checkout@v3
+        uses: 'actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11' # ratchet:actions/checkout@v4
 
       - name: 'Setup Guardian'
         uses: 'abcxyz/pkg/.github/actions/setup-binary@4b8d5d3674c9fd86b1796142ca6a6b6b834b49b1' # ratchet:abcxyz/pkg/.github/actions/setup-binary@main
@@ -79,7 +79,7 @@ jobs:
     runs-on: 'ubuntu-latest'
     steps:
       - name: 'Checkout'
-        uses: 'actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744' # ratchet:actions/checkout@v3
+        uses: 'actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11' # ratchet:actions/checkout@v4
 
       - name: 'Setup Guardian'
         uses: 'abcxyz/pkg/.github/actions/setup-binary@4b8d5d3674c9fd86b1796142ca6a6b6b834b49b1' # ratchet:abcxyz/pkg/.github/actions/setup-binary@main
@@ -98,13 +98,13 @@ jobs:
       - name: 'Guardian Statefile Drift Detection'
         shell: 'bash'
         env:
-          REPO_TOKEN: '${{ github.token }}'
+          GTIHUB_TOKEN: '${{ github.token }}'
         run: |
           guardian drift statefiles \
             -dir="./"
             -organization-id="$ORGANIZATION_ID" \
             -gcs-bucket-query="labels:terraform" \
-            -github-token="$REPO_TOKEN" \
+            -github-token="$GITHUB_TOKEN" \
             -github-owner="$GITHUB_OWNER_NAME" \
             -github-repo="$GITHUB_REPO_NAME" \
             -github-issue-labels="guardian-statefile-drift,security" \
