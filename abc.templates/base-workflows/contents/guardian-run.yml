@@ -31,7 +31,7 @@ on:
           - 'apply'
           - 'output'
       entrypoint:
-        description: 'ENTRYPOINT - A directory to find all child directories containing Terraform configurations. If left blank, the Terraform command will run for all configured directories.'
+        description: 'ENTRYPOINT - The directory to search for all child directories containing Terraform configurations. If left blank, the Terraform command will run for all configured directories.'
         default: 'REPLACE_TERRAFORM_DIRECTORY'
         type: 'string'
 
