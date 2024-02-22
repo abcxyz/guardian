@@ -1,0 +1,14 @@
+api_version: 'cli.abcxyz.dev/v1beta3'
+kind: 'GoldenTest'
+inputs:
+  - name: 'guardian_wif_provider'
+    value: 'my-guardian-wif-provider'
+  - name: 'guardian_service_account'
+    value: 'my-guardian-service-account@abcxyz-my-project.iam.gserviceaccount.com'
+  - name: 'guardian_ignore_dir_patterns'
+    value: 'my-ignore-dir-pattern'
+  - name: 'gcp_organization_id'
+    value: 'my-gcp-org-id'
+builtin_vars:
+  - name: '_git_tag'
+    value: 'v1.0.0'
