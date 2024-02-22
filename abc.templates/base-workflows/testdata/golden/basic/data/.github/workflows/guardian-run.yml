@@ -45,7 +45,7 @@ concurrency:
   group: '${{ github.workflow }}'
 
 env:
-  GUARDIAN_VERSION: 'my-git-tag'
+  GUARDIAN_VERSION: 'v1.0.0'
   GUARDIAN_WIF_PROVIDER: 'my-guardian-wif-provider'
   GUARDIAN_WIF_SERVICE_ACCOUNT: 'my-guardian-service-account@abcxyz-my-project.iam.gserviceaccount.com'
   GUARDIAN_TERRAFORM_VERSION: '1.7.4'
