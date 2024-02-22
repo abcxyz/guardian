@@ -64,6 +64,7 @@ jobs:
         with:
           download_url: 'https://github.com/abcxyz/guardian/releases/download/v${{ env.GUARDIAN_VERSION }}/guardian_${{ env.GUARDIAN_VERSION }}_linux_amd64.tar.gz'
           install_path: '${{ runner.temp }}/.guardian'
+          binary_subpath: 'guardian'
           cache_key: '${{ runner.os }}_${{ runner.arch }}_guardian_${{ env.GUARDIAN_VERSION }}'
           add_to_path: true
 
@@ -112,6 +113,7 @@ jobs:
         with:
           download_url: 'https://github.com/abcxyz/guardian/releases/download/v${{ env.GUARDIAN_VERSION }}/guardian_${{ env.GUARDIAN_VERSION }}_linux_amd64.tar.gz'
           install_path: '${{ runner.temp }}/.guardian'
+          binary_subpath: 'guardian'
           cache_key: '${{ runner.os }}_${{ runner.arch }}_guardian_${{ env.GUARDIAN_VERSION }}'
           add_to_path: true
 
