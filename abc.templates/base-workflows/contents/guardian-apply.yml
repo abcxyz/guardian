@@ -121,4 +121,4 @@ jobs:
           -github-repo="${GITHUB_REPO_NAME}" \
           -github-token="${REPO_TOKEN}" \
           -commit-sha="${COMMIT_SHA}" \
-          -bucket-name="${GUARDIAN_BUCKET_NAME}" \
+          -bucket-name="${GUARDIAN_BUCKET_NAME}"
