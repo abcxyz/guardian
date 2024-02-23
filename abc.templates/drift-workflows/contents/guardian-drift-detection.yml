@@ -103,7 +103,7 @@ jobs:
           GITHUB_TOKEN: '${{ github.token }}'
         run: |
           guardian drift statefiles \
-            -dir="./"
+            -dir="./" \
             -organization-id="$ORGANIZATION_ID" \
             -gcs-bucket-query="labels:terraform" \
             -github-token="$GITHUB_TOKEN" \
