@@ -127,7 +127,6 @@ jobs:
 
       - name: 'Guardian Admin'
         env:
-          # used by terraform when using the github provider
           TERRAFORM_COMMAND: '${{ inputs.command }}'
           DIRECTORY: '${{ matrix.working_directory }}'
         shell: 'bash'
