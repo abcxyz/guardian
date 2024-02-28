@@ -174,16 +174,7 @@ func (c *DriftStatefilesCommand) Run(ctx context.Context, args []string) error {
 		return flag.ErrHelp
 	}
 
-	cwd, err := c.WorkingDir()
-	if err != nil {
-		return fmt.Errorf("failed to get current working directory: %w", err)
-	}
-
-	if c.FlagDir == "" {
-		c.FlagDir = cwd
-	}
-
-	dirAbs, err := util.PathEvalAbs(c.FlagDir)
+	dirAbs, err := util.PathEvalAbs(c.CommonFlags.FlagDir)
 	if err != nil {
 		return fmt.Errorf("failed to absolute path for directory: %w", err)
 	}
