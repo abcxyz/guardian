@@ -22,9 +22,6 @@ on:
       - 'reopened'
     branches:
       - 'main'
-  push:
-    branches:
-      - 'main'
 
 # default permission for all jobs should just be read
 permissions:
