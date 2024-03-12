@@ -2,7 +2,11 @@
 
 [![Guardian Apply](https://github.com/abcxyz/guardian/actions/workflows/integration.yml/badge.svg?event=push)](https://github.com/abcxyz/guardian/actions/workflows/integration.yml)
 
-Guardian is a Terraform actuation and enforcement tool using GitHub actions.
+Guardian is a Terraform collaboration and automation tool. Using the features of GitHub, Guardian enables
+teams to enforce a propose, review, and acutate process for secure modification of resources.
+
+> [!IMPORTANT]
+> The usage of Guardian does not increase the security posture of your cloud resources if poorly configured.
 
 **This is not an official Google product.**
 
