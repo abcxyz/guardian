@@ -180,28 +180,28 @@ func (c *AssetInventoryClient) IAM(ctx context.Context, scope, query string) ([]
 
 		var resourceID string
 		var resourceType string
-		if resource.Project != "" {
-			resourceID = strings.TrimPrefix(resource.Project, "projects/")
+		if resource.GetProject() != "" {
+			resourceID = strings.TrimPrefix(resource.GetProject(), "projects/")
 			resourceType = Project
-		} else if len(resource.Folders) > 0 {
-			resourceID = strings.TrimPrefix(resource.Folders[0], "folders/")
+		} else if len(resource.GetFolders()) > 0 {
+			resourceID = strings.TrimPrefix(resource.GetFolders()[0], "folders/")
 			resourceType = Folder
 		} else {
-			resourceID = strings.TrimPrefix(resource.Organization, "organizations/")
+			resourceID = strings.TrimPrefix(resource.GetOrganization(), "organizations/")
 			resourceType = Organization
 		}
 
-		for _, b := range resource.Policy.Bindings {
-			for _, m := range b.Members {
+		for _, b := range resource.GetPolicy().GetBindings() {
+			for _, m := range b.GetMembers() {
 				results = append(results, &AssetIAM{
 					Member:       m,
-					Role:         b.Role,
+					Role:         b.GetRole(),
 					ResourceID:   resourceID,
 					ResourceType: resourceType,
 					Condition: &IAMCondition{
-						Title:       b.Condition.Title,
-						Expression:  b.Condition.Expression,
-						Description: b.Condition.Description,
+						Title:       b.GetCondition().GetTitle(),
+						Expression:  b.GetCondition().GetExpression(),
+						Description: b.GetCondition().GetDescription(),
 					},
 				})
 			}
@@ -233,7 +233,7 @@ func (c *AssetInventoryClient) Buckets(ctx context.Context, organizationID, quer
 		if err != nil {
 			return nil, fmt.Errorf("failed to iterate assets: %w", err)
 		}
-		results = append(results, strings.TrimPrefix(resource.Name, "//storage.googleapis.com/"))
+		results = append(results, strings.TrimPrefix(resource.GetName(), "//storage.googleapis.com/"))
 	}
 	return results, nil
 }
@@ -257,27 +257,27 @@ func (c *AssetInventoryClient) HierarchyAssets(ctx context.Context, organization
 		}
 		var id string
 		// Example value: "cloudresourcemanager.googleapis.com/Folder"
-		assetType := strings.TrimPrefix(resource.AssetType, "cloudresourcemanager.googleapis.com/")
+		assetType := strings.TrimPrefix(resource.GetAssetType(), "cloudresourcemanager.googleapis.com/")
 		if assetType == Folder {
 			// Example value: "folders/123542345234"
-			id = strings.TrimPrefix(resource.Folders[0], "folders/")
+			id = strings.TrimPrefix(resource.GetFolders()[0], "folders/")
 		} else if assetType == Project {
 			// Example value: "projects/45234234234"
-			id = strings.TrimPrefix(resource.Project, "projects/")
+			id = strings.TrimPrefix(resource.GetProject(), "projects/")
 		}
 		// Example value: "//cloudresourcemanager.googleapis.com/projects/my-project-name"
-		name, err := extractNameFromResourceName(resource.Name)
+		name, err := extractNameFromResourceName(resource.GetName())
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse name from resource name: %w", err)
 		}
 		// Example value: "//cloudresourcemanager.googleapis.com/folders/234234233233"
 		// Example value: "//cloudresourcemanager.googleapis.com/organizations/234234233235"
-		parentID, err := extractIDFromResourceName(resource.ParentFullResourceName)
+		parentID, err := extractIDFromResourceName(resource.GetParentFullResourceName())
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse ID from parent resource name: %w", err)
 		}
 		// Example value: "cloudresourcemanager.googleapis.com/Folder"
-		parentType := strings.TrimPrefix(resource.ParentAssetType, "cloudresourcemanager.googleapis.com/")
+		parentType := strings.TrimPrefix(resource.GetParentAssetType(), "cloudresourcemanager.googleapis.com/")
 		f = append(f, &HierarchyNode{
 			ID:         id,
 			Name:       *name,

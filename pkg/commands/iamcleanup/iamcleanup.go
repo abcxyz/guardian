@@ -143,13 +143,13 @@ func evaluateIAMConditionExpression(ctx context.Context, expression string) (*bo
 		return nil, fmt.Errorf("failed to parse Expression (CEL): %w", err)
 	}
 
-	for _, arg := range pe.Expr.GetCallExpr().Args {
+	for _, arg := range pe.GetExpr().GetCallExpr().GetArgs() {
 		if arg.GetSelectExpr() == nil {
 			continue
 		}
-		if _, ok := allowedRequestFieldsInCoditionExpression[arg.GetSelectExpr().Field]; !ok {
+		if _, ok := allowedRequestFieldsInCoditionExpression[arg.GetSelectExpr().GetField()]; !ok {
 			return nil, fmt.Errorf("unsupported field '%s' in Condition Expression. Allowed Request fields: '%s'",
-				arg.GetSelectExpr().Field, allowedRequestFieldsInCoditionExpression)
+				arg.GetSelectExpr().GetField(), allowedRequestFieldsInCoditionExpression)
 		}
 	}
 	program, err := env.Program(ast)
