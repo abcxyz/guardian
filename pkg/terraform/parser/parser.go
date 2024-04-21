@@ -43,12 +43,12 @@ const (
 // ResourceInstances represents the JSON terraform state IAM instance.
 type ResourceInstance struct {
 	Attributes struct {
-		ID      string   `json:"id"`
-		Members []string `json:"members,omitempty"`
-		Member  string   `json:"member,omitempty"`
-		Folder  string   `json:"folder,omitempty"`
-		Project string   `json:"project,omitempty"`
-		Role    string   `json:"role,omitempty"`
+		ID      string        `json:"id"`
+		Members []interface{} `json:"members,omitempty"`
+		Member  string        `json:"member,omitempty"`
+		Folder  string        `json:"folder,omitempty"`
+		Project string        `json:"project,omitempty"`
+		Role    string        `json:"role,omitempty"`
 	}
 }
 
@@ -191,7 +191,7 @@ func (p *TerraformParser) parseIAMBindingForOrg(ctx context.Context, instances [
 	for _, i := range instances {
 		for _, m := range i.Attributes.Members {
 			iams = append(iams, &assetinventory.AssetIAM{
-				Member:       m,
+				Member:       m.(string),
 				Role:         i.Attributes.Role,
 				ResourceID:   p.OrganizationID,
 				ResourceType: assetinventory.Organization,
@@ -212,7 +212,7 @@ func (p *TerraformParser) parseIAMBindingForFolder(ctx context.Context, instance
 				logger.WarnContext(ctx, "failed to locate GCP folder - is this folder deleted?", "folder", folderID)
 			}
 			iams = append(iams, &assetinventory.AssetIAM{
-				Member:       m,
+				Member:       m.(string),
 				Role:         i.Attributes.Role,
 				ResourceID:   parentID,
 				ResourceType: parentType,
@@ -232,7 +232,7 @@ func (p *TerraformParser) parseIAMBindingForProject(ctx context.Context, instanc
 				logger.WarnContext(ctx, "failed to locate GCP project - is this project deleted?", "project", i.Attributes.Project)
 			}
 			iams = append(iams, &assetinventory.AssetIAM{
-				Member:       m,
+				Member:       m.(string),
 				Role:         i.Attributes.Role,
 				ResourceID:   parentID,
 				ResourceType: parentType,
