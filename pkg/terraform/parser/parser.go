@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -56,8 +55,8 @@ type ResourceInstance struct {
 // TerraformState represents the JSON terraform state.
 type TerraformState struct {
 	Resources []struct {
-		Type      string        `json:"type"`
-		Instances []interface{} `json:"instances"`
+		Type      string `json:"type"`
+		Instances []any  `json:"instances"`
 	} `json:"resources"`
 }
 
@@ -172,17 +171,17 @@ func (p *TerraformParser) ProcessStates(ctx context.Context, gcsUris []string) (
 func (p *TerraformParser) parseTerraformStateIAM(ctx context.Context, state TerraformState) ([]*assetinventory.AssetIAM, error) {
 	var iams []*assetinventory.AssetIAM
 	for _, r := range state.Resources {
-		targetResources := []string{
-			"google_organization_iam_binding",
-			"google_folder_iam_binding",
-			"google_project_iam_binding",
-			"google_organization_iam_member",
-			"google_folder_iam_member",
-			"google_project_iam_member",
+		targetResources := map[string]struct{}{
+			"google_organization_iam_binding": {},
+			"google_folder_iam_binding":       {},
+			"google_project_iam_binding":      {},
+			"google_organization_iam_member":  {},
+			"google_folder_iam_member":        {},
+			"google_project_iam_member":       {},
 		}
 
 		// short circuit if we dont find a type we want
-		if !slices.Contains(targetResources, r.Type) {
+		if _, ok := targetResources[r.Type]; !ok {
 			continue
 		}
 
@@ -191,7 +190,7 @@ func (p *TerraformParser) parseTerraformStateIAM(ctx context.Context, state Terr
 			return nil, fmt.Errorf("failed to decode terraform state: %w", err)
 		}
 
-		instances := make([]ResourceInstance, len(r.Instances))
+		instances := make([]*ResourceInstance, len(r.Instances))
 		if err := json.Unmarshal(raw, &instances); err != nil {
 			return nil, fmt.Errorf("failed to decode terraform state: %w", err)
 		}
@@ -215,7 +214,7 @@ func (p *TerraformParser) parseTerraformStateIAM(ctx context.Context, state Terr
 	return iams, nil
 }
 
-func (p *TerraformParser) parseIAMBindingForOrg(ctx context.Context, instances []ResourceInstance) []*assetinventory.AssetIAM {
+func (p *TerraformParser) parseIAMBindingForOrg(ctx context.Context, instances []*ResourceInstance) []*assetinventory.AssetIAM {
 	var iams []*assetinventory.AssetIAM
 	for _, i := range instances {
 		for _, m := range i.Attributes.Members {
@@ -230,7 +229,7 @@ func (p *TerraformParser) parseIAMBindingForOrg(ctx context.Context, instances [
 	return iams
 }
 
-func (p *TerraformParser) parseIAMBindingForFolder(ctx context.Context, instances []ResourceInstance) []*assetinventory.AssetIAM {
+func (p *TerraformParser) parseIAMBindingForFolder(ctx context.Context, instances []*ResourceInstance) []*assetinventory.AssetIAM {
 	var iams []*assetinventory.AssetIAM
 	for _, i := range instances {
 		for _, m := range i.Attributes.Members {
@@ -251,7 +250,7 @@ func (p *TerraformParser) parseIAMBindingForFolder(ctx context.Context, instance
 	return iams
 }
 
-func (p *TerraformParser) parseIAMBindingForProject(ctx context.Context, instances []ResourceInstance) []*assetinventory.AssetIAM {
+func (p *TerraformParser) parseIAMBindingForProject(ctx context.Context, instances []*ResourceInstance) []*assetinventory.AssetIAM {
 	var iams []*assetinventory.AssetIAM
 	for _, i := range instances {
 		for _, m := range i.Attributes.Members {
@@ -271,7 +270,7 @@ func (p *TerraformParser) parseIAMBindingForProject(ctx context.Context, instanc
 	return iams
 }
 
-func (p *TerraformParser) parseIAMMemberForOrg(ctx context.Context, instances []ResourceInstance) []*assetinventory.AssetIAM {
+func (p *TerraformParser) parseIAMMemberForOrg(ctx context.Context, instances []*ResourceInstance) []*assetinventory.AssetIAM {
 	iams := make([]*assetinventory.AssetIAM, len(instances))
 	for x, i := range instances {
 		iams[x] = &assetinventory.AssetIAM{
@@ -284,7 +283,7 @@ func (p *TerraformParser) parseIAMMemberForOrg(ctx context.Context, instances []
 	return iams
 }
 
-func (p *TerraformParser) parseIAMMemberForFolder(ctx context.Context, instances []ResourceInstance) []*assetinventory.AssetIAM {
+func (p *TerraformParser) parseIAMMemberForFolder(ctx context.Context, instances []*ResourceInstance) []*assetinventory.AssetIAM {
 	iams := make([]*assetinventory.AssetIAM, len(instances))
 	for x, i := range instances {
 		folderID := strings.TrimPrefix(i.Attributes.Folder, "folders/")
@@ -303,7 +302,7 @@ func (p *TerraformParser) parseIAMMemberForFolder(ctx context.Context, instances
 	return iams
 }
 
-func (p *TerraformParser) parseIAMMemberForProject(ctx context.Context, instances []ResourceInstance) []*assetinventory.AssetIAM {
+func (p *TerraformParser) parseIAMMemberForProject(ctx context.Context, instances []*ResourceInstance) []*assetinventory.AssetIAM {
 	iams := make([]*assetinventory.AssetIAM, len(instances))
 	for x, i := range instances {
 		parentID, parentType := p.maybeFindGCPAssetIDAndType(i.Attributes.Project)
