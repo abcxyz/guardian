@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -49,14 +50,14 @@ type ResourceInstance struct {
 		Folder  string   `json:"folder,omitempty"`
 		Project string   `json:"project,omitempty"`
 		Role    string   `json:"role,omitempty"`
-	}
+	} `json:"attributes"`
 }
 
 // TerraformState represents the JSON terraform state.
 type TerraformState struct {
 	Resources []struct {
-		Type      string             `json:"type"`
-		Instances []ResourceInstance `json:"instances"`
+		Type      string        `json:"type"`
+		Instances []interface{} `json:"instances"`
 	} `json:"resources"`
 }
 
@@ -159,31 +160,59 @@ func (p *TerraformParser) ProcessStates(ctx context.Context, gcsUris []string) (
 		if err := json.NewDecoder(lr).Decode(&state); err != nil {
 			return nil, fmt.Errorf("failed to decode terraform state: %w", err)
 		}
-		iams = append(iams, p.parseTerraformStateIAM(ctx, state)...)
+		parsedIAM, err := p.parseTerraformStateIAM(ctx, state)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode terraform state: %w", err)
+		}
+		iams = append(iams, parsedIAM...)
 	}
 	return iams, nil
 }
 
-func (p *TerraformParser) parseTerraformStateIAM(ctx context.Context, state TerraformState) []*assetinventory.AssetIAM {
+func (p *TerraformParser) parseTerraformStateIAM(ctx context.Context, state TerraformState) ([]*assetinventory.AssetIAM, error) {
 	var iams []*assetinventory.AssetIAM
 	for _, r := range state.Resources {
+		targetResources := []string{
+			"google_organization_iam_binding",
+			"google_folder_iam_binding",
+			"google_project_iam_binding",
+			"google_organization_iam_member",
+			"google_folder_iam_member",
+			"google_project_iam_member",
+		}
+
+		// short circuit if we dont find a type we want
+		if !slices.Contains(targetResources, r.Type) {
+			continue
+		}
+
+		raw, err := json.Marshal(r.Instances)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode terraform state: %w", err)
+		}
+
+		instances := make([]ResourceInstance, len(r.Instances))
+		if err := json.Unmarshal(raw, &instances); err != nil {
+			return nil, fmt.Errorf("failed to decode terraform state: %w", err)
+		}
+
 		if strings.Contains(r.Type, "google_organization_iam_binding") {
-			iams = append(iams, p.parseIAMBindingForOrg(ctx, r.Instances)...)
+			iams = append(iams, p.parseIAMBindingForOrg(ctx, instances)...)
 		} else if strings.Contains(r.Type, "google_folder_iam_binding") {
-			iams = append(iams, p.parseIAMBindingForFolder(ctx, r.Instances)...)
+			iams = append(iams, p.parseIAMBindingForFolder(ctx, instances)...)
 		} else if strings.Contains(r.Type, "google_project_iam_binding") {
-			iams = append(iams, p.parseIAMBindingForProject(ctx, r.Instances)...)
+			iams = append(iams, p.parseIAMBindingForProject(ctx, instances)...)
 		}
 
 		if strings.Contains(r.Type, "google_organization_iam_member") {
-			iams = append(iams, p.parseIAMMemberForOrg(ctx, r.Instances)...)
+			iams = append(iams, p.parseIAMMemberForOrg(ctx, instances)...)
 		} else if strings.Contains(r.Type, "google_folder_iam_member") {
-			iams = append(iams, p.parseIAMMemberForFolder(ctx, r.Instances)...)
+			iams = append(iams, p.parseIAMMemberForFolder(ctx, instances)...)
 		} else if strings.Contains(r.Type, "google_project_iam_member") {
-			iams = append(iams, p.parseIAMMemberForProject(ctx, r.Instances)...)
+			iams = append(iams, p.parseIAMMemberForProject(ctx, instances)...)
 		}
 	}
-	return iams
+	return iams, nil
 }
 
 func (p *TerraformParser) parseIAMBindingForOrg(ctx context.Context, instances []ResourceInstance) []*assetinventory.AssetIAM {
