@@ -178,11 +178,11 @@ func (p *TerraformParser) parseTerraformStateIAM(ctx context.Context, state Terr
 	var iams []*assetinventory.AssetIAM
 	for _, r := range state.Resources {
 		targetResources := map[string]struct{}{
-			"google_organization_iam_binding": {},
 			"google_folder_iam_binding":       {},
-			"google_project_iam_binding":      {},
-			"google_organization_iam_member":  {},
 			"google_folder_iam_member":        {},
+			"google_organization_iam_binding": {},
+			"google_organization_iam_member":  {},
+			"google_project_iam_binding":      {},
 			"google_project_iam_member":       {},
 		}
 
