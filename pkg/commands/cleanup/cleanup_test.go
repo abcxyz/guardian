@@ -16,11 +16,13 @@ package cleanup
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 
 	"github.com/abcxyz/guardian/pkg/git"
 	"github.com/abcxyz/guardian/pkg/storage"
@@ -184,7 +186,10 @@ func TestEntrypointsProcess(t *testing.T) {
 			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
 				t.Errorf(diff)
 			}
-			if diff := cmp.Diff(storageClient.Reqs, tc.expStorageClientReqs); diff != "" {
+			less := func(a, b *storage.Request) bool {
+				return fmt.Sprintf("%s-%s", a.Name, a.Params) < fmt.Sprintf("%s-%s", b.Name, b.Params)
+			}
+			if diff := cmp.Diff(storageClient.Reqs, tc.expStorageClientReqs, cmpopts.SortSlices(less)); diff != "" {
 				t.Errorf("Storage calls not as expected; (-got,+want): %s", diff)
 			}
 		})
