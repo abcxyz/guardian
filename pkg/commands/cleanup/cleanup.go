@@ -164,7 +164,9 @@ func (c *CleanupCommand) Process(ctx context.Context) error {
 			return fmt.Errorf("failed to parse gcs object %s: %w", statefileURI, err)
 		}
 
-		c.storageClient.DeleteObject(ctx, *bucketName, *objectName)
+		if err = c.storageClient.DeleteObject(ctx, *bucketName, *objectName); err != nil {
+			return fmt.Errorf("failed to delete statefile stored in gcs %s: %w", statefileURI, err)
+		}
 	}
 
 	return nil
