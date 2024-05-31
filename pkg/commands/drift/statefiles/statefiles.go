@@ -255,7 +255,7 @@ func (c *DriftStatefilesCommand) Process(ctx context.Context) error {
 	statefilesNotInRemote := sets.Subtract(expectedURIs, gotURIs)
 	statefilesNotInLocal := sets.Subtract(gotURIs, expectedURIs)
 
-	emptyStateFiles, err := c.emptyStateFiles(ctx, statefilesNotInLocal)
+	emptyStateFiles, err := EmptyStateFiles(ctx, c.terraformParser, statefilesNotInLocal)
 	if err != nil {
 		return fmt.Errorf("failed to find empty statefiles: %w", err)
 	}
@@ -339,9 +339,13 @@ func (c *DriftStatefilesCommand) expectedStatefileUris(ctx context.Context, logg
 	}
 	logger.DebugContext(ctx, "terraform entrypoint directories", "entrypoint_backend_files", entrypointBackendFiles)
 
-	expectedURIs := make([]string, 0, len(entrypointBackendFiles))
+	return StatefileUrisFromEntrypoints(ctx, entrypointBackendFiles)
+}
+
+func StatefileUrisFromEntrypoints(ctx context.Context, entrypoints []string) ([]string, error) {
+	expectedURIs := make([]string, 0, len(entrypoints))
 	var errs []error
-	for _, f := range entrypointBackendFiles {
+	for _, f := range entrypoints {
 		config, _, err := terraform.ExtractBackendConfig(f)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to parse Terraform backend config: %w", err))
@@ -387,7 +391,7 @@ func (c *DriftStatefilesCommand) actualStatefileUris(ctx context.Context, logger
 	return gotURIs, nil
 }
 
-func (c *DriftStatefilesCommand) emptyStateFiles(ctx context.Context, gcsURIs []string) ([]string, error) {
+func EmptyStateFiles(ctx context.Context, parser parser.Terraform, gcsURIs []string) ([]string, error) {
 	type Resource struct {
 		Empty bool
 		URI   string
@@ -399,7 +403,7 @@ func (c *DriftStatefilesCommand) emptyStateFiles(ctx context.Context, gcsURIs []
 	for _, u := range gcsURIs {
 		uri := u
 		if err := w.Do(ctx, func() (*Resource, error) {
-			empty, err := c.terraformParser.StateWithoutResources(ctx, uri)
+			empty, err := parser.StateWithoutResources(ctx, uri)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get determine if state file URI has resources: %w", err)
 			}
