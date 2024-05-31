@@ -35,6 +35,6 @@ func setSysProcAttr(cmd *exec.Cmd) {
 // setCancel sets the Cancel behavior for a child process.
 func setCancel(cmd *exec.Cmd) {
 	cmd.Cancel = func() error {
-		return cmd.Process.Signal(syscall.SIGQUIT)
+		return cmd.Process.Signal(syscall.SIGQUIT) // Want passthrough
 	}
 }
