@@ -145,9 +145,8 @@ func (d *IAMDriftDetector) DetectDrift(
 		return nil, fmt.Errorf("failed to expand graph for ignored assets: %w", err)
 	}
 
-	logger.DebugContext(ctx, "fetching iam for org, folders and projects",
-		"number_of_folders", len(folders),
-		"number_of_projects", len(projects))
+	logger.DebugContext(ctx, "fetching all iam resources for organization",
+		"organization_id", d.organizationID)
 	gcpIAM, err := d.actualGCPIAM(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to determine GCP IAM: %w", err)
@@ -197,62 +196,17 @@ func (d *IAMDriftDetector) DetectDrift(
 	}, nil
 }
 
-// actualGCPIAM queries the GCP Asset Inventory and Resource Manager to determine the IAM settings on all resources.
+// actualGCPIAM queries the GCP Asset Inventory to determine the IAM settings on all resources.
 // Returns a map of asset URI to asset IAM.
 func (d *IAMDriftDetector) actualGCPIAM(ctx context.Context) (map[string]*assetinventory.AssetIAM, error) {
-	w := workerpool.New[[]*assetinventory.AssetIAM](&workerpool.Config{
-		Concurrency: d.maxConcurrentRequests,
-		StopOnError: true,
-	})
-	if err := w.Do(ctx, func() ([]*assetinventory.AssetIAM, error) {
-		oIAM, err := d.iamClient.OrganizationIAM(ctx, d.organizationID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get organization IAM for ID '%s': %w", d.organizationID, err)
-		}
-		return oIAM, nil
-	}); err != nil {
-		return nil, fmt.Errorf("failed to execute org task: %w", err)
-	}
-	for _, f := range d.foldersByID {
-		folderID := f.ID
-		folderName := f.Name
-		if err := w.Do(ctx, func() ([]*assetinventory.AssetIAM, error) {
-			fIAM, err := d.iamClient.FolderIAM(ctx, folderID)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get folder IAM for folder with ID '%s' and name '%s': %w", folderID, folderName, err)
-			}
-			return fIAM, nil
-		}); err != nil {
-			return nil, fmt.Errorf("failed to execute folder IAM task: %w", err)
-		}
-	}
-	for _, pr := range d.projectsByID {
-		projectID := pr.ID
-		projectName := pr.Name
-		if err := w.Do(ctx, func() ([]*assetinventory.AssetIAM, error) {
-			pIAM, err := d.iamClient.ProjectIAM(ctx, projectID)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get project IAM for project with ID '%s' and name '%s': %w", projectID, projectName, err)
-			}
-			return pIAM, nil
-		}); err != nil {
-			return nil, fmt.Errorf("failed to execute project IAM task: %w", err)
-		}
-	}
-
-	iamResults, err := w.Done(ctx)
+	iamResults, err := d.assetInventoryClient.IAM(ctx, fmt.Sprintf("organizations/%s", d.organizationID), "")
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute GCP IAM tasks in parallel: %w", err)
+		return nil, fmt.Errorf("failed to search all IAM resources for organization: %w", err)
 	}
 
-	gcpIAM := make(map[string]*assetinventory.AssetIAM)
-	for _, r := range iamResults {
-		if err := r.Error; err != nil {
-			return nil, fmt.Errorf("failed to execute IAM task: %w", err)
-		}
-		for _, iamF := range r.Value {
-			gcpIAM[d.URI(iamF)] = iamF
-		}
+	gcpIAM := make(map[string]*assetinventory.AssetIAM, len(iamResults))
+	for _, i := range iamResults {
+		gcpIAM[d.URI(i)] = i
 	}
 
 	return gcpIAM, nil
