@@ -44,7 +44,7 @@ func (c *IAMCleaner) Do(
 	evaluateCondition bool,
 ) error {
 	logger := logging.FromContext(ctx)
-	iams, err := c.assetInventoryClient.IAM(ctx, scope, iamQuery)
+	iams, err := c.assetInventoryClient.IAM(ctx, scope, iamQuery, nil)
 	if err != nil {
 		return fmt.Errorf("failed to get iam: %w", err)
 	}

@@ -35,7 +35,7 @@ type MockAssetInventoryClient struct {
 	AssetErr         error
 }
 
-func (m *MockAssetInventoryClient) IAM(ctx context.Context, scope, query string) ([]*AssetIAM, error) {
+func (m *MockAssetInventoryClient) IAM(ctx context.Context, scope, query string, assetTypes []string) ([]*AssetIAM, error) {
 	if m.IAMErr != nil {
 		return nil, m.IAMErr
 	}
