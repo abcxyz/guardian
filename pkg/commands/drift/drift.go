@@ -199,7 +199,14 @@ func (d *IAMDriftDetector) DetectDrift(
 // actualGCPIAM queries the GCP Asset Inventory to determine the IAM settings on all resources.
 // Returns a map of asset URI to asset IAM.
 func (d *IAMDriftDetector) actualGCPIAM(ctx context.Context) (map[string]*assetinventory.AssetIAM, error) {
-	iamResults, err := d.assetInventoryClient.IAM(ctx, fmt.Sprintf("organizations/%s", d.organizationID), "", []string{"cloudresourcemanager.googleapis.com/Organization", "cloudresourcemanager.googleapis.com/Folder", "cloudresourcemanager.googleapis.com/Project"})
+	iamResults, err := d.assetInventoryClient.IAM(ctx, assetinventory.IAMOptions{
+		Scope: fmt.Sprintf("organizations/%s", d.organizationID),
+		AssetTypes: []string{
+			"cloudresourcemanager.googleapis.com/Organization",
+			"cloudresourcemanager.googleapis.com/Folder",
+			"cloudresourcemanager.googleapis.com/Project",
+		},
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to search all IAM resources for organization: %w", err)
 	}
