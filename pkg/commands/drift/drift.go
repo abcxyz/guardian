@@ -24,7 +24,6 @@ import (
 	"golang.org/x/exp/maps"
 
 	"github.com/abcxyz/guardian/pkg/assetinventory"
-	"github.com/abcxyz/guardian/pkg/iam"
 	"github.com/abcxyz/guardian/pkg/terraform/parser"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/sets"
@@ -39,7 +38,6 @@ type IAMDrift struct {
 
 type IAMDriftDetector struct {
 	assetInventoryClient  assetinventory.AssetInventory
-	iamClient             iam.IAM
 	terraformParser       parser.Terraform
 	organizationID        string
 	maxConcurrentRequests int64
@@ -53,11 +51,6 @@ func NewIAMDriftDetector(ctx context.Context, organizationID string, maxConcurre
 		return nil, fmt.Errorf("failed to initialize assets client: %w", err)
 	}
 
-	iamClient, err := iam.NewClient(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize iam client: %w", err)
-	}
-
 	terraformParser, err := parser.NewTerraformParser(ctx, organizationID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize terraform parser: %w", err)
@@ -68,7 +61,6 @@ func NewIAMDriftDetector(ctx context.Context, organizationID string, maxConcurre
 
 	return &IAMDriftDetector{
 		assetInventoryClient,
-		iamClient,
 		terraformParser,
 		organizationID,
 		maxConcurrentRequests,

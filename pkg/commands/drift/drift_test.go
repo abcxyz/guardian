@@ -25,7 +25,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	"github.com/abcxyz/guardian/pkg/assetinventory"
-	"github.com/abcxyz/guardian/pkg/iam"
 	"github.com/abcxyz/guardian/pkg/storage"
 	"github.com/abcxyz/guardian/pkg/terraform/parser"
 )
@@ -87,7 +86,6 @@ func TestDrift_DetectDrift(t *testing.T) {
 		name                   string
 		terraformStatefilename string
 		assetInventoryClient   assetinventory.AssetInventory
-		iamClient              iam.IAM
 		gcsBuckets             []string
 		want                   *IAMDrift
 	}{
@@ -95,14 +93,16 @@ func TestDrift_DetectDrift(t *testing.T) {
 			name:                   "success_no_drift",
 			terraformStatefilename: "testdata/test_valid.tfstate",
 			assetInventoryClient: &assetinventory.MockAssetInventoryClient{
+				IAMData: []*assetinventory.AssetIAM{
+					orgSABrowser,
+					orgGroupBrowser,
+					orgUserBrowser,
+					folderViewer,
+					projectAdmin,
+				},
 				AssetFolderData:  []*assetinventory.HierarchyNode{folder},
 				AssetProjectData: []*assetinventory.HierarchyNode{project},
 				BucketsData:      []string{bucket},
-			},
-			iamClient: &iam.MockIAMClient{
-				OrgData:     []*assetinventory.AssetIAM{orgSABrowser, orgGroupBrowser, orgUserBrowser},
-				FolderData:  []*assetinventory.AssetIAM{folderViewer},
-				ProjectData: []*assetinventory.AssetIAM{projectAdmin},
 			},
 			want: &IAMDrift{
 				ClickOpsChanges:         []string{},
@@ -113,14 +113,16 @@ func TestDrift_DetectDrift(t *testing.T) {
 			name:                   "success_all_click_ops_drift",
 			terraformStatefilename: "testdata/test_ignored.tfstate",
 			assetInventoryClient: &assetinventory.MockAssetInventoryClient{
+				IAMData: []*assetinventory.AssetIAM{
+					orgSABrowser,
+					orgGroupBrowser,
+					orgUserBrowser,
+					folderViewer,
+					projectAdmin,
+				},
 				AssetFolderData:  []*assetinventory.HierarchyNode{folder},
 				AssetProjectData: []*assetinventory.HierarchyNode{project},
 				BucketsData:      []string{bucket},
-			},
-			iamClient: &iam.MockIAMClient{
-				OrgData:     []*assetinventory.AssetIAM{orgSABrowser, orgGroupBrowser, orgUserBrowser},
-				FolderData:  []*assetinventory.AssetIAM{folderViewer},
-				ProjectData: []*assetinventory.AssetIAM{projectAdmin},
 			},
 			want: &IAMDrift{
 				ClickOpsChanges: []string{
@@ -137,14 +139,10 @@ func TestDrift_DetectDrift(t *testing.T) {
 			name:                   "success_all_missing_terraform_drift",
 			terraformStatefilename: "testdata/test_valid.tfstate",
 			assetInventoryClient: &assetinventory.MockAssetInventoryClient{
+				IAMData:          []*assetinventory.AssetIAM{},
 				AssetFolderData:  []*assetinventory.HierarchyNode{folder},
 				AssetProjectData: []*assetinventory.HierarchyNode{project},
 				BucketsData:      []string{bucket},
-			},
-			iamClient: &iam.MockIAMClient{
-				OrgData:     []*assetinventory.AssetIAM{},
-				FolderData:  []*assetinventory.AssetIAM{},
-				ProjectData: []*assetinventory.AssetIAM{},
 			},
 			want: &IAMDrift{
 				ClickOpsChanges: []string{},
@@ -176,7 +174,6 @@ func TestDrift_DetectDrift(t *testing.T) {
 			}
 			d := &IAMDriftDetector{
 				assetInventoryClient:  tc.assetInventoryClient,
-				iamClient:             tc.iamClient,
 				terraformParser:       &parser.TerraformParser{GCS: gcsClient, OrganizationID: orgID},
 				organizationID:        orgID,
 				maxConcurrentRequests: 1,
