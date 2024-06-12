@@ -208,7 +208,7 @@ func (c *PlanStatusCommentCommand) Process(ctx context.Context) error {
 			c.GitHubFlags.FlagGitHubOwner,
 			c.GitHubFlags.FlagGitHubRepo,
 			c.flagPullRequestNumber,
-			fmt.Sprintf("%s 🟦 No Terraform changes detect, planning skipped. %s", plan.CommentPrefix, c.gitHubLogURL),
+			fmt.Sprintf("%s 🟦 No Terraform changes detected, planning skipped. %s", plan.CommentPrefix, c.gitHubLogURL),
 		); err != nil {
 			return fmt.Errorf("failed to create plan status comment: %w", err)
 		}
