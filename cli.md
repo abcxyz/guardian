@@ -97,7 +97,7 @@ Also supports [GitHub Options](#github-options) and [Retry Options](#retry-optio
   and commit-sha can be given.
 * **-lock-timeout="10m"** - The duration Terraform should wait to obtain a lock when
   running commands that modify state. The default value is "10m".
-* **-pull-request-number="100"** The GitHub pull request number associated with this
+* **-pull-request-number="100"** - The GitHub pull request number associated with this
   apply. Only one of pull-request-number and commit-sha can be given. The default value is "0".
 
 ## Plan
@@ -124,7 +124,7 @@ Also supports [GitHub Options](#github-options) and [Retry Options](#retry-optio
 * **-bucket-name="my-guardian-state-bucket"** - The Google Cloud Storage bucket name to store Guardian plan files.
 * **-lock-timeout="10m"** - The duration Terraform should wait to obtain a lock when
   running commands that modify state. The default value is "10m".
-* **-pull-request-number="100"** The GitHub pull request number associated with this
+* **-pull-request-number="100"** - The GitHub pull request number associated with this
   plan. Only one of pull-request-number and commit-sha can be given. The default value is "0".
 
 ## Run
@@ -153,7 +153,7 @@ Also supports [GitHub Options](#github-options) and [Retry Options](#retry-optio
   and commit-sha can be given.
 * **-lock-timeout="10m"** - The duration Terraform should wait to obtain a lock when
   running commands that modify state. The default value is "10m".
-* **-pull-request-number="100"** The GitHub pull request number associated with this
+* **-pull-request-number="100"** - The GitHub pull request number associated with this
   apply run. Only one of pull-request-number and commit-sha can be given. The default value is "0".
 
 ## IAM cleanup
