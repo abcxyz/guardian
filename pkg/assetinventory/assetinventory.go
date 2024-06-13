@@ -138,7 +138,7 @@ type AssetInventory interface {
 	HierarchyAssets(ctx context.Context, organizationID, assetType string) ([]*HierarchyNode, error)
 
 	// IAM returns all IAM that matches the given query.
-	IAM(ctx context.Context, scope, query string) ([]*AssetIAM, error)
+	IAM(ctx context.Context, opts *IAMOptions) ([]*AssetIAM, error)
 }
 
 // AssetInventoryClient exposes GCP Asset Inventory functionality.
@@ -158,14 +158,21 @@ func NewClient(ctx context.Context) (*AssetInventoryClient, error) {
 	}, nil
 }
 
+type IAMOptions struct {
+	Scope      string
+	Query      string
+	AssetTypes []string
+}
+
 // IAM returns all IAM that matches the given query.
-func (c *AssetInventoryClient) IAM(ctx context.Context, scope, query string) ([]*AssetIAM, error) {
+func (c *AssetInventoryClient) IAM(ctx context.Context, opts *IAMOptions) ([]*AssetIAM, error) {
 	// gcloud asset search-all-iam-policies \
 	// --query="$QUERY"
 	// --scope="$SCOPE"
 	req := &assetpb.SearchAllIamPoliciesRequest{
-		Scope: scope,
-		Query: query,
+		Scope:      opts.Scope,
+		Query:      opts.Query,
+		AssetTypes: opts.AssetTypes,
 	}
 	it := c.assetClient.SearchAllIamPolicies(ctx, req)
 	var results []*AssetIAM
