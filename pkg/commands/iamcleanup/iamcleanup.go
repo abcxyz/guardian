@@ -44,7 +44,7 @@ func (c *IAMCleaner) Do(
 	evaluateCondition bool,
 ) error {
 	logger := logging.FromContext(ctx)
-	iams, err := c.assetInventoryClient.IAM(ctx, assetinventory.IAMOptions{
+	iams, err := c.assetInventoryClient.IAM(ctx, &assetinventory.IAMOptions{
 		Scope: scope,
 		Query: iamQuery,
 	})

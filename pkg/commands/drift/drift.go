@@ -192,7 +192,7 @@ func (d *IAMDriftDetector) DetectDrift(
 // Returns a map of asset URI to asset IAM.
 func (d *IAMDriftDetector) actualGCPIAM(ctx context.Context) (map[string]*assetinventory.AssetIAM, error) {
 	// TODO: Add query to filter out projects/folders in "DELETE_REQUESTED" state.
-	iamResults, err := d.assetInventoryClient.IAM(ctx, assetinventory.IAMOptions{
+	iamResults, err := d.assetInventoryClient.IAM(ctx, &assetinventory.IAMOptions{
 		Scope: fmt.Sprintf("organizations/%s", d.organizationID),
 		AssetTypes: []string{
 			"cloudresourcemanager.googleapis.com/Organization",

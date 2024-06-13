@@ -35,7 +35,7 @@ type MockAssetInventoryClient struct {
 	AssetErr         error
 }
 
-func (m *MockAssetInventoryClient) IAM(ctx context.Context, opts IAMOptions) ([]*AssetIAM, error) {
+func (m *MockAssetInventoryClient) IAM(ctx context.Context, opts *IAMOptions) ([]*AssetIAM, error) {
 	if m.IAMErr != nil {
 		return nil, m.IAMErr
 	}

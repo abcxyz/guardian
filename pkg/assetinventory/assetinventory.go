@@ -138,7 +138,7 @@ type AssetInventory interface {
 	HierarchyAssets(ctx context.Context, organizationID, assetType string) ([]*HierarchyNode, error)
 
 	// IAM returns all IAM that matches the given query.
-	IAM(ctx context.Context, opts IAMOptions) ([]*AssetIAM, error)
+	IAM(ctx context.Context, opts *IAMOptions) ([]*AssetIAM, error)
 }
 
 // AssetInventoryClient exposes GCP Asset Inventory functionality.
@@ -165,7 +165,7 @@ type IAMOptions struct {
 }
 
 // IAM returns all IAM that matches the given query.
-func (c *AssetInventoryClient) IAM(ctx context.Context, opts IAMOptions) ([]*AssetIAM, error) {
+func (c *AssetInventoryClient) IAM(ctx context.Context, opts *IAMOptions) ([]*AssetIAM, error) {
 	// gcloud asset search-all-iam-policies \
 	// --query="$QUERY"
 	// --scope="$SCOPE"
