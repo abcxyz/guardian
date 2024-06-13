@@ -235,15 +235,16 @@ func (c *DriftStatefilesCommand) Process(ctx context.Context) error {
 		With("github_repo", c.GitHubFlags.FlagGitHubOwner)
 
 	logger.DebugContext(ctx, "starting Guardian drift statefiles")
-	if err := c.cloneAllGitHubRepositories(ctx, logger); err != nil {
-		return fmt.Errorf("failed to clone github repositories: %w", err)
-	}
+	// if err := c.cloneAllGitHubRepositories(ctx, logger); err != nil {
+	// 	return fmt.Errorf("failed to clone github repositories: %w", err)
+	// }
 
+	expectedURIs := []string{}
 	logger.DebugContext(ctx, "finding expected statefile uris")
-	expectedURIs, err := c.expectedStatefileUris(ctx, logger)
-	if err != nil {
-		return fmt.Errorf("failed to determine expected state file URIs: %w", err)
-	}
+	// expectedURIs, err := c.expectedStatefileUris(ctx, logger)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to determine expected state file URIs: %w", err)
+	// }
 
 	logger.DebugContext(ctx, "finding actual statefile uris")
 	gotURIs, err := c.actualStatefileUris(ctx, logger, expectedURIs)

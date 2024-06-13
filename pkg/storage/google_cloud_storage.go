@@ -25,12 +25,14 @@ import (
 
 	"cloud.google.com/go/storage"
 	"github.com/googleapis/gax-go/v2"
+	"google.golang.org/api/googleapi"
 	"google.golang.org/api/iterator"
 )
 
 const MiB = 1 << 20 // 1 MiB
 
 var _ Storage = (*GoogleCloudStorage)(nil)
+var ErrBucketNotFound = errors.New("bucket not found")
 
 // Config is the configuration for the Google Cloud Storage Client.
 type Config struct {
@@ -228,6 +230,13 @@ func (s *GoogleCloudStorage) ObjectsWithName(ctx context.Context, bucket, filena
 		attrs, err := it.Next()
 		if errors.Is(err, iterator.Done) {
 			break
+		}
+		var e *googleapi.Error
+		if ok := errors.As(err, &e); ok {
+			fmt.Println(e.Code, e)
+			if e.Code == 404 {
+				return nil, ErrBucketNotFound
+			}
 		}
 		if err != nil {
 			return nil, fmt.Errorf("failed to list bucket contents: Bucket(%q).Objects(): %w", bucket, err)
