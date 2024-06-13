@@ -69,6 +69,7 @@ type PlanCommand struct {
 	flagBucketName           string
 	flagPullRequestNumber    int
 	flagAllowLockfileChanges bool
+	flagFailOnDiff           bool
 	flagLockTimeout          time.Duration
 
 	gitHubClient    github.GitHub
@@ -117,6 +118,13 @@ func (c *PlanCommand) Flags() *cli.FlagSet {
 		Target:  &c.flagAllowLockfileChanges,
 		Example: "true",
 		Usage:   "Allow modification of the Terraform lockfile.",
+	})
+
+	f.BoolVar(&cli.BoolVar{
+		Name:    "fail-on-diff",
+		Target:  &c.flagFailOnDiff,
+		Example: "true",
+		Usage:   "Return a status code of 2 to the OS if there are any diffs",
 	})
 
 	f.DurationVar(&cli.DurationVar{
@@ -261,7 +269,17 @@ func (c *PlanCommand) Process(ctx context.Context) error {
 		merr = errors.Join(merr, fmt.Errorf("failed to write result comment: %w", err))
 	}
 
-	return merr
+	if merr != nil {
+		return merr
+	}
+
+	if result.hasChanges && c.flagFailOnDiff {
+		return &util.ExitCodeError{
+			Code: 2,
+		}
+	}
+
+	return nil
 }
 
 func (c *PlanCommand) createStartCommentForActions(ctx context.Context) (*github.IssueComment, error) {
