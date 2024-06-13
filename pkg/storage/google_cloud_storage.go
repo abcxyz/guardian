@@ -30,7 +30,10 @@ import (
 
 const MiB = 1 << 20 // 1 MiB
 
-var _ Storage = (*GoogleCloudStorage)(nil)
+var (
+	_                 Storage = (*GoogleCloudStorage)(nil)
+	ErrBucketNotFound         = errors.New("bucket not found")
+)
 
 // Config is the configuration for the Google Cloud Storage Client.
 type Config struct {
@@ -223,7 +226,14 @@ func (s *GoogleCloudStorage) DeleteObject(ctx context.Context, bucket, name stri
 // ObjectsWithName returns all files in a bucket with a given file name.
 func (s *GoogleCloudStorage) ObjectsWithName(ctx context.Context, bucket, filename string) ([]string, error) {
 	var uris []string
-	it := s.client.Bucket(bucket).Objects(ctx, nil)
+	b := s.client.Bucket(bucket)
+	if _, err := b.Attrs(ctx); err != nil {
+		if err.Error() == "storage: bucket doesn't exist" {
+			return nil, ErrBucketNotFound
+		}
+		return nil, fmt.Errorf("failed to stat bucket: %w", err)
+	}
+	it := b.Objects(ctx, nil)
 	for {
 		attrs, err := it.Next()
 		if errors.Is(err, iterator.Done) {

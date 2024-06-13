@@ -17,6 +17,7 @@ package parser
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -116,10 +117,19 @@ func (p *TerraformParser) SetAssets(
 
 // StateFileURIs finds all terraform state files in the given buckets.
 func (p *TerraformParser) StateFileURIs(ctx context.Context, gcsBuckets []string) ([]string, error) {
+	logger := logging.FromContext(ctx)
 	var gcsURIs []string
 	for _, bucket := range gcsBuckets {
 		allStateFiles, err := p.GCS.ObjectsWithName(ctx, bucket, "default.tfstate")
 		if err != nil {
+			// If you delete a GCP project that still has a terraform state
+			// bucket then the bucket will continue to show up in the asset
+			// inventory until the project is deleted from the recovery
+			// archive.
+			if errors.Is(err, storage.ErrBucketNotFound) {
+				logger.WarnContext(ctx, "failed to locate GCP bucket - is this bucket deleted?", "bucket", bucket)
+				continue
+			}
 			return nil, fmt.Errorf("failed to determine state files in GCS bucket %s: %w", bucket, err)
 		}
 		gcsURIs = append(gcsURIs, allStateFiles...)
