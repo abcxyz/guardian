@@ -19,13 +19,9 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"sort"
-
-	"golang.org/x/exp/maps"
 
 	"github.com/abcxyz/guardian/pkg/commands/drift/statefiles"
 	"github.com/abcxyz/guardian/pkg/flags"
-	"github.com/abcxyz/guardian/pkg/git"
 	"github.com/abcxyz/guardian/pkg/storage"
 	"github.com/abcxyz/guardian/pkg/terraform"
 	"github.com/abcxyz/guardian/pkg/terraform/parser"
@@ -44,10 +40,6 @@ type CleanupCommand struct {
 	flags.RetryFlags
 	flags.CommonFlags
 
-	flagDestRef   string
-	flagSourceRef string
-
-	gitClient       git.Git
 	storageClient   storage.Storage
 	terraformParser parser.Terraform
 }
@@ -69,22 +61,6 @@ func (c *CleanupCommand) Flags() *cli.FlagSet {
 
 	c.RetryFlags.Register(set)
 	c.CommonFlags.Register(set)
-
-	f := set.NewSection("COMMAND OPTIONS")
-
-	f.StringVar(&cli.StringVar{
-		Name:    "dest-ref",
-		Target:  &c.flagDestRef,
-		Example: "ref-name",
-		Usage:   "The destination GitHub ref name for finding file changes.",
-	})
-
-	f.StringVar(&cli.StringVar{
-		Name:    "source-ref",
-		Target:  &c.flagSourceRef,
-		Example: "ref-name",
-		Usage:   "The source GitHub ref name for finding file changes.",
-	})
 
 	return set
 }
@@ -115,8 +91,6 @@ func (c *CleanupCommand) Run(ctx context.Context, args []string) error {
 	}
 	c.directory = dirAbs
 
-	c.gitClient = git.NewGitClient(c.directory)
-
 	sc, err := storage.NewGoogleCloudStorage(
 		ctx,
 		storage.WithRetryInitialDelay(c.RetryFlags.FlagRetryInitialDelay),
@@ -139,90 +113,46 @@ func (c *CleanupCommand) Run(ctx context.Context, args []string) error {
 func (c *CleanupCommand) Process(ctx context.Context) error {
 	logger := logging.FromContext(ctx)
 
-	logger.DebugContext(ctx, "finding modified entrypoints")
-	entrypoints, err := c.getModifiedEntrypointsFiles(ctx)
+	logger.DebugContext(ctx, "determining target entrypoint backend details")
+	targetEntrypoint, err := terraform.GetEntrypointDirectories(c.directory, util.Ptr(1))
 	if err != nil {
-		return fmt.Errorf("failed to get modified entrypoints: %w", err)
+		return fmt.Errorf("failed to find terraform directories: %w", err)
 	}
+	if len(targetEntrypoint) != 1 {
+		return fmt.Errorf("received unexpected number of entrypoints for target entrypoint with no recursion: %s - %d",
+			c.directory, len(targetEntrypoint))
+	}
+	targetBackend := targetEntrypoint[0].BackendFile
 
-	logger.DebugContext(ctx, "finding statefile URIs from entrypoints")
-	statefileURIs, err := statefiles.StatefileUrisFromEntrypoints(ctx, entrypoints)
+	logger.DebugContext(ctx, "finding statefile URI for entrypoint")
+	statefileURIs, err := statefiles.StatefileUrisFromEntrypoints(ctx, []string{targetBackend})
 	if err != nil {
 		return fmt.Errorf("failed to get statefile URIs from entrypoints: %w", err)
 	}
 
-	logger.DebugContext(ctx, "finding empty statefiles from entrypoints")
+	logger.DebugContext(ctx, "determining if statefile is empty from entrypoint")
 	emptyStateFiles, err := statefiles.EmptyStateFiles(ctx, c.terraformParser, statefileURIs)
 	if err != nil {
 		return fmt.Errorf("failed to find empty statefiles: %w", err)
 	}
+	if len(emptyStateFiles) == 0 {
+		return nil
+	}
+	if len(emptyStateFiles) > 1 {
+		return fmt.Errorf("received unexpected number of empty statefiles for target entrypoint with no recursion: %s - %d",
+			c.directory, len(emptyStateFiles))
+	}
 
-	for _, statefileURI := range emptyStateFiles {
-		logger.InfoContext(ctx, "deleting empty statefile", "uri", statefileURI)
-		bucketName, objectName, err := storage.SplitObjectURI(statefileURI)
-		if err != nil {
-			return fmt.Errorf("failed to parse gcs object %s: %w", statefileURI, err)
-		}
+	statefileURI := emptyStateFiles[0]
+	logger.InfoContext(ctx, "deleting empty statefile", "uri", statefileURI)
+	bucketName, objectName, err := storage.SplitObjectURI(statefileURI)
+	if err != nil {
+		return fmt.Errorf("failed to parse gcs object %s: %w", statefileURI, err)
+	}
 
-		if err = c.storageClient.DeleteObject(ctx, *bucketName, *objectName); err != nil {
-			return fmt.Errorf("failed to delete statefile stored in gcs %s: %w", statefileURI, err)
-		}
+	if err = c.storageClient.DeleteObject(ctx, *bucketName, *objectName); err != nil {
+		return fmt.Errorf("failed to delete statefile stored in gcs %s: %w", statefileURI, err)
 	}
 
 	return nil
-}
-
-// Process handles the main logic for the Guardian init process.
-func (c *CleanupCommand) getModifiedEntrypointsFiles(ctx context.Context) ([]string, error) {
-	logger := logging.FromContext(ctx)
-
-	logger.DebugContext(ctx, "finding entrypoint directories")
-	logger.DebugContext(ctx, "finding git diff directories")
-
-	// TODO(dcreey): Figure out how to support deleted directories.
-	// The current implementation filters out deleted directories and only
-	// returns the absolute path of directories that exist at HEAD.
-	diffDirs, err := c.gitClient.DiffDirsAbs(ctx, c.flagSourceRef, c.flagDestRef)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find git diff directories: %w", err)
-	}
-	logger.DebugContext(ctx, "git diff directories", "directories", diffDirs)
-
-	moduleUsageGraph, err := terraform.ModuleUsage(ctx, c.directory, nil, true)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get module usage for %s: %w", c.directory, err)
-	}
-
-	modifiedEntrypoints := make(map[string]struct{})
-
-	for _, changedFile := range diffDirs {
-		if entrypoints, ok := moduleUsageGraph.ModulesToEntrypoints[changedFile]; ok {
-			for entrypoint := range entrypoints {
-				modifiedEntrypoints[entrypoint] = struct{}{}
-			}
-		}
-		if _, ok := moduleUsageGraph.EntrypointToModules[changedFile]; ok {
-			modifiedEntrypoints[changedFile] = struct{}{}
-		}
-	}
-
-	dirs := maps.Keys(modifiedEntrypoints)
-
-	entrypointFiles := make([]string, len(dirs))
-	for i, dir := range dirs {
-		entrypointOfOne, err := terraform.GetEntrypointDirectories(dir, util.Ptr(1))
-		if err != nil {
-			return nil, fmt.Errorf("failed to find terraform directories: %w", err)
-		}
-		if len(entrypointOfOne) != 1 {
-			return nil, fmt.Errorf("received unexpected number of entrypoints for target entrypoint with no recursion: %s - %d",
-				dir, len(entrypointOfOne))
-		}
-		entrypointFiles[i] = entrypointOfOne[0].BackendFile
-	}
-
-	sort.Strings(entrypointFiles)
-	logger.DebugContext(ctx, "target files", "target_files", entrypointFiles)
-
-	return entrypointFiles, nil
 }

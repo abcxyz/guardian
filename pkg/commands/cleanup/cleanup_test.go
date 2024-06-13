@@ -24,7 +24,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 
-	"github.com/abcxyz/guardian/pkg/git"
 	"github.com/abcxyz/guardian/pkg/storage"
 	"github.com/abcxyz/guardian/pkg/terraform/parser"
 	"github.com/abcxyz/pkg/logging"
@@ -67,30 +66,15 @@ func TestEntrypointsProcess(t *testing.T) {
 	cases := []struct {
 		name                 string
 		directory            string
-		flagDestRef          string
-		flagSourceRef        string
-		gitClient            *git.MockGitClient
 		getStatefileResp     string
 		expStorageClientReqs []*storage.Request
 		err                  string
 	}{
 		{
 			name:             "success",
-			directory:        "testdata",
-			flagDestRef:      "main",
-			flagSourceRef:    "ldap/feature",
+			directory:        path.Join(cwd, "testdata/backends/project1"),
 			getStatefileResp: emptyStatefile,
-			gitClient: &git.MockGitClient{
-				DiffResp: []string{
-					path.Join(cwd, "testdata/backends/project1"),
-					path.Join(cwd, "testdata/backends/project2"),
-				},
-			},
 			expStorageClientReqs: []*storage.Request{
-				{
-					Name:   "DownloadObject",
-					Params: []any{string("my-made-up-bucket"), string("my/path/to/file/project2/default.tfstate")},
-				},
 				{
 					Name:   "DownloadObject",
 					Params: []any{string("my-made-up-bucket"), string("my/path/to/file/project1/default.tfstate")},
@@ -100,62 +84,18 @@ func TestEntrypointsProcess(t *testing.T) {
 					Params: []any{
 						"my-made-up-bucket",
 						"my/path/to/file/project1/default.tfstate",
-					},
-				},
-				{
-					Name: "DeleteObject",
-					Params: []any{
-						"my-made-up-bucket",
-						"my/path/to/file/project2/default.tfstate",
 					},
 				},
 			},
 		},
 		{
 			name:             "success_no_delete_non_empty",
-			directory:        "testdata",
-			flagDestRef:      "main",
-			flagSourceRef:    "ldap/feature",
+			directory:        path.Join(cwd, "testdata/backends/project2"),
 			getStatefileResp: statefileWithResources,
-			gitClient: &git.MockGitClient{
-				DiffResp: []string{
-					path.Join(cwd, "testdata/backends/project1"),
-					path.Join(cwd, "testdata/backends/project2"),
-				},
-			},
 			expStorageClientReqs: []*storage.Request{
 				{
 					Name:   "DownloadObject",
 					Params: []any{string("my-made-up-bucket"), string("my/path/to/file/project2/default.tfstate")},
-				},
-				{
-					Name:   "DownloadObject",
-					Params: []any{string("my-made-up-bucket"), string("my/path/to/file/project1/default.tfstate")},
-				},
-			},
-		},
-		{
-			name:             "success_only_delete_changed_dir",
-			directory:        "testdata",
-			flagDestRef:      "main",
-			flagSourceRef:    "ldap/feature",
-			getStatefileResp: emptyStatefile,
-			gitClient: &git.MockGitClient{
-				DiffResp: []string{
-					path.Join(cwd, "testdata/backends/project1"),
-				},
-			},
-			expStorageClientReqs: []*storage.Request{
-				{
-					Name:   "DownloadObject",
-					Params: []any{string("my-made-up-bucket"), string("my/path/to/file/project1/default.tfstate")},
-				},
-				{
-					Name: "DeleteObject",
-					Params: []any{
-						"my-made-up-bucket",
-						"my/path/to/file/project1/default.tfstate",
-					},
 				},
 			},
 		},
@@ -175,9 +115,6 @@ func TestEntrypointsProcess(t *testing.T) {
 			c := &CleanupCommand{
 				directory: tc.directory,
 
-				flagDestRef:     tc.flagDestRef,
-				flagSourceRef:   tc.flagSourceRef,
-				gitClient:       tc.gitClient,
 				storageClient:   storageClient,
 				terraformParser: tfParser,
 			}
