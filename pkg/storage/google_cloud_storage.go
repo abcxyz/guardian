@@ -25,14 +25,15 @@ import (
 
 	"cloud.google.com/go/storage"
 	"github.com/googleapis/gax-go/v2"
-	"google.golang.org/api/googleapi"
 	"google.golang.org/api/iterator"
 )
 
 const MiB = 1 << 20 // 1 MiB
 
-var _ Storage = (*GoogleCloudStorage)(nil)
-var ErrBucketNotFound = errors.New("bucket not found")
+var (
+	_                 Storage = (*GoogleCloudStorage)(nil)
+	ErrBucketNotFound         = errors.New("bucket not found")
+)
 
 // Config is the configuration for the Google Cloud Storage Client.
 type Config struct {
@@ -225,18 +226,18 @@ func (s *GoogleCloudStorage) DeleteObject(ctx context.Context, bucket, name stri
 // ObjectsWithName returns all files in a bucket with a given file name.
 func (s *GoogleCloudStorage) ObjectsWithName(ctx context.Context, bucket, filename string) ([]string, error) {
 	var uris []string
-	it := s.client.Bucket(bucket).Objects(ctx, nil)
+	b := s.client.Bucket(bucket)
+	if _, err := b.Attrs(ctx); err != nil {
+		if err.Error() == "storage: bucket doesn't exist" {
+			return nil, ErrBucketNotFound
+		}
+		return nil, fmt.Errorf("failed to stat bucket: %w", err)
+	}
+	it := b.Objects(ctx, nil)
 	for {
 		attrs, err := it.Next()
 		if errors.Is(err, iterator.Done) {
 			break
-		}
-		var e *googleapi.Error
-		if ok := errors.As(err, &e); ok {
-			fmt.Println(e.Code, e)
-			if e.Code == 404 {
-				return nil, ErrBucketNotFound
-			}
 		}
 		if err != nil {
 			return nil, fmt.Errorf("failed to list bucket contents: Bucket(%q).Objects(): %w", bucket, err)
