@@ -25,6 +25,7 @@ import (
 
 	"github.com/abcxyz/guardian/internal/version"
 	"github.com/abcxyz/guardian/pkg/commands/apply"
+	"github.com/abcxyz/guardian/pkg/commands/cleanup"
 	"github.com/abcxyz/guardian/pkg/commands/drift"
 	"github.com/abcxyz/guardian/pkg/commands/drift/statefiles"
 	"github.com/abcxyz/guardian/pkg/commands/entrypoints"
@@ -99,6 +100,9 @@ var rootCmd = func() cli.Command {
 						},
 					},
 				}
+			},
+			"cleanup": func() cli.Command {
+				return &cleanup.CleanupCommand{}
 			},
 			"run": func() cli.Command {
 				return &run.RunCommand{}
