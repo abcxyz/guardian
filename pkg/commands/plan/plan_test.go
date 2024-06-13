@@ -162,7 +162,6 @@ func TestPlan_Process(t *testing.T) {
 	cases := []struct {
 		name                     string
 		directory                string
-		flagFailOnDiff           bool
 		flagIsGitHubActions      bool
 		flagGitHubOwner          string
 		flagGitHubRepo           string
@@ -316,41 +315,6 @@ func TestPlan_Process(t *testing.T) {
 				},
 			},
 		},
-		{
-			name:                     "flag_fail_on_diff",
-			directory:                "testdata",
-			flagFailOnDiff:           true,
-			flagIsGitHubActions:      true,
-			flagGitHubOwner:          "owner",
-			flagGitHubRepo:           "repo",
-			flagPullRequestNumber:    1,
-			flagBucketName:           "my-bucket-name",
-			flagAllowLockfileChanges: true,
-			flagLockTimeout:          10 * time.Minute,
-			config:                   defaultConfig,
-			terraformClient:          terraformDiffMock,
-			err:                      "exit code 2: <nil>", // users won't actually see this message, since the error will be unwrapped in main()
-			expGitHubClientReqs: []*github.Request{
-				{
-					Name:   "CreateIssueComment",
-					Params: []any{"owner", "repo", int(1), "**`🔱 Guardian 🔱 PLAN`** - 🟨 Running for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
-				},
-				{
-					Name:   "UpdateIssueComment",
-					Params: []any{"owner", "repo", int64(1), "**`🔱 Guardian 🔱 PLAN`** - 🟩 Successful for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]\n\n<details>\n<summary>Details</summary>\n\n```diff\n\nterraform show success with diff\n```\n</details>"},
-				},
-			},
-			expStorageClientReqs: []*storage.Request{
-				{
-					Name: "UploadObject",
-					Params: []any{
-						"my-bucket-name",
-						"guardian-plans/owner/repo/1/testdata/test-tfplan.binary",
-						"this is a plan binary",
-					},
-				},
-			},
-		},
 	}
 
 	for _, tc := range cases {
@@ -378,7 +342,6 @@ func TestPlan_Process(t *testing.T) {
 				childPath:    tc.directory,
 				planFilename: "test-tfplan.binary",
 
-				flagFailOnDiff:           tc.flagFailOnDiff,
 				flagPullRequestNumber:    tc.flagPullRequestNumber,
 				flagBucketName:           tc.flagBucketName,
 				flagAllowLockfileChanges: tc.flagAllowLockfileChanges,
