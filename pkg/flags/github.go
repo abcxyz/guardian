@@ -15,6 +15,7 @@
 package flags
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -95,7 +96,7 @@ func (g *GitHubFlags) Register(set *cli.FlagSet) {
 	})
 }
 
-func (g *GitHubFlags) TokenSource(permissions map[string]string) (githubauth.TokenSource, error) {
+func (g *GitHubFlags) TokenSource(ctx context.Context, permissions map[string]string) (githubauth.TokenSource, error) {
 	if g.FlagGitHubToken != "" {
 		githubTokenSource, err := githubauth.NewStaticTokenSource(g.FlagGitHubToken)
 		if err != nil {
@@ -105,13 +106,17 @@ func (g *GitHubFlags) TokenSource(permissions map[string]string) (githubauth.Tok
 	} else {
 		app, err := githubauth.NewApp(
 			g.FlagGitHubAppID,
-			g.FlagGitHubAppInstallationID,
 			g.FlagGitHubAppPrivateKeyPEM,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create github app token source: %w", err)
 		}
 
-		return app.SelectedReposTokenSource(permissions, g.FlagGitHubRepo), nil
+		installation, err := app.InstallationForID(ctx, g.FlagGitHubAppInstallationID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get github app installation: %w", err)
+		}
+
+		return installation.SelectedReposTokenSource(permissions, g.FlagGitHubRepo), nil
 	}
 }
