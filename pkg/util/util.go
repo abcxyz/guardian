@@ -88,23 +88,3 @@ func PathEvalAbs(path string) (string, error) {
 
 	return abs, nil
 }
-
-// ExitCodeErr is an implementation of the error interface that contains an
-// command exit status. This is intended to be returned from a Run() function
-// when a command wants to return a specific error code to the OS.
-type ExitCodeError struct {
-	Code int
-
-	// Err may be nil if nothing went wrong, but we still want to exit with a
-	// nonzero status
-	Err error
-}
-
-func (e *ExitCodeError) Error() string {
-	// The CLI user should never see this, it's unwrapped in main().
-	return fmt.Sprintf("exit code %d: %v", e.Code, e.Err)
-}
-
-func (e *ExitCodeError) Unwrap() error {
-	return e.Err
-}

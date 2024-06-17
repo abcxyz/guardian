@@ -17,7 +17,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -33,7 +32,6 @@ import (
 	"github.com/abcxyz/guardian/pkg/commands/plan"
 	"github.com/abcxyz/guardian/pkg/commands/run"
 	"github.com/abcxyz/guardian/pkg/commands/workflows"
-	"github.com/abcxyz/guardian/pkg/util"
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
 )
@@ -118,22 +116,8 @@ func main() {
 
 	if err := realMain(ctx); err != nil {
 		done()
-
-		// On error, the exit code is 1 unless otherwise requested.
-		exitCode := 1
-
-		// In the special case where there's an ExitCodeErr, use that code.
-		var exitErr *util.ExitCodeError
-		if errors.As(err, &exitErr) {
-			exitCode = exitErr.Code
-			err = exitErr.Unwrap()
-		}
-
-		if err != nil { // Could be nil if the ExitCodeErr wasn't wrapping anything
-			fmt.Fprintln(os.Stderr, err.Error())
-		}
-
-		os.Exit(exitCode)
+		fmt.Fprintln(os.Stderr, err.Error())
+		os.Exit(1)
 	}
 }
 
