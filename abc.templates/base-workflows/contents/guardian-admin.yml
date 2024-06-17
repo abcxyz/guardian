@@ -127,10 +127,9 @@ jobs:
 
       - name: 'Guardian Admin'
         env:
-          TERRAFORM_COMMAND: '${{ inputs.command }}'
           DIRECTORY: '${{ matrix.working_directory }}'
         shell: 'bash'
         run: |-
           guardian run \
           -dir="${DIRECTORY}" \
-          -- ${TERRAFORM_COMMAND}
+          -- ${{ inputs.command }}
