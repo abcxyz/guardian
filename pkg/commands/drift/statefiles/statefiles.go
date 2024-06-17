@@ -197,7 +197,7 @@ func (c *DriftStatefilesCommand) Run(ctx context.Context, args []string) error {
 	c.directory = dirAbs
 	c.tmpDirectory = tmpDir
 	c.gitClient = git.NewGitClient(c.tmpDirectory)
-	tokenSource, err := c.GitHubFlags.TokenSource(map[string]string{
+	tokenSource, err := c.GitHubFlags.TokenSource(ctx, map[string]string{
 		"contents": "read",
 		"issues":   "write",
 	})

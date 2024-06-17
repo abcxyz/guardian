@@ -161,7 +161,7 @@ func (c *DetectIamDriftCommand) Run(ctx context.Context, args []string) error {
 	if c.DriftIssueFlags.FlagGitHubCommentMessageAppend != "" {
 		m = strings.Join([]string{m, c.DriftIssueFlags.FlagGitHubCommentMessageAppend}, "\n\n")
 	}
-	tokenSource, err := c.GitHubFlags.TokenSource(map[string]string{
+	tokenSource, err := c.GitHubFlags.TokenSource(ctx, map[string]string{
 		"issues": "write",
 	})
 	if err != nil {
