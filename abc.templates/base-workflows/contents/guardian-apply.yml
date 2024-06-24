@@ -124,7 +124,8 @@ jobs:
           -bucket-name="${GUARDIAN_BUCKET_NAME}"
 
       - name: 'Guardian Cleanup'
-        if: always()
+        if: |
+          always()
         shell: 'bash'
         env:
           DIRECTORY: '${{ matrix.working_directory }}'
