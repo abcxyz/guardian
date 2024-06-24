@@ -183,6 +183,12 @@ jobs:
           -pull-request-number="${PULL_REQUEST_NUMBER}" \
           -bucket-name="${GUARDIAN_BUCKET_NAME}" \
           -dir="${DIRECTORY}"
+      
+      - name: 'Guardian Cleanup'
+        if: always()
+        shell: 'bash'
+        run: |-
+          guardian cleanup -dir="${{ matrix.working_directory }}"
 
   plan_success:
     needs:
@@ -298,3 +304,9 @@ jobs:
           -- destroy \
           -input=false \
           -auto-approve
+
+      - name: 'Guardian Cleanup'
+        if: always()
+        shell: 'bash'
+        run: |-
+          guardian cleanup -dir="${{ matrix.working_directory }}"

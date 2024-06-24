@@ -145,6 +145,14 @@ jobs:
           -github-token="${REPO_TOKEN}" \
           -pull-request-number="${PULL_REQUEST_NUMBER}" \
           -bucket-name="${GUARDIAN_BUCKET_NAME}"
+      
+      - name: 'Guardian Cleanup'
+        if: always()
+        shell: 'bash'
+        env:
+          DIRECTORY: '${{ matrix.working_directory }}'
+        run: |-
+          guardian cleanup -dir="${DIRECTORY}"
 
   plan_success:
     if: '${{ always() }}'

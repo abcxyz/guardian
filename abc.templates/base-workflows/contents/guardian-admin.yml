@@ -133,3 +133,11 @@ jobs:
           guardian run \
           -dir="${DIRECTORY}" \
           -- ${{ inputs.command }}
+
+      - name: 'Guardian Cleanup'
+        if: always()
+        shell: 'bash'
+        env:
+          DIRECTORY: '${{ matrix.working_directory }}'
+        run: |-
+          guardian cleanup -dir="${DIRECTORY}"

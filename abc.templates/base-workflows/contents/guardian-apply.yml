@@ -122,3 +122,11 @@ jobs:
           -github-token="${REPO_TOKEN}" \
           -commit-sha="${COMMIT_SHA}" \
           -bucket-name="${GUARDIAN_BUCKET_NAME}"
+
+      - name: 'Guardian Cleanup'
+        if: always()
+        shell: 'bash'
+        env:
+          DIRECTORY: '${{ matrix.working_directory }}'
+        run: |-
+          guardian cleanup -dir="${DIRECTORY}"

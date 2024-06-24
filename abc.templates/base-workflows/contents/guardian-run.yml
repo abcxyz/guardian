@@ -143,3 +143,11 @@ jobs:
         shell: 'bash'
         run: |-
           guardian run -dir="${DIRECTORY}" -- apply -input=false -auto-approve
+
+      - name: 'Guardian Cleanup'
+        if: always()
+        shell: 'bash'
+        env:
+          DIRECTORY: '${{ matrix.working_directory }}'
+        run: |-
+          guardian cleanup -dir="${DIRECTORY}"
