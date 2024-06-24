@@ -135,7 +135,8 @@ jobs:
           -- ${{ inputs.command }}
 
       - name: 'Guardian Cleanup'
-        if: always()
+        if: |
+          always()
         shell: 'bash'
         env:
           DIRECTORY: '${{ matrix.working_directory }}'
