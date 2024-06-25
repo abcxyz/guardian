@@ -114,7 +114,7 @@ func (c *CleanupCommand) Process(ctx context.Context) error {
 	logger := logging.FromContext(ctx)
 
 	logger.DebugContext(ctx, "determining target entrypoint backend details")
-	targetEntrypoint, err := terraform.GetEntrypointDirectories(c.directory, util.Ptr(1))
+	targetEntrypoint, err := terraform.GetEntrypointDirectories(c.directory, util.Ptr(0))
 	if err != nil {
 		return fmt.Errorf("failed to find terraform directories: %w", err)
 	}
