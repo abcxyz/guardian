@@ -35,11 +35,6 @@ on:
         default: 'REPLACE_TERRAFORM_DIRECTORY'
         type: 'string'
 
-permissions:
-  contents: 'read'
-  id-token: 'write'
-  pull-requests: 'read'
-
 # only one fix  should run at a time
 concurrency:
   group: '${{ github.workflow }}'
@@ -53,6 +48,10 @@ env:
 jobs:
   init:
     runs-on: 'ubuntu-latest'
+
+    permissions:
+      contents: 'read'
+
     outputs:
       directories: '${{ steps.dirs.outputs.directories }}'
     steps:
@@ -84,6 +83,11 @@ jobs:
     needs:
       - 'init'
     runs-on: 'ubuntu-latest'
+
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
     strategy:
       fail-fast: false
       max-parallel: 100
