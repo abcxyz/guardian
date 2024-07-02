@@ -26,11 +26,6 @@ on:
     branches:
       - 'main'
 
-permissions:
-  contents: 'read'
-  id-token: 'write'
-  pull-requests: 'write'
-
 # only one plan, per pr should run at a time
 concurrency:
   group: '${{ github.workflow }}-${{ github.event.pull_request.number }}-${{ github.head_ref || github.ref }}'
@@ -48,6 +43,11 @@ env:
 jobs:
   init:
     runs-on: 'ubuntu-latest'
+
+    permissions:
+      contents: 'read'
+      pull-requests: 'write'
+
     outputs:
       directories: '${{ steps.dirs.outputs.directories }}'
     steps:
@@ -96,6 +96,12 @@ jobs:
     needs:
       - 'init'
     runs-on: 'ubuntu-latest'
+
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+      pull-requests: 'write'
+
     strategy:
       fail-fast: false
       max-parallel: 100
@@ -152,6 +158,10 @@ jobs:
     needs:
       - 'init'
       - 'plan'
+
+    permissions:
+      pull-requests: 'write'
+
     steps:
       - name: 'Setup Guardian'
         uses: 'abcxyz/pkg/.github/actions/setup-binary@e6295e3016161bf062cabbf9b245603652923669' # ratchet:abcxyz/pkg/.github/actions/setup-binary@main
