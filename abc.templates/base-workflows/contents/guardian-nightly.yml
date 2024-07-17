@@ -1,0 +1,57 @@
+# Copyright 2023 The Authors (see AUTHORS file)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Guardian nightly is used to run Terraform plan to check for differences
+# between Terraform state and actual state of resources.
+
+name: 'guardian_nightly'
+
+on:
+  workflow_dispatch: # For testing
+  schedule:
+    - cron: '43 8 * * *' # An arbitrary early morning time in the US
+
+jobs:
+  guardian_plan:
+    name: 'Guardian run plan'
+    uses: './.github/workflows/guardian-run.yml'
+    with:
+      command: 'plan'
+      entrypoint: 'REPLACE_TERRAFORM_DIRECTORY'
+      detailed-exitcode: true
+
+  nightly-plan:
+    runs-on: 'ubuntu-latest'
+    needs: 'guardian_plan'
+
+    if: failure()
+
+    steps:
+      - name: 'Create an issue on failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+            TITLE="Nightly guardian plan failure"
+            BODY='The nightly "guardian run plan" job has failed. Please check the logs for details.'
+            LABEL="bug"
+
+            # Check for existing issues with the given title
+            existing_issue=$(gh issue list -R $GITHUB_REPOSITORY --search "$TITLE in:title" --state open --limit 1)
+
+            # Create a new issue if no existing issue matches the title
+            if [[ -z "$existing_issue" ]]; then
+                gh issue create -R $GITHUB_REPOSITORY -t "$TITLE" -b "$BODY" -l "$LABEL"
+            else
+                echo "An issue already exists. No new issue created."
+            fi
