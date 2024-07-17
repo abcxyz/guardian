@@ -34,8 +34,29 @@ on:
         description: 'ENTRYPOINT - The directory to search for all child directories containing Terraform configurations. If left blank, the Terraform command will run for all configured directories.'
         default: 'REPLACE_TERRAFORM_DIRECTORY'
         type: 'string'
+      detailed-exitcode:
+        description: 'DETAILED-EXITCODE (usually false) - The value of the -detailed-exitcode flag for "terraform plan", which causes a nonempty diff to return a status code of 2; ignored for other commands besides "plan".'
+        type: 'boolean'
+        default: false
+        required: false
+  workflow_call:
+    inputs:
+      command:
+        description: 'COMMAND - The Terraform command to run.'
+        required: true
+        type: 'string'
+        default: 'plan'
+      entrypoint:
+        description: 'ENTRYPOINT - The directory to search for all child directories containing Terraform configurations. If left blank, the Terraform command will run for all configured directories.'
+        default: 'REPLACE_TERRAFORM_DIRECTORY'
+        type: 'string'
+      detailed-exitcode:
+        description: 'DETAILED-EXITCODE (usually false) - The value of the -detailed-exitcode flag for "terraform plan", which causes a nonempty diff to return a status code of 2; ignored for other commands besides "plan".'
+        type: 'boolean'
+        default: false
+        required: false
 
-# only one fix  should run at a time
+# only one fix should run at a time
 concurrency:
   group: '${{ github.workflow }}'
 
@@ -135,9 +156,10 @@ jobs:
           inputs.command == 'plan'
         env:
           DIRECTORY: '${{ matrix.working_directory }}'
+          DETAILED_EXITCODE: '${{ inputs.detailed-exitcode }}'
         shell: 'bash'
         run: |-
-          guardian run -dir="${DIRECTORY}" -- plan -input=false
+          guardian run -dir="${DIRECTORY}" -- plan -input=false -detailed-exitcode=${DETAILED_EXITCODE}
 
       - name: 'Guardian Apply'
         if: |

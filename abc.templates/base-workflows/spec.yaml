@@ -15,7 +15,7 @@
 apiVersion: 'cli.abcxyz.dev/v1beta3'
 kind: 'Template'
 
-desc: 'Generate the default set of Guardian workflows Terraform intrastructure repositories.'
+desc: 'Generate the default set of Guardian workflows Terraform infrastructure repositories.'
 
 inputs:
   - name: 'terraform_directory'
