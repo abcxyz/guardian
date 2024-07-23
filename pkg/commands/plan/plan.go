@@ -260,6 +260,7 @@ func (c *PlanCommand) Process(ctx context.Context) error {
 	if err := c.updateResultCommentForActions(ctx, startComment, result, err); err != nil {
 		merr = errors.Join(merr, fmt.Errorf("failed to write result comment: %w", err))
 	}
+	c.createStepSummaryForActions(ctx, result, err)
 
 	return merr
 }
@@ -345,6 +346,32 @@ func (c *PlanCommand) getMessageBody(result *RunResult, resultErr error) string 
 	}
 
 	return msgBody
+}
+
+func (c *PlanCommand) createStepSummaryForActions(ctx context.Context, result *RunResult, resultErr error) {
+	logger := logging.FromContext(ctx)
+
+	if !c.FlagIsGitHubActions {
+		logger.DebugContext(ctx, "skipping step summary", "is_github_action", c.FlagIsGitHubActions)
+		return
+	}
+
+	c.Outf("Creating step summary")
+
+	var resultStr string
+	var runOutput string
+	if resultErr != nil {
+		resultStr = "🟥 Fail"
+		runOutput = fmt.Sprintf("<details><summary>Error</summary>%s</details>", resultErr.Error())
+	} else {
+		resultStr = "🟩 Success"
+		runOutput = fmt.Sprintf("<details><summary>Details</summary>%s</details>", result.commentDetails)
+	}
+
+	c.Action.AddStepSummary("### Guardian Plan Results")
+	c.Action.AddStepSummary("| Result | Directory | Run Output |")
+	c.Action.AddStepSummary("|--------|-----------|-------------|")
+	c.Action.AddStepSummary(fmt.Sprintf("|%s|%s|%s|", resultStr, c.childPath, runOutput))
 }
 
 // terraformPlan runs the required Terraform commands for a full run of
