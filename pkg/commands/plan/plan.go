@@ -361,15 +361,14 @@ func (c *PlanCommand) createStepSummaryForActions(ctx context.Context, result *R
 	var resultStr string
 	var runOutput string
 	if resultErr != nil {
-		resultStr = "🟥 Fail"
+		resultStr = "🟥 Failure"
 		runOutput = fmt.Sprintf("#### Error \n\n```\n\n%s\n```", resultErr.Error())
 	} else {
 		resultStr = "🟩 Success"
-		runOutput = fmt.Sprintf("#### Details \n\n```\n\n%s\n```", result.commentDetails)
+		runOutput = fmt.Sprintf("#### Run Details \n\n```\n\n%s\n```", result.commentDetails)
 	}
 
-	c.Action.AddStepSummary("### Guardian Plan")
-	c.Action.AddStepSummary(fmt.Sprintf("Result: %s", resultStr))
+	c.Action.AddStepSummary(fmt.Sprintf("### Guardian Plan: %s", resultStr))
 	c.Action.AddStepSummary(runOutput)
 }
 
