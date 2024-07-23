@@ -362,16 +362,15 @@ func (c *PlanCommand) createStepSummaryForActions(ctx context.Context, result *R
 	var runOutput string
 	if resultErr != nil {
 		resultStr = "🟥 Fail"
-		runOutput = fmt.Sprintf("<details><summary>Error</summary>%s</details>", resultErr.Error())
+		runOutput = fmt.Sprintf("#### Error \n\n```\n\n%s\n```", resultErr.Error())
 	} else {
 		resultStr = "🟩 Success"
-		runOutput = fmt.Sprintf("<details><summary>Details</summary>%s</details>", result.commentDetails)
+		runOutput = fmt.Sprintf("#### Details \n\n```\n\n%s\n```", result.commentDetails)
 	}
 
-	c.Action.AddStepSummary("### Guardian Plan Results")
-	c.Action.AddStepSummary("| Result | Directory | Run Output |")
-	c.Action.AddStepSummary("|--------|-----------|-------------|")
-	c.Action.AddStepSummary(fmt.Sprintf("|%s|%s|%s|", resultStr, c.childPath, runOutput))
+	c.Action.AddStepSummary("### Guardian Plan")
+	c.Action.AddStepSummary(fmt.Sprintf("Result: %s", resultStr))
+	c.Action.AddStepSummary(runOutput)
 }
 
 // terraformPlan runs the required Terraform commands for a full run of
