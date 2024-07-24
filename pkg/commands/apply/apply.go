@@ -413,10 +413,13 @@ func (c *ApplyCommand) createStepSummaryForActions(ctx context.Context, result *
 		runOutput = fmt.Sprintf("#### Error \n\n```%s```", resultErr.Error())
 	} else {
 		resultStr = "🟩 Success"
-		runOutput = fmt.Sprintf("#### Run Details ```%s```", result.commentDetails)
+		runOutput = fmt.Sprintf("#### Run Details \n\n```%s```", result.commentDetails)
 	}
 
+	commandStr := fmt.Sprintf("`guardian apply --dir %s`", c.childPath)
+
 	c.Action.AddStepSummary(resultStr)
+	c.Action.AddStepSummary(commandStr)
 	c.Action.AddStepSummary(runOutput)
 }
 

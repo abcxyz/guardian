@@ -368,7 +368,10 @@ func (c *PlanCommand) createStepSummaryForActions(ctx context.Context, result *R
 		runOutput = fmt.Sprintf("#### Run Details \n\n```%s```", result.commentDetails)
 	}
 
+	commandStr := fmt.Sprintf("`guardian plan --dir %s`", c.childPath)
+
 	c.Action.AddStepSummary(resultStr)
+	c.Action.AddStepSummary(commandStr)
 	c.Action.AddStepSummary(runOutput)
 }
 
