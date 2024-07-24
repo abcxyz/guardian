@@ -410,13 +410,13 @@ func (c *ApplyCommand) createStepSummaryForActions(ctx context.Context, result *
 	var runOutput string
 	if resultErr != nil {
 		resultStr = "🟥 Failure"
-		runOutput = fmt.Sprintf("#### Error \n\n```\n\n%s\n```", resultErr.Error())
+		runOutput = fmt.Sprintf("#### Error \n\n```%s```", resultErr.Error())
 	} else {
 		resultStr = "🟩 Success"
-		runOutput = fmt.Sprintf("#### Run Details \n\n```\n\n%s\n```", result.commentDetails)
+		runOutput = fmt.Sprintf("#### Run Details ```%s```", result.commentDetails)
 	}
 
-	c.Action.AddStepSummary(fmt.Sprintf("### Guardian Apply: %s", resultStr))
+	c.Action.AddStepSummary(resultStr)
 	c.Action.AddStepSummary(runOutput)
 }
 
