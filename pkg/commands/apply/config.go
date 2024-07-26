@@ -24,6 +24,7 @@ type Config struct {
 	ServerURL  string // this value is used to generate URLs for creating links in pull request comments
 	RunID      int64
 	RunAttempt int64
+	Job        string
 }
 
 // MapGitHubContext maps values from the GitHub context.
@@ -31,5 +32,6 @@ func (c *Config) MapGitHubContext(context *githubactions.GitHubContext) error {
 	c.ServerURL = context.ServerURL
 	c.RunID = context.RunID
 	c.RunAttempt = context.RunAttempt
+	c.Job = context.Job
 	return nil
 }

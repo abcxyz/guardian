@@ -244,7 +244,7 @@ func (c *PlanCommand) Process(ctx context.Context) error {
 		c.planFilename = "tfplan.binary"
 	}
 
-	c.gitHubLogURL = fmt.Sprintf("[[logs](%s/%s/%s/actions/runs/%d/attempts/%d)]", c.cfg.ServerURL, c.GitHubFlags.FlagGitHubOwner, c.GitHubFlags.FlagGitHubRepo, c.cfg.RunID, c.cfg.RunAttempt)
+	c.gitHubLogURL = fmt.Sprintf("[[logs](%s/%s/%s/actions/runs/%d/job/%s)]", c.cfg.ServerURL, c.GitHubFlags.FlagGitHubOwner, c.GitHubFlags.FlagGitHubRepo, c.cfg.RunID, c.cfg.Job)
 	logger.DebugContext(ctx, "computed github log url", "github_log_url", c.gitHubLogURL)
 
 	startComment, err := c.createStartCommentForActions(ctx)
