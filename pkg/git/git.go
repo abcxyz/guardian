@@ -39,6 +39,10 @@ var newline = regexp.MustCompile("\r?\n")
 
 // Git defined the common git functionality.
 type Git interface {
+	// Fetch performs a git fetch for given origin and list of refs
+	Fetch(ctx context.Context, origin string, refs ...string) error
+	// Checkout performs a git checkout for a given ref
+	Checkout(ctx context.Context, ref string) error
 	// DiffDirsAbs returns the directories changed using the git diff command
 	DiffDirsAbs(ctx context.Context, baseRef, headRef string) ([]string, error)
 	// CloneRepository clones the repository to the workingDir.
@@ -55,6 +59,50 @@ func NewGitClient(workingDir string) *GitClient {
 	return &GitClient{
 		workingDir: workingDir,
 	}
+}
+
+// Fetch performs a git fetch for given origin and list of refs.
+func (g *GitClient) Fetch(ctx context.Context, origin string, refs ...string) error {
+	logger := logging.FromContext(ctx).With("working_dir", g.workingDir)
+
+	var stdout, stderr bytes.Buffer
+
+	_, err := child.Run(ctx, &child.RunConfig{
+		Stdout:     &stdout,
+		Stderr:     &stderr,
+		WorkingDir: g.workingDir,
+		Command:    "git",
+		Args:       append([]string{"fetch", "--prune", origin}, refs...),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to run git fetch command: %w\n\n%s", err, stderr.String())
+	}
+
+	logger.DebugContext(ctx, "Successful git fetch for refs", "refs", refs)
+
+	return nil
+}
+
+// Checkout performs a git checkout for a given ref.
+func (g *GitClient) Checkout(ctx context.Context, ref string) error {
+	logger := logging.FromContext(ctx).With("working_dir", g.workingDir)
+
+	var stdout, stderr bytes.Buffer
+
+	_, err := child.Run(ctx, &child.RunConfig{
+		Stdout:     &stdout,
+		Stderr:     &stderr,
+		WorkingDir: g.workingDir,
+		Command:    "git",
+		Args:       []string{"checkout", "--force", ref},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to run git checkout command: %w\n\n%s", err, stderr.String())
+	}
+
+	logger.DebugContext(ctx, "Successful git checkout for ref", "ref", ref)
+
+	return nil
 }
 
 // DiffDirsAbs runs a git diff between two revisions and returns the sorted list

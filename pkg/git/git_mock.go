@@ -20,9 +20,21 @@ import (
 
 // MockGitClient implements the git interface.
 type MockGitClient struct {
-	DiffResp []string
-	DiffErr  error
-	CloneErr error
+	FetchErr    error
+	CheckoutErr error
+	DiffResp    []string
+	DiffErr     error
+	CloneErr    error
+}
+
+// Fetch performs a git fetch for given origin and list of refs.
+func (m *MockGitClient) Fetch(ctx context.Context, origin string, refs ...string) error {
+	return m.FetchErr
+}
+
+// Checkout performs a git checkout for a given ref.
+func (m *MockGitClient) Checkout(ctx context.Context, ref string) error {
+	return m.CheckoutErr
 }
 
 // DiffDirsAbs runs a git diff between two revisions and returns the list of directories with changes.

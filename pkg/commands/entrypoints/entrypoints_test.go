@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	"github.com/abcxyz/guardian/pkg/git"
+	"github.com/abcxyz/guardian/pkg/terraform"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/testutil"
 )
@@ -49,6 +50,8 @@ func TestEntrypointsProcess(t *testing.T) {
 		flagDetectChanges     bool
 		flagMaxDepth          int
 		flagFormat            string
+		destEntrypoints       []*terraform.TerraformEntrypoint
+		sourceEntrypoints     []*terraform.TerraformEntrypoint
 		gitClient             *git.MockGitClient
 		err                   string
 		expStdout             string
@@ -65,6 +68,84 @@ func TestEntrypointsProcess(t *testing.T) {
 			flagDestRef:           "main",
 			flagSourceRef:         "ldap/feature",
 			flagDetectChanges:     true,
+			destEntrypoints: []*terraform.TerraformEntrypoint{
+				{Path: "testdata/backends/project1", BackendFile: ""},
+				{Path: "testdata/backends/project2", BackendFile: ""},
+			},
+			sourceEntrypoints: []*terraform.TerraformEntrypoint{
+				{Path: "testdata/backends/project1", BackendFile: ""},
+				{Path: "testdata/backends/project2", BackendFile: ""},
+			},
+			gitClient: &git.MockGitClient{
+				DiffResp: []string{
+					path.Join(cwd, "testdata/backends/project1"),
+					path.Join(cwd, "testdata/backends/project2"),
+				},
+			},
+			expStdout: "testdata/backends/project1\ntestdata/backends/project2",
+		},
+		{
+			name:                  "no_entrypoints",
+			directory:             "testdata",
+			flagFormat:            "text",
+			flagIsGitHubActions:   true,
+			flagGitHubOwner:       "owner",
+			flagGitHubRepo:        "repo",
+			flagPullRequestNumber: 1,
+			flagDestRef:           "main",
+			flagSourceRef:         "ldap/feature",
+			flagDetectChanges:     true,
+			destEntrypoints:       []*terraform.TerraformEntrypoint{},
+			sourceEntrypoints:     []*terraform.TerraformEntrypoint{},
+			gitClient:             &git.MockGitClient{},
+			expStdout:             "",
+		},
+		{
+			name:                  "deleted_entrypoint",
+			directory:             "testdata",
+			flagFormat:            "text",
+			flagIsGitHubActions:   true,
+			flagGitHubOwner:       "owner",
+			flagGitHubRepo:        "repo",
+			flagPullRequestNumber: 1,
+			flagDestRef:           "main",
+			flagSourceRef:         "ldap/feature",
+			flagDetectChanges:     true,
+			destEntrypoints: []*terraform.TerraformEntrypoint{
+				{Path: "testdata/backends/project1", BackendFile: ""},
+				{Path: "testdata/backends/project2", BackendFile: ""},
+				{Path: "testdata/backends/project3", BackendFile: ""},
+			},
+			sourceEntrypoints: []*terraform.TerraformEntrypoint{
+				{Path: "testdata/backends/project1", BackendFile: ""},
+				{Path: "testdata/backends/project2", BackendFile: ""},
+			},
+			gitClient: &git.MockGitClient{
+				DiffResp: []string{
+					path.Join(cwd, "testdata/backends/project1"),
+					path.Join(cwd, "testdata/backends/project2"),
+				},
+			},
+			expStdout: "testdata/backends/project1\ntestdata/backends/project2\nDESTROY::testdata/backends/project3",
+		},
+		{
+			name:                  "new_entrypoint",
+			directory:             "testdata",
+			flagFormat:            "text",
+			flagIsGitHubActions:   true,
+			flagGitHubOwner:       "owner",
+			flagGitHubRepo:        "repo",
+			flagPullRequestNumber: 1,
+			flagDestRef:           "main",
+			flagSourceRef:         "ldap/feature",
+			flagDetectChanges:     true,
+			destEntrypoints: []*terraform.TerraformEntrypoint{
+				{Path: "testdata/backends/project1", BackendFile: ""},
+			},
+			sourceEntrypoints: []*terraform.TerraformEntrypoint{
+				{Path: "testdata/backends/project1", BackendFile: ""},
+				{Path: "testdata/backends/project2", BackendFile: ""},
+			},
 			gitClient: &git.MockGitClient{
 				DiffResp: []string{
 					path.Join(cwd, "testdata/backends/project1"),
@@ -84,13 +165,22 @@ func TestEntrypointsProcess(t *testing.T) {
 			flagDestRef:           "main",
 			flagSourceRef:         "ldap/feature",
 			flagDetectChanges:     true,
+			destEntrypoints: []*terraform.TerraformEntrypoint{
+				{Path: "testdata/backends/project1", BackendFile: ""},
+				{Path: "testdata/backends/project2", BackendFile: ""},
+				{Path: "testdata/backends/project3", BackendFile: ""},
+			},
+			sourceEntrypoints: []*terraform.TerraformEntrypoint{
+				{Path: "testdata/backends/project1", BackendFile: ""},
+				{Path: "testdata/backends/project2", BackendFile: ""},
+			},
 			gitClient: &git.MockGitClient{
 				DiffResp: []string{
 					path.Join(cwd, "testdata/backends/project1"),
 					path.Join(cwd, "testdata/backends/project2"),
 				},
 			},
-			expStdout: "[\"testdata/backends/project1\",\"testdata/backends/project2\"]",
+			expStdout: `{"entrypoints":["testdata/backends/project1","testdata/backends/project2","testdata/backends/project3"],"changed":["testdata/backends/project1","testdata/backends/project2"],"removed":["testdata/backends/project3"]}`,
 		},
 		{
 			name:                  "invalid_format",
@@ -103,6 +193,14 @@ func TestEntrypointsProcess(t *testing.T) {
 			flagDestRef:           "main",
 			flagSourceRef:         "ldap/feature",
 			flagDetectChanges:     true,
+			destEntrypoints: []*terraform.TerraformEntrypoint{
+				{Path: "testdata/backends/project1", BackendFile: ""},
+				{Path: "testdata/backends/project2", BackendFile: ""},
+			},
+			sourceEntrypoints: []*terraform.TerraformEntrypoint{
+				{Path: "testdata/backends/project1", BackendFile: ""},
+				{Path: "testdata/backends/project2", BackendFile: ""},
+			},
 			gitClient: &git.MockGitClient{
 				DiffResp: []string{
 					path.Join(cwd, "testdata/backends/project1"),
@@ -122,8 +220,16 @@ func TestEntrypointsProcess(t *testing.T) {
 			flagDestRef:           "main",
 			flagSourceRef:         "ldap/feature",
 			flagDetectChanges:     false,
-			gitClient:             &git.MockGitClient{},
-			expStdout:             "testdata/backends/project1\ntestdata/backends/project2",
+			destEntrypoints: []*terraform.TerraformEntrypoint{
+				{Path: "testdata/backends/project1", BackendFile: ""},
+				{Path: "testdata/backends/project2", BackendFile: ""},
+			},
+			sourceEntrypoints: []*terraform.TerraformEntrypoint{
+				{Path: "testdata/backends/project1", BackendFile: ""},
+				{Path: "testdata/backends/project2", BackendFile: ""},
+			},
+			gitClient: &git.MockGitClient{},
+			expStdout: "testdata/backends/project1\ntestdata/backends/project2",
 		},
 		{
 			name:                  "errors",
@@ -136,6 +242,14 @@ func TestEntrypointsProcess(t *testing.T) {
 			flagDestRef:           "main",
 			flagSourceRef:         "ldap/feature",
 			flagDetectChanges:     true,
+			destEntrypoints: []*terraform.TerraformEntrypoint{
+				{Path: "testdata/backends/project1", BackendFile: ""},
+				{Path: "testdata/backends/project2", BackendFile: ""},
+			},
+			sourceEntrypoints: []*terraform.TerraformEntrypoint{
+				{Path: "testdata/backends/project1", BackendFile: ""},
+				{Path: "testdata/backends/project2", BackendFile: ""},
+			},
 			gitClient: &git.MockGitClient{
 				DiffErr: fmt.Errorf("failed to run git diff"),
 			},
@@ -162,16 +276,21 @@ func TestEntrypointsProcess(t *testing.T) {
 
 			_, stdout, stderr := c.Pipe()
 
-			err := c.Process(ctx)
+			err := c.Process(ctx, &Params{
+				destEntrypoints:   tc.destEntrypoints,
+				sourceEntrypoints: tc.sourceEntrypoints,
+			})
 			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
 				t.Errorf(diff)
 			}
 
-			if got, want := strings.TrimSpace(stdout.String()), strings.TrimSpace(tc.expStdout); !strings.Contains(got, want) {
-				t.Errorf("expected stdout\n\n%s\n\nto contain\n\n%s\n\n", got, want)
+			t.Log("STDOUT", stdout.String())
+
+			if got, want := strings.TrimSpace(stdout.String()), strings.TrimSpace(tc.expStdout); !(got == want) {
+				t.Errorf("expected stdout\n\n%s\n\nto equal\n\n%s\n\n", got, want)
 			}
-			if got, want := strings.TrimSpace(stderr.String()), strings.TrimSpace(tc.expStderr); !strings.Contains(got, want) {
-				t.Errorf("expected stderr\n\n%s\n\nto contain\n\n%s\n\n", got, want)
+			if got, want := strings.TrimSpace(stderr.String()), strings.TrimSpace(tc.expStderr); !(got == want) {
+				t.Errorf("expected stderr\n\n%s\n\nto equal\n\n%s\n\n", got, want)
 			}
 		})
 	}
