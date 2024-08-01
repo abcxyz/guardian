@@ -44,6 +44,7 @@ type MockGitHubClient struct {
 	ListPullRequestsForCommitErr error
 	RepoPermissionLevelErr       error
 	RepoPermissionLevel          string
+	ListJobsForWorkflowRunErr    error
 }
 
 func (m *MockGitHubClient) ListRepositories(ctx context.Context, owner string, opts *github.RepositoryListByOrgOptions) ([]*Repository, error) {
@@ -200,4 +201,23 @@ func (m *MockGitHubClient) RepoUserPermissionLevel(ctx context.Context, owner, r
 	}
 
 	return m.RepoPermissionLevel, nil
+}
+
+func (m *MockGitHubClient) ListJobsForWorkflowRun(ctx context.Context, owner, repo string, runID int64, opts *github.ListWorkflowJobsOptions) (*JobsResponse, error) {
+	m.reqMu.Lock()
+	defer m.reqMu.Unlock()
+	m.Reqs = append(m.Reqs, &Request{
+		Name:   "ListJobsForWorkflowRun",
+		Params: []any{owner, repo, runID},
+	})
+
+	if m.ListJobsForWorkflowRunErr != nil {
+		return nil, m.ListJobsForWorkflowRunErr
+	}
+
+	return &JobsResponse{
+		Jobs: []*Job{
+			{ID: 1, Name: "example-job"},
+		},
+	}, nil
 }

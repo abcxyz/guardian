@@ -81,6 +81,16 @@ type PullRequestResponse struct {
 	Pagination   *Pagination
 }
 
+type Job struct {
+	ID   int64
+	Name string
+}
+
+type JobsResponse struct {
+	Jobs       []*Job
+	Pagination *Pagination
+}
+
 const (
 	Closed = "closed"
 	Open   = "open"
@@ -119,6 +129,9 @@ type GitHub interface {
 	// RepoUserPermissionLevel gets the repository permission level for a user. The possible permissions values
 	// are admin, write, read, none.
 	RepoUserPermissionLevel(ctx context.Context, owner, repo, user string) (string, error)
+
+	// ListJobsForWorkflowRun lists the jobs for a specific workflow run attempt.
+	ListJobsForWorkflowRun(ctx context.Context, owner, repo string, runID int64, opts *github.ListWorkflowJobsOptions) (*JobsResponse, error)
 }
 
 var _ GitHub = (*GitHubClient)(nil)
@@ -474,6 +487,37 @@ func (g *GitHubClient) RepoUserPermissionLevel(ctx context.Context, owner, repo,
 	}
 
 	return permissionLevel, nil
+}
+
+func (g *GitHubClient) ListJobsForWorkflowRun(ctx context.Context, owner, repo string, runID int64, opts *github.ListWorkflowJobsOptions) (*JobsResponse, error) {
+	var jobs []*Job
+	var pagination *Pagination
+
+	if err := g.withRetries(ctx, func(ctx context.Context) error {
+		ghJobs, resp, err := g.client.Actions.ListWorkflowJobs(ctx, owner, repo, runID, opts)
+		if err != nil {
+			if resp != nil {
+				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
+					return retry.RetryableError(err)
+				}
+			}
+			return fmt.Errorf("failed to list jobs for workflow run attempt: %w", err)
+		}
+
+		for _, workflowJob := range ghJobs.Jobs {
+			jobs = append(jobs, &Job{ID: workflowJob.GetID(), Name: workflowJob.GetName()})
+		}
+
+		if resp.NextPage != 0 {
+			pagination = &Pagination{NextPage: resp.NextPage}
+		}
+
+		return nil
+	}); err != nil {
+		return nil, fmt.Errorf("failed to list jobs for workflow run attempt: %w", err)
+	}
+
+	return &JobsResponse{Jobs: jobs, Pagination: pagination}, nil
 }
 
 func (g *GitHubClient) withRetries(ctx context.Context, retryFunc retry.RetryFunc) error {

@@ -119,6 +119,7 @@ jobs:
           COMMIT_SHA: '${{ github.sha }}'
           # used to create comments on pull requests (access to only this repo)
           REPO_TOKEN: '${{ github.token }}'
+          JOB_NAME: '${{ github.job }} (${{ matrix.working_directory }})'
         run: |-
           guardian apply \
           -dir="${DIRECTORY}" \
@@ -126,4 +127,5 @@ jobs:
           -github-repo="${GITHUB_REPO_NAME}" \
           -github-token="${REPO_TOKEN}" \
           -commit-sha="${COMMIT_SHA}" \
-          -bucket-name="${GUARDIAN_BUCKET_NAME}"
+          -bucket-name="${GUARDIAN_BUCKET_NAME}" \
+          -job-name="${JOB_NAME}"
