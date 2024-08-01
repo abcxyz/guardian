@@ -22,6 +22,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/git"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/testutil"
@@ -48,7 +49,7 @@ func TestEntrypointsProcess(t *testing.T) {
 		flagSourceRef         string
 		flagDetectChanges     bool
 		flagMaxDepth          int
-		flagFormat            string
+		flagBodyContents      string
 		gitClient             *git.MockGitClient
 		err                   string
 		expStdout             string
@@ -57,7 +58,6 @@ func TestEntrypointsProcess(t *testing.T) {
 		{
 			name:                  "success",
 			directory:             "testdata",
-			flagFormat:            "text",
 			flagIsGitHubActions:   true,
 			flagGitHubOwner:       "owner",
 			flagGitHubRepo:        "repo",
@@ -71,12 +71,31 @@ func TestEntrypointsProcess(t *testing.T) {
 					path.Join(cwd, "testdata/backends/project2"),
 				},
 			},
-			expStdout: "testdata/backends/project1\ntestdata/backends/project2",
+			expStdout: `{"entrypoints":["testdata/backends/project1","testdata/backends/project2"],"modified":["testdata/backends/project1","testdata/backends/project2"],"destroy":[]}`,
+		},
+		{
+			name:                  "success_destroy",
+			directory:             "testdata",
+			flagIsGitHubActions:   true,
+			flagGitHubOwner:       "owner",
+			flagGitHubRepo:        "repo",
+			flagPullRequestNumber: 1,
+			flagDestRef:           "main",
+			flagSourceRef:         "ldap/feature",
+			flagDetectChanges:     true,
+			flagBodyContents:      "GUARDIAN_DESTROY=testdata/backends/project3",
+			gitClient: &git.MockGitClient{
+				DiffResp: []string{
+					path.Join(cwd, "testdata/backends/project1"),
+					path.Join(cwd, "testdata/backends/project2"),
+					path.Join(cwd, "testdata/backends/project3"),
+				},
+			},
+			expStdout: `{"entrypoints":["testdata/backends/project1","testdata/backends/project2","testdata/backends/project3"],"modified":["testdata/backends/project1","testdata/backends/project2"],"destroy":["testdata/backends/project3"]}`,
 		},
 		{
 			name:                  "returns_json",
 			directory:             "testdata",
-			flagFormat:            "json",
 			flagIsGitHubActions:   true,
 			flagGitHubOwner:       "owner",
 			flagGitHubRepo:        "repo",
@@ -90,31 +109,11 @@ func TestEntrypointsProcess(t *testing.T) {
 					path.Join(cwd, "testdata/backends/project2"),
 				},
 			},
-			expStdout: "[\"testdata/backends/project1\",\"testdata/backends/project2\"]",
-		},
-		{
-			name:                  "invalid_format",
-			directory:             "testdata",
-			flagFormat:            "yaml",
-			flagIsGitHubActions:   true,
-			flagGitHubOwner:       "owner",
-			flagGitHubRepo:        "repo",
-			flagPullRequestNumber: 3,
-			flagDestRef:           "main",
-			flagSourceRef:         "ldap/feature",
-			flagDetectChanges:     true,
-			gitClient: &git.MockGitClient{
-				DiffResp: []string{
-					path.Join(cwd, "testdata/backends/project1"),
-					path.Join(cwd, "testdata/backends/project2"),
-				},
-			},
-			err: "invalid format flag: yaml",
+			expStdout: `{"entrypoints":["testdata/backends/project1","testdata/backends/project2"],"modified":["testdata/backends/project1","testdata/backends/project2"],"destroy":[]}`,
 		},
 		{
 			name:                  "skips_detect_changes",
 			directory:             "testdata",
-			flagFormat:            "text",
 			flagIsGitHubActions:   true,
 			flagGitHubOwner:       "owner",
 			flagGitHubRepo:        "repo",
@@ -123,12 +122,11 @@ func TestEntrypointsProcess(t *testing.T) {
 			flagSourceRef:         "ldap/feature",
 			flagDetectChanges:     false,
 			gitClient:             &git.MockGitClient{},
-			expStdout:             "testdata/backends/project1\ntestdata/backends/project2",
+			expStdout:             `{"entrypoints":["testdata/backends/project1","testdata/backends/project2"],"modified":["testdata/backends/project1","testdata/backends/project2"],"destroy":[]}`,
 		},
 		{
 			name:                  "errors",
 			directory:             "testdata",
-			flagFormat:            "text",
 			flagIsGitHubActions:   true,
 			flagGitHubOwner:       "owner",
 			flagGitHubRepo:        "repo",
@@ -152,7 +150,10 @@ func TestEntrypointsProcess(t *testing.T) {
 			c := &EntrypointsCommand{
 				directory: tc.directory,
 
-				flagFormat:        tc.flagFormat,
+				CommonFlags: flags.CommonFlags{
+					FlagBodyContents: tc.flagBodyContents,
+				},
+
 				flagDestRef:       tc.flagDestRef,
 				flagSourceRef:     tc.flagSourceRef,
 				flagDetectChanges: tc.flagDetectChanges,
@@ -187,13 +188,8 @@ func TestAfterParse(t *testing.T) {
 	}{
 		{
 			name: "validate_refs",
-			args: []string{"-format=yaml", "-detect-changes", "-max-depth=0"},
+			args: []string{"-detect-changes", "-max-depth=0"},
 			err:  "invalid flag: source-ref and dest-ref are required to detect changes, to ignore changes set the detect-changes flag",
-		},
-		{
-			name: "validate_format",
-			args: []string{"-format=yaml", "-source-ref=a", "-dest-ref=b", "-detect-changes", "-max-depth=0"},
-			err:  "invalid flag: format yaml (supported formats are: [json text])",
 		},
 	}
 
