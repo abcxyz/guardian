@@ -91,7 +91,7 @@ func TestEntrypointsProcess(t *testing.T) {
 					path.Join(cwd, "testdata/backends/project3"),
 				},
 			},
-			expStdout: `{"entrypoints":["testdata/backends/project1","testdata/backends/project2","testdata/backends/project3"],"modified":["testdata/backends/project1","testdata/backends/project2"],"destroy":["testdata/backends/project3"]}`,
+			expStdout: `{"entrypoints":["testdata/backends/project1","testdata/backends/project2"],"modified":["testdata/backends/project1","testdata/backends/project2"],"destroy":["testdata/backends/project3"]}`,
 		},
 		{
 			name:                  "returns_json",
