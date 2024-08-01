@@ -131,7 +131,7 @@ type GitHub interface {
 	RepoUserPermissionLevel(ctx context.Context, owner, repo, user string) (string, error)
 
 	// ListJobsForWorkflowRun lists the jobs for a specific workflow run attempt.
-	ListJobsForWorkflowRun(ctx context.Context, owner, repo string, runId int64, opts *github.ListWorkflowJobsOptions) (*JobsResponse, error)
+	ListJobsForWorkflowRun(ctx context.Context, owner, repo string, runID int64, opts *github.ListWorkflowJobsOptions) (*JobsResponse, error)
 }
 
 var _ GitHub = (*GitHubClient)(nil)
@@ -489,12 +489,12 @@ func (g *GitHubClient) RepoUserPermissionLevel(ctx context.Context, owner, repo,
 	return permissionLevel, nil
 }
 
-func (g *GitHubClient) ListJobsForWorkflowRun(ctx context.Context, owner, repo string, runId int64, opts *github.ListWorkflowJobsOptions) (*JobsResponse, error) {
+func (g *GitHubClient) ListJobsForWorkflowRun(ctx context.Context, owner, repo string, runID int64, opts *github.ListWorkflowJobsOptions) (*JobsResponse, error) {
 	var jobs []*Job
 	var pagination *Pagination
 
 	if err := g.withRetries(ctx, func(ctx context.Context) error {
-		ghJobs, resp, err := g.client.Actions.ListWorkflowJobs(ctx, owner, repo, runId, opts)
+		ghJobs, resp, err := g.client.Actions.ListWorkflowJobs(ctx, owner, repo, runID, opts)
 		if err != nil {
 			if resp != nil {
 				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {

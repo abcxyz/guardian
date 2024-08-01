@@ -175,7 +175,7 @@ jobs:
           DIRECTORY: '${{ matrix.working_directory }}'
           # used to create comments on pull requests (access to only this repo)
           REPO_TOKEN: '${{ github.token }}'
-          JOB_NAME: '${ github.job } (${{ matrix.working_directory }})'
+          JOB_NAME: '${{ github.job }} (${{ matrix.working_directory }})'
         run: |-
           guardian plan \
           -github-owner="${GITHUB_OWNER_NAME}" \
@@ -281,7 +281,7 @@ jobs:
           COMMIT_SHA: '${{ github.sha }}'
           # used to create comments on pull requests (access to only this repo)
           REPO_TOKEN: '${{ github.token }}'
-          JOB_NAME: '${ github.job } (${{ matrix.working_directory }})'
+          JOB_NAME: '${{ github.job }} (${{ matrix.working_directory }})'
         run: |-
           guardian apply \
           -github-owner="${GITHUB_OWNER_NAME}" \
