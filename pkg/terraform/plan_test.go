@@ -17,9 +17,8 @@ package terraform
 import (
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
-
 	"github.com/abcxyz/pkg/pointer"
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestPlanArgsFromOptions(t *testing.T) {
@@ -34,6 +33,7 @@ func TestPlanArgsFromOptions(t *testing.T) {
 			name: "truthy",
 			opts: &PlanOptions{
 				CompactWarnings:  pointer.To(true),
+				Destroy:          pointer.To(true),
 				DetailedExitcode: pointer.To(true),
 				Lock:             pointer.To(true),
 				LockTimeout:      pointer.To("10m"),
@@ -43,6 +43,7 @@ func TestPlanArgsFromOptions(t *testing.T) {
 			},
 			exp: []string{
 				"-compact-warnings",
+				"-destroy",
 				"-detailed-exitcode",
 				"-no-color",
 				"-input=true",
@@ -55,6 +56,7 @@ func TestPlanArgsFromOptions(t *testing.T) {
 			name: "falsey",
 			opts: &PlanOptions{
 				CompactWarnings:  pointer.To(false),
+				Destroy:          pointer.To(false),
 				DetailedExitcode: pointer.To(false),
 				Lock:             pointer.To(false),
 				LockTimeout:      pointer.To("10m"),

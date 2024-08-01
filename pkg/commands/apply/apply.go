@@ -30,6 +30,7 @@ import (
 	"github.com/sethvargo/go-githubactions"
 
 	"github.com/abcxyz/guardian/pkg/commands/actions"
+	"github.com/abcxyz/guardian/pkg/commands/plan"
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/github"
 	"github.com/abcxyz/guardian/pkg/storage"
@@ -43,6 +44,7 @@ import (
 const (
 	ownerReadWritePerms = 0o600
 	CommentPrefix       = "**`🔱 Guardian 🔱 APPLY`** -"
+	DestroyCommentText  = "\n**`🟧 DESTROY`**"
 )
 
 var _ cli.Command = (*ApplyCommand)(nil)
@@ -64,6 +66,7 @@ type ApplyCommand struct {
 	planFilePath              string
 	gitHubLogURL              string
 	computedPullRequestNumber int
+	isDestroy                 bool
 
 	flags.RetryFlags
 	flags.CommonFlags
@@ -359,12 +362,17 @@ func (c *ApplyCommand) createStartCommentForActions(ctx context.Context) (*githu
 
 	c.Outf("Creating start comment")
 
+	destroyText := ""
+	if c.isDestroy {
+		destroyText = DestroyCommentText
+	}
+
 	startComment, err := c.gitHubClient.CreateIssueComment(
 		ctx,
 		c.GitHubFlags.FlagGitHubOwner,
 		c.GitHubFlags.FlagGitHubRepo,
 		c.computedPullRequestNumber,
-		fmt.Sprintf("%s 🟨 Running for dir: `%s` %s", CommentPrefix, c.childPath, c.gitHubLogURL),
+		fmt.Sprintf("%s 🟨 Running for dir: `%s` %s%s", CommentPrefix, c.childPath, c.gitHubLogURL, destroyText),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create start comment: %w", err)
@@ -383,10 +391,15 @@ func (c *ApplyCommand) updateResultCommentForActions(ctx context.Context, startC
 
 	c.Outf("Updating result comment")
 
+	destroyText := ""
+	if c.isDestroy {
+		destroyText = DestroyCommentText
+	}
+
 	if resulErr != nil {
 		var comment strings.Builder
 
-		fmt.Fprintf(&comment, "%s 🟥 Failed for dir: `%s` %s\n\n<details>\n<summary>Error</summary>\n\n```\n\n%s\n```\n</details>", CommentPrefix, c.childPath, c.gitHubLogURL, resulErr)
+		fmt.Fprintf(&comment, "%s 🟥 Failed for dir: `%s` %s%s\n\n<details>\n<summary>Error</summary>\n\n```\n\n%s\n```\n</details>", CommentPrefix, c.childPath, c.gitHubLogURL, destroyText, resulErr)
 		if result.commentDetails != "" {
 			fmt.Fprintf(&comment, "\n\n<details>\n<summary>Details</summary>\n\n```diff\n\n%s\n```\n</details>", result.commentDetails)
 		}
@@ -406,7 +419,7 @@ func (c *ApplyCommand) updateResultCommentForActions(ctx context.Context, startC
 
 	var comment strings.Builder
 
-	fmt.Fprintf(&comment, "%s 🟩 Successful for dir: `%s` %s", CommentPrefix, c.childPath, c.gitHubLogURL)
+	fmt.Fprintf(&comment, "%s 🟩 Successful for dir: `%s` %s%s", CommentPrefix, c.childPath, c.gitHubLogURL, destroyText)
 	if result.commentDetails != "" {
 		fmt.Fprintf(&comment, "\n\n<details>\n<summary>Details</summary>\n\n```diff\n\n%s\n```\n</details>", result.commentDetails)
 	}
@@ -493,11 +506,16 @@ func (c *ApplyCommand) downloadGuardianPlan(ctx context.Context, path string) (p
 		return nil, "", fmt.Errorf("failed to get plan object metadata: %w", err)
 	}
 
-	exitCode, ok := metadata["plan_exit_code"]
+	exitCode, ok := metadata[plan.MetaKeyExitCode]
 	if !ok {
 		return nil, "", fmt.Errorf("failed to determine plan exit code: %w", err)
 	}
 	planExitCode = exitCode
+
+	planOperation, ok := metadata[plan.MetaKeyOperation]
+	if ok && strings.EqualFold(planOperation, plan.OperationDestroy) {
+		c.isDestroy = true
+	}
 
 	rc, err := c.storageClient.DownloadObject(ctx, c.flagBucketName, path)
 	if err != nil {

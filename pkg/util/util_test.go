@@ -21,6 +21,55 @@ import (
 	"github.com/abcxyz/pkg/testutil"
 )
 
+func TestSliceContainsOnly(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name  string
+		slice []string
+		value string
+		exp   bool
+	}{
+		{
+			name:  "true",
+			slice: []string{"success"},
+			value: "success",
+			exp:   true,
+		},
+		{
+			name:  "empty",
+			slice: []string{},
+			value: "success",
+			exp:   false,
+		},
+		{
+			name:  "multi_true",
+			slice: []string{"success", "success"},
+			value: "failure",
+			exp:   false,
+		},
+		{
+			name:  "multi_false",
+			slice: []string{"success", "skipped"},
+			value: "failure",
+			exp:   false,
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := SliceContainsOnly(tc.slice, tc.value)
+			if got, want := got, tc.exp; got != want {
+				t.Errorf("expected %t to be %t", got, want)
+			}
+		})
+	}
+}
+
 func TestChildPath(t *testing.T) {
 	t.Parallel()
 

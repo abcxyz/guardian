@@ -96,7 +96,7 @@ func TestPlanStatusCommentsProcess(t *testing.T) {
 		flagGitHubRepo        string
 		flagPullRequestNumber int
 		flagInitResult        string
-		flagPlanResult        string
+		flagPlanResult        []string
 		gitHubClient          *github.MockGitHubClient
 		err                   string
 		expGitHubClientReqs   []*github.Request
@@ -110,7 +110,7 @@ func TestPlanStatusCommentsProcess(t *testing.T) {
 			flagGitHubRepo:        "repo",
 			flagPullRequestNumber: 1,
 			flagInitResult:        "success",
-			flagPlanResult:        "success",
+			flagPlanResult:        []string{"success"},
 			gitHubClient:          &github.MockGitHubClient{},
 			expGitHubClientReqs: []*github.Request{
 				{
@@ -123,13 +123,26 @@ func TestPlanStatusCommentsProcess(t *testing.T) {
 			expStderr: "",
 		},
 		{
+			name:                  "multi_failure",
+			flagIsGitHubActions:   true,
+			flagGitHubOwner:       "owner",
+			flagGitHubRepo:        "repo",
+			flagPullRequestNumber: 1,
+			flagInitResult:        "success",
+			flagPlanResult:        []string{"success", "failure"},
+			gitHubClient:          &github.MockGitHubClient{},
+			err:                   "init or plan has one or more failures",
+			expStdout:             "",
+			expStderr:             "",
+		},
+		{
 			name:                  "failure",
 			flagIsGitHubActions:   true,
 			flagGitHubOwner:       "owner",
 			flagGitHubRepo:        "repo",
 			flagPullRequestNumber: 2,
 			flagInitResult:        "failure",
-			flagPlanResult:        "failure",
+			flagPlanResult:        []string{"success"},
 			gitHubClient:          &github.MockGitHubClient{},
 			expGitHubClientReqs:   nil,
 			err:                   "init or plan has one or more failures",
@@ -143,7 +156,7 @@ func TestPlanStatusCommentsProcess(t *testing.T) {
 			flagGitHubRepo:        "repo",
 			flagPullRequestNumber: 3,
 			flagInitResult:        "cancelled",
-			flagPlanResult:        "skipped",
+			flagPlanResult:        []string{"cancelled"},
 			gitHubClient:          &github.MockGitHubClient{},
 			expGitHubClientReqs: []*github.Request{
 				{
@@ -151,7 +164,7 @@ func TestPlanStatusCommentsProcess(t *testing.T) {
 					Params: []any{"owner", "repo", 3, "**`🔱 Guardian 🔱 PLAN`** - 🟨 Unable to determine plan status. [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
 				},
 			},
-			err:       "unable to determine plan status, init and/or plan was skipped or cancelled",
+			err:       "unable to determine plan status",
 			expStdout: "",
 			expStderr: "",
 		},
@@ -162,7 +175,7 @@ func TestPlanStatusCommentsProcess(t *testing.T) {
 			flagGitHubRepo:        "repo",
 			flagPullRequestNumber: 4,
 			flagInitResult:        "success",
-			flagPlanResult:        "success",
+			flagPlanResult:        []string{"success"},
 			gitHubClient: &github.MockGitHubClient{
 				CreateIssueCommentsErr: fmt.Errorf("error creating comment"),
 			},

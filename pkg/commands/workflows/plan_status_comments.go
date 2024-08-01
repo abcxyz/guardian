@@ -19,13 +19,14 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"slices"
 
 	"github.com/sethvargo/go-githubactions"
-	"golang.org/x/exp/slices"
 
 	"github.com/abcxyz/guardian/pkg/commands/plan"
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/github"
+	"github.com/abcxyz/guardian/pkg/util"
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
 )
@@ -44,7 +45,7 @@ type PlanStatusCommentCommand struct {
 
 	flagPullRequestNumber int
 	flagInitResult        string
-	flagPlanResult        string
+	flagPlanResult        []string
 
 	actions      *githubactions.Action
 	gitHubClient github.GitHub
@@ -84,7 +85,7 @@ func (c *PlanStatusCommentCommand) Flags() *cli.FlagSet {
 		Usage:   "The Guardian init job result status.",
 	})
 
-	f.StringVar(&cli.StringVar{
+	f.StringSliceVar(&cli.StringSliceVar{
 		Name:    "plan-result",
 		Target:  &c.flagPlanResult,
 		Example: "failure",
@@ -108,7 +109,7 @@ func (c *PlanStatusCommentCommand) Flags() *cli.FlagSet {
 			merr = errors.Join(merr, fmt.Errorf("missing flag: init-result is required"))
 		}
 
-		if c.flagPlanResult == "" {
+		if len(c.flagPlanResult) == 0 {
 			merr = errors.Join(merr, fmt.Errorf("missing flag: plan-result is required"))
 		}
 
@@ -179,7 +180,7 @@ func (c *PlanStatusCommentCommand) Process(ctx context.Context) error {
 
 	// this case improves user experience, when the planning job does not have a plan diff
 	// there are no comments, this informs the user that the job ran successfully
-	if c.flagInitResult == "success" && c.flagPlanResult == "success" {
+	if c.flagInitResult == "success" && util.SliceContainsOnly(c.flagPlanResult, "success") {
 		if _, err := c.gitHubClient.CreateIssueComment(
 			ctx,
 			c.GitHubFlags.FlagGitHubOwner,
@@ -195,14 +196,14 @@ func (c *PlanStatusCommentCommand) Process(ctx context.Context) error {
 
 	// this case does not require a comment because the planning job should
 	// have commented that there was a failure, for which directory
-	if c.flagInitResult == "failure" || c.flagPlanResult == "failure" {
+	if c.flagInitResult == "failure" || slices.Contains(c.flagPlanResult, "failure") {
 		return fmt.Errorf("init or plan has one or more failures")
 	}
 
 	// this case improves user experience, when no Terraform changes were submitted
 	// the plan job is skipped, this informs the user that the job ran successfully
 	// but no changes are needed
-	if c.flagInitResult == "success" && c.flagPlanResult == "skipped" {
+	if c.flagInitResult == "success" && util.SliceContainsOnly(c.flagPlanResult, "skipped") {
 		if _, err := c.gitHubClient.CreateIssueComment(
 			ctx,
 			c.GitHubFlags.FlagGitHubOwner,
@@ -216,20 +217,16 @@ func (c *PlanStatusCommentCommand) Process(ctx context.Context) error {
 		return nil
 	}
 
-	indeterminateStatuses := []string{"skipped", "cancelled"}
-	if slices.Contains(indeterminateStatuses, c.flagInitResult) || slices.Contains(indeterminateStatuses, c.flagPlanResult) {
-		if _, err := c.gitHubClient.CreateIssueComment(
-			ctx,
-			c.GitHubFlags.FlagGitHubOwner,
-			c.GitHubFlags.FlagGitHubRepo,
-			c.flagPullRequestNumber,
-			fmt.Sprintf("%s 🟨 Unable to determine plan status. %s", plan.CommentPrefix, c.gitHubLogURL),
-		); err != nil {
-			return fmt.Errorf("failed to create plan status comment: %w", err)
-		}
-
-		return fmt.Errorf("unable to determine plan status, init and/or plan was skipped or cancelled")
+	// if we got this far, something went wrong or a new status was created
+	if _, err := c.gitHubClient.CreateIssueComment(
+		ctx,
+		c.GitHubFlags.FlagGitHubOwner,
+		c.GitHubFlags.FlagGitHubRepo,
+		c.flagPullRequestNumber,
+		fmt.Sprintf("%s 🟨 Unable to determine plan status. %s", plan.CommentPrefix, c.gitHubLogURL),
+	); err != nil {
+		return fmt.Errorf("failed to create plan status comment: %w", err)
 	}
 
-	return nil
+	return fmt.Errorf("unable to determine plan status")
 }

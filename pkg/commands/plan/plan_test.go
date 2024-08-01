@@ -199,11 +199,11 @@ func TestPlan_Process(t *testing.T) {
 				},
 				{
 					Name:   "CreateIssueComment",
-					Params: []any{"owner", "repo", int(1), "**`🔱 Guardian 🔱 PLAN`** - 🟨 Running for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/job/1)]"},
+					Params: []any{"owner", "repo", int(1), CommentPrefix + " 🟨 Running for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/job/1)]"},
 				},
 				{
 					Name:   "UpdateIssueComment",
-					Params: []any{"owner", "repo", int64(1), "**`🔱 Guardian 🔱 PLAN`** - 🟩 Successful for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/job/1)]\n\n<details>\n<summary>Details</summary>\n\n```diff\n\nterraform show success with diff\n```\n</details>"},
+					Params: []any{"owner", "repo", int64(1), CommentPrefix + " 🟩 Successful for dir: `testdata`  [[logs](https://github.com/owner/repo/actions/runs/100/job/1)]\n\n<details>\n<summary>Details</summary>\n\n```diff\n\nterraform show success with diff\n```\n</details>"},
 				},
 			},
 			expStorageClientReqs: []*storage.Request{
@@ -276,11 +276,11 @@ func TestPlan_Process(t *testing.T) {
 				},
 				{
 					Name:   "CreateIssueComment",
-					Params: []any{"owner", "repo", int(2), "**`🔱 Guardian 🔱 PLAN`** - 🟨 Running for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
+					Params: []any{"owner", "repo", int(2), CommentPrefix + " 🟨 Running for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
 				},
 				{
 					Name:   "UpdateIssueComment",
-					Params: []any{"owner", "repo", int64(1), "**`🔱 Guardian 🔱 PLAN`** - 🟦 No changes for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
+					Params: []any{"owner", "repo", int64(1), CommentPrefix + " 🟦 No changes for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
 				},
 			},
 			expStorageClientReqs: []*storage.Request{
@@ -341,7 +341,7 @@ func TestPlan_Process(t *testing.T) {
 				},
 				{
 					Name:   "CreateIssueComment",
-					Params: []any{"owner", "repo", int(3), "**`🔱 Guardian 🔱 PLAN`** - 🟨 Running for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/job/1)]"},
+					Params: []any{"owner", "repo", int(3), CommentPrefix + " 🟨 Running for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/job/1)]"},
 				},
 				{
 					Name: "UpdateIssueComment",
@@ -349,7 +349,7 @@ func TestPlan_Process(t *testing.T) {
 						"owner",
 						"repo",
 						int64(1),
-						"**`🔱 Guardian 🔱 PLAN`** - 🟥 Failed for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/job/1)]\n" +
+						CommentPrefix + " 🟥 Failed for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/job/1)]\n" +
 							"\n" +
 							"<details>\n" +
 							"<summary>Error</summary>\n" +
@@ -457,7 +457,7 @@ func TestGetMessageBody(t *testing.T) {
 				commentDetails: "This comment is within the limits",
 			},
 			resultErr: nil,
-			want:      "**`🔱 Guardian 🔱 PLAN`** - 🟩 Successful for dir: `foo` http://github.com/logs\n\n<details>\n<summary>Details</summary>\n\n```diff\n\nThis comment is within the limits\n```\n</details>",
+			want:      CommentPrefix + " 🟩 Successful for dir: `foo` http://github.com/logs\n\n<details>\n<summary>Details</summary>\n\n```diff\n\nThis comment is within the limits\n```\n</details>",
 		},
 		{
 			name: "result_error",
@@ -470,7 +470,7 @@ func TestGetMessageBody(t *testing.T) {
 				commentDetails: "This is a detailed error message",
 			},
 			resultErr: fmt.Errorf("the result had an error"),
-			want:      "**`🔱 Guardian 🔱 PLAN`** - 🟥 Failed for dir: `foo` http://github.com/logs\n\n<details>\n<summary>Error</summary>\n\n```\n\nthe result had an error\n```\n</details>\n\n<details>\n<summary>Details</summary>\n\n```diff\n\nThis is a detailed error message\n```\n</details>",
+			want:      CommentPrefix + " 🟥 Failed for dir: `foo` http://github.com/logs\n\n<details>\n<summary>Error</summary>\n\n```\n\nthe result had an error\n```\n</details>\n\n<details>\n<summary>Details</summary>\n\n```diff\n\nThis is a detailed error message\n```\n</details>",
 		},
 		{
 			name: "result_no_changes",
@@ -483,7 +483,50 @@ func TestGetMessageBody(t *testing.T) {
 				commentDetails: "",
 			},
 			resultErr: nil,
-			want:      "**`🔱 Guardian 🔱 PLAN`** - 🟦 No changes for dir: `foo` http://github.com/logs",
+			want:      CommentPrefix + " 🟦 No changes for dir: `foo` http://github.com/logs",
+		},
+
+		{
+			name: "result_success_destroy",
+			cmd: &PlanCommand{
+				flagDestroy:  true,
+				childPath:    "foo",
+				gitHubLogURL: "http://github.com/logs",
+			},
+			result: &RunResult{
+				hasChanges:     true,
+				commentDetails: "This comment is within the limits",
+			},
+			resultErr: nil,
+			want:      CommentPrefix + " 🟩 Successful for dir: `foo` http://github.com/logs" + DestroyCommentText + "\n\n<details>\n<summary>Details</summary>\n\n```diff\n\nThis comment is within the limits\n```\n</details>",
+		},
+		{
+			name: "result_error_destroy",
+			cmd: &PlanCommand{
+				flagDestroy:  true,
+				childPath:    "foo",
+				gitHubLogURL: "http://github.com/logs",
+			},
+			result: &RunResult{
+				hasChanges:     true,
+				commentDetails: "This is a detailed error message",
+			},
+			resultErr: fmt.Errorf("the result had an error"),
+			want:      CommentPrefix + " 🟥 Failed for dir: `foo` http://github.com/logs" + DestroyCommentText + "\n\n<details>\n<summary>Error</summary>\n\n```\n\nthe result had an error\n```\n</details>\n\n<details>\n<summary>Details</summary>\n\n```diff\n\nThis is a detailed error message\n```\n</details>",
+		},
+		{
+			name: "result_no_changes_destroy",
+			cmd: &PlanCommand{
+				flagDestroy:  true,
+				childPath:    "foo",
+				gitHubLogURL: "http://github.com/logs",
+			},
+			result: &RunResult{
+				hasChanges:     false,
+				commentDetails: "",
+			},
+			resultErr: nil,
+			want:      CommentPrefix + " 🟦 No changes for dir: `foo` http://github.com/logs" + DestroyCommentText,
 		},
 		{
 			name: "result_success_over_limit",
@@ -496,7 +539,7 @@ func TestGetMessageBody(t *testing.T) {
 				commentDetails: bigMessage,
 			},
 			resultErr: nil,
-			want:      fmt.Sprintf("**`🔱 Guardian 🔱 PLAN`** - 🟩 Successful for dir: `foo` http://github.com/logs\n\n<details>\n<summary>Details</summary>\n\n```diff\n\n%s...\n```\n</details>\n\nMessage has been truncated. See workflow logs to view the full message.", bigMessage[:gitHubMaxCommentLength-216]),
+			want:      fmt.Sprintf(CommentPrefix+" 🟩 Successful for dir: `foo` http://github.com/logs\n\n<details>\n<summary>Details</summary>\n\n```diff\n\n%s...\n```\n</details>\n\nMessage has been truncated. See workflow logs to view the full message.", bigMessage[:gitHubMaxCommentLength-216]),
 		},
 	}
 
