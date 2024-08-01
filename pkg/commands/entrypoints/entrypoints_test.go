@@ -22,6 +22,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/git"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/testutil"
@@ -49,6 +50,7 @@ func TestEntrypointsProcess(t *testing.T) {
 		flagDetectChanges     bool
 		flagMaxDepth          int
 		flagFormat            string
+		flagBodyContents      string
 		gitClient             *git.MockGitClient
 		err                   string
 		expStdout             string
@@ -72,6 +74,27 @@ func TestEntrypointsProcess(t *testing.T) {
 				},
 			},
 			expStdout: "testdata/backends/project1\ntestdata/backends/project2",
+		},
+		{
+			name:                  "success_destroy",
+			directory:             "testdata",
+			flagFormat:            "json",
+			flagIsGitHubActions:   true,
+			flagGitHubOwner:       "owner",
+			flagGitHubRepo:        "repo",
+			flagPullRequestNumber: 1,
+			flagDestRef:           "main",
+			flagSourceRef:         "ldap/feature",
+			flagDetectChanges:     true,
+			flagBodyContents:      "GUARDIAN_DESTROY=testdata/backends/project3",
+			gitClient: &git.MockGitClient{
+				DiffResp: []string{
+					path.Join(cwd, "testdata/backends/project1"),
+					path.Join(cwd, "testdata/backends/project2"),
+					path.Join(cwd, "testdata/backends/project3"),
+				},
+			},
+			expStdout: `{"entrypoints":["testdata/backends/project1","testdata/backends/project2"],"modified":["testdata/backends/project1","testdata/backends/project2"],"destroy":["testdata/backends/project3"]}`,
 		},
 		{
 			name:                  "returns_json",
@@ -151,6 +174,10 @@ func TestEntrypointsProcess(t *testing.T) {
 
 			c := &EntrypointsCommand{
 				directory: tc.directory,
+
+				CommonFlags: flags.CommonFlags{
+					FlagBodyContents: tc.flagBodyContents,
+				},
 
 				flagFormat:        tc.flagFormat,
 				flagDestRef:       tc.flagDestRef,
