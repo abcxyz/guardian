@@ -143,6 +143,7 @@ jobs:
           DIRECTORY: '${{ matrix.working_directory }}'
           # used to create comments on pull requests (access to only this repo)
           REPO_TOKEN: '${{ github.token }}'
+          JOB_NAME: '${ github.job } (${{ matrix.working_directory }})'
         run: |-
           guardian plan \
           -dir="${DIRECTORY}" \
@@ -150,7 +151,8 @@ jobs:
           -github-repo="${GITHUB_REPO_NAME}" \
           -github-token="${REPO_TOKEN}" \
           -pull-request-number="${PULL_REQUEST_NUMBER}" \
-          -bucket-name="${GUARDIAN_BUCKET_NAME}"
+          -bucket-name="${GUARDIAN_BUCKET_NAME}" \
+          -job-name="${JOB_NAME}"
 
   plan_success:
     if: '${{ always() }}'

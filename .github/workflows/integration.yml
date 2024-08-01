@@ -175,6 +175,7 @@ jobs:
           DIRECTORY: '${{ matrix.working_directory }}'
           # used to create comments on pull requests (access to only this repo)
           REPO_TOKEN: '${{ github.token }}'
+          JOB_NAME: '${ github.job } (${{ matrix.working_directory }})'
         run: |-
           guardian plan \
           -github-owner="${GITHUB_OWNER_NAME}" \
@@ -182,7 +183,8 @@ jobs:
           -github-token="${REPO_TOKEN}" \
           -pull-request-number="${PULL_REQUEST_NUMBER}" \
           -bucket-name="${GUARDIAN_BUCKET_NAME}" \
-          -dir="${DIRECTORY}"
+          -dir="${DIRECTORY}" \
+          -job-name="${JOB_NAME}"
 
   plan_success:
     needs:
@@ -279,6 +281,7 @@ jobs:
           COMMIT_SHA: '${{ github.sha }}'
           # used to create comments on pull requests (access to only this repo)
           REPO_TOKEN: '${{ github.token }}'
+          JOB_NAME: '${ github.job } (${{ matrix.working_directory }})'
         run: |-
           guardian apply \
           -github-owner="${GITHUB_OWNER_NAME}" \
@@ -286,7 +289,8 @@ jobs:
           -github-token="${REPO_TOKEN}" \
           -pull-request-number="${PULL_REQUEST_NUMBER}" \
           -bucket-name="${GUARDIAN_BUCKET_NAME}" \
-          -dir="${DIRECTORY}"
+          -dir="${DIRECTORY}" \
+          -job-name="${JOB_NAME}"
 
       - name: 'Guardian Destroy'
         env:

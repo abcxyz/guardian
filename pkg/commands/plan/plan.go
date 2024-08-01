@@ -67,6 +67,7 @@ type PlanCommand struct {
 	flags.GitHubFlags
 
 	flagBucketName           string
+	flagJobName              string
 	flagPullRequestNumber    int
 	flagAllowLockfileChanges bool
 	flagLockTimeout          time.Duration
@@ -110,6 +111,13 @@ func (c *PlanCommand) Flags() *cli.FlagSet {
 		Target:  &c.flagBucketName,
 		Example: "my-guardian-state-bucket",
 		Usage:   "The Google Cloud Storage bucket name to store Guardian plan files.",
+	})
+
+	f.StringVar(&cli.StringVar{
+		Name:    "job-name",
+		Target:  &c.flagJobName,
+		Example: "plan (terraform/project1)",
+		Usage:   "The Github Actions job name, used to generate the correct logs URL in PR comments.",
 	})
 
 	f.BoolVar(&cli.BoolVar{
@@ -244,7 +252,7 @@ func (c *PlanCommand) Process(ctx context.Context) error {
 		c.planFilename = "tfplan.binary"
 	}
 
-	c.gitHubLogURL = fmt.Sprintf("[[logs](%s/%s/%s/actions/runs/%d/attempts/%d)]", c.cfg.ServerURL, c.GitHubFlags.FlagGitHubOwner, c.GitHubFlags.FlagGitHubRepo, c.cfg.RunID, c.cfg.RunAttempt)
+	c.gitHubLogURL = c.resolveGitHubLogURL(ctx)
 	logger.DebugContext(ctx, "computed github log url", "github_log_url", c.gitHubLogURL)
 
 	startComment, err := c.createStartCommentForActions(ctx)
@@ -262,6 +270,32 @@ func (c *PlanCommand) Process(ctx context.Context) error {
 	}
 
 	return merr
+}
+
+func (c *PlanCommand) resolveGitHubLogURL(ctx context.Context) string {
+	logger := logging.FromContext(ctx)
+
+	// Default to action summary page
+	logURL := fmt.Sprintf("[[logs](%s/%s/%s/actions/runs/%d/attempts/%d)]", c.cfg.ServerURL, c.GitHubFlags.FlagGitHubOwner, c.GitHubFlags.FlagGitHubRepo, c.cfg.RunID, c.cfg.RunAttempt)
+
+	if !c.FlagIsGitHubActions {
+		logger.DebugContext(ctx, "skipping github log url resolution", "is_github_action", c.FlagIsGitHubActions)
+		return logURL
+	}
+
+	// Link to specific job's logs directly if possible
+	jobs, err := c.gitHubClient.ListJobsForWorkflowRun(ctx, c.GitHubFlags.FlagGitHubOwner, c.GitHubFlags.FlagGitHubRepo, c.cfg.RunID, nil)
+	if err != nil {
+		logger.DebugContext(ctx, "failed to list jobs for workflow run", "err", err)
+	} else {
+		for _, job := range jobs.Jobs {
+			if c.flagJobName == job.Name {
+				logURL = fmt.Sprintf("[[logs](%s/%s/%s/actions/runs/%d/job/%d)]", c.cfg.ServerURL, c.GitHubFlags.FlagGitHubOwner, c.GitHubFlags.FlagGitHubRepo, c.cfg.RunID, job.ID)
+			}
+		}
+	}
+
+	return logURL
 }
 
 func (c *PlanCommand) createStartCommentForActions(ctx context.Context) (*github.IssueComment, error) {

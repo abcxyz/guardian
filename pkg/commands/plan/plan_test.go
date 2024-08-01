@@ -169,6 +169,7 @@ func TestPlan_Process(t *testing.T) {
 		flagBucketName           string
 		flagAllowLockfileChanges bool
 		flagLockTimeout          time.Duration
+		flagJobName              string
 		config                   *Config
 		terraformClient          *terraform.MockTerraformClient
 		err                      string
@@ -190,6 +191,10 @@ func TestPlan_Process(t *testing.T) {
 			config:                   defaultConfig,
 			terraformClient:          terraformDiffMock,
 			expGitHubClientReqs: []*github.Request{
+				{
+					Name:   "ListJobsForWorkflowRun",
+					Params: []any{"owner", "repo", int64(100)},
+				},
 				{
 					Name:   "CreateIssueComment",
 					Params: []any{"owner", "repo", int(1), "**`🔱 Guardian 🔱 PLAN`** - 🟨 Running for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
@@ -224,12 +229,54 @@ func TestPlan_Process(t *testing.T) {
 			terraformClient:          terraformNoDiffMock,
 			expGitHubClientReqs: []*github.Request{
 				{
+					Name:   "ListJobsForWorkflowRun",
+					Params: []any{"owner", "repo", int64(100)},
+				},
+				{
 					Name:   "CreateIssueComment",
 					Params: []any{"owner", "repo", int(2), "**`🔱 Guardian 🔱 PLAN`** - 🟨 Running for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
 				},
 				{
 					Name:   "UpdateIssueComment",
 					Params: []any{"owner", "repo", int64(1), "**`🔱 Guardian 🔱 PLAN`** - 🟦 No changes for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
+				},
+			},
+			expStorageClientReqs: []*storage.Request{
+				{
+					Name: "UploadObject",
+					Params: []any{
+						"my-bucket-name",
+						"guardian-plans/owner/repo/2/testdata/test-tfplan.binary",
+						"this is a plan binary",
+					},
+				},
+			},
+		},
+		{
+			name:                     "success_with_direct_log_url",
+			directory:                "testdata",
+			flagIsGitHubActions:      true,
+			flagGitHubOwner:          "owner",
+			flagGitHubRepo:           "repo",
+			flagPullRequestNumber:    2,
+			flagBucketName:           "my-bucket-name",
+			flagAllowLockfileChanges: true,
+			flagLockTimeout:          10 * time.Minute,
+			flagJobName:              "example-job",
+			config:                   defaultConfig,
+			terraformClient:          terraformNoDiffMock,
+			expGitHubClientReqs: []*github.Request{
+				{
+					Name:   "ListJobsForWorkflowRun",
+					Params: []any{"owner", "repo", int64(100)},
+				},
+				{
+					Name:   "CreateIssueComment",
+					Params: []any{"owner", "repo", int(2), "**`🔱 Guardian 🔱 PLAN`** - 🟨 Running for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/job/1)]"},
+				},
+				{
+					Name:   "UpdateIssueComment",
+					Params: []any{"owner", "repo", int64(1), "**`🔱 Guardian 🔱 PLAN`** - 🟦 No changes for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/job/1)]"},
 				},
 			},
 			expStorageClientReqs: []*storage.Request{
@@ -282,6 +329,10 @@ func TestPlan_Process(t *testing.T) {
 			expStderr:                "terraform init failed",
 			err:                      "failed to run Guardian plan: failed to initialize: failed to run terraform init",
 			expGitHubClientReqs: []*github.Request{
+				{
+					Name:   "ListJobsForWorkflowRun",
+					Params: []any{"owner", "repo", int64(100)},
+				},
 				{
 					Name:   "CreateIssueComment",
 					Params: []any{"owner", "repo", int(3), "**`🔱 Guardian 🔱 PLAN`** - 🟨 Running for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
@@ -346,6 +397,7 @@ func TestPlan_Process(t *testing.T) {
 				flagBucketName:           tc.flagBucketName,
 				flagAllowLockfileChanges: tc.flagAllowLockfileChanges,
 				flagLockTimeout:          tc.flagLockTimeout,
+				flagJobName:              tc.flagJobName,
 				gitHubClient:             gitHubClient,
 				storageClient:            storageClient,
 				terraformClient:          tc.terraformClient,
