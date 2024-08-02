@@ -16,6 +16,7 @@ package github
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/google/go-github/v53/github"
@@ -45,6 +46,7 @@ type MockGitHubClient struct {
 	RepoPermissionLevelErr       error
 	RepoPermissionLevel          string
 	ListJobsForWorkflowRunErr    error
+	ResolveJobLogsURLErr         error
 }
 
 func (m *MockGitHubClient) ListRepositories(ctx context.Context, owner string, opts *github.RepositoryListByOrgOptions) ([]*Repository, error) {
@@ -220,4 +222,19 @@ func (m *MockGitHubClient) ListJobsForWorkflowRun(ctx context.Context, owner, re
 			{ID: 1, Name: "example-job"},
 		},
 	}, nil
+}
+
+func (m *MockGitHubClient) ResolveJobLogsURL(ctx context.Context, jobName, serverURL, owner, repo string, runID int64) (string, error) {
+	m.reqMu.Lock()
+	defer m.reqMu.Unlock()
+	m.Reqs = append(m.Reqs, &Request{
+		Name:   "ResolveJobLogsURL",
+		Params: []any{jobName, serverURL, owner, repo, runID},
+	})
+
+	if m.ResolveJobLogsURLErr != nil {
+		return "", m.ResolveJobLogsURLErr
+	}
+
+	return fmt.Sprintf("%s/%s/%s/actions/runs/%d/job/%d", serverURL, owner, repo, runID, 1), nil
 }

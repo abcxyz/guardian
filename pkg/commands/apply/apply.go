@@ -266,7 +266,7 @@ func (c *ApplyCommand) Process(ctx context.Context) (merr error) {
 	}
 	logger.DebugContext(ctx, "computed pull request number", "computed_pull_request_number", c.computedPullRequestNumber)
 
-	c.gitHubLogURL = c.resolveGitHubLogURL(ctx)
+	c.gitHubLogURL = fmt.Sprintf("[[logs](%s)]", c.resolveGitHubLogURL(ctx))
 	logger.DebugContext(ctx, "computed github log url", "github_log_url", c.gitHubLogURL)
 
 	planBucketPath := path.Join(c.childPath, c.planFileName)
@@ -331,26 +331,21 @@ func (c *ApplyCommand) resolveGitHubLogURL(ctx context.Context) string {
 	logger := logging.FromContext(ctx)
 
 	// Default to action summary page
-	logURL := fmt.Sprintf("[[logs](%s/%s/%s/actions/runs/%d/attempts/%d)]", c.cfg.ServerURL, c.GitHubFlags.FlagGitHubOwner, c.GitHubFlags.FlagGitHubRepo, c.cfg.RunID, c.cfg.RunAttempt)
+	defaultLogURL := fmt.Sprintf("%s/%s/%s/actions/runs/%d/attempts/%d", c.cfg.ServerURL, c.GitHubFlags.FlagGitHubOwner, c.GitHubFlags.FlagGitHubRepo, c.cfg.RunID, c.cfg.RunAttempt)
 
 	if !c.FlagIsGitHubActions {
 		logger.DebugContext(ctx, "skipping github log url resolution", "is_github_action", c.FlagIsGitHubActions)
-		return logURL
+		return defaultLogURL
 	}
 
 	// Link to specific job's logs directly if possible
-	jobs, err := c.gitHubClient.ListJobsForWorkflowRun(ctx, c.GitHubFlags.FlagGitHubOwner, c.GitHubFlags.FlagGitHubRepo, c.cfg.RunID, nil)
+	directJobURL, err := c.gitHubClient.ResolveJobLogsURL(ctx, c.flagJobName, c.cfg.ServerURL, c.GitHubFlags.FlagGitHubOwner, c.GitHubFlags.FlagGitHubRepo, c.cfg.RunID)
 	if err != nil {
-		logger.DebugContext(ctx, "failed to list jobs for workflow run", "err", err)
-	} else {
-		for _, job := range jobs.Jobs {
-			if c.flagJobName == job.Name {
-				logURL = fmt.Sprintf("[[logs](%s/%s/%s/actions/runs/%d/job/%d)]", c.cfg.ServerURL, c.GitHubFlags.FlagGitHubOwner, c.GitHubFlags.FlagGitHubRepo, c.cfg.RunID, job.ID)
-			}
-		}
+		logger.DebugContext(ctx, "could not resolve direct url to job logs", "err", err)
+		return defaultLogURL
 	}
 
-	return logURL
+	return directJobURL
 }
 
 func (c *ApplyCommand) createStartCommentForActions(ctx context.Context) (*github.IssueComment, error) {

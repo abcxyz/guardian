@@ -124,6 +124,7 @@ jobs:
             -for-command="apply"
 
   plan:
+    name: 'plan (${{ matrix.working_directory }})'
     needs:
       - 'init'
     runs-on: 'ubuntu-latest'
@@ -229,6 +230,7 @@ jobs:
           -plan-result="${{ needs.plan.result }}"
 
   apply:
+    name: 'apply (${{ matrix.working_directory }})'
     needs:
       - 'init'
       - 'plan'
