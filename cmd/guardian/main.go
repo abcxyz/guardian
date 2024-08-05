@@ -30,6 +30,7 @@ import (
 	"github.com/abcxyz/guardian/pkg/commands/entrypoints"
 	"github.com/abcxyz/guardian/pkg/commands/iamcleanup"
 	"github.com/abcxyz/guardian/pkg/commands/plan"
+	"github.com/abcxyz/guardian/pkg/commands/policy"
 	"github.com/abcxyz/guardian/pkg/commands/run"
 	"github.com/abcxyz/guardian/pkg/commands/workflows"
 	"github.com/abcxyz/pkg/cli"
@@ -104,6 +105,9 @@ var rootCmd = func() cli.Command {
 			},
 			"run": func() cli.Command {
 				return &run.RunCommand{}
+			},
+			"policy": func() cli.Command {
+				return &policy.PolicyCommand{}
 			},
 		},
 	}
