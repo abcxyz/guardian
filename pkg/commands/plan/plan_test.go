@@ -195,7 +195,7 @@ func TestPlan_Process(t *testing.T) {
 			expGitHubClientReqs: []*github.Request{
 				{
 					Name:   "ResolveJobLogsURL",
-					Params: []any{"example-job", "https://github.com", "owner", "repo", int64(100)},
+					Params: []any{"example-job", "owner", "repo", int64(100)},
 				},
 				{
 					Name:   "CreateIssueComment",
@@ -233,7 +233,7 @@ func TestPlan_Process(t *testing.T) {
 			expGitHubClientReqs: []*github.Request{
 				{
 					Name:   "ResolveJobLogsURL",
-					Params: []any{"example-job", "https://github.com", "owner", "repo", int64(100)},
+					Params: []any{"example-job", "owner", "repo", int64(100)},
 				},
 				{
 					Name:   "CreateIssueComment",
@@ -272,7 +272,7 @@ func TestPlan_Process(t *testing.T) {
 			expGitHubClientReqs: []*github.Request{
 				{
 					Name:   "ResolveJobLogsURL",
-					Params: []any{"example-job", "https://github.com", "owner", "repo", int64(100)},
+					Params: []any{"example-job", "owner", "repo", int64(100)},
 				},
 				{
 					Name:   "CreateIssueComment",
@@ -337,7 +337,7 @@ func TestPlan_Process(t *testing.T) {
 			expGitHubClientReqs: []*github.Request{
 				{
 					Name:   "ResolveJobLogsURL",
-					Params: []any{"example-job", "https://github.com", "owner", "repo", int64(100)},
+					Params: []any{"example-job", "owner", "repo", int64(100)},
 				},
 				{
 					Name:   "CreateIssueComment",

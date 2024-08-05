@@ -224,17 +224,17 @@ func (m *MockGitHubClient) ListJobsForWorkflowRun(ctx context.Context, owner, re
 	}, nil
 }
 
-func (m *MockGitHubClient) ResolveJobLogsURL(ctx context.Context, jobName, serverURL, owner, repo string, runID int64) (string, error) {
+func (m *MockGitHubClient) ResolveJobLogsURL(ctx context.Context, jobName, owner, repo string, runID int64) (string, error) {
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
 	m.Reqs = append(m.Reqs, &Request{
 		Name:   "ResolveJobLogsURL",
-		Params: []any{jobName, serverURL, owner, repo, runID},
+		Params: []any{jobName, owner, repo, runID},
 	})
 
 	if m.ResolveJobLogsURLErr != nil {
 		return "", m.ResolveJobLogsURLErr
 	}
 
-	return fmt.Sprintf("%s/%s/%s/actions/runs/%d/job/%d", serverURL, owner, repo, runID, 1), nil
+	return fmt.Sprintf("https://github.com/%s/%s/actions/runs/%d/job/%d", owner, repo, runID, 1), nil
 }

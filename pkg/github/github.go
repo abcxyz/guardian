@@ -84,6 +84,7 @@ type PullRequestResponse struct {
 type Job struct {
 	ID   int64
 	Name string
+	URL  string
 }
 
 type JobsResponse struct {
@@ -134,7 +135,7 @@ type GitHub interface {
 	ListJobsForWorkflowRun(ctx context.Context, owner, repo string, runID int64, opts *github.ListWorkflowJobsOptions) (*JobsResponse, error)
 
 	// ResolveJobLogsURL finds the direct URL to the logs for a specific workflow run job.
-	ResolveJobLogsURL(ctx context.Context, jobName, serverURL, owner, repo string, runID int64) (string, error)
+	ResolveJobLogsURL(ctx context.Context, jobName, owner, repo string, runID int64) (string, error)
 }
 
 var _ GitHub = (*GitHubClient)(nil)
@@ -508,7 +509,7 @@ func (g *GitHubClient) ListJobsForWorkflowRun(ctx context.Context, owner, repo s
 		}
 
 		for _, workflowJob := range ghJobs.Jobs {
-			jobs = append(jobs, &Job{ID: workflowJob.GetID(), Name: workflowJob.GetName()})
+			jobs = append(jobs, &Job{ID: workflowJob.GetID(), Name: workflowJob.GetName(), URL: *workflowJob.HTMLURL})
 		}
 
 		if resp.NextPage != 0 {
@@ -523,14 +524,14 @@ func (g *GitHubClient) ListJobsForWorkflowRun(ctx context.Context, owner, repo s
 	return &JobsResponse{Jobs: jobs, Pagination: pagination}, nil
 }
 
-func (g *GitHubClient) ResolveJobLogsURL(ctx context.Context, jobName, serverURL, owner, repo string, runID int64) (string, error) {
+func (g *GitHubClient) ResolveJobLogsURL(ctx context.Context, jobName, owner, repo string, runID int64) (string, error) {
 	jobs, err := g.ListJobsForWorkflowRun(ctx, owner, repo, runID, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve direct URL to job logs: %w", err)
 	}
 	for _, job := range jobs.Jobs {
 		if jobName == job.Name {
-			return fmt.Sprintf("%s/%s/%s/actions/runs/%d/job/%d", serverURL, owner, repo, runID, job.ID), nil
+			return job.URL, nil
 		}
 	}
 

@@ -339,7 +339,7 @@ func (c *ApplyCommand) resolveGitHubLogURL(ctx context.Context) string {
 	}
 
 	// Link to specific job's logs directly if possible
-	directJobURL, err := c.gitHubClient.ResolveJobLogsURL(ctx, c.flagJobName, c.cfg.ServerURL, c.GitHubFlags.FlagGitHubOwner, c.GitHubFlags.FlagGitHubRepo, c.cfg.RunID)
+	directJobURL, err := c.gitHubClient.ResolveJobLogsURL(ctx, c.flagJobName, c.GitHubFlags.FlagGitHubOwner, c.GitHubFlags.FlagGitHubRepo, c.cfg.RunID)
 	if err != nil {
 		logger.DebugContext(ctx, "could not resolve direct url to job logs", "err", err)
 		return defaultLogURL
