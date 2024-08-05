@@ -81,12 +81,14 @@ type PullRequestResponse struct {
 	Pagination   *Pagination
 }
 
+// Job is the GitHub Job that runs as part of a workflow.
 type Job struct {
 	ID   int64
 	Name string
 	URL  string
 }
 
+// JobsResponse holds a paginated list of Jobs
 type JobsResponse struct {
 	Jobs       []*Job
 	Pagination *Pagination
