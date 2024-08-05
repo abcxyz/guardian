@@ -88,7 +88,7 @@ type Job struct {
 	URL  string
 }
 
-// JobsResponse holds a paginated list of Jobs
+// JobsResponse holds a paginated list of Jobs.
 type JobsResponse struct {
 	Jobs       []*Job
 	Pagination *Pagination
