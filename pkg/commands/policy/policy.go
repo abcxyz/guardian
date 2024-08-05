@@ -38,6 +38,9 @@ type MissingApproval struct {
 	Message     string   `json:"msg"`
 }
 
+// Results is a map of the policy package name to the policy evaluation result.
+type Results map[string]*Result
+
 var _ cli.Command = (*PolicyCommand)(nil)
 
 type PolicyCommand struct {
@@ -76,14 +79,14 @@ func (c *PolicyCommand) Run(ctx context.Context, args []string) error {
 	}
 
 	logger.DebugContext(ctx, "parsing results file",
-		"config", c.flags.ResultsFile)
+		"results_file", c.flags.ResultsFile)
 	d, err := os.ReadFile(c.flags.ResultsFile)
 	if err != nil {
 		return fmt.Errorf("failed to read results file %q: %w", c.flags.ResultsFile, err)
 	}
 
-	var Results map[string]*Result
-	if err := json.Unmarshal(d, &Results); err != nil {
+	var results *Results
+	if err := json.Unmarshal(d, &results); err != nil {
 		return fmt.Errorf("failed to unmarshal json: %w", err)
 	}
 
