@@ -88,6 +88,7 @@ func TestApply_Process(t *testing.T) {
 		flagBucketName           string
 		flagAllowLockfileChanges bool
 		flagLockTimeout          time.Duration
+		flagJobName              string
 		config                   *Config
 		planExitCode             string
 		terraformClient          *terraform.MockTerraformClient
@@ -96,6 +97,7 @@ func TestApply_Process(t *testing.T) {
 		expStorageClientReqs     []*storage.Request
 		expStdout                string
 		expStderr                string
+		resolveJobLogsURLErr     error
 	}{
 		{
 			name:                     "success",
@@ -107,6 +109,7 @@ func TestApply_Process(t *testing.T) {
 			flagBucketName:           "my-bucket-name",
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
+			flagJobName:              "example-job",
 			config:                   defaultConfig,
 			planExitCode:             "2",
 			terraformClient:          terraformMock,
@@ -114,6 +117,67 @@ func TestApply_Process(t *testing.T) {
 				{
 					Name:   "ListPullRequestsForCommit",
 					Params: []any{"owner", "repo", "commit-sha-1"},
+				},
+				{
+					Name:   "ResolveJobLogsURL",
+					Params: []any{"example-job", "owner", "repo", int64(100)},
+				},
+				{
+					Name:   "CreateIssueComment",
+					Params: []any{"owner", "repo", int(1), "**`🔱 Guardian 🔱 APPLY`** - 🟨 Running for dir: `testdir` [[logs](https://github.com/owner/repo/actions/runs/100/job/1)]"},
+				},
+				{
+					Name:   "UpdateIssueComment",
+					Params: []any{"owner", "repo", int64(1), "**`🔱 Guardian 🔱 APPLY`** - 🟩 Successful for dir: `testdir` [[logs](https://github.com/owner/repo/actions/runs/100/job/1)]\n\n<details>\n<summary>Details</summary>\n\n```diff\n\nterraform apply success\n```\n</details>"},
+				},
+			},
+			expStorageClientReqs: []*storage.Request{
+				{
+					Name: "ObjectMetadata",
+					Params: []any{
+						"my-bucket-name",
+						"guardian-plans/owner/repo/1/testdir/test-tfplan.binary",
+					},
+				},
+				{
+					Name: "DownloadObject",
+					Params: []any{
+						"my-bucket-name",
+						"guardian-plans/owner/repo/1/testdir/test-tfplan.binary",
+					},
+				},
+				{
+					Name: "DeleteObject",
+					Params: []any{
+						"my-bucket-name",
+						"guardian-plans/owner/repo/1/testdir/test-tfplan.binary",
+					},
+				},
+			},
+		},
+		{
+			name:                     "success_when_direct_log_url_resolution_fails",
+			directory:                "testdir",
+			flagIsGitHubActions:      true,
+			flagGitHubOwner:          "owner",
+			flagGitHubRepo:           "repo",
+			flagCommitSHA:            "commit-sha-1",
+			flagBucketName:           "my-bucket-name",
+			flagAllowLockfileChanges: true,
+			flagLockTimeout:          10 * time.Minute,
+			flagJobName:              "example-job",
+			config:                   defaultConfig,
+			planExitCode:             "2",
+			terraformClient:          terraformMock,
+			resolveJobLogsURLErr:     fmt.Errorf("couldn't resolve job logs url"),
+			expGitHubClientReqs: []*github.Request{
+				{
+					Name:   "ListPullRequestsForCommit",
+					Params: []any{"owner", "repo", "commit-sha-1"},
+				},
+				{
+					Name:   "ResolveJobLogsURL",
+					Params: []any{"example-job", "owner", "repo", int64(100)},
 				},
 				{
 					Name:   "CreateIssueComment",
@@ -158,6 +222,7 @@ func TestApply_Process(t *testing.T) {
 			flagBucketName:           "my-bucket-name",
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
+			flagJobName:              "example-job",
 			config:                   defaultConfig,
 			planExitCode:             "0",
 			terraformClient:          terraformMock,
@@ -196,6 +261,7 @@ func TestApply_Process(t *testing.T) {
 			flagBucketName:           "my-bucket-name",
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
+			flagJobName:              "example-job",
 			config:                   defaultConfig,
 			planExitCode:             "2",
 			terraformClient:          terraformErrorMock,
@@ -204,12 +270,16 @@ func TestApply_Process(t *testing.T) {
 			err:                      "failed to run Guardian apply: failed to apply: failed to run terraform apply",
 			expGitHubClientReqs: []*github.Request{
 				{
+					Name:   "ResolveJobLogsURL",
+					Params: []any{"example-job", "owner", "repo", int64(100)},
+				},
+				{
 					Name:   "CreateIssueComment",
-					Params: []any{"owner", "repo", int(3), "**`🔱 Guardian 🔱 APPLY`** - 🟨 Running for dir: `testdir` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
+					Params: []any{"owner", "repo", int(3), "**`🔱 Guardian 🔱 APPLY`** - 🟨 Running for dir: `testdir` [[logs](https://github.com/owner/repo/actions/runs/100/job/1)]"},
 				},
 				{
 					Name:   "UpdateIssueComment",
-					Params: []any{"owner", "repo", int64(1), "**`🔱 Guardian 🔱 APPLY`** - 🟥 Failed for dir: `testdir` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]\n\n<details>\n<summary>Error</summary>\n\n```\n\nfailed to apply: failed to run terraform apply\n```\n</details>\n\n<details>\n<summary>Details</summary>\n\n```diff\n\nterraform apply failed\n```\n</details>"},
+					Params: []any{"owner", "repo", int64(1), "**`🔱 Guardian 🔱 APPLY`** - 🟥 Failed for dir: `testdir` [[logs](https://github.com/owner/repo/actions/runs/100/job/1)]\n\n<details>\n<summary>Error</summary>\n\n```\n\nfailed to apply: failed to run terraform apply\n```\n</details>\n\n<details>\n<summary>Details</summary>\n\n```diff\n\nterraform apply failed\n```\n</details>"},
 				},
 			},
 			expStorageClientReqs: []*storage.Request{
@@ -245,7 +315,9 @@ func TestApply_Process(t *testing.T) {
 			t.Parallel()
 
 			action := githubactions.New(githubactions.WithWriter(os.Stdout))
-			gitHubClient := &github.MockGitHubClient{}
+			gitHubClient := &github.MockGitHubClient{
+				ResolveJobLogsURLErr: tc.resolveJobLogsURLErr,
+			}
 			storageClient := &storage.MockStorageClient{
 				Metadata: map[string]string{
 					"plan_exit_code": tc.planExitCode,
@@ -272,6 +344,7 @@ func TestApply_Process(t *testing.T) {
 				flagBucketName:           tc.flagBucketName,
 				flagAllowLockfileChanges: tc.flagAllowLockfileChanges,
 				flagLockTimeout:          tc.flagLockTimeout,
+				flagJobName:              tc.flagJobName,
 				gitHubClient:             gitHubClient,
 				storageClient:            storageClient,
 				terraformClient:          tc.terraformClient,

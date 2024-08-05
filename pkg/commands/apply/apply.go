@@ -69,6 +69,7 @@ type ApplyCommand struct {
 	flags.GitHubFlags
 
 	flagBucketName           string
+	flagJobName              string
 	flagCommitSHA            string
 	flagPullRequestNumber    int
 	flagAllowLockfileChanges bool
@@ -123,6 +124,13 @@ func (c *ApplyCommand) Flags() *cli.FlagSet {
 		Target:  &c.flagBucketName,
 		Example: "my-guardian-state-bucket",
 		Usage:   "The Google Cloud Storage bucket name to store Guardian plan files.",
+	})
+
+	f.StringVar(&cli.StringVar{
+		Name:    "job-name",
+		Target:  &c.flagJobName,
+		Example: "apply (terraform/project1)",
+		Usage:   "The Github Actions job name, used to generate the correct logs URL in PR comments.",
 	})
 
 	f.BoolVar(&cli.BoolVar{
@@ -258,7 +266,7 @@ func (c *ApplyCommand) Process(ctx context.Context) (merr error) {
 	}
 	logger.DebugContext(ctx, "computed pull request number", "computed_pull_request_number", c.computedPullRequestNumber)
 
-	c.gitHubLogURL = fmt.Sprintf("[[logs](%s/%s/%s/actions/runs/%d/attempts/%d)]", c.cfg.ServerURL, c.GitHubFlags.FlagGitHubOwner, c.GitHubFlags.FlagGitHubRepo, c.cfg.RunID, c.cfg.RunAttempt)
+	c.gitHubLogURL = fmt.Sprintf("[[logs](%s)]", c.resolveGitHubLogURL(ctx))
 	logger.DebugContext(ctx, "computed github log url", "github_log_url", c.gitHubLogURL)
 
 	planBucketPath := path.Join(c.childPath, c.planFileName)
@@ -317,6 +325,27 @@ func (c *ApplyCommand) Process(ctx context.Context) (merr error) {
 	}
 
 	return merr
+}
+
+func (c *ApplyCommand) resolveGitHubLogURL(ctx context.Context) string {
+	logger := logging.FromContext(ctx)
+
+	// Default to action summary page
+	defaultLogURL := fmt.Sprintf("%s/%s/%s/actions/runs/%d/attempts/%d", c.cfg.ServerURL, c.GitHubFlags.FlagGitHubOwner, c.GitHubFlags.FlagGitHubRepo, c.cfg.RunID, c.cfg.RunAttempt)
+
+	if !c.FlagIsGitHubActions {
+		logger.DebugContext(ctx, "skipping github log url resolution", "is_github_action", c.FlagIsGitHubActions)
+		return defaultLogURL
+	}
+
+	// Link to specific job's logs directly if possible
+	directJobURL, err := c.gitHubClient.ResolveJobLogsURL(ctx, c.flagJobName, c.GitHubFlags.FlagGitHubOwner, c.GitHubFlags.FlagGitHubRepo, c.cfg.RunID)
+	if err != nil {
+		logger.DebugContext(ctx, "could not resolve direct url to job logs", "err", err)
+		return defaultLogURL
+	}
+
+	return directJobURL
 }
 
 func (c *ApplyCommand) createStartCommentForActions(ctx context.Context) (*github.IssueComment, error) {

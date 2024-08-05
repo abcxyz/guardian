@@ -16,6 +16,7 @@ package github
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/google/go-github/v53/github"
@@ -44,6 +45,8 @@ type MockGitHubClient struct {
 	ListPullRequestsForCommitErr error
 	RepoPermissionLevelErr       error
 	RepoPermissionLevel          string
+	ListJobsForWorkflowRunErr    error
+	ResolveJobLogsURLErr         error
 }
 
 func (m *MockGitHubClient) ListRepositories(ctx context.Context, owner string, opts *github.RepositoryListByOrgOptions) ([]*Repository, error) {
@@ -200,4 +203,38 @@ func (m *MockGitHubClient) RepoUserPermissionLevel(ctx context.Context, owner, r
 	}
 
 	return m.RepoPermissionLevel, nil
+}
+
+func (m *MockGitHubClient) ListJobsForWorkflowRun(ctx context.Context, owner, repo string, runID int64, opts *github.ListWorkflowJobsOptions) (*JobsResponse, error) {
+	m.reqMu.Lock()
+	defer m.reqMu.Unlock()
+	m.Reqs = append(m.Reqs, &Request{
+		Name:   "ListJobsForWorkflowRun",
+		Params: []any{owner, repo, runID},
+	})
+
+	if m.ListJobsForWorkflowRunErr != nil {
+		return nil, m.ListJobsForWorkflowRunErr
+	}
+
+	return &JobsResponse{
+		Jobs: []*Job{
+			{ID: 1, Name: "example-job"},
+		},
+	}, nil
+}
+
+func (m *MockGitHubClient) ResolveJobLogsURL(ctx context.Context, jobName, owner, repo string, runID int64) (string, error) {
+	m.reqMu.Lock()
+	defer m.reqMu.Unlock()
+	m.Reqs = append(m.Reqs, &Request{
+		Name:   "ResolveJobLogsURL",
+		Params: []any{jobName, owner, repo, runID},
+	})
+
+	if m.ResolveJobLogsURLErr != nil {
+		return "", m.ResolveJobLogsURLErr
+	}
+
+	return fmt.Sprintf("https://github.com/%s/%s/actions/runs/%d/job/%d", owner, repo, runID, 1), nil
 }
