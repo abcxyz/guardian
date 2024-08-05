@@ -18,6 +18,7 @@ package policy
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 
@@ -46,6 +47,11 @@ var _ cli.Command = (*PolicyCommand)(nil)
 type PolicyCommand struct {
 	cli.BaseCommand
 	flags PolicyFlags
+
+	results *Results
+
+	teams []string
+	users []string
 }
 
 // Desc implements cli.Command.
@@ -90,5 +96,39 @@ func (c *PolicyCommand) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("failed to unmarshal json: %w", err)
 	}
 
-	return nil
+	c.results = results
+
+	return c.Process(ctx)
+}
+
+// Process handles the main logic for handling the results of the policy
+// evaluation.
+func (c *PolicyCommand) Process(ctx context.Context) error {
+	logger := logging.FromContext(ctx)
+
+	var merr error
+	for k, v := range *c.results {
+		logger.DebugContext(ctx, "processing policy decision",
+			"policy_name", k)
+
+		if len(v.MissingApprovals) == 0 {
+			logger.DebugContext(ctx, "no missing approvals for policy",
+				"policy_name", k)
+			continue
+		}
+
+		for _, m := range v.MissingApprovals {
+			c.teams = append(c.teams, m.AssignTeams...)
+			c.users = append(c.users, m.AssignUsers...)
+
+			merr = errors.Join(merr, fmt.Errorf("policy violation: \"%s\" - %s", k, m.Message))
+		}
+
+		logger.DebugContext(ctx, "found missing approvals",
+			"teams", c.teams,
+			"users", c.users,
+		)
+		// TODO: assign principals as reviewers to current pull request
+	}
+	return merr
 }
