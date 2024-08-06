@@ -328,6 +328,8 @@ func (c *ApplyCommand) Process(ctx context.Context) (merr error) {
 		merr = errors.Join(merr, fmt.Errorf("failed to write result comment: %w", err))
 	}
 
+	c.createStepSummaryForActions(ctx, result, err)
+
 	return merr
 }
 
@@ -435,6 +437,33 @@ func (c *ApplyCommand) updateResultCommentForActions(ctx context.Context, startC
 	}
 
 	return nil
+}
+
+func (c *ApplyCommand) createStepSummaryForActions(ctx context.Context, result *RunResult, resultErr error) {
+	logger := logging.FromContext(ctx)
+
+	if !c.FlagIsGitHubActions {
+		logger.DebugContext(ctx, "skipping step summary", "is_github_action", c.FlagIsGitHubActions)
+		return
+	}
+
+	c.Outf("Creating step summary")
+
+	var resultStr string
+	var runOutput string
+	if resultErr != nil {
+		resultStr = "🟥 Failure"
+		runOutput = fmt.Sprintf("#### Error \n\n```%s```", resultErr.Error())
+	} else {
+		resultStr = "🟩 Success"
+		runOutput = fmt.Sprintf("#### Run Details \n\n```%s```", result.commentDetails)
+	}
+
+	commandStr := fmt.Sprintf("`guardian apply --dir %s`", c.childPath)
+
+	c.Action.AddStepSummary(resultStr)
+	c.Action.AddStepSummary(commandStr)
+	c.Action.AddStepSummary(runOutput)
 }
 
 // terraformApply runs the required Terraform commands for a full run of

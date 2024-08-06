@@ -288,6 +288,7 @@ func (c *PlanCommand) Process(ctx context.Context) error {
 	if err := c.updateResultCommentForActions(ctx, startComment, result, err); err != nil {
 		merr = errors.Join(merr, fmt.Errorf("failed to write result comment: %w", err))
 	}
+	c.createStepSummaryForActions(ctx, result, err)
 
 	return merr
 }
@@ -399,6 +400,33 @@ func (c *PlanCommand) getMessageBody(result *RunResult, resultErr error) string 
 	}
 
 	return msgBody
+}
+
+func (c *PlanCommand) createStepSummaryForActions(ctx context.Context, result *RunResult, resultErr error) {
+	logger := logging.FromContext(ctx)
+
+	if !c.FlagIsGitHubActions {
+		logger.DebugContext(ctx, "skipping step summary", "is_github_action", c.FlagIsGitHubActions)
+		return
+	}
+
+	c.Outf("Creating step summary")
+
+	var resultStr string
+	var runOutput string
+	if resultErr != nil {
+		resultStr = "🟥 Failure"
+		runOutput = fmt.Sprintf("#### Error \n\n```%s```", resultErr.Error())
+	} else {
+		resultStr = "🟩 Success"
+		runOutput = fmt.Sprintf("#### Run Details \n\n```%s```", result.commentDetails)
+	}
+
+	commandStr := fmt.Sprintf("`guardian plan --dir %s`", c.childPath)
+
+	c.Action.AddStepSummary(resultStr)
+	c.Action.AddStepSummary(commandStr)
+	c.Action.AddStepSummary(runOutput)
 }
 
 // terraformPlan runs the required Terraform commands for a full run of
