@@ -28,7 +28,7 @@ import (
 
 // Result defines the expected structure of the OPA policy evaluation result.
 type Result struct {
-	MissingApprovals []MissingApproval `json:"missing_approvals"`
+	MissingApprovals []*MissingApproval `json:"missing_approvals"`
 }
 
 // MissingApproval defines the missing approvals determined from the policy
