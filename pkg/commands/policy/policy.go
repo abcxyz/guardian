@@ -128,7 +128,8 @@ func (c *PolicyCommand) Process(ctx context.Context) error {
 			"teams", c.teams,
 			"users", c.users,
 		)
-		// TODO: assign principals as reviewers to current pull request
 	}
+
+	// TODO: assign principals as reviewers to current pull request
 	return merr
 }
