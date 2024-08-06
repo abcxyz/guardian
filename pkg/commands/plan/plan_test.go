@@ -203,7 +203,7 @@ func TestPlan_Process(t *testing.T) {
 				},
 				{
 					Name:   "UpdateIssueComment",
-					Params: []any{"owner", "repo", int64(1), CommentPrefix + " 🟩 Successful for dir: `testdata`  [[logs](https://github.com/owner/repo/actions/runs/100/job/1)]\n\n<details>\n<summary>Details</summary>\n\n```diff\n\nterraform show success with diff\n```\n</details>"},
+					Params: []any{"owner", "repo", int64(1), CommentPrefix + " 🟩 Successful for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/job/1)]\n\n<details>\n<summary>Details</summary>\n\n```diff\n\nterraform show success with diff\n```\n</details>"},
 				},
 			},
 			expStorageClientReqs: []*storage.Request{

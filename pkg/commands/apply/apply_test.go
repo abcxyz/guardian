@@ -223,6 +223,7 @@ func TestApply_Process(t *testing.T) {
 			flagBucketName:           "my-bucket-name",
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
+			flagJobName:              "example-job",
 			isDestroy:                true,
 			config:                   defaultConfig,
 			planExitCode:             "2",
@@ -233,12 +234,16 @@ func TestApply_Process(t *testing.T) {
 					Params: []any{"owner", "repo", "commit-sha-1"},
 				},
 				{
+					Name:   "ResolveJobLogsURL",
+					Params: []any{"example-job", "owner", "repo", int64(100)},
+				},
+				{
 					Name:   "CreateIssueComment",
-					Params: []any{"owner", "repo", int(1), fmt.Sprintf("**`🔱 Guardian 🔱 APPLY`** - 🟨 Running for dir: `testdir` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]%s", DestroyCommentText)},
+					Params: []any{"owner", "repo", int(1), fmt.Sprintf("**`🔱 Guardian 🔱 APPLY`** - 🟨 Running for dir: `testdir` [[logs](https://github.com/owner/repo/actions/runs/100/job/1)]%s", DestroyCommentText)},
 				},
 				{
 					Name:   "UpdateIssueComment",
-					Params: []any{"owner", "repo", int64(1), fmt.Sprintf("**`🔱 Guardian 🔱 APPLY`** - 🟩 Successful for dir: `testdir` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]%s\n\n<details>\n<summary>Details</summary>\n\n```diff\n\nterraform apply success\n```\n</details>", DestroyCommentText)},
+					Params: []any{"owner", "repo", int64(1), fmt.Sprintf("**`🔱 Guardian 🔱 APPLY`** - 🟩 Successful for dir: `testdir` [[logs](https://github.com/owner/repo/actions/runs/100/job/1)]%s\n\n<details>\n<summary>Details</summary>\n\n```diff\n\nterraform apply success\n```\n</details>", DestroyCommentText)},
 				},
 			},
 			expStorageClientReqs: []*storage.Request{
@@ -369,6 +374,7 @@ func TestApply_Process(t *testing.T) {
 			flagBucketName:           "my-bucket-name",
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
+			flagJobName:              "example-job",
 			isDestroy:                true,
 			config:                   defaultConfig,
 			planExitCode:             "2",
@@ -378,12 +384,16 @@ func TestApply_Process(t *testing.T) {
 			err:                      "failed to run Guardian apply: failed to apply: failed to run terraform apply",
 			expGitHubClientReqs: []*github.Request{
 				{
+					Name:   "ResolveJobLogsURL",
+					Params: []any{"example-job", "owner", "repo", int64(100)},
+				},
+				{
 					Name:   "CreateIssueComment",
-					Params: []any{"owner", "repo", int(3), fmt.Sprintf("**`🔱 Guardian 🔱 APPLY`** - 🟨 Running for dir: `testdir` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]%s", DestroyCommentText)},
+					Params: []any{"owner", "repo", int(3), fmt.Sprintf("**`🔱 Guardian 🔱 APPLY`** - 🟨 Running for dir: `testdir` [[logs](https://github.com/owner/repo/actions/runs/100/job/1)]%s", DestroyCommentText)},
 				},
 				{
 					Name:   "UpdateIssueComment",
-					Params: []any{"owner", "repo", int64(1), fmt.Sprintf("**`🔱 Guardian 🔱 APPLY`** - 🟥 Failed for dir: `testdir` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]%s\n\n<details>\n<summary>Error</summary>\n\n```\n\nfailed to apply: failed to run terraform apply\n```\n</details>\n\n<details>\n<summary>Details</summary>\n\n```diff\n\nterraform apply failed\n```\n</details>", DestroyCommentText)},
+					Params: []any{"owner", "repo", int64(1), fmt.Sprintf("**`🔱 Guardian 🔱 APPLY`** - 🟥 Failed for dir: `testdir` [[logs](https://github.com/owner/repo/actions/runs/100/job/1)]%s\n\n<details>\n<summary>Error</summary>\n\n```\n\nfailed to apply: failed to run terraform apply\n```\n</details>\n\n<details>\n<summary>Details</summary>\n\n```diff\n\nterraform apply failed\n```\n</details>", DestroyCommentText)},
 				},
 			},
 			expStorageClientReqs: []*storage.Request{
