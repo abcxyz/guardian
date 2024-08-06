@@ -23,7 +23,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	"github.com/abcxyz/guardian/pkg/util"
+	"github.com/abcxyz/pkg/pointer"
 	"github.com/abcxyz/pkg/testutil"
 )
 
@@ -124,7 +124,7 @@ func TestGetEntrypointDirectories(t *testing.T) {
 		{
 			name:     "has_backend_max_depth_1",
 			dir:      "testdata/backends",
-			maxDepth: util.Ptr(1),
+			maxDepth: pointer.To(1),
 			exp: []*TerraformEntrypoint{
 				{Path: path.Join(cwd, "testdata/backends/project1"), BackendFile: path.Join(cwd, "testdata/backends/project1/main.tf")},
 				{Path: path.Join(cwd, "testdata/backends/project2"), BackendFile: path.Join(cwd, "testdata/backends/project2/main.tf")},
@@ -133,7 +133,7 @@ func TestGetEntrypointDirectories(t *testing.T) {
 		{
 			name:     "has_backend_max_depth_0",
 			dir:      "testdata/backends",
-			maxDepth: util.Ptr(0),
+			maxDepth: pointer.To(0),
 			exp:      []*TerraformEntrypoint{},
 		},
 		{
@@ -229,7 +229,7 @@ func TestExtractBackendConfig(t *testing.T) {
 		{
 			name: "has_backend",
 			file: "testdata/terraform.tf", // depend on test data in [REPO_ROOT]/terraform
-			want: &TerraformBackendConfig{GCSBucket: util.Ptr("guardian-ci-i-terraform-state-c79e1f4759"), Prefix: util.Ptr("state/test")},
+			want: &TerraformBackendConfig{GCSBucket: pointer.To("guardian-ci-i-terraform-state-c79e1f4759"), Prefix: pointer.To("state/test")},
 		},
 		{
 			name: "no_backend",
@@ -280,7 +280,7 @@ func Test_extractBackendConfig(t *testing.T) {
 					prefix = "state/test"
 				  }
 				}`),
-			want: &TerraformBackendConfig{GCSBucket: util.Ptr("guardian-ci-i-terraform-state-c79e1f4759"), Prefix: util.Ptr("state/test")},
+			want: &TerraformBackendConfig{GCSBucket: pointer.To("guardian-ci-i-terraform-state-c79e1f4759"), Prefix: pointer.To("state/test")},
 		},
 		{
 			name: "local_backend",
@@ -430,7 +430,7 @@ func TestModuleUsage(t *testing.T) {
 		{
 			name:     "has_modules_with_max_depth_0",
 			dir:      "testdata/with-modules/project1",
-			maxDepth: util.Ptr(0),
+			maxDepth: pointer.To(0),
 			exp: &ModuleUsageGraph{
 				EntrypointToModules: map[string]map[string]struct{}{
 					path.Join(cwd, "testdata/with-modules/project1"): {

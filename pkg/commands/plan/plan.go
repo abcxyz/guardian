@@ -37,6 +37,7 @@ import (
 	"github.com/abcxyz/guardian/pkg/util"
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
+	"github.com/abcxyz/pkg/pointer"
 )
 
 const (
@@ -387,10 +388,10 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 
 	if err := c.WithActionsOutGroup("Check Terraform Format", func() error {
 		_, err := c.terraformClient.Format(ctx, multiStdout, multiStderr, &terraform.FormatOptions{
-			Check:     util.Ptr(true),
-			Diff:      util.Ptr(true),
-			Recursive: util.Ptr(true),
-			NoColor:   util.Ptr(true),
+			Check:     pointer.To(true),
+			Diff:      pointer.To(true),
+			Recursive: pointer.To(true),
+			NoColor:   pointer.To(true),
 		})
 		return err //nolint:wrapcheck // Want passthrough
 	}); err != nil {
@@ -411,10 +412,10 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 
 	if err := c.WithActionsOutGroup("Initializing Terraform", func() error {
 		_, err := c.terraformClient.Init(ctx, multiStdout, multiStderr, &terraform.InitOptions{
-			Input:       util.Ptr(false),
-			NoColor:     util.Ptr(true),
-			Lockfile:    util.Ptr(lockfileMode),
-			LockTimeout: util.Ptr(c.flagLockTimeout.String()),
+			Input:       pointer.To(false),
+			NoColor:     pointer.To(true),
+			Lockfile:    pointer.To(lockfileMode),
+			LockTimeout: pointer.To(c.flagLockTimeout.String()),
 		})
 		return err //nolint:wrapcheck // Want passthrough
 	}); err != nil {
@@ -429,7 +430,7 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 	stderr.Reset()
 
 	if err := c.WithActionsOutGroup("Validating Terraform", func() error {
-		_, err := c.terraformClient.Validate(ctx, multiStdout, multiStderr, &terraform.ValidateOptions{NoColor: util.Ptr(true)})
+		_, err := c.terraformClient.Validate(ctx, multiStdout, multiStderr, &terraform.ValidateOptions{NoColor: pointer.To(true)})
 		return err //nolint:wrapcheck // Want passthrough
 	}); err != nil {
 		commentDetails := stderr.String()
@@ -447,11 +448,11 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 
 	if err := c.WithActionsOutGroup("Planning Terraform", func() error {
 		exitCode, err := c.terraformClient.Plan(ctx, multiStdout, multiStderr, &terraform.PlanOptions{
-			Out:              util.Ptr(c.planFilename),
-			Input:            util.Ptr(false),
-			NoColor:          util.Ptr(true),
-			DetailedExitcode: util.Ptr(true),
-			LockTimeout:      util.Ptr(c.flagLockTimeout.String()),
+			Out:              pointer.To(c.planFilename),
+			Input:            pointer.To(false),
+			NoColor:          pointer.To(true),
+			DetailedExitcode: pointer.To(true),
+			LockTimeout:      pointer.To(c.flagLockTimeout.String()),
 		})
 
 		planExitCode = exitCode
@@ -473,8 +474,8 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 
 	if err := c.WithActionsOutGroup("Formatting output", func() error {
 		_, err := c.terraformClient.Show(ctx, multiStdout, multiStderr, &terraform.ShowOptions{
-			File:    util.Ptr(c.planFilename),
-			NoColor: util.Ptr(true),
+			File:    pointer.To(c.planFilename),
+			NoColor: pointer.To(true),
 		})
 		return err //nolint:wrapcheck // Want passthrough
 	}); err != nil {

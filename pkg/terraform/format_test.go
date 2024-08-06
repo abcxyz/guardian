@@ -19,7 +19,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	"github.com/abcxyz/guardian/pkg/util"
+	"github.com/abcxyz/pkg/pointer"
 )
 
 func TestFormatArgsFromOptions(t *testing.T) {
@@ -33,12 +33,12 @@ func TestFormatArgsFromOptions(t *testing.T) {
 		{
 			name: "truthy",
 			opts: &FormatOptions{
-				Check:     util.Ptr(true),
-				Diff:      util.Ptr(true),
-				List:      util.Ptr(true),
-				NoColor:   util.Ptr(true),
-				Recursive: util.Ptr(true),
-				Write:     util.Ptr(true),
+				Check:     pointer.To(true),
+				Diff:      pointer.To(true),
+				List:      pointer.To(true),
+				NoColor:   pointer.To(true),
+				Recursive: pointer.To(true),
+				Write:     pointer.To(true),
 			},
 			exp: []string{
 				"-check",
@@ -52,12 +52,12 @@ func TestFormatArgsFromOptions(t *testing.T) {
 		{
 			name: "falsey",
 			opts: &FormatOptions{
-				Check:     util.Ptr(false),
-				Diff:      util.Ptr(false),
-				List:      util.Ptr(false),
-				NoColor:   util.Ptr(false),
-				Recursive: util.Ptr(false),
-				Write:     util.Ptr(false),
+				Check:     pointer.To(false),
+				Diff:      pointer.To(false),
+				List:      pointer.To(false),
+				NoColor:   pointer.To(false),
+				Recursive: pointer.To(false),
+				Write:     pointer.To(false),
 			},
 			exp: []string{
 				"-list=false",

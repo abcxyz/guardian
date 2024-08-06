@@ -19,7 +19,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	"github.com/abcxyz/guardian/pkg/util"
+	"github.com/abcxyz/pkg/pointer"
 )
 
 func TestShowArgsFromOptions(t *testing.T) {
@@ -33,9 +33,9 @@ func TestShowArgsFromOptions(t *testing.T) {
 		{
 			name: "truthy",
 			opts: &ShowOptions{
-				File:    util.Ptr("filename"),
-				NoColor: util.Ptr(true),
-				JSON:    util.Ptr(true),
+				File:    pointer.To("filename"),
+				NoColor: pointer.To(true),
+				JSON:    pointer.To(true),
 			},
 			exp: []string{
 				"-no-color",
@@ -46,9 +46,9 @@ func TestShowArgsFromOptions(t *testing.T) {
 		{
 			name: "falsey",
 			opts: &ShowOptions{
-				File:    util.Ptr("filename"),
-				NoColor: util.Ptr(false),
-				JSON:    util.Ptr(false),
+				File:    pointer.To("filename"),
+				NoColor: pointer.To(false),
+				JSON:    pointer.To(false),
 			},
 			exp: []string{"filename"},
 		},

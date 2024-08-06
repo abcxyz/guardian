@@ -18,7 +18,7 @@ import (
 	"context"
 	"io"
 
-	"github.com/abcxyz/guardian/pkg/util"
+	"github.com/abcxyz/pkg/pointer"
 )
 
 // ShowOptions are the set of options for running a terraform show.
@@ -36,11 +36,11 @@ func showArgsFromOptions(opts *ShowOptions) []string {
 		return args
 	}
 
-	if util.PtrVal(opts.NoColor) {
+	if pointer.Deref(opts.NoColor) {
 		args = append(args, "-no-color")
 	}
 
-	if util.PtrVal(opts.JSON) {
+	if pointer.Deref(opts.JSON) {
 		args = append(args, "-json")
 	}
 
