@@ -121,7 +121,7 @@ func (c *PolicyCommand) Process(ctx context.Context) error {
 			c.teams = append(c.teams, m.AssignTeams...)
 			c.users = append(c.users, m.AssignUsers...)
 
-			merr = errors.Join(merr, fmt.Errorf("policy violation: \"%s\" - %s", k, m.Message))
+			merr = errors.Join(merr, fmt.Errorf("failed: \"%s\" - %s", k, m.Message))
 		}
 
 		logger.DebugContext(ctx, "found missing approvals",
