@@ -26,6 +26,22 @@ import (
 	"golang.org/x/exp/maps"
 )
 
+// SliceContainsOnly checks that all values of a slice are a single value.
+// Returns false when the input is an empty slice.
+func SliceContainsOnly[T comparable](slice []T, value T) bool {
+	if len(slice) == 0 {
+		return false
+	}
+
+	for _, v := range slice {
+		if v != value {
+			return false
+		}
+	}
+
+	return true
+}
+
 // SortedMapKeys returns the sorted slice of map key strings.
 func SortedMapKeys[M ~map[K]V, K cmp.Ordered, V any](m M) []K {
 	k := maps.Keys(m)

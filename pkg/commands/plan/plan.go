@@ -42,7 +42,18 @@ import (
 
 const (
 	CommentPrefix          = "**`🔱 Guardian 🔱 PLAN`** -"
+	DestroyCommentText     = "\n**`🟧 DESTROY`**"
 	gitHubMaxCommentLength = 65536
+
+	// plan file metadata key representing the exit code.
+	MetaKeyExitCode = "plan_exit_code"
+
+	// plan file metadata key representing the operation (plan, destroy).
+	MetaKeyOperation = "operation"
+
+	// plan files metadata operation values.
+	OperationPlan    = "plan"
+	OperationDestroy = "destroy"
 )
 
 var _ cli.Command = (*PlanCommand)(nil)
@@ -67,6 +78,7 @@ type PlanCommand struct {
 	flags.CommonFlags
 	flags.GitHubFlags
 
+	flagDestroy              bool
 	flagBucketName           string
 	flagJobName              string
 	flagPullRequestNumber    int
@@ -99,6 +111,13 @@ func (c *PlanCommand) Flags() *cli.FlagSet {
 	c.CommonFlags.Register(set)
 
 	f := set.NewSection("COMMAND OPTIONS")
+
+	f.BoolVar(&cli.BoolVar{
+		Name:    "destroy",
+		Target:  &c.flagDestroy,
+		Example: "true",
+		Usage:   "Use the destroy flag to plan changes to destroy all infrastructure.",
+	})
 
 	f.IntVar(&cli.IntVar{
 		Name:    "pull-request-number",
@@ -343,14 +362,19 @@ func (c *PlanCommand) updateResultCommentForActions(ctx context.Context, startCo
 }
 
 func (c *PlanCommand) getMessageBody(result *RunResult, resultErr error) string {
-	msgBody := fmt.Sprintf("%s 🟦 No changes for dir: `%s` %s", CommentPrefix, c.childPath, c.gitHubLogURL)
+	destroyText := ""
+	if c.flagDestroy {
+		destroyText = DestroyCommentText
+	}
+
+	msgBody := fmt.Sprintf("%s 🟦 No changes for dir: `%s` %s%s", CommentPrefix, c.childPath, c.gitHubLogURL, destroyText)
 
 	if result.hasChanges || resultErr != nil {
 		var comment strings.Builder
 		if resultErr != nil {
-			fmt.Fprintf(&comment, "%s 🟥 Failed for dir: `%s` %s\n\n<details>\n<summary>Error</summary>\n\n```\n\n%s\n```\n</details>", CommentPrefix, c.childPath, c.gitHubLogURL, resultErr)
+			fmt.Fprintf(&comment, "%s 🟥 Failed for dir: `%s` %s%s\n\n<details>\n<summary>Error</summary>\n\n```\n\n%s\n```\n</details>", CommentPrefix, c.childPath, c.gitHubLogURL, destroyText, resultErr)
 		} else if result.hasChanges {
-			fmt.Fprintf(&comment, "%s 🟩 Successful for dir: `%s` %s", CommentPrefix, c.childPath, c.gitHubLogURL)
+			fmt.Fprintf(&comment, "%s 🟩 Successful for dir: `%s` %s%s", CommentPrefix, c.childPath, c.gitHubLogURL, destroyText)
 		}
 		if result.commentDetails != "" {
 			// Ensure the comment is not over GitHub's limit. We need to account for the surrounding characters we will
@@ -451,6 +475,7 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 			Out:              pointer.To(c.planFilename),
 			Input:            pointer.To(false),
 			NoColor:          pointer.To(true),
+			Destroy:          pointer.To(c.flagDestroy),
 			DetailedExitcode: pointer.To(true),
 			LockTimeout:      pointer.To(c.flagLockTimeout.String()),
 		})
@@ -514,7 +539,12 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 // uploadGuardianPlan uploads the Guardian plan binary to the configured Guardian storage bucket.
 func (c *PlanCommand) uploadGuardianPlan(ctx context.Context, path string, data []byte, exitCode int) error {
 	metadata := make(map[string]string)
-	metadata["plan_exit_code"] = strconv.Itoa(exitCode)
+	metadata[MetaKeyExitCode] = strconv.Itoa(exitCode)
+
+	metadata[MetaKeyOperation] = OperationPlan
+	if c.flagDestroy {
+		metadata[MetaKeyOperation] = OperationDestroy
+	}
 
 	if err := c.storageClient.UploadObject(ctx, c.flagBucketName, path, data,
 		storage.WithContentType("application/octet-stream"),

@@ -25,6 +25,7 @@ import (
 // PlanOptions are the set of options for running a terraform plan.
 type PlanOptions struct {
 	CompactWarnings  *bool
+	Destroy          *bool
 	DetailedExitcode *bool
 	NoColor          *bool
 	Input            *bool
@@ -35,7 +36,7 @@ type PlanOptions struct {
 
 // planArgsFromOptions generated the terrafrom plan arguments from the provided options.
 func planArgsFromOptions(opts *PlanOptions) []string {
-	args := make([]string, 0, 7) // 7 potential args to be added
+	args := make([]string, 0, 8) // 8 potential args to be added
 
 	if opts == nil {
 		return args
@@ -43,6 +44,10 @@ func planArgsFromOptions(opts *PlanOptions) []string {
 
 	if pointer.Deref(opts.CompactWarnings) {
 		args = append(args, "-compact-warnings")
+	}
+
+	if pointer.Deref(opts.Destroy) {
+		args = append(args, "-destroy")
 	}
 
 	if pointer.Deref(opts.DetailedExitcode) {
