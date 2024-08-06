@@ -28,6 +28,7 @@ import (
 	"github.com/abcxyz/guardian/pkg/util"
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
+	"github.com/abcxyz/pkg/pointer"
 )
 
 var _ cli.Command = (*CleanupCommand)(nil)
@@ -114,7 +115,7 @@ func (c *CleanupCommand) Process(ctx context.Context) error {
 	logger := logging.FromContext(ctx)
 
 	logger.DebugContext(ctx, "determining target entrypoint backend details")
-	targetEntrypoint, err := terraform.GetEntrypointDirectories(c.directory, util.Ptr(0))
+	targetEntrypoint, err := terraform.GetEntrypointDirectories(c.directory, pointer.To(0))
 	if err != nil {
 		return fmt.Errorf("failed to find terraform directories: %w", err)
 	}

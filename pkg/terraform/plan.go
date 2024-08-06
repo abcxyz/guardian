@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/abcxyz/guardian/pkg/util"
+	"github.com/abcxyz/pkg/pointer"
 )
 
 // PlanOptions are the set of options for running a terraform plan.
@@ -41,15 +41,15 @@ func planArgsFromOptions(opts *PlanOptions) []string {
 		return args
 	}
 
-	if util.PtrVal(opts.CompactWarnings) {
+	if pointer.Deref(opts.CompactWarnings) {
 		args = append(args, "-compact-warnings")
 	}
 
-	if util.PtrVal(opts.DetailedExitcode) {
+	if pointer.Deref(opts.DetailedExitcode) {
 		args = append(args, "-detailed-exitcode")
 	}
 
-	if util.PtrVal(opts.NoColor) {
+	if pointer.Deref(opts.NoColor) {
 		args = append(args, "-no-color")
 	}
 

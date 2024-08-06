@@ -19,7 +19,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	"github.com/abcxyz/guardian/pkg/util"
+	"github.com/abcxyz/pkg/pointer"
 )
 
 func TestApplyArgsFromOptions(t *testing.T) {
@@ -33,13 +33,13 @@ func TestApplyArgsFromOptions(t *testing.T) {
 		{
 			name: "truthy",
 			opts: &ApplyOptions{
-				File:            util.Ptr("filename"),
-				AutoApprove:     util.Ptr(true),
-				CompactWarnings: util.Ptr(true),
-				Lock:            util.Ptr(true),
-				LockTimeout:     util.Ptr("10m"),
-				Input:           util.Ptr(true),
-				NoColor:         util.Ptr(true),
+				File:            pointer.To("filename"),
+				AutoApprove:     pointer.To(true),
+				CompactWarnings: pointer.To(true),
+				Lock:            pointer.To(true),
+				LockTimeout:     pointer.To("10m"),
+				Input:           pointer.To(true),
+				NoColor:         pointer.To(true),
 			},
 			exp: []string{
 				"-auto-approve",
@@ -54,13 +54,13 @@ func TestApplyArgsFromOptions(t *testing.T) {
 		{
 			name: "falsey",
 			opts: &ApplyOptions{
-				File:            util.Ptr("filename"),
-				AutoApprove:     util.Ptr(false),
-				CompactWarnings: util.Ptr(false),
-				Lock:            util.Ptr(false),
-				LockTimeout:     util.Ptr("10m"),
-				Input:           util.Ptr(false),
-				NoColor:         util.Ptr(false),
+				File:            pointer.To("filename"),
+				AutoApprove:     pointer.To(false),
+				CompactWarnings: pointer.To(false),
+				Lock:            pointer.To(false),
+				LockTimeout:     pointer.To("10m"),
+				Input:           pointer.To(false),
+				NoColor:         pointer.To(false),
 			},
 			exp: []string{
 				"-lock=false",

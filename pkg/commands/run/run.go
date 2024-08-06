@@ -29,6 +29,7 @@ import (
 	"github.com/abcxyz/guardian/pkg/terraform"
 	"github.com/abcxyz/guardian/pkg/util"
 	"github.com/abcxyz/pkg/cli"
+	"github.com/abcxyz/pkg/pointer"
 )
 
 var _ cli.Command = (*RunCommand)(nil)
@@ -153,9 +154,9 @@ func (c *RunCommand) Process(ctx context.Context) error {
 
 		if err := c.WithActionsOutGroup("Initializing Terraform", func() error {
 			_, err := c.terraformClient.Init(ctx, c.Stdout(), c.Stderr(), &terraform.InitOptions{
-				Input:       util.Ptr(false),
-				Lockfile:    util.Ptr(lockfileMode),
-				LockTimeout: util.Ptr(c.flagLockTimeout.String()),
+				Input:       pointer.To(false),
+				Lockfile:    pointer.To(lockfileMode),
+				LockTimeout: pointer.To(c.flagLockTimeout.String()),
 			})
 			return err //nolint:wrapcheck // Want passthrough
 		}); err != nil {

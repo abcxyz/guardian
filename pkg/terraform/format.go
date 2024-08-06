@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/abcxyz/guardian/pkg/util"
+	"github.com/abcxyz/pkg/pointer"
 )
 
 // FormatOptions are the set of options for running terraform format.
@@ -40,11 +40,11 @@ func formatArgsFromOptions(opts *FormatOptions) []string {
 		return args
 	}
 
-	if util.PtrVal(opts.Check) {
+	if pointer.Deref(opts.Check) {
 		args = append(args, "-check")
 	}
 
-	if util.PtrVal(opts.Diff) {
+	if pointer.Deref(opts.Diff) {
 		args = append(args, "-diff")
 	}
 
@@ -52,11 +52,11 @@ func formatArgsFromOptions(opts *FormatOptions) []string {
 		args = append(args, fmt.Sprintf("-list=%t", *opts.List))
 	}
 
-	if util.PtrVal(opts.NoColor) {
+	if pointer.Deref(opts.NoColor) {
 		args = append(args, "-no-color")
 	}
 
-	if util.PtrVal(opts.Recursive) {
+	if pointer.Deref(opts.Recursive) {
 		args = append(args, "-recursive")
 	}
 

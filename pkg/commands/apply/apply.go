@@ -37,6 +37,7 @@ import (
 	"github.com/abcxyz/guardian/pkg/util"
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
+	"github.com/abcxyz/pkg/pointer"
 )
 
 const (
@@ -439,10 +440,10 @@ func (c *ApplyCommand) terraformApply(ctx context.Context) (*RunResult, error) {
 
 	if err := c.WithActionsOutGroup("Initializing Terraform", func() error {
 		_, err := c.terraformClient.Init(ctx, c.Stdout(), multiStderr, &terraform.InitOptions{
-			Input:       util.Ptr(false),
-			NoColor:     util.Ptr(true),
-			Lockfile:    util.Ptr(lockfileMode),
-			LockTimeout: util.Ptr(c.flagLockTimeout.String()),
+			Input:       pointer.To(false),
+			NoColor:     pointer.To(true),
+			Lockfile:    pointer.To(lockfileMode),
+			LockTimeout: pointer.To(c.flagLockTimeout.String()),
 		})
 		return err //nolint:wrapcheck // Want passthrough
 	}); err != nil {
@@ -452,7 +453,7 @@ func (c *ApplyCommand) terraformApply(ctx context.Context) (*RunResult, error) {
 	stderr.Reset()
 
 	if err := c.WithActionsOutGroup("Validating Terraform", func() error {
-		_, err := c.terraformClient.Validate(ctx, c.Stdout(), multiStderr, &terraform.ValidateOptions{NoColor: util.Ptr(true)})
+		_, err := c.terraformClient.Validate(ctx, c.Stdout(), multiStderr, &terraform.ValidateOptions{NoColor: pointer.To(true)})
 		return err //nolint:wrapcheck // Want passthrough
 	}); err != nil {
 		return &RunResult{commentDetails: stderr.String()}, fmt.Errorf("failed to validate: %w", err)
@@ -462,11 +463,11 @@ func (c *ApplyCommand) terraformApply(ctx context.Context) (*RunResult, error) {
 
 	if err := c.WithActionsOutGroup("Applying Terraform", func() error {
 		_, err := c.terraformClient.Apply(ctx, multiStdout, multiStderr, &terraform.ApplyOptions{
-			File:            util.Ptr(c.planFilePath),
-			CompactWarnings: util.Ptr(true),
-			Input:           util.Ptr(false),
-			NoColor:         util.Ptr(true),
-			LockTimeout:     util.Ptr(c.flagLockTimeout.String()),
+			File:            pointer.To(c.planFilePath),
+			CompactWarnings: pointer.To(true),
+			Input:           pointer.To(false),
+			NoColor:         pointer.To(true),
+			LockTimeout:     pointer.To(c.flagLockTimeout.String()),
 		})
 
 		return err //nolint:wrapcheck // Want passthrough

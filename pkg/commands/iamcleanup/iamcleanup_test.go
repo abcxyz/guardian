@@ -20,7 +20,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	"github.com/abcxyz/guardian/pkg/util"
+	"github.com/abcxyz/pkg/pointer"
 	"github.com/abcxyz/pkg/testutil"
 )
 
@@ -36,12 +36,12 @@ func Test_evaluateIAMConditionExpression(t *testing.T) {
 		{
 			name:       "success_expired",
 			expression: "request.time < timestamp('2019-01-01T00:00:00Z')",
-			want:       util.Ptr(false),
+			want:       pointer.To(false),
 		},
 		{
 			name:       "success_not_expired",
 			expression: "request.time < timestamp('3024-01-01T00:00:00Z')",
-			want:       util.Ptr(true),
+			want:       pointer.To(true),
 		},
 		{
 			name:          "failed_to_parse",

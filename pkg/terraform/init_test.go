@@ -19,7 +19,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	"github.com/abcxyz/guardian/pkg/util"
+	"github.com/abcxyz/pkg/pointer"
 )
 
 func TestInitArgsFromOptions(t *testing.T) {
@@ -33,12 +33,12 @@ func TestInitArgsFromOptions(t *testing.T) {
 		{
 			name: "truthy",
 			opts: &InitOptions{
-				Backend:     util.Ptr(true),
-				Lock:        util.Ptr(true),
-				LockTimeout: util.Ptr("10m"),
-				Lockfile:    util.Ptr("readonly"),
-				Input:       util.Ptr(true),
-				NoColor:     util.Ptr(true),
+				Backend:     pointer.To(true),
+				Lock:        pointer.To(true),
+				LockTimeout: pointer.To("10m"),
+				Lockfile:    pointer.To("readonly"),
+				Input:       pointer.To(true),
+				NoColor:     pointer.To(true),
 			},
 			exp: []string{
 				"-backend=true",
@@ -52,12 +52,12 @@ func TestInitArgsFromOptions(t *testing.T) {
 		{
 			name: "falsey",
 			opts: &InitOptions{
-				Backend:     util.Ptr(false),
-				Lock:        util.Ptr(false),
-				LockTimeout: util.Ptr("10m"),
-				Lockfile:    util.Ptr("readonly"),
-				Input:       util.Ptr(false),
-				NoColor:     util.Ptr(false),
+				Backend:     pointer.To(false),
+				Lock:        pointer.To(false),
+				LockTimeout: pointer.To("10m"),
+				Lockfile:    pointer.To("readonly"),
+				Input:       pointer.To(false),
+				NoColor:     pointer.To(false),
 			},
 			exp: []string{
 				"-backend=false",

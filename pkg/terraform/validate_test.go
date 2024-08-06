@@ -19,7 +19,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	"github.com/abcxyz/guardian/pkg/util"
+	"github.com/abcxyz/pkg/pointer"
 )
 
 func TestValidateArgsFromOptions(t *testing.T) {
@@ -33,8 +33,8 @@ func TestValidateArgsFromOptions(t *testing.T) {
 		{
 			name: "truthy",
 			opts: &ValidateOptions{
-				NoColor: util.Ptr(true),
-				JSON:    util.Ptr(true),
+				NoColor: pointer.To(true),
+				JSON:    pointer.To(true),
 			},
 			exp: []string{
 				"-no-color",
@@ -44,8 +44,8 @@ func TestValidateArgsFromOptions(t *testing.T) {
 		{
 			name: "falsey",
 			opts: &ValidateOptions{
-				NoColor: util.Ptr(false),
-				JSON:    util.Ptr(false),
+				NoColor: pointer.To(false),
+				JSON:    pointer.To(false),
 			},
 			exp: []string{},
 		},

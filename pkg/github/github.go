@@ -24,7 +24,7 @@ import (
 	"github.com/sethvargo/go-retry"
 	"golang.org/x/oauth2"
 
-	"github.com/abcxyz/guardian/pkg/util"
+	"github.com/abcxyz/pkg/pointer"
 )
 
 var ignoredStatusCodes = map[int]struct{}{
@@ -318,7 +318,7 @@ func (g *GitHubClient) CreateIssue(ctx context.Context, owner, repo, title, body
 // CloseIssue closes an issue.
 func (g *GitHubClient) CloseIssue(ctx context.Context, owner, repo string, number int) error {
 	if err := g.withRetries(ctx, func(ctx context.Context) error {
-		_, resp, err := g.client.Issues.Edit(ctx, owner, repo, number, &github.IssueRequest{State: util.Ptr(Closed)})
+		_, resp, err := g.client.Issues.Edit(ctx, owner, repo, number, &github.IssueRequest{State: pointer.To(Closed)})
 		if err != nil {
 			if resp != nil {
 				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
