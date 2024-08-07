@@ -18,6 +18,7 @@ package policy
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 
@@ -27,7 +28,7 @@ import (
 
 // Result defines the expected structure of the OPA policy evaluation result.
 type Result struct {
-	MissingApprovals []MissingApproval `json:"missing_approvals"`
+	MissingApprovals []*MissingApproval `json:"missing_approvals"`
 }
 
 // MissingApproval defines the missing approvals determined from the policy
@@ -71,12 +72,18 @@ func (c *PolicyCommand) Flags() *cli.FlagSet {
 
 // Run implements cli.Command.
 func (c *PolicyCommand) Run(ctx context.Context, args []string) error {
-	logger := logging.FromContext(ctx)
-
 	f := c.Flags()
 	if err := f.Parse(args); err != nil {
 		return fmt.Errorf("failed to parse flags: %w", err)
 	}
+
+	return c.Process(ctx)
+}
+
+// Process handles the main logic for handling the results of the policy
+// evaluation.
+func (c *PolicyCommand) Process(ctx context.Context) error {
+	logger := logging.FromContext(ctx)
 
 	logger.DebugContext(ctx, "parsing results file",
 		"results_file", c.flags.ResultsFile)
@@ -90,5 +97,32 @@ func (c *PolicyCommand) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("failed to unmarshal json: %w", err)
 	}
 
-	return nil
+	var merr error
+	var teams []string
+	var users []string
+	for k, v := range *results {
+		logger.DebugContext(ctx, "processing policy decision",
+			"policy_name", k)
+
+		if len(v.MissingApprovals) == 0 {
+			logger.DebugContext(ctx, "no missing approvals for policy",
+				"policy_name", k)
+			continue
+		}
+
+		for _, m := range v.MissingApprovals {
+			teams = append(teams, m.AssignTeams...)
+			users = append(users, m.AssignUsers...)
+
+			merr = errors.Join(merr, fmt.Errorf("failed: \"%s\" - %s", k, m.Message))
+		}
+
+		logger.DebugContext(ctx, "found missing approvals",
+			"teams", teams,
+			"users", users,
+		)
+	}
+
+	// TODO: assign principals as reviewers to current pull request
+	return merr
 }
