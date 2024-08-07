@@ -47,11 +47,6 @@ var _ cli.Command = (*PolicyCommand)(nil)
 type PolicyCommand struct {
 	cli.BaseCommand
 	flags PolicyFlags
-
-	results *Results
-
-	teams []string
-	users []string
 }
 
 // Desc implements cli.Command.
@@ -77,12 +72,18 @@ func (c *PolicyCommand) Flags() *cli.FlagSet {
 
 // Run implements cli.Command.
 func (c *PolicyCommand) Run(ctx context.Context, args []string) error {
-	logger := logging.FromContext(ctx)
-
 	f := c.Flags()
 	if err := f.Parse(args); err != nil {
 		return fmt.Errorf("failed to parse flags: %w", err)
 	}
+
+	return c.Process(ctx)
+}
+
+// Process handles the main logic for handling the results of the policy
+// evaluation.
+func (c *PolicyCommand) Process(ctx context.Context) error {
+	logger := logging.FromContext(ctx)
 
 	logger.DebugContext(ctx, "parsing results file",
 		"results_file", c.flags.ResultsFile)
@@ -96,18 +97,10 @@ func (c *PolicyCommand) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("failed to unmarshal json: %w", err)
 	}
 
-	c.results = results
-
-	return c.Process(ctx)
-}
-
-// Process handles the main logic for handling the results of the policy
-// evaluation.
-func (c *PolicyCommand) Process(ctx context.Context) error {
-	logger := logging.FromContext(ctx)
-
 	var merr error
-	for k, v := range *c.results {
+	var teams []string
+	var users []string
+	for k, v := range *results {
 		logger.DebugContext(ctx, "processing policy decision",
 			"policy_name", k)
 
@@ -118,15 +111,15 @@ func (c *PolicyCommand) Process(ctx context.Context) error {
 		}
 
 		for _, m := range v.MissingApprovals {
-			c.teams = append(c.teams, m.AssignTeams...)
-			c.users = append(c.users, m.AssignUsers...)
+			teams = append(teams, m.AssignTeams...)
+			users = append(users, m.AssignUsers...)
 
 			merr = errors.Join(merr, fmt.Errorf("failed: \"%s\" - %s", k, m.Message))
 		}
 
 		logger.DebugContext(ctx, "found missing approvals",
-			"teams", c.teams,
-			"users", c.users,
+			"teams", teams,
+			"users", users,
 		)
 	}
 

@@ -1,0 +1,24 @@
+{
+  "org_policy": {
+    "missing_approvals": [
+      {
+        "assign_team_reviewers": [
+          "test-organization-owners"
+        ],
+        "assign_user_reviewers": [],
+        "msg": "missing required approval for org policy changes, must be one of [users: [], teams: [\"test-organization-owners\"]]"
+      }
+    ]
+  },
+  "run_ingress": {
+    "missing_approvals": [
+      {
+        "assign_team_reviewers": [],
+        "assign_user_reviewers": [
+          "test-security-user"
+        ],
+        "msg": "missing required approval for Cloud Run ingress changes, must be one of [users: [\"test-security-user\"], teams: []]"
+      }
+    ]
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "test_policy_name": {
+    "missing_approvals": [
+      {
+        "assign_team_reviewers": [
+          "test-team-name"
+        ],
+        "assign_user_reviewers": [],
+        "msg": "test-error-message"
+      }
+    ]
+  }
+}
