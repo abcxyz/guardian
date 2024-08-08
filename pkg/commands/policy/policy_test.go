@@ -60,7 +60,8 @@ func TestPolicy_Process(t *testing.T) {
 				},
 			}
 
-			err := c.Process(ctx)
+			g := &GitHubParams{}
+			err := c.Process(ctx, g)
 			if diff := testutil.DiffErrString(err, tc.wantErr); diff != "" {
 				t.Errorf("unexpected result; (-got,+want): %s", diff)
 			}

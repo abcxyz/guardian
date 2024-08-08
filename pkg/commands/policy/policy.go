@@ -22,8 +22,11 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/abcxyz/guardian/pkg/flags"
+	"github.com/abcxyz/guardian/pkg/github"
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
+	"github.com/sethvargo/go-githubactions"
 )
 
 // Result defines the expected structure of the OPA policy evaluation result.
@@ -46,7 +49,11 @@ var _ cli.Command = (*PolicyCommand)(nil)
 
 type PolicyCommand struct {
 	cli.BaseCommand
+	flags.RetryFlags
+	flags.GitHubFlags
 	flags PolicyFlags
+
+	gitHubClient *github.GitHubClient
 }
 
 // Desc implements cli.Command.
@@ -66,6 +73,8 @@ Usage: {{ COMMAND }} [options]
 // Flags returns the list of flags that are defined on the command.
 func (c *PolicyCommand) Flags() *cli.FlagSet {
 	set := cli.NewFlagSet()
+	c.GitHubFlags.Register(set)
+	c.RetryFlags.Register(set)
 	c.flags.Register(set)
 	return set
 }
@@ -77,12 +86,42 @@ func (c *PolicyCommand) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("failed to parse flags: %w", err)
 	}
 
-	return c.Process(ctx)
+	tokenSource, err := c.GitHubFlags.TokenSource(ctx, map[string]string{
+		"contents":      "read",
+		"pull_requests": "write",
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get token source: %w", err)
+	}
+	token, err := tokenSource.GitHubToken(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get token: %w", err)
+	}
+
+	gitHubParams := &GitHubParams{}
+	action := githubactions.New(githubactions.WithWriter(c.Stdout()))
+	actx, err := action.Context()
+	if err != nil {
+		return fmt.Errorf("failed to load github context: %w", err)
+	}
+	if err = gitHubParams.FromGitHubContext(actx); err != nil {
+		return fmt.Errorf("failed to get github params from github context: %w", err)
+	}
+
+	c.gitHubClient = github.NewClient(
+		ctx,
+		token,
+		github.WithRetryInitialDelay(c.RetryFlags.FlagRetryInitialDelay),
+		github.WithRetryMaxAttempts(c.RetryFlags.FlagRetryMaxAttempts),
+		github.WithRetryMaxDelay(c.RetryFlags.FlagRetryMaxDelay),
+	)
+
+	return c.Process(ctx, gitHubParams)
 }
 
 // Process handles the main logic for handling the results of the policy
 // evaluation.
-func (c *PolicyCommand) Process(ctx context.Context) error {
+func (c *PolicyCommand) Process(ctx context.Context, gitHubParams *GitHubParams) error {
 	logger := logging.FromContext(ctx)
 
 	logger.DebugContext(ctx, "parsing results file",
@@ -123,6 +162,5 @@ func (c *PolicyCommand) Process(ctx context.Context) error {
 		)
 	}
 
-	// TODO: assign principals as reviewers to current pull request
 	return merr
 }
