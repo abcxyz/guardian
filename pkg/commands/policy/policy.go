@@ -162,5 +162,6 @@ func (c *PolicyCommand) Process(ctx context.Context) error {
 		)
 	}
 
+	// TODO: assign principals as reviewers to current pull request
 	return merr
 }
