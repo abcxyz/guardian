@@ -565,7 +565,7 @@ func (g *GitHubClient) RequestReviewers(ctx context.Context, owner, repo string,
 					return retry.RetryableError(err)
 				}
 			}
-			return fmt.Errorf("failed to request reviewer: %w", err)
+			return fmt.Errorf("failed to request reviewers: %w", err)
 		}
 
 		for _, u := range pr.RequestedReviewers {
@@ -577,7 +577,7 @@ func (g *GitHubClient) RequestReviewers(ctx context.Context, owner, repo string,
 
 		return nil
 	}); err != nil {
-		return nil, fmt.Errorf("failed to request reviewer: %w", err)
+		return nil, fmt.Errorf("failed to request reviewers: %w", err)
 	}
 	return assigned, nil
 }
