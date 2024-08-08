@@ -26,7 +26,6 @@ import (
 	"github.com/abcxyz/guardian/pkg/github"
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
-	"github.com/sethvargo/go-githubactions"
 )
 
 // Result defines the expected structure of the OPA policy evaluation result.
@@ -96,16 +95,6 @@ func (c *PolicyCommand) Run(ctx context.Context, args []string) error {
 	token, err := tokenSource.GitHubToken(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get token: %w", err)
-	}
-
-	gitHubParams := &GitHubParams{}
-	action := githubactions.New(githubactions.WithWriter(c.Stdout()))
-	actx, err := action.Context()
-	if err != nil {
-		return fmt.Errorf("failed to load github context: %w", err)
-	}
-	if err = gitHubParams.FromGitHubContext(actx); err != nil {
-		return fmt.Errorf("failed to get github params from github context: %w", err)
 	}
 
 	c.gitHubClient = github.NewClient(
