@@ -94,6 +94,10 @@ type JobsResponse struct {
 	Pagination *Pagination
 }
 
+// RequestReviewersResponse contains the state of the existing roster of
+// requested reviewers on a Pull Request. This will exclude reviewers whose
+// have approved, left a comment, or requested changes, unless they were
+// re-requested.
 type RequestReviewersResponse struct {
 	Users []string
 	Teams []string
