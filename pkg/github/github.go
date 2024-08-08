@@ -95,9 +95,9 @@ type JobsResponse struct {
 }
 
 // RequestReviewersResponse contains the state of the existing roster of
-// requested reviewers on a Pull Request. This will exclude reviewers whose
+// requested reviewers on a Pull Request. This will exclude reviewers who
 // have approved, left a comment, or requested changes, unless they were
-// re-requested.
+// re-requested for another review.
 type RequestReviewersResponse struct {
 	Users []string
 	Teams []string
