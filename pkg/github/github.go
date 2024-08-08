@@ -146,7 +146,7 @@ type GitHub interface {
 
 	// RequestReviewers assigns a list of users and teams as reviewers of a target
 	// Pull Request.
-	RequestReviewers(ctx context.Context, owner, repo string, number int, users []string, teams []string) (*RequestReviewersResponse, error)
+	RequestReviewers(ctx context.Context, owner, repo string, number int, users, teams []string) (*RequestReviewersResponse, error)
 }
 
 var _ GitHub = (*GitHubClient)(nil)
@@ -549,7 +549,10 @@ func (g *GitHubClient) ResolveJobLogsURL(ctx context.Context, jobName, owner, re
 	return "", fmt.Errorf("failed to resolve direct URL to job logs: no job found matching name %s", jobName)
 }
 
-func (g *GitHubClient) RequestReviewers(ctx context.Context, owner, repo string, number int, users []string, teams []string) (*RequestReviewersResponse, error) {
+// RequestReviewers assigns a list of users and teams as reviewers of a target
+// Pull Request. Mixing existing reviewers in pending review state with new
+// reviewers will result in a no-op without errors thrown.
+func (g *GitHubClient) RequestReviewers(ctx context.Context, owner, repo string, number int, users, teams []string) (*RequestReviewersResponse, error) {
 	var assigned *RequestReviewersResponse
 	if err := g.withRetries(ctx, func(ctx context.Context) error {
 		pr, resp, err := g.client.PullRequests.RequestReviewers(ctx, owner, repo, number, github.ReviewersRequest{
