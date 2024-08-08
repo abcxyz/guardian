@@ -116,12 +116,12 @@ func (c *PolicyCommand) Run(ctx context.Context, args []string) error {
 		github.WithRetryMaxDelay(c.RetryFlags.FlagRetryMaxDelay),
 	)
 
-	return c.Process(ctx, gitHubParams)
+	return c.Process(ctx)
 }
 
 // Process handles the main logic for handling the results of the policy
 // evaluation.
-func (c *PolicyCommand) Process(ctx context.Context, gitHubParams *GitHubParams) error {
+func (c *PolicyCommand) Process(ctx context.Context) error {
 	logger := logging.FromContext(ctx)
 
 	logger.DebugContext(ctx, "parsing results file",
