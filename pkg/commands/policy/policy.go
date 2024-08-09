@@ -164,8 +164,8 @@ func (c *PolicyCommand) Process(ctx context.Context, params *GitHubParams) error
 	}
 
 	// Make a request per user and team to avoid uncaught behavior from the GitHub
-	// API, which does not assign any reviewers if any of the principals exist on
-	// the pending review list.
+	// API, which does not assign any of the provided reviewers if any of the
+	// principals exist on the pending review list.
 	for _, u := range users {
 		_, err := c.gitHubClient.RequestReviewers(ctx, params.Owner, params.Repository, params.PullRequestNumber, []string{u}, nil)
 		if err != nil {
