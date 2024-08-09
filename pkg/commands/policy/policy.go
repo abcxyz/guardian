@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/abcxyz/guardian/pkg/flags"
+	"github.com/abcxyz/guardian/pkg/github"
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
 )
@@ -46,7 +48,11 @@ var _ cli.Command = (*PolicyCommand)(nil)
 
 type PolicyCommand struct {
 	cli.BaseCommand
+	flags.RetryFlags
+	flags.GitHubFlags
 	flags PolicyFlags
+
+	gitHubClient *github.GitHubClient
 }
 
 // Desc implements cli.Command.
@@ -66,6 +72,8 @@ Usage: {{ COMMAND }} [options]
 // Flags returns the list of flags that are defined on the command.
 func (c *PolicyCommand) Flags() *cli.FlagSet {
 	set := cli.NewFlagSet()
+	c.GitHubFlags.Register(set)
+	c.RetryFlags.Register(set)
 	c.flags.Register(set)
 	return set
 }
@@ -76,6 +84,26 @@ func (c *PolicyCommand) Run(ctx context.Context, args []string) error {
 	if err := f.Parse(args); err != nil {
 		return fmt.Errorf("failed to parse flags: %w", err)
 	}
+
+	tokenSource, err := c.GitHubFlags.TokenSource(ctx, map[string]string{
+		"contents":      "read",
+		"pull_requests": "write",
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get token source: %w", err)
+	}
+	token, err := tokenSource.GitHubToken(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get token: %w", err)
+	}
+
+	c.gitHubClient = github.NewClient(
+		ctx,
+		token,
+		github.WithRetryInitialDelay(c.RetryFlags.FlagRetryInitialDelay),
+		github.WithRetryMaxAttempts(c.RetryFlags.FlagRetryMaxAttempts),
+		github.WithRetryMaxDelay(c.RetryFlags.FlagRetryMaxDelay),
+	)
 
 	return c.Process(ctx)
 }
