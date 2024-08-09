@@ -16,14 +16,10 @@
 package util
 
 import (
-	"cmp"
 	"fmt"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
-
-	"golang.org/x/exp/maps"
 )
 
 // SliceContainsOnly checks that all values of a slice are a single value.
@@ -40,27 +36,6 @@ func SliceContainsOnly[T comparable](slice []T, value T) bool {
 	}
 
 	return true
-}
-
-// SortedMapKeys returns the sorted slice of map key strings.
-func SortedMapKeys[M ~map[K]V, K cmp.Ordered, V any](m M) []K {
-	k := maps.Keys(m)
-	slices.Sort(k)
-	return k
-}
-
-// Ptr returns the pointer of a given value.
-func Ptr[T any](v T) *T {
-	return &v
-}
-
-// PtrVal returns the value of the given pointer. If the provided input is nil,
-// it returns the zero value for the pointer's underlying type.
-func PtrVal[T any](v *T) T {
-	if v == nil {
-		v = new(T)
-	}
-	return *v
 }
 
 // ChildPath returns the child path with respect to the base directory
