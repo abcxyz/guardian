@@ -183,5 +183,8 @@ func (c *PolicyCommand) Process(ctx context.Context, params *GitHubParams) error
 		}
 	}
 
+	// TODO: Add Pull Request comment to indicate reviewers added due to policy
+	// result.
+
 	return merr
 }
