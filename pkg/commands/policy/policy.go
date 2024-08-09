@@ -76,8 +76,6 @@ func (c *PolicyCommand) Flags() *cli.FlagSet {
 	set := cli.NewFlagSet()
 	c.GitHubFlags.Register(set)
 	c.RetryFlags.Register(set)
-	c.GitHubFlags.Register(set)
-	c.RetryFlags.Register(set)
 	c.flags.Register(set)
 	return set
 }
