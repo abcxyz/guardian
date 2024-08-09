@@ -18,8 +18,16 @@ import (
 	"context"
 	"testing"
 
+	"github.com/abcxyz/guardian/pkg/github"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/testutil"
+	"github.com/google/go-cmp/cmp"
+)
+
+const (
+	testOwner             = "test-owner"
+	testRepo              = "test-repo"
+	testPullRequestNumber = 1
 )
 
 func TestPolicy_Process(t *testing.T) {
@@ -28,9 +36,10 @@ func TestPolicy_Process(t *testing.T) {
 	ctx := logging.WithLogger(context.Background(), logging.TestLogger(t))
 
 	cases := []struct {
-		name        string
-		resultsFile string
-		wantErr     string
+		name                string
+		resultsFile         string
+		wantErr             string
+		expGitHubClientReqs []*github.Request
 	}{
 		{
 			name:        "succeeds_with_sufficient_approvals",
@@ -40,11 +49,38 @@ func TestPolicy_Process(t *testing.T) {
 			name:        "fails_with_missing_team_approvals",
 			resultsFile: "testdata/missing_team_approval.json",
 			wantErr:     "failed: \"test_policy_name\" - test-error-message",
+			expGitHubClientReqs: []*github.Request{
+				{
+					Name:   "RequestReviewers",
+					Params: []any{testOwner, testRepo, testPullRequestNumber, []string(nil), []string{"test-team-name"}},
+				},
+			},
 		},
 		{
 			name:        "fails_with_missing_user_approvals",
 			resultsFile: "testdata/missing_user_approval.json",
 			wantErr:     "failed: \"test_policy_name\" - test-error-message",
+			expGitHubClientReqs: []*github.Request{
+				{
+					Name:   "RequestReviewers",
+					Params: []any{testOwner, testRepo, testPullRequestNumber, []string{"test-user-name"}, []string(nil)},
+				},
+			},
+		},
+		{
+			name:        "makes_one_request_per_principal",
+			resultsFile: "testdata/missing_user_and_team_approval.json",
+			wantErr:     "failed: \"test_policy_name\" - test-error-message",
+			expGitHubClientReqs: []*github.Request{
+				{
+					Name:   "RequestReviewers",
+					Params: []any{testOwner, testRepo, testPullRequestNumber, []string{"test-user-name"}, []string(nil)},
+				},
+				{
+					Name:   "RequestReviewers",
+					Params: []any{testOwner, testRepo, testPullRequestNumber, []string(nil), []string{"test-team-name"}},
+				},
+			},
 		},
 	}
 
@@ -54,13 +90,24 @@ func TestPolicy_Process(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
+			var gitHubClient github.MockGitHubClient
 			c := &PolicyCommand{
 				flags: PolicyFlags{
 					ResultsFile: tc.resultsFile,
 				},
+				gitHubClient: &gitHubClient,
 			}
 
-			err := c.Process(ctx)
+			err := c.Process(ctx, &GitHubParams{
+				Owner:             testOwner,
+				Repository:        testRepo,
+				PullRequestNumber: testPullRequestNumber,
+			})
+
+			if diff := cmp.Diff(gitHubClient.Reqs, tc.expGitHubClientReqs); diff != "" {
+				t.Errorf("GitHubClient calls not as expected; (-got,+want): %s", diff)
+			}
+
 			if diff := testutil.DiffErrString(err, tc.wantErr); diff != "" {
 				t.Errorf("unexpected result; (-got,+want): %s", diff)
 			}

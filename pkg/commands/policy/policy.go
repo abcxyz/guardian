@@ -54,7 +54,7 @@ type PolicyCommand struct {
 	flags.GitHubFlags
 	flags PolicyFlags
 
-	gitHubClient *github.GitHubClient
+	gitHubClient github.GitHub
 }
 
 // Desc implements cli.Command.
@@ -117,12 +117,12 @@ func (c *PolicyCommand) Run(ctx context.Context, args []string) error {
 		github.WithRetryMaxDelay(c.RetryFlags.FlagRetryMaxDelay),
 	)
 
-	return c.Process(ctx)
+	return c.Process(ctx, &gitHubParams)
 }
 
 // Process handles the main logic for handling the results of the policy
 // evaluation.
-func (c *PolicyCommand) Process(ctx context.Context) error {
+func (c *PolicyCommand) Process(ctx context.Context, params *GitHubParams) error {
 	logger := logging.FromContext(ctx)
 
 	logger.DebugContext(ctx, "parsing results file",
@@ -163,6 +163,25 @@ func (c *PolicyCommand) Process(ctx context.Context) error {
 		)
 	}
 
-	// TODO: assign principals as reviewers to current pull request
+	// Make a request per user and team to avoid uncaught behavior from the GitHub
+	// API, which does not assign any reviewers if any of the principals exist on
+	// the pending review list.
+	for _, u := range users {
+		_, err := c.gitHubClient.RequestReviewers(ctx, params.Owner, params.Repository, params.PullRequestNumber, []string{u}, nil)
+		if err != nil {
+			logger.ErrorContext(ctx, "failed to request review",
+				"user", u,
+				"error", err)
+		}
+	}
+	for _, t := range teams {
+		_, err := c.gitHubClient.RequestReviewers(ctx, params.Owner, params.Repository, params.PullRequestNumber, nil, []string{t})
+		if err != nil {
+			logger.ErrorContext(ctx, "failed to request review",
+				"team", t,
+				"error", err)
+		}
+	}
+
 	return merr
 }

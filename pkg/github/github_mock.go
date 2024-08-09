@@ -255,7 +255,7 @@ func (m *MockGitHubClient) RequestReviewers(ctx context.Context, owner, repo str
 	}
 
 	return &RequestReviewersResponse{
-		Users: m.UserReviewers,
-		Teams: m.TeamReviewers,
+		Users: append(m.UserReviewers, users...),
+		Teams: append(m.TeamReviewers, teams...),
 	}, nil
 }
