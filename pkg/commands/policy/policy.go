@@ -99,7 +99,7 @@ func (c *PolicyCommand) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("failed to get token: %w", err)
 	}
 
-	gitHubParams := &GitHubParams{}
+	var gitHubParams GitHubParams
 	action := githubactions.New(githubactions.WithWriter(c.Stdout()))
 	actx, err := action.Context()
 	if err != nil {
