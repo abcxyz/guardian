@@ -184,7 +184,8 @@ func (c *PolicyCommand) Process(ctx context.Context, params *GitHubParams) error
 	}
 
 	// TODO: Add Pull Request comment to indicate reviewers added due to policy
-	// result.
+	// result. This comment should also tell users how to re-run the workflow when
+	// the required approvals are present.
 
 	return merr
 }
