@@ -208,7 +208,7 @@ func TestPlan_Process(t *testing.T) {
 			},
 			expStorageClientReqs: []*storage.Request{
 				{
-					Name: "UploadObject",
+					Name: "CreateObject",
 					Params: []any{
 						"my-bucket-name",
 						"guardian-plans/owner/repo/1/testdata/test-tfplan.binary",
@@ -246,7 +246,7 @@ func TestPlan_Process(t *testing.T) {
 			},
 			expStorageClientReqs: []*storage.Request{
 				{
-					Name: "UploadObject",
+					Name: "CreateObject",
 					Params: []any{
 						"my-bucket-name",
 						"guardian-plans/owner/repo/2/testdata/test-tfplan.binary",
@@ -285,7 +285,7 @@ func TestPlan_Process(t *testing.T) {
 			},
 			expStorageClientReqs: []*storage.Request{
 				{
-					Name: "UploadObject",
+					Name: "CreateObject",
 					Params: []any{
 						"my-bucket-name",
 						"guardian-plans/owner/repo/2/testdata/test-tfplan.binary",
@@ -309,7 +309,7 @@ func TestPlan_Process(t *testing.T) {
 			terraformClient:          terraformNoDiffMock,
 			expStorageClientReqs: []*storage.Request{
 				{
-					Name: "UploadObject",
+					Name: "CreateObject",
 					Params: []any{
 						"my-bucket-name",
 						"guardian-plans/owner/repo/2/testdata/test-tfplan.binary",

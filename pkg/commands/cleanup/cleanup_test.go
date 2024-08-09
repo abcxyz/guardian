@@ -76,7 +76,7 @@ func TestEntrypointsProcess(t *testing.T) {
 			getStatefileResp: emptyStatefile,
 			expStorageClientReqs: []*storage.Request{
 				{
-					Name:   "DownloadObject",
+					Name:   "GetObject",
 					Params: []any{string("my-made-up-bucket"), string("my/path/to/file/project1/default.tfstate")},
 				},
 				{
@@ -94,7 +94,7 @@ func TestEntrypointsProcess(t *testing.T) {
 			getStatefileResp: statefileWithResources,
 			expStorageClientReqs: []*storage.Request{
 				{
-					Name:   "DownloadObject",
+					Name:   "GetObject",
 					Params: []any{string("my-made-up-bucket"), string("my/path/to/file/project2/default.tfstate")},
 				},
 			},

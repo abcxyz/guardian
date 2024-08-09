@@ -92,11 +92,7 @@ func (c *CleanupCommand) Run(ctx context.Context, args []string) error {
 	}
 	c.directory = dirAbs
 
-	sc, err := storage.NewGoogleCloudStorage(
-		ctx,
-		storage.WithRetryInitialDelay(c.RetryFlags.FlagRetryInitialDelay),
-		storage.WithRetryMaxDelay(c.RetryFlags.FlagRetryMaxDelay),
-	)
+	sc, err := storage.NewGoogleCloudStorage(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to create google cloud storage client: %w", err)
 	}
@@ -151,7 +147,7 @@ func (c *CleanupCommand) Process(ctx context.Context) error {
 		return fmt.Errorf("failed to parse gcs object %s: %w", statefileURI, err)
 	}
 
-	if err = c.storageClient.DeleteObject(ctx, *bucketName, *objectName); err != nil {
+	if err = c.storageClient.DeleteObject(ctx, bucketName, objectName); err != nil {
 		return fmt.Errorf("failed to delete statefile stored in gcs %s: %w", statefileURI, err)
 	}
 

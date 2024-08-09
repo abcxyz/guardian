@@ -17,34 +17,29 @@ package storage
 
 import (
 	"context"
-	"fmt"
 	"io"
-	"strings"
+)
+
+// Type defines the type of storage client.
+type Type int
+
+// The types of storage clients available.
+const (
+	FilesystemType Type = iota
+	GoogleCloudStorageType
 )
 
 // Storage defines the minimum interface for a blob storage system.
 type Storage interface {
-	// UploadObject uploads a blob storage object.
-	UploadObject(ctx context.Context, bucket, name string, contents []byte, opts ...UploadOption) error
+	// CreateObject creates a blob storage object.
+	CreateObject(ctx context.Context, bucket, name string, contents []byte, opts ...CreateOption) error
 
-	// DownloadObject downloads a blob storage object. The caller must call Close on the returned Reader when done reading.
-	DownloadObject(ctx context.Context, bucket, name string) (io.ReadCloser, error)
-
-	// ObjectMetadata gets metadata for a blob storage object.
-	ObjectMetadata(ctx context.Context, bucket, name string) (map[string]string, error)
+	// GetObject gets a blob storage object and metadata if any. The caller must call Close on the returned Reader when done reading.
+	GetObject(ctx context.Context, bucket, name string) (io.ReadCloser, map[string]string, error)
 
 	// DeleteObject deletes a blob storage object.
 	DeleteObject(ctx context.Context, bucket, name string) error
 
-	// ObjectsWithName returns the URIs of files in a given bucket with the filename.
+	// ObjectsWithName returns the paths of files for a given parent with the filename.
 	ObjectsWithName(ctx context.Context, bucket, filename string) ([]string, error)
-}
-
-func SplitObjectURI(uri string) (*string, *string, error) {
-	bucketAndObject := strings.SplitN(strings.Replace(uri, "gs://", "", 1), "/", 2)
-	if len(bucketAndObject) < 2 {
-		return nil, nil, fmt.Errorf("failed to parse gcs uri: %s", uri)
-	}
-
-	return &bucketAndObject[0], &bucketAndObject[1], nil
 }

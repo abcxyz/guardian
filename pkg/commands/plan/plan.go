@@ -244,11 +244,7 @@ func (c *PlanCommand) Run(ctx context.Context, args []string) error {
 	)
 	c.terraformClient = terraform.NewTerraformClient(c.directory)
 
-	sc, err := storage.NewGoogleCloudStorage(
-		ctx,
-		storage.WithRetryInitialDelay(c.RetryFlags.FlagRetryInitialDelay),
-		storage.WithRetryMaxDelay(c.RetryFlags.FlagRetryMaxDelay),
-	)
+	sc, err := storage.NewGoogleCloudStorage(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to create google cloud storage client: %w", err)
 	}
@@ -546,7 +542,7 @@ func (c *PlanCommand) uploadGuardianPlan(ctx context.Context, path string, data 
 		metadata[MetaKeyOperation] = OperationDestroy
 	}
 
-	if err := c.storageClient.UploadObject(ctx, c.flagBucketName, path, data,
+	if err := c.storageClient.CreateObject(ctx, c.flagBucketName, path, data,
 		storage.WithContentType("application/octet-stream"),
 		storage.WithMetadata(metadata),
 		storage.WithAllowOverwrite(true),
