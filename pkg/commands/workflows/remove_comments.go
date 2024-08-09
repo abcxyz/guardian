@@ -19,6 +19,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"sort"
 	"strings"
 
 	gh "github.com/google/go-github/v53/github"
@@ -28,7 +29,6 @@ import (
 	"github.com/abcxyz/guardian/pkg/commands/plan"
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/github"
-	"github.com/abcxyz/guardian/pkg/util"
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/sets"
@@ -45,7 +45,14 @@ var commandCommentPrefixes = map[string]string{
 
 // allowedCommands are the sorted allowed Guardian command names for the for-command flag.
 // This is used for printing messages and prediction.
-var allowedCommands = util.SortedMapKeys(commandCommentPrefixes)
+var allowedCommands = func() []string {
+	allowed := make([]string, 0, len(commandCommentPrefixes))
+	for k := range commandCommentPrefixes {
+		allowed = append(allowed, k)
+	}
+	sort.Strings(allowed)
+	return allowed
+}()
 
 type RemoveGuardianCommentsCommand struct {
 	cli.BaseCommand
