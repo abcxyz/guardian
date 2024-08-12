@@ -373,7 +373,7 @@ func (c *DriftStatefilesCommand) actualStatefileUris(ctx context.Context, logger
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse GCS URI: %w", err)
 			}
-			buckets = append(buckets, *bucket)
+			buckets = append(buckets, bucket)
 		}
 	} else {
 		buckets, err = c.assetInventoryClient.Buckets(ctx, c.flagOrganizationID, c.flagGCSBucketQuery)

@@ -48,11 +48,11 @@ type BufferReadCloser struct {
 
 func (b *BufferReadCloser) Close() error { return nil }
 
-func (m *MockStorageClient) UploadObject(ctx context.Context, bucket, name string, contents []byte, opts ...UploadOption) error {
+func (m *MockStorageClient) CreateObject(ctx context.Context, bucket, name string, contents []byte, opts ...CreateOption) error {
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
 	m.Reqs = append(m.Reqs, &Request{
-		Name:   "UploadObject",
+		Name:   "CreateObject",
 		Params: []any{bucket, name, string(contents)},
 	})
 
@@ -62,38 +62,28 @@ func (m *MockStorageClient) UploadObject(ctx context.Context, bucket, name strin
 	return nil
 }
 
-func (m *MockStorageClient) DownloadObject(ctx context.Context, bucket, name string) (io.ReadCloser, error) {
+func (m *MockStorageClient) GetObject(ctx context.Context, bucket, name string) (io.ReadCloser, map[string]string, error) {
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
 	m.Reqs = append(m.Reqs, &Request{
-		Name:   "DownloadObject",
+		Name:   "GetObject",
 		Params: []any{bucket, name},
 	})
-
-	if m.DownloadErr != nil {
-		return nil, m.DownloadErr
-	}
-	return &BufferReadCloser{bytes.NewBufferString(m.DownloadData)}, nil
-}
-
-func (m *MockStorageClient) ObjectMetadata(ctx context.Context, bucket, name string) (map[string]string, error) {
-	m.reqMu.Lock()
-	defer m.reqMu.Unlock()
-	m.Reqs = append(m.Reqs, &Request{
-		Name:   "ObjectMetadata",
-		Params: []any{bucket, name},
-	})
-
-	if m.MetadataErr != nil {
-		return nil, m.MetadataErr
-	}
 
 	metadata := make(map[string]string, 0)
 	if m.Metadata != nil {
 		metadata = m.Metadata
 	}
 
-	return metadata, nil
+	if m.DownloadErr != nil {
+		return nil, nil, m.DownloadErr
+	}
+
+	if m.MetadataErr != nil {
+		return nil, nil, m.MetadataErr
+	}
+
+	return &BufferReadCloser{bytes.NewBufferString(m.DownloadData)}, metadata, nil
 }
 
 func (m *MockStorageClient) DeleteObject(ctx context.Context, bucket, name string) error {

@@ -134,14 +134,7 @@ func TestApply_Process(t *testing.T) {
 			},
 			expStorageClientReqs: []*storage.Request{
 				{
-					Name: "ObjectMetadata",
-					Params: []any{
-						"my-bucket-name",
-						"guardian-plans/owner/repo/1/testdir/test-tfplan.binary",
-					},
-				},
-				{
-					Name: "DownloadObject",
+					Name: "GetObject",
 					Params: []any{
 						"my-bucket-name",
 						"guardian-plans/owner/repo/1/testdir/test-tfplan.binary",
@@ -191,14 +184,7 @@ func TestApply_Process(t *testing.T) {
 			},
 			expStorageClientReqs: []*storage.Request{
 				{
-					Name: "ObjectMetadata",
-					Params: []any{
-						"my-bucket-name",
-						"guardian-plans/owner/repo/1/testdir/test-tfplan.binary",
-					},
-				},
-				{
-					Name: "DownloadObject",
+					Name: "GetObject",
 					Params: []any{
 						"my-bucket-name",
 						"guardian-plans/owner/repo/1/testdir/test-tfplan.binary",
@@ -248,14 +234,7 @@ func TestApply_Process(t *testing.T) {
 			},
 			expStorageClientReqs: []*storage.Request{
 				{
-					Name: "ObjectMetadata",
-					Params: []any{
-						"my-bucket-name",
-						"guardian-plans/owner/repo/1/testdir/test-tfplan.binary",
-					},
-				},
-				{
-					Name: "DownloadObject",
+					Name: "GetObject",
 					Params: []any{
 						"my-bucket-name",
 						"guardian-plans/owner/repo/1/testdir/test-tfplan.binary",
@@ -286,14 +265,7 @@ func TestApply_Process(t *testing.T) {
 			terraformClient:          terraformMock,
 			expStorageClientReqs: []*storage.Request{
 				{
-					Name: "ObjectMetadata",
-					Params: []any{
-						"my-bucket-name",
-						"guardian-plans/owner/repo/2/testdir/test-tfplan.binary",
-					},
-				},
-				{
-					Name: "DownloadObject",
+					Name: "GetObject",
 					Params: []any{
 						"my-bucket-name",
 						"guardian-plans/owner/repo/2/testdir/test-tfplan.binary",
@@ -342,14 +314,7 @@ func TestApply_Process(t *testing.T) {
 			},
 			expStorageClientReqs: []*storage.Request{
 				{
-					Name: "ObjectMetadata",
-					Params: []any{
-						"my-bucket-name",
-						"guardian-plans/owner/repo/3/testdir/test-tfplan.binary",
-					},
-				},
-				{
-					Name: "DownloadObject",
+					Name: "GetObject",
 					Params: []any{
 						"my-bucket-name",
 						"guardian-plans/owner/repo/3/testdir/test-tfplan.binary",
@@ -398,14 +363,7 @@ func TestApply_Process(t *testing.T) {
 			},
 			expStorageClientReqs: []*storage.Request{
 				{
-					Name: "ObjectMetadata",
-					Params: []any{
-						"my-bucket-name",
-						"guardian-plans/owner/repo/3/testdir/test-tfplan.binary",
-					},
-				},
-				{
-					Name: "DownloadObject",
+					Name: "GetObject",
 					Params: []any{
 						"my-bucket-name",
 						"guardian-plans/owner/repo/3/testdir/test-tfplan.binary",

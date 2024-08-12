@@ -221,11 +221,7 @@ func (c *ApplyCommand) Run(ctx context.Context, args []string) error {
 	)
 	c.terraformClient = terraform.NewTerraformClient(c.directory)
 
-	sc, err := storage.NewGoogleCloudStorage(
-		ctx,
-		storage.WithRetryInitialDelay(c.RetryFlags.FlagRetryInitialDelay),
-		storage.WithRetryMaxDelay(c.RetryFlags.FlagRetryMaxDelay),
-	)
+	sc, err := storage.NewGoogleCloudStorage(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to create google cloud storage client: %w", err)
 	}
@@ -501,30 +497,27 @@ func (c *ApplyCommand) terraformApply(ctx context.Context) (*RunResult, error) {
 func (c *ApplyCommand) downloadGuardianPlan(ctx context.Context, path string) (planData []byte, planExitCode string, outErr error) {
 	c.Outf("Downloading Guardian plan file")
 
-	metadata, err := c.storageClient.ObjectMetadata(ctx, c.flagBucketName, path)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to get plan object metadata: %w", err)
-	}
-
-	exitCode, ok := metadata[plan.MetaKeyExitCode]
-	if !ok {
-		return nil, "", fmt.Errorf("failed to determine plan exit code: %w", err)
-	}
-	planExitCode = exitCode
-
-	planOperation, ok := metadata[plan.MetaKeyOperation]
-	if ok && strings.EqualFold(planOperation, plan.OperationDestroy) {
-		c.isDestroy = true
-	}
-
-	rc, err := c.storageClient.DownloadObject(ctx, c.flagBucketName, path)
+	rc, metadata, err := c.storageClient.GetObject(ctx, c.flagBucketName, path)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to download object: %w", err)
 	}
 
+	if metadata != nil {
+		exitCode, ok := metadata[plan.MetaKeyExitCode]
+		if !ok {
+			return nil, "", fmt.Errorf("failed to determine plan exit code: %w", err)
+		}
+		planExitCode = exitCode
+
+		planOperation, ok := metadata[plan.MetaKeyOperation]
+		if ok && strings.EqualFold(planOperation, plan.OperationDestroy) {
+			c.isDestroy = true
+		}
+	}
+
 	defer func() {
 		if closeErr := rc.Close(); closeErr != nil {
-			outErr = fmt.Errorf("failed to close download object reader: %w", closeErr)
+			outErr = fmt.Errorf("failed to close get object reader: %w", closeErr)
 		}
 	}()
 
