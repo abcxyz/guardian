@@ -57,11 +57,14 @@ func (p *GitHubParams) FromGitHubContext(gctx *githubactions.GitHubContext) erro
 	return nil
 }
 
+// GitHub implements the CodeReviewPlatform interface.
 type GitHub struct {
 	client github.GitHub
 	params *GitHubParams
 }
 
+// NewGitHub creates a new GitHub wrapper for calling the GitHub API for policy
+// enforcement. It implements the CodeReviewPlatform interface.
 func NewGitHub(ctx context.Context, gitHubFlags *flags.GitHubFlags, actionOpts githubactions.Option, clientOpts ...github.Option) (*GitHub, error) {
 	tokenSource, err := gitHubFlags.TokenSource(ctx, map[string]string{
 		"contents":      "read",
