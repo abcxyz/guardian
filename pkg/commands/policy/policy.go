@@ -49,6 +49,7 @@ var _ cli.Command = (*PolicyCommand)(nil)
 
 type PolicyCommand struct {
 	cli.BaseCommand
+	flags.GlobalFlags
 	flags.GitHubFlags
 	flags PolicyFlags
 
@@ -72,6 +73,7 @@ Usage: {{ COMMAND }} [options]
 // Flags returns the list of flags that are defined on the command.
 func (c *PolicyCommand) Flags() *cli.FlagSet {
 	set := cli.NewFlagSet()
+	c.GlobalFlags.Register(set)
 	c.GitHubFlags.Register(set)
 	c.flags.Register(set)
 	return set
