@@ -34,6 +34,11 @@ type GlobalFlags struct {
 func (g *GlobalFlags) Register(set *cli.FlagSet) {
 	f := set.NewSection("GLOBAL OPTIONS")
 
+	// FlagPlatform value is loaded in the following order:
+	//
+	// 1. Explicit value set through --platform flag
+	// 2. Inferred environment from well-known environment variables
+	// 3. Default value of "local"
 	f.StringVar(&cli.StringVar{
 		Name:    "platform",
 		Target:  &g.FlagPlatform,
