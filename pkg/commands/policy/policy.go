@@ -22,12 +22,11 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/sethvargo/go-githubactions"
-
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/github"
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
+	"github.com/sethvargo/go-githubactions"
 )
 
 // Result defines the expected structure of the OPA policy evaluation result.
@@ -54,7 +53,7 @@ type PolicyCommand struct {
 	flags.GitHubFlags
 	flags PolicyFlags
 
-	gitHubClient github.GitHub
+	codeReview CodeReviewPlatform
 }
 
 // Desc implements cli.Command.
@@ -87,42 +86,22 @@ func (c *PolicyCommand) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("failed to parse flags: %w", err)
 	}
 
-	tokenSource, err := c.GitHubFlags.TokenSource(ctx, map[string]string{
-		"contents":      "read",
-		"pull_requests": "write",
-	})
-	if err != nil {
-		return fmt.Errorf("failed to get token source: %w", err)
-	}
-	token, err := tokenSource.GitHubToken(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get token: %w", err)
-	}
-
-	var gitHubParams GitHubParams
-	action := githubactions.New(githubactions.WithWriter(c.Stdout()))
-	actx, err := action.Context()
-	if err != nil {
-		return fmt.Errorf("failed to load github context: %w", err)
-	}
-	if err = gitHubParams.FromGitHubContext(actx); err != nil {
-		return fmt.Errorf("failed to get github params from github context: %w", err)
-	}
-
-	c.gitHubClient = github.NewClient(
-		ctx,
-		token,
+	e, err := NewGitHub(ctx, &c.GitHubFlags,
+		githubactions.WithWriter(c.Stdout()),
 		github.WithRetryInitialDelay(c.RetryFlags.FlagRetryInitialDelay),
 		github.WithRetryMaxAttempts(c.RetryFlags.FlagRetryMaxAttempts),
-		github.WithRetryMaxDelay(c.RetryFlags.FlagRetryMaxDelay),
-	)
+		github.WithRetryMaxDelay(c.RetryFlags.FlagRetryMaxDelay))
+	if err != nil {
+		return fmt.Errorf("failed to create new github enforcer: %w", err)
+	}
+	c.codeReview = e
 
-	return c.Process(ctx, &gitHubParams)
+	return c.Process(ctx)
 }
 
 // Process handles the main logic for handling the results of the policy
 // evaluation.
-func (c *PolicyCommand) Process(ctx context.Context, params *GitHubParams) error {
+func (c *PolicyCommand) Process(ctx context.Context) error {
 	logger := logging.FromContext(ctx)
 
 	logger.DebugContext(ctx, "parsing results file",
@@ -163,26 +142,9 @@ func (c *PolicyCommand) Process(ctx context.Context, params *GitHubParams) error
 		)
 	}
 
-	// Make a request per user and team to avoid uncaught behavior from the GitHub
-	// API, which does not assign any of the provided reviewers if any of the
-	// principals exist on the pending review list.
-	for _, u := range users {
-		_, err := c.gitHubClient.RequestReviewers(ctx, params.Owner, params.Repository, params.PullRequestNumber, []string{u}, nil)
-		if err != nil {
-			logger.ErrorContext(ctx, "failed to request review",
-				"user", u,
-				"error", err)
-		}
+	if err := c.codeReview.RequestReviewers(ctx, users, teams); err != nil {
+		merr = errors.Join(merr, fmt.Errorf("failed to request reviewers: %w", err))
 	}
-	for _, t := range teams {
-		_, err := c.gitHubClient.RequestReviewers(ctx, params.Owner, params.Repository, params.PullRequestNumber, nil, []string{t})
-		if err != nil {
-			logger.ErrorContext(ctx, "failed to request review",
-				"team", t,
-				"error", err)
-		}
-	}
-
 	// TODO: Add Pull Request comment to indicate reviewers added due to policy
 	// result. This comment should also tell users how to re-run the workflow when
 	// the required approvals are present.

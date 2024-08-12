@@ -15,8 +15,12 @@
 package policy
 
 import (
+	"context"
 	"fmt"
 
+	"github.com/abcxyz/guardian/pkg/flags"
+	"github.com/abcxyz/guardian/pkg/github"
+	"github.com/abcxyz/pkg/logging"
 	"github.com/sethvargo/go-githubactions"
 )
 
@@ -28,7 +32,7 @@ type GitHubParams struct {
 }
 
 // FromGitHubContext retrieves the required params from the GitHub context.
-func (g *GitHubParams) FromGitHubContext(gctx *githubactions.GitHubContext) error {
+func (p *GitHubParams) FromGitHubContext(gctx *githubactions.GitHubContext) error {
 	owner, repo := gctx.Repo()
 	if owner == "" {
 		return fmt.Errorf("failed to get the repository owner")
@@ -46,9 +50,77 @@ func (g *GitHubParams) FromGitHubContext(gctx *githubactions.GitHubContext) erro
 		return fmt.Errorf("pull request number is not of type int")
 	}
 
-	g.Owner = owner
-	g.Repository = repo
-	g.PullRequestNumber = pr
+	p.Owner = owner
+	p.Repository = repo
+	p.PullRequestNumber = pr
+
+	return nil
+}
+
+type GitHub struct {
+	client github.GitHub
+	params *GitHubParams
+}
+
+func NewGitHub(ctx context.Context, gitHubFlags *flags.GitHubFlags, actionOpts githubactions.Option, clientOpts ...github.Option) (*GitHub, error) {
+	tokenSource, err := gitHubFlags.TokenSource(ctx, map[string]string{
+		"contents":      "read",
+		"pull_requests": "write",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get token source: %w", err)
+	}
+
+	token, err := tokenSource.GitHubToken(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get token: %w", err)
+	}
+
+	var gitHubParams GitHubParams
+	action := githubactions.New(actionOpts)
+	actx, err := action.Context()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load github context: %w", err)
+	}
+	if err = gitHubParams.FromGitHubContext(actx); err != nil {
+		return nil, fmt.Errorf("failed to get github params from github context: %w", err)
+	}
+
+	client := github.NewClient(
+		ctx,
+		token,
+		clientOpts...,
+	)
+
+	return &GitHub{
+		client: client,
+		params: &gitHubParams,
+	}, nil
+}
+
+// RequestReviewers calls the GitHub API to assign users and teams as reviewers
+// for the current pull request. This makes a request per user and team to avoid
+// an uncaught behavior from the GitHub API, which does not assign any of the
+// provided reviewers if any of the principals exist on the pending review list.
+func (g *GitHub) RequestReviewers(ctx context.Context, users, teams []string) error {
+	logger := logging.FromContext(ctx)
+
+	for _, u := range users {
+		_, err := g.client.RequestReviewers(ctx, g.params.Owner, g.params.Repository, g.params.PullRequestNumber, []string{u}, nil)
+		if err != nil {
+			logger.ErrorContext(ctx, "failed to request review",
+				"user", u,
+				"error", err)
+		}
+	}
+	for _, t := range teams {
+		_, err := g.client.RequestReviewers(ctx, g.params.Owner, g.params.Repository, g.params.PullRequestNumber, nil, []string{t})
+		if err != nil {
+			logger.ErrorContext(ctx, "failed to request review",
+				"team", t,
+				"error", err)
+		}
+	}
 
 	return nil
 }

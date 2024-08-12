@@ -96,14 +96,17 @@ func TestPolicy_Process(t *testing.T) {
 				flags: PolicyFlags{
 					ResultsFile: tc.resultsFile,
 				},
-				gitHubClient: &gitHubClient,
+				codeReview: &GitHub{
+					client: &gitHubClient,
+					params: &GitHubParams{
+						Owner:             testOwner,
+						Repository:        testRepo,
+						PullRequestNumber: testPullRequestNumber,
+					},
+				},
 			}
 
-			err := c.Process(ctx, &GitHubParams{
-				Owner:             testOwner,
-				Repository:        testRepo,
-				PullRequestNumber: testPullRequestNumber,
-			})
+			err := c.Process(ctx)
 
 			if diff := cmp.Diff(gitHubClient.Reqs, tc.expGitHubClientReqs); diff != "" {
 				t.Errorf("GitHubClient calls not as expected; (-got,+want): %s", diff)
