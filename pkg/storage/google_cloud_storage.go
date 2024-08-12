@@ -50,18 +50,12 @@ type GoogleCloudStorage struct {
 }
 
 // NewGoogleCloudStorage creates a new GoogleCloudStorage client.
-func NewGoogleCloudStorage(ctx context.Context, opts ...Option) (*GoogleCloudStorage, error) {
+func NewGoogleCloudStorage(ctx context.Context) (*GoogleCloudStorage, error) {
 	cfg := &Config{
 		initialRetryDelay: 1 * time.Second,
 		maxRetryDelay:     20 * time.Second,
 		retryMultiplier:   2,
 		retryTimeout:      60 * time.Second,
-	}
-
-	for _, opt := range opts {
-		if opt != nil {
-			cfg = opt(cfg)
-		}
 	}
 
 	client, err := storage.NewClient(ctx)
@@ -89,9 +83,9 @@ func (s *GoogleCloudStorage) objectHandleWithRetries(ctx context.Context, bucket
 	return o, ctx, cancel
 }
 
-// makeUploadConfig creates default upload config and overwrites with the user
+// makeCreateConfig creates default create config and overwrites with the user
 // provided upload options.
-func makeUploadConfig(contentLength int, opts []UploadOption) *uploadConfig {
+func makeCreateConfig(contentLength int, opts []CreateOption) *createConfig {
 	defaultChunkSize := 16 * MiB // default for cloud storage client
 
 	// we can send smaller files in one request
@@ -99,7 +93,7 @@ func makeUploadConfig(contentLength int, opts []UploadOption) *uploadConfig {
 		defaultChunkSize = contentLength + 256
 	}
 
-	cfg := &uploadConfig{
+	cfg := &createConfig{
 		chunkSize:          defaultChunkSize,
 		cacheMaxAgeSeconds: 86400, // 1 day
 		allowOverwrite:     false,
@@ -120,9 +114,9 @@ func makeUploadConfig(contentLength int, opts []UploadOption) *uploadConfig {
 	return cfg
 }
 
-// UploadObject uploads an object to a Google Cloud Storage bucket using a set of upload options.
-func (s *GoogleCloudStorage) UploadObject(ctx context.Context, bucket, name string, contents []byte, opts ...UploadOption) (merr error) {
-	cfg := makeUploadConfig(len(contents), opts)
+// CreateObject uploads an object to a Google Cloud Storage bucket using a set of upload options.
+func (s *GoogleCloudStorage) CreateObject(ctx context.Context, bucket, name string, contents []byte, opts ...CreateOption) (merr error) {
+	cfg := makeCreateConfig(len(contents), opts)
 
 	o, ctx, cancel := s.objectHandleWithRetries(ctx, bucket, name)
 	defer cancel()
@@ -180,32 +174,26 @@ func (s *GoogleCloudStorage) UploadObject(ctx context.Context, bucket, name stri
 	return merr
 }
 
-// DownloadObject downloads an object from a Google Cloud Storage bucket. The caller must call Close on the returned Reader when done reading.
-func (s *GoogleCloudStorage) DownloadObject(ctx context.Context, bucket, name string) (io.ReadCloser, error) {
+// GetObject downloads an object from a Google Cloud Storage bucket. The caller must call Close on the returned Reader when done reading.
+func (s *GoogleCloudStorage) GetObject(ctx context.Context, bucket, name string) (io.ReadCloser, map[string]string, error) {
 	o, ctx, cancel := s.objectHandleWithRetries(ctx, bucket, name)
 
 	r, err := o.NewReader(ctx)
 	if err != nil {
 		cancel()
-		return nil, fmt.Errorf("failed to get google cloud storage reader: %w", err)
+		return nil, nil, fmt.Errorf("failed to get google cloud storage reader: %w", err)
+	}
+
+	// Get Metadata
+	attrs, err := o.Attrs(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get object metadata: %w", err)
 	}
 
 	return &readCloserCanceller{
 		ReadCloser: r,
 		cancelFunc: cancel,
-	}, nil
-}
-
-// ObjectMetadata gets the metadata for a Google Cloud Storage object.
-func (s *GoogleCloudStorage) ObjectMetadata(ctx context.Context, bucket, name string) (map[string]string, error) {
-	o, ctx, cancel := s.objectHandleWithRetries(ctx, bucket, name)
-	defer cancel()
-
-	attrs, err := o.Attrs(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get object metadata: %w", err)
-	}
-	return attrs.Metadata, nil
+	}, attrs.Metadata, nil
 }
 
 // DeleteObject deletes an object from a Google Cloud Storage bucket. If the object does not exist, no error
@@ -249,41 +237,6 @@ func (s *GoogleCloudStorage) ObjectsWithName(ctx context.Context, bucket, filena
 	return uris, nil
 }
 
-// Option is an optional config value for the Google Cloud Storage.
-type Option func(*Config) *Config
-
-// WithRetryInitialDelay configures the initial delay time before sending a retry for the Google Cloud Storage Client.
-func WithRetryInitialDelay(initialRetryDelay time.Duration) Option {
-	return func(c *Config) *Config {
-		c.initialRetryDelay = initialRetryDelay
-		return c
-	}
-}
-
-// WithRetryMaxDelay configures the maximum delay time before sending a retry for the Google Cloud Storage Client.
-func WithRetryMaxDelay(maxRetryDelay time.Duration) Option {
-	return func(c *Config) *Config {
-		c.maxRetryDelay = maxRetryDelay
-		return c
-	}
-}
-
-// WithRetryMultiplier configures the maximum delay time before sending a retry for the Google Cloud Storage Client.
-func WithRetryMultiplier(retryMultiplier float64) Option {
-	return func(c *Config) *Config {
-		c.retryMultiplier = retryMultiplier
-		return c
-	}
-}
-
-// WithRetryTimeout configures the maximum allowed timeout duration before sending a retry for the Google Cloud Storage Client.
-func WithRetryTimeout(retryTimeout time.Duration) Option {
-	return func(c *Config) *Config {
-		c.retryTimeout = retryTimeout
-		return c
-	}
-}
-
 type readCloserCanceller struct {
 	io.ReadCloser
 	cancelFunc context.CancelFunc
@@ -292,4 +245,14 @@ type readCloserCanceller struct {
 func (r *readCloserCanceller) Close() error {
 	defer r.cancelFunc()
 	return r.ReadCloser.Close() //nolint:wrapcheck // Want passthrough
+}
+
+// SplitObjectURI splits a bucket URI into bucket name and object name or returns an error.
+func SplitObjectURI(uri string) (string, string, error) {
+	bucketAndObject := strings.SplitN(strings.TrimPrefix(uri, "gs://"), "/", 2)
+	if len(bucketAndObject) < 2 {
+		return "", "", fmt.Errorf("failed to parse gcs uri: %s", uri)
+	}
+
+	return bucketAndObject[0], bucketAndObject[1], nil
 }

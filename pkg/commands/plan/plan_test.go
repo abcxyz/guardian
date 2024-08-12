@@ -53,11 +53,6 @@ func TestAfterParse(t *testing.T) {
 			args: []string{"-github-owner=owner", "-github-repo=repo", "-bucket-name=my-bucket"},
 			err:  "missing flag: pull-request-number is required",
 		},
-		{
-			name: "validate_bucket_name",
-			args: []string{"-github-owner=owner", "-github-repo=repo", "-pull-request-number=1"},
-			err:  "missing flag: bucket-name is required",
-		},
 	}
 
 	for _, tc := range cases {
@@ -162,11 +157,12 @@ func TestPlan_Process(t *testing.T) {
 	cases := []struct {
 		name                     string
 		directory                string
+		storageParent            string
+		storagePrefix            string
 		flagIsGitHubActions      bool
 		flagGitHubOwner          string
 		flagGitHubRepo           string
 		flagPullRequestNumber    int
-		flagBucketName           string
 		flagAllowLockfileChanges bool
 		flagLockTimeout          time.Duration
 		flagJobName              string
@@ -182,11 +178,12 @@ func TestPlan_Process(t *testing.T) {
 		{
 			name:                     "success_with_diff",
 			directory:                "testdata",
+			storageParent:            "storage-parent",
+			storagePrefix:            "",
 			flagIsGitHubActions:      true,
 			flagGitHubOwner:          "owner",
 			flagGitHubRepo:           "repo",
 			flagPullRequestNumber:    1,
-			flagBucketName:           "my-bucket-name",
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
 			flagJobName:              "example-job",
@@ -208,10 +205,10 @@ func TestPlan_Process(t *testing.T) {
 			},
 			expStorageClientReqs: []*storage.Request{
 				{
-					Name: "UploadObject",
+					Name: "CreateObject",
 					Params: []any{
-						"my-bucket-name",
-						"guardian-plans/owner/repo/1/testdata/test-tfplan.binary",
+						"storage-parent",
+						"testdata/test-tfplan.binary",
 						"this is a plan binary",
 					},
 				},
@@ -220,11 +217,12 @@ func TestPlan_Process(t *testing.T) {
 		{
 			name:                     "success_with_no_diff",
 			directory:                "testdata",
+			storageParent:            "storage-parent",
+			storagePrefix:            "",
 			flagIsGitHubActions:      true,
 			flagGitHubOwner:          "owner",
 			flagGitHubRepo:           "repo",
 			flagPullRequestNumber:    2,
-			flagBucketName:           "my-bucket-name",
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
 			flagJobName:              "example-job",
@@ -246,10 +244,10 @@ func TestPlan_Process(t *testing.T) {
 			},
 			expStorageClientReqs: []*storage.Request{
 				{
-					Name: "UploadObject",
+					Name: "CreateObject",
 					Params: []any{
-						"my-bucket-name",
-						"guardian-plans/owner/repo/2/testdata/test-tfplan.binary",
+						"storage-parent",
+						"testdata/test-tfplan.binary",
 						"this is a plan binary",
 					},
 				},
@@ -258,11 +256,12 @@ func TestPlan_Process(t *testing.T) {
 		{
 			name:                     "success_when_direct_log_url_resolution_fails",
 			directory:                "testdata",
+			storageParent:            "storage-parent",
+			storagePrefix:            "",
 			flagIsGitHubActions:      true,
 			flagGitHubOwner:          "owner",
 			flagGitHubRepo:           "repo",
 			flagPullRequestNumber:    2,
-			flagBucketName:           "my-bucket-name",
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
 			flagJobName:              "example-job",
@@ -285,10 +284,10 @@ func TestPlan_Process(t *testing.T) {
 			},
 			expStorageClientReqs: []*storage.Request{
 				{
-					Name: "UploadObject",
+					Name: "CreateObject",
 					Params: []any{
-						"my-bucket-name",
-						"guardian-plans/owner/repo/2/testdata/test-tfplan.binary",
+						"storage-parent",
+						"testdata/test-tfplan.binary",
 						"this is a plan binary",
 					},
 				},
@@ -297,11 +296,12 @@ func TestPlan_Process(t *testing.T) {
 		{
 			name:                     "skips_comments",
 			directory:                "testdata",
+			storageParent:            "storage-parent",
+			storagePrefix:            "",
 			flagIsGitHubActions:      false,
 			flagGitHubOwner:          "owner",
 			flagGitHubRepo:           "repo",
 			flagPullRequestNumber:    2,
-			flagBucketName:           "my-bucket-name",
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
 			flagJobName:              "example-job",
@@ -309,10 +309,10 @@ func TestPlan_Process(t *testing.T) {
 			terraformClient:          terraformNoDiffMock,
 			expStorageClientReqs: []*storage.Request{
 				{
-					Name: "UploadObject",
+					Name: "CreateObject",
 					Params: []any{
-						"my-bucket-name",
-						"guardian-plans/owner/repo/2/testdata/test-tfplan.binary",
+						"storage-parent",
+						"testdata/test-tfplan.binary",
 						"this is a plan binary",
 					},
 				},
@@ -321,11 +321,12 @@ func TestPlan_Process(t *testing.T) {
 		{
 			name:                     "handles_error",
 			directory:                "testdata",
+			storageParent:            "storage-parent",
+			storagePrefix:            "",
 			flagIsGitHubActions:      true,
 			flagGitHubOwner:          "owner",
 			flagGitHubRepo:           "repo",
 			flagPullRequestNumber:    3,
-			flagBucketName:           "my-bucket-name",
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
 			flagJobName:              "example-job",
@@ -397,12 +398,13 @@ func TestPlan_Process(t *testing.T) {
 				},
 				cfg: tc.config,
 
-				directory:    tc.directory,
-				childPath:    tc.directory,
-				planFilename: "test-tfplan.binary",
+				directory:     tc.directory,
+				childPath:     tc.directory,
+				planFilename:  "test-tfplan.binary",
+				storageParent: tc.storageParent,
+				storagePrefix: tc.storagePrefix,
 
 				flagPullRequestNumber:    tc.flagPullRequestNumber,
-				flagBucketName:           tc.flagBucketName,
 				flagAllowLockfileChanges: tc.flagAllowLockfileChanges,
 				flagLockTimeout:          tc.flagLockTimeout,
 				flagJobName:              tc.flagJobName,

@@ -143,7 +143,7 @@ func (p *TerraformParser) StateWithoutResources(ctx context.Context, uri string)
 	if err != nil {
 		return false, fmt.Errorf("failed to parse GCS URI: %w", err)
 	}
-	r, err := p.GCS.DownloadObject(ctx, *bucket, *name)
+	r, _, err := p.GCS.GetObject(ctx, bucket, name)
 	if err != nil {
 		return false, fmt.Errorf("failed to download gcs URI for terraform: %w", err)
 	}
@@ -166,7 +166,7 @@ func (p *TerraformParser) ProcessStates(ctx context.Context, gcsUris []string) (
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse GCS URI: %w", err)
 		}
-		r, err := p.GCS.DownloadObject(ctx, *bucket, *name)
+		r, _, err := p.GCS.GetObject(ctx, bucket, name)
 		if err != nil {
 			return nil, fmt.Errorf("failed to download gcs URI for terraform: %w", err)
 		}
@@ -228,7 +228,7 @@ func (p *TerraformParser) parseTerraformStateIAM(ctx context.Context, state Terr
 	return iams, nil
 }
 
-func (p *TerraformParser) parseIAMBindingForOrg(ctx context.Context, instances []*InstancesState) []*assetinventory.AssetIAM {
+func (p *TerraformParser) parseIAMBindingForOrg(_ context.Context, instances []*InstancesState) []*assetinventory.AssetIAM {
 	var iams []*assetinventory.AssetIAM
 	for _, i := range instances {
 		for _, m := range i.Attributes.Members {
@@ -284,7 +284,7 @@ func (p *TerraformParser) parseIAMBindingForProject(ctx context.Context, instanc
 	return iams
 }
 
-func (p *TerraformParser) parseIAMMemberForOrg(ctx context.Context, instances []*InstancesState) []*assetinventory.AssetIAM {
+func (p *TerraformParser) parseIAMMemberForOrg(_ context.Context, instances []*InstancesState) []*assetinventory.AssetIAM {
 	iams := make([]*assetinventory.AssetIAM, len(instances))
 	for x, i := range instances {
 		iams[x] = &assetinventory.AssetIAM{

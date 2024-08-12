@@ -20,19 +20,19 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-func TestMakeUploadConfig(t *testing.T) {
+func TestMakeCreateConfig(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
 		name   string
 		length int
-		opts   []UploadOption
-		exp    *uploadConfig
+		opts   []CreateOption
+		exp    *createConfig
 	}{
 		{
 			name:   "defaults_small_file",
 			length: 1 * MiB,
-			exp: &uploadConfig{
+			exp: &createConfig{
 				chunkSize:          1*MiB + 256,
 				cacheMaxAgeSeconds: 86400,
 				cacheControl:       "public, max-age=86400",
@@ -43,7 +43,7 @@ func TestMakeUploadConfig(t *testing.T) {
 		{
 			name:   "defaults_large_file",
 			length: 30 * MiB,
-			exp: &uploadConfig{
+			exp: &createConfig{
 				chunkSize:          16 * MiB,
 				cacheMaxAgeSeconds: 86400,
 				cacheControl:       "public, max-age=86400",
@@ -54,7 +54,7 @@ func TestMakeUploadConfig(t *testing.T) {
 		{
 			name:   "overwrites_with_opts",
 			length: 1 * MiB,
-			opts: []UploadOption{
+			opts: []CreateOption{
 				WithChunkSize(1000),
 				WithCacheMaxAgeSeconds(1000),
 				WithContentType("application/json"),
@@ -62,7 +62,7 @@ func TestMakeUploadConfig(t *testing.T) {
 					"key": "value",
 				}),
 			},
-			exp: &uploadConfig{
+			exp: &createConfig{
 				chunkSize:          1000,
 				cacheMaxAgeSeconds: 1000,
 				cacheControl:       "public, max-age=1000",
@@ -75,10 +75,10 @@ func TestMakeUploadConfig(t *testing.T) {
 		{
 			name:   "prevents_caching",
 			length: 100 * MiB,
-			opts: []UploadOption{
+			opts: []CreateOption{
 				WithCacheMaxAgeSeconds(0),
 			},
-			exp: &uploadConfig{
+			exp: &createConfig{
 				chunkSize:          16 * MiB,
 				cacheMaxAgeSeconds: 0,
 				cacheControl:       "no-cache, max-age=0",
@@ -94,8 +94,8 @@ func TestMakeUploadConfig(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			cfg := makeUploadConfig(tc.length, tc.opts)
-			if diff := cmp.Diff(cfg, tc.exp, cmp.Options{cmp.AllowUnexported(uploadConfig{})}); diff != "" {
+			cfg := makeCreateConfig(tc.length, tc.opts)
+			if diff := cmp.Diff(cfg, tc.exp, cmp.Options{cmp.AllowUnexported(createConfig{})}); diff != "" {
 				t.Errorf(diff)
 			}
 		})
