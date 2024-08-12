@@ -25,7 +25,6 @@ import (
 	"github.com/sethvargo/go-githubactions"
 
 	"github.com/abcxyz/guardian/pkg/flags"
-	"github.com/abcxyz/guardian/pkg/github"
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
 )
@@ -50,7 +49,6 @@ var _ cli.Command = (*PolicyCommand)(nil)
 
 type PolicyCommand struct {
 	cli.BaseCommand
-	flags.RetryFlags
 	flags.GitHubFlags
 	flags PolicyFlags
 
@@ -75,7 +73,6 @@ Usage: {{ COMMAND }} [options]
 func (c *PolicyCommand) Flags() *cli.FlagSet {
 	set := cli.NewFlagSet()
 	c.GitHubFlags.Register(set)
-	c.RetryFlags.Register(set)
 	c.flags.Register(set)
 	return set
 }
@@ -88,10 +85,7 @@ func (c *PolicyCommand) Run(ctx context.Context, args []string) error {
 	}
 
 	e, err := NewGitHub(ctx, &c.GitHubFlags,
-		githubactions.WithWriter(c.Stdout()),
-		github.WithRetryInitialDelay(c.RetryFlags.FlagRetryInitialDelay),
-		github.WithRetryMaxAttempts(c.RetryFlags.FlagRetryMaxAttempts),
-		github.WithRetryMaxDelay(c.RetryFlags.FlagRetryMaxDelay))
+		githubactions.WithWriter(c.Stdout()))
 	if err != nil {
 		return fmt.Errorf("failed to create new github enforcer: %w", err)
 	}

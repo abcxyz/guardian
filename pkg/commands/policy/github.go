@@ -66,7 +66,7 @@ type GitHub struct {
 
 // NewGitHub creates a new GitHub wrapper for calling the GitHub API for policy
 // enforcement. It implements the CodeReviewPlatform interface.
-func NewGitHub(ctx context.Context, gitHubFlags *flags.GitHubFlags, actionOpts githubactions.Option, clientOpts ...github.Option) (*GitHub, error) {
+func NewGitHub(ctx context.Context, gitHubFlags *flags.GitHubFlags, actionOpts githubactions.Option) (*GitHub, error) {
 	tokenSource, err := gitHubFlags.TokenSource(ctx, map[string]string{
 		"contents":      "read",
 		"pull_requests": "write",
@@ -93,7 +93,6 @@ func NewGitHub(ctx context.Context, gitHubFlags *flags.GitHubFlags, actionOpts g
 	client := github.NewClient(
 		ctx,
 		token,
-		clientOpts...,
 	)
 
 	return &GitHub{
