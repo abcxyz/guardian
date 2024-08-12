@@ -14,8 +14,8 @@
 
 package storage
 
-// uploadConfig is the set of configuration used when uploading storage objects.
-type uploadConfig struct {
+// createConfig is the set of configuration used when creating storage objects.
+type createConfig struct {
 	allowOverwrite     bool
 	cacheControl       string
 	cacheMaxAgeSeconds int
@@ -24,13 +24,13 @@ type uploadConfig struct {
 	metadata           map[string]string
 }
 
-// UploadOption is an optional config value for the Google Cloud Storage UploadObject function.
-type UploadOption func(*uploadConfig) *uploadConfig
+// CreateOption is an optional config value for the Google Cloud Storage CreateObject function.
+type CreateOption func(*createConfig) *createConfig
 
 // WithChunkSize configures the chunk size for the object upload. Set this value to 0 to send the
 // entire file in a single request.
-func WithChunkSize(chunkSize int) UploadOption {
-	return func(c *uploadConfig) *uploadConfig {
+func WithChunkSize(chunkSize int) CreateOption {
+	return func(c *createConfig) *createConfig {
 		c.chunkSize = chunkSize
 		return c
 	}
@@ -38,32 +38,32 @@ func WithChunkSize(chunkSize int) UploadOption {
 
 // WithCacheMaxAgeSeconds configures the cache-control header the object upload. Set this value to 0 to prevent
 // caching the file.
-func WithCacheMaxAgeSeconds(cacheMaxAgeSeconds int) UploadOption {
-	return func(c *uploadConfig) *uploadConfig {
+func WithCacheMaxAgeSeconds(cacheMaxAgeSeconds int) CreateOption {
+	return func(c *createConfig) *createConfig {
 		c.cacheMaxAgeSeconds = cacheMaxAgeSeconds
 		return c
 	}
 }
 
 // WithContentType sets the content type for the object upload.
-func WithContentType(contentType string) UploadOption {
-	return func(c *uploadConfig) *uploadConfig {
+func WithContentType(contentType string) CreateOption {
+	return func(c *createConfig) *createConfig {
 		c.contentType = contentType
 		return c
 	}
 }
 
 // WithAllowOverwrite sets the overwrite flag to allow overwriting the destination object.
-func WithAllowOverwrite(allowOverwrite bool) UploadOption {
-	return func(c *uploadConfig) *uploadConfig {
+func WithAllowOverwrite(allowOverwrite bool) CreateOption {
+	return func(c *createConfig) *createConfig {
 		c.allowOverwrite = allowOverwrite
 		return c
 	}
 }
 
 // WithMetadata sets the metadata for the object upload.
-func WithMetadata(metadata map[string]string) UploadOption {
-	return func(c *uploadConfig) *uploadConfig {
+func WithMetadata(metadata map[string]string) CreateOption {
+	return func(c *createConfig) *createConfig {
 		c.metadata = metadata
 		return c
 	}
