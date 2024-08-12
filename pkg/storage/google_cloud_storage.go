@@ -249,7 +249,7 @@ func (r *readCloserCanceller) Close() error {
 
 // SplitObjectURI splits a bucket URI into bucket name and object name or returns an error.
 func SplitObjectURI(uri string) (string, string, error) {
-	bucketAndObject := strings.SplitN(strings.Replace(uri, "gs://", "", 1), "/", 2)
+	bucketAndObject := strings.SplitN(strings.TrimPrefix(uri, "gs://"), "/", 2)
 	if len(bucketAndObject) < 2 {
 		return "", "", fmt.Errorf("failed to parse gcs uri: %s", uri)
 	}

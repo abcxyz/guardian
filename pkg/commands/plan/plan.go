@@ -21,6 +21,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"path"
 	"strconv"
@@ -69,17 +70,19 @@ type PlanCommand struct {
 
 	cfg *Config
 
-	directory    string
-	childPath    string
-	planFilename string
-	gitHubLogURL string
+	directory     string
+	childPath     string
+	planFilename  string
+	gitHubLogURL  string
+	storageParent string
+	storagePrefix string
 
 	flags.RetryFlags
 	flags.CommonFlags
 	flags.GitHubFlags
 
 	flagDestroy              bool
-	flagBucketName           string
+	flagStorage              string
 	flagJobName              string
 	flagPullRequestNumber    int
 	flagAllowLockfileChanges bool
@@ -127,10 +130,10 @@ func (c *PlanCommand) Flags() *cli.FlagSet {
 	})
 
 	f.StringVar(&cli.StringVar{
-		Name:    "bucket-name",
-		Target:  &c.flagBucketName,
-		Example: "my-guardian-state-bucket",
-		Usage:   "The Google Cloud Storage bucket name to store Guardian plan files.",
+		Name:    "storage",
+		Target:  &c.flagStorage,
+		Example: "gcs://my-guardian-state-bucket",
+		Usage:   "The storage strategy to store Guardian plan files (defaults to file://).",
 	})
 
 	f.StringVar(&cli.StringVar{
@@ -168,10 +171,6 @@ func (c *PlanCommand) Flags() *cli.FlagSet {
 			merr = errors.Join(merr, fmt.Errorf("missing flag: pull-request-number is required"))
 		}
 
-		if c.flagBucketName == "" {
-			merr = errors.Join(merr, fmt.Errorf("missing flag: bucket-name is required"))
-		}
-
 		return merr
 	})
 
@@ -198,6 +197,10 @@ func (c *PlanCommand) Run(ctx context.Context, args []string) error {
 
 	if c.FlagDir == "" {
 		c.FlagDir = cwd
+	}
+
+	if c.flagStorage == "" {
+		c.flagStorage = path.Join("local:///", cwd)
 	}
 
 	dirAbs, err := util.PathEvalAbs(c.FlagDir)
@@ -244,13 +247,41 @@ func (c *PlanCommand) Run(ctx context.Context, args []string) error {
 	)
 	c.terraformClient = terraform.NewTerraformClient(c.directory)
 
-	sc, err := storage.NewGoogleCloudStorage(ctx)
+	sc, err := c.resolveStorageClient(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to create google cloud storage client: %w", err)
 	}
 	c.storageClient = sc
 
 	return c.Process(ctx)
+}
+
+// resolveStorageClient resolves and generated the storage client based on the storage flag.
+func (c *PlanCommand) resolveStorageClient(ctx context.Context) (storage.Storage, error) {
+	u, err := url.Parse(c.flagStorage)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse storage flag url: %w", err)
+	}
+
+	t := u.Scheme
+
+	c.storageParent = path.Join(u.Host, u.Path)
+
+	if strings.EqualFold(t, storage.FilesystemType) {
+		return storage.NewFilesystemStorage(ctx) //nolint:wrapcheck // Want passthrough
+	}
+
+	if strings.EqualFold(t, storage.GoogleCloudStorageType) {
+		sc, err := storage.NewGoogleCloudStorage(ctx)
+		if err != nil {
+			return nil, err //nolint:wrapcheck // Want passthrough
+		}
+
+		c.storagePrefix = fmt.Sprintf("guardian-plans/%s/%s/%d", c.GitHubFlags.FlagGitHubOwner, c.GitHubFlags.FlagGitHubRepo, c.flagPullRequestNumber)
+		return sc, nil
+	}
+
+	return nil, fmt.Errorf("unknown storage type: %s", t)
 }
 
 // Process handles the main logic for the Guardian plan run process.
@@ -510,17 +541,18 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 
 	githubOutput := terraform.FormatOutputForGitHubDiff(stdout.String())
 
-	planFilePath := path.Join(c.childPath, c.planFilename)
+	planFileLocalPath := path.Join(c.childPath, c.planFilename)
 
-	planData, err := os.ReadFile(planFilePath)
+	planData, err := os.ReadFile(planFileLocalPath)
 	if err != nil {
 		return &RunResult{hasChanges: hasChanges}, fmt.Errorf("failed to read plan binary: %w", err)
 	}
 
-	bucketObjectPath := fmt.Sprintf("guardian-plans/%s/%s/%d/%s", c.GitHubFlags.FlagGitHubOwner, c.GitHubFlags.FlagGitHubRepo, c.flagPullRequestNumber, planFilePath)
-	c.Outf("Uploading plan file to gs://%s/%s", c.flagBucketName, bucketObjectPath)
+	planStoragePath := path.Join(c.storagePrefix, planFileLocalPath)
 
-	if err := c.uploadGuardianPlan(ctx, bucketObjectPath, planData, planExitCode); err != nil {
+	c.Outf("Saving Plan File: %s", path.Join(c.storageParent, planStoragePath))
+
+	if err := c.uploadGuardianPlan(ctx, planStoragePath, planData, planExitCode); err != nil {
 		return &RunResult{hasChanges: hasChanges}, fmt.Errorf("failed to upload plan data: %w", err)
 	}
 
@@ -542,7 +574,7 @@ func (c *PlanCommand) uploadGuardianPlan(ctx context.Context, path string, data 
 		metadata[MetaKeyOperation] = OperationDestroy
 	}
 
-	if err := c.storageClient.CreateObject(ctx, c.flagBucketName, path, data,
+	if err := c.storageClient.CreateObject(ctx, c.storageParent, path, data,
 		storage.WithContentType("application/octet-stream"),
 		storage.WithMetadata(metadata),
 		storage.WithAllowOverwrite(true),

@@ -20,13 +20,10 @@ import (
 	"io"
 )
 
-// Type defines the type of storage client.
-type Type int
-
 // The types of storage clients available.
 const (
-	FilesystemType Type = iota
-	GoogleCloudStorageType
+	FilesystemType         = "file"
+	GoogleCloudStorageType = "gcs"
 )
 
 // Storage defines the minimum interface for a blob storage system.

@@ -188,7 +188,7 @@ jobs:
           -github-repo="${GITHUB_REPO_NAME}" \
           -github-token="${REPO_TOKEN}" \
           -pull-request-number="${PULL_REQUEST_NUMBER}" \
-          -bucket-name="${GUARDIAN_BUCKET_NAME}" \
+          -storage="gcs://${GUARDIAN_BUCKET_NAME}" \
           -dir="${DIRECTORY}" \
           -job-name="${JOB_NAME}"
 
@@ -266,7 +266,7 @@ jobs:
           -github-repo="${GITHUB_REPO_NAME}" \
           -github-token="${REPO_TOKEN}" \
           -pull-request-number="${PULL_REQUEST_NUMBER}" \
-          -bucket-name="${GUARDIAN_BUCKET_NAME}" \
+          -storage="gcs://${GUARDIAN_BUCKET_NAME}" \
           -dir="${DIRECTORY}" \
           -job-name="${JOB_NAME}"
 
