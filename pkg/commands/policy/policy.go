@@ -22,11 +22,12 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/sethvargo/go-githubactions"
+
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/github"
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
-	"github.com/sethvargo/go-githubactions"
 )
 
 // Result defines the expected structure of the OPA policy evaluation result.

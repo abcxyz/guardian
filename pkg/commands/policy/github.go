@@ -18,10 +18,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/sethvargo/go-githubactions"
+
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/github"
 	"github.com/abcxyz/pkg/logging"
-	"github.com/sethvargo/go-githubactions"
 )
 
 // GitHubParams defines the required values sourced from the GitHub context.
