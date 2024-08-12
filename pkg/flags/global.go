@@ -27,6 +27,8 @@ var allowedPlatforms = map[string]struct{}{
 	"github": {},
 }
 
+// GlobalFlags represents the set of global flags that MUST be embeded in all
+// commands.
 type GlobalFlags struct {
 	FlagPlatform string
 }
