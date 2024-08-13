@@ -123,7 +123,7 @@ jobs:
             -github-owner="${GITHUB_OWNER_NAME}" \
             -github-repo="${GITHUB_REPO_NAME}" \
             -github-token="${REPO_TOKEN}" \
-            -pull-request-number="${PULL_REQUEST_NUMBER}" \
+            -github-pull-request-number="${PULL_REQUEST_NUMBER}" \
             -for-command="plan" \
             -for-command="apply"
 
@@ -187,10 +187,10 @@ jobs:
           -github-owner="${GITHUB_OWNER_NAME}" \
           -github-repo="${GITHUB_REPO_NAME}" \
           -github-token="${REPO_TOKEN}" \
-          -pull-request-number="${PULL_REQUEST_NUMBER}" \
+          -github-pull-request-number="${PULL_REQUEST_NUMBER}" \
           -storage="gcs://${GUARDIAN_BUCKET_NAME}" \
           -dir="${DIRECTORY}" \
-          -job-name="${JOB_NAME}"
+          -github-job="${JOB_NAME}"
 
   plan_destroy:
     name: 'plan_destroy (${{ matrix.working_directory }})'
@@ -265,10 +265,10 @@ jobs:
           -github-owner="${GITHUB_OWNER_NAME}" \
           -github-repo="${GITHUB_REPO_NAME}" \
           -github-token="${REPO_TOKEN}" \
-          -pull-request-number="${PULL_REQUEST_NUMBER}" \
+          -github-pull-request-number="${PULL_REQUEST_NUMBER}" \
           -storage="gcs://${GUARDIAN_BUCKET_NAME}" \
           -dir="${DIRECTORY}" \
-          -job-name="${JOB_NAME}"
+          -github-job="${JOB_NAME}"
 
       # this is done only for integration testing since our tests do not have remote state.
       # we plan the destroy and apply the destroy in the same step.
@@ -285,10 +285,10 @@ jobs:
           -github-owner="${GITHUB_OWNER_NAME}" \
           -github-repo="${GITHUB_REPO_NAME}" \
           -github-token="${REPO_TOKEN}" \
-          -pull-request-number="${PULL_REQUEST_NUMBER}" \
+          -github-pull-request-number="${PULL_REQUEST_NUMBER}" \
           -bucket-name="${GUARDIAN_BUCKET_NAME}" \
           -dir="${DIRECTORY}" \
-          -job-name="${JOB_NAME}"
+          -github-job="${JOB_NAME}"
 
   plan_success:
     if: '${{ always() }}'
@@ -327,7 +327,7 @@ jobs:
           -github-owner="${GITHUB_OWNER_NAME}" \
           -github-repo="${GITHUB_REPO_NAME}" \
           -github-token="${REPO_TOKEN}" \
-          -pull-request-number="${PULL_REQUEST_NUMBER}" \
+          -github-pull-request-number="${PULL_REQUEST_NUMBER}" \
           -init-result="${{ needs.init.result }}" \
           -plan-result="${{ needs.plan.result }}" \
           -plan-result="${{ needs.plan_destroy.result }}"
@@ -394,10 +394,10 @@ jobs:
           -github-owner="${GITHUB_OWNER_NAME}" \
           -github-repo="${GITHUB_REPO_NAME}" \
           -github-token="${REPO_TOKEN}" \
-          -pull-request-number="${PULL_REQUEST_NUMBER}" \
+          -github-pull-request-number="${PULL_REQUEST_NUMBER}" \
           -bucket-name="${GUARDIAN_BUCKET_NAME}" \
           -dir="${DIRECTORY}" \
-          -job-name="${JOB_NAME}"
+          -github-job="${JOB_NAME}"
 
       - name: 'Guardian Destroy'
         env:

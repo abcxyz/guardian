@@ -18,107 +18,47 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-
-	"github.com/abcxyz/pkg/cli"
-	"github.com/abcxyz/pkg/testutil"
+	"github.com/sethvargo/go-githubactions"
 )
 
 func TestAfterParse(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
 		name      string
-		args      []string
+		ghCtx     *githubactions.GitHubContext
 		flags     *GitHubFlags
 		wantFlags *GitHubFlags
 		wantErr   string
 	}{
 		{
-			name: "both_token_and_app_id_set_results_in_error",
-			args: []string{
-				"--github-token=1234",
-				"--github-app-id=987",
+			name: "populates_missing_values",
+			ghCtx: &githubactions.GitHubContext{
+				RepositoryOwner: "owner",
+				Repository:      "owner/repository",
+				Event: map[string]any{
+					"number": 100,
+				},
 			},
 			flags: &GitHubFlags{},
 			wantFlags: &GitHubFlags{
-				FlagGitHubToken: "1234",
-				FlagGitHubAppID: "987",
+				FlagGitHubOwner:             "owner",
+				FlagGitHubRepo:              "repository",
+				FlagGitHubPullRequestNumber: 100,
 			},
-			wantErr: "only one of github token or github app id are allowed",
 		},
 		{
-			name:      "neither_token_nor_app_id_set_results_in_error",
-			args:      []string{},
-			flags:     &GitHubFlags{},
-			wantFlags: &GitHubFlags{},
-			wantErr:   "one of github token or github app id are required",
-		},
-		{
-			name: "just_token_parses_without_error",
-			args: []string{
-				"--github-token=1234",
-				"--github-owner=my-org",
-				"--github-repo=my-repo",
+			name: "ignores_missing_number",
+			ghCtx: &githubactions.GitHubContext{
+				RepositoryOwner: "owner",
+				Repository:      "owner/repository",
+				Event:           map[string]any{},
 			},
 			flags: &GitHubFlags{},
 			wantFlags: &GitHubFlags{
-				FlagGitHubToken: "1234",
-				FlagGitHubOwner: "my-org",
-				FlagGitHubRepo:  "my-repo",
+				FlagGitHubOwner:             "owner",
+				FlagGitHubRepo:              "repository",
+				FlagGitHubPullRequestNumber: 0,
 			},
-			wantErr: "",
-		},
-		{
-			name: "just_github_app_parses_without_error",
-			args: []string{
-				"--github-app-id=1234",
-				"--github-app-installation-id=7654",
-				"--github-app-private-key-pem=-----BEGIN PRIVATE KEY-----\nashdfjkha\n-----END PRIVATE KEY-----",
-				"--github-owner=my-org",
-				"--github-repo=my-repo",
-			},
-			flags: &GitHubFlags{},
-			wantFlags: &GitHubFlags{
-				FlagGitHubAppID:             "1234",
-				FlagGitHubAppInstallationID: "7654",
-				FlagGitHubAppPrivateKeyPEM:  "-----BEGIN PRIVATE KEY-----\nashdfjkha\n-----END PRIVATE KEY-----",
-				FlagGitHubOwner:             "my-org",
-				FlagGitHubRepo:              "my-repo",
-			},
-			wantErr: "",
-		},
-		{
-			name: "github_app_id_without_installation_id_results_in_error",
-			args: []string{
-				"--github-app-id=1234",
-				"--github-app-private-key-pem=-----BEGIN PRIVATE KEY-----\nashdfjkha\n-----END PRIVATE KEY-----",
-				"--github-owner=my-org",
-				"--github-repo=my-repo",
-			},
-			flags: &GitHubFlags{},
-			wantFlags: &GitHubFlags{
-				FlagGitHubAppID:            "1234",
-				FlagGitHubAppPrivateKeyPEM: "-----BEGIN PRIVATE KEY-----\nashdfjkha\n-----END PRIVATE KEY-----",
-				FlagGitHubOwner:            "my-org",
-				FlagGitHubRepo:             "my-repo",
-			},
-			wantErr: "a github app installation id is required when using a github app id",
-		},
-		{
-			name: "github_app_id_without_private_key_results_in_error",
-			args: []string{
-				"--github-app-id=1234",
-				"--github-app-installation-id=7654",
-				"--github-owner=my-org",
-				"--github-repo=my-repo",
-			},
-			flags: &GitHubFlags{},
-			wantFlags: &GitHubFlags{
-				FlagGitHubAppID:             "1234",
-				FlagGitHubAppInstallationID: "7654",
-				FlagGitHubOwner:             "my-org",
-				FlagGitHubRepo:              "my-repo",
-			},
-			wantErr: "a github app private key is required when using a github app id",
 		},
 	}
 
@@ -127,12 +67,7 @@ func TestAfterParse(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			set := cli.NewFlagSet()
-			tc.flags.Register(set)
-			err := set.Parse(tc.args)
-			if diff := testutil.DiffErrString(err, tc.wantErr); diff != "" {
-				t.Errorf("unexpected error (-got, +want):\n%s", diff)
-			}
+			tc.flags.FromGitHubContext(tc.ghCtx)
 			if diff := cmp.Diff(tc.flags, tc.wantFlags); diff != "" {
 				t.Errorf("unexpected result (-got, +want):\n%s", diff)
 			}
