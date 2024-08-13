@@ -17,7 +17,8 @@ package flags
 import (
 	"errors"
 	"fmt"
-	"os"
+	"strconv"
+	"strings"
 
 	"github.com/abcxyz/pkg/cli"
 )
@@ -49,10 +50,12 @@ func (g *GlobalFlags) Register(set *cli.FlagSet) {
 	})
 
 	set.AfterParse(func(merr error) error {
+		g.FlagPlatform = strings.ToLower(strings.TrimSpace(g.FlagPlatform))
 		switch g.FlagPlatform {
 		case "github":
+		case "local":
 		default:
-			if os.Getenv("GITHUB_ACTIONS") == "true" {
+			if v, _ := strconv.ParseBool(set.GetEnv("GITHUB_ACTIONS")); v {
 				g.FlagPlatform = "github"
 				break
 			}
