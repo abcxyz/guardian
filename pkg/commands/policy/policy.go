@@ -81,17 +81,25 @@ func (c *PolicyCommand) Flags() *cli.FlagSet {
 
 // Run implements cli.Command.
 func (c *PolicyCommand) Run(ctx context.Context, args []string) error {
+	logger := logging.FromContext(ctx)
+
 	f := c.Flags()
 	if err := f.Parse(args); err != nil {
 		return fmt.Errorf("failed to parse flags: %w", err)
 	}
 
-	e, err := NewGitHub(ctx, &c.GitHubFlags,
-		githubactions.WithWriter(c.Stdout()))
-	if err != nil {
-		return fmt.Errorf("failed to create new github enforcer: %w", err)
+	var err error
+	switch c.GlobalFlags.FlagPlatform {
+	case "github":
+		if c.codeReview, err = NewGitHub(ctx, &c.GitHubFlags,
+			githubactions.WithWriter(c.Stdout())); err != nil {
+			return fmt.Errorf("failed to create new github instance: %w", err)
+		}
+		logger.DebugContext(ctx, "using github as target code review platform")
+	default:
+		c.codeReview = NewLocal()
+		logger.DebugContext(ctx, "using local as target code review platform")
 	}
-	c.codeReview = e
 
 	return c.Process(ctx)
 }

@@ -30,6 +30,10 @@ type CodeReviewPlatform interface {
 // Local implements the CodeReviewPlatform interface.
 type Local struct{}
 
+func NewLocal() *Local {
+	return &Local{}
+}
+
 // RequestReviewers skips calls to external API's and has no-op.
 func (l *Local) RequestReviewers(ctx context.Context, users, teams []string) error {
 	logger := logging.FromContext(ctx)
