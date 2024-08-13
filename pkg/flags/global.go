@@ -51,6 +51,11 @@ func (g *GlobalFlags) Register(set *cli.FlagSet) {
 
 	set.AfterParse(func(merr error) error {
 		g.FlagPlatform = strings.ToLower(strings.TrimSpace(g.FlagPlatform))
+
+		if _, ok := allowedPlatforms[g.FlagPlatform]; !ok && g.FlagPlatform != "" {
+			merr = errors.Join(merr, fmt.Errorf("unsupported value for platform flag: %s", g.FlagPlatform))
+		}
+
 		switch g.FlagPlatform {
 		case "github":
 		case "local":
@@ -61,10 +66,6 @@ func (g *GlobalFlags) Register(set *cli.FlagSet) {
 			}
 
 			g.FlagPlatform = "local"
-		}
-
-		if _, ok := allowedPlatforms[g.FlagPlatform]; !ok {
-			merr = errors.Join(merr, fmt.Errorf("unsupported value for platform flag: %s", g.FlagPlatform))
 		}
 
 		return merr
