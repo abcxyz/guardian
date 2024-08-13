@@ -57,10 +57,9 @@ func (g *GlobalFlags) Register(set *cli.FlagSet) {
 		}
 
 		if g.FlagPlatform == "" {
+			g.FlagPlatform = "local"
 			if v, _ := strconv.ParseBool(set.GetEnv("GITHUB_ACTIONS")); v {
 				g.FlagPlatform = "github"
-			} else {
-				g.FlagPlatform = "local"
 			}
 		}
 
