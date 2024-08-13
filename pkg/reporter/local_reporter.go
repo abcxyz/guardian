@@ -20,46 +20,46 @@ import (
 	"io"
 )
 
-var _ Reporter = (*StdoutReporter)(nil)
+var _ Reporter = (*LocalReporter)(nil)
 
 // mapping of operations to display text.
 var stdoutOperationText = map[Operation]string{
-	PlanOperation:    "PLAN",
-	ApplyOperation:   "APPLY",
-	UnknownOperation: "UNKNOWN",
+	OperationPlan:    "PLAN",
+	OperationApply:   "APPLY",
+	OperationUnknown: "UNKNOWN",
 }
 
 // mapping of statuses to display text.
 var stdoutStatusText = map[Status]string{
-	StartStatus:     "STARTED",
-	SuccessStatus:   "SUCCESS",
-	NoChangesStatus: "NO CHANGES",
-	FailureStatus:   "FAILED",
-	UnknownStatus:   "UNKNOWN",
+	StatusStart:     "STARTED",
+	StatusSuccess:   "SUCCESS",
+	StatusNoChanges: "NO CHANGES",
+	StatusFailure:   "FAILED",
+	StatusUnknown:   "UNKNOWN",
 }
 
-// StdoutReporter implements the reporter interface for writing to stdout.
-type StdoutReporter struct {
+// LocalReporter implements the reporter interface for writing to stdout.
+type LocalReporter struct {
 	stdout io.Writer
 }
 
-// NewStdoutReporter creates a new NewStdoutReporter.
-func NewStdoutReporter(ctx context.Context, stdout io.Writer) (Reporter, error) {
-	return &StdoutReporter{
+// NewLocalReporter creates a new NewLocalReporter.
+func NewLocalReporter(ctx context.Context, stdout io.Writer) (Reporter, error) {
+	return &LocalReporter{
 		stdout: stdout,
 	}, nil
 }
 
 // CreateStatus write the status to stdout.
-func (s *StdoutReporter) CreateStatus(ctx context.Context, p *Params) error {
+func (s *LocalReporter) CreateStatus(ctx context.Context, p *Params) error {
 	operationText, ok := stdoutOperationText[p.Operation]
 	if !ok {
-		operationText = stdoutOperationText[UnknownOperation]
+		operationText = stdoutOperationText[OperationUnknown]
 	}
 
 	statusText, ok := stdoutStatusText[p.Status]
 	if !ok {
-		statusText = stdoutStatusText[UnknownStatus]
+		statusText = stdoutStatusText[StatusUnknown]
 	}
 
 	fmt.Fprintf(s.stdout, "%s - %s", operationText, statusText)
@@ -67,6 +67,6 @@ func (s *StdoutReporter) CreateStatus(ctx context.Context, p *Params) error {
 }
 
 // UpdateStatus write the status to stdout.
-func (s *StdoutReporter) UpdateStatus(ctx context.Context, p *Params) error {
+func (s *LocalReporter) UpdateStatus(ctx context.Context, p *Params) error {
 	return s.CreateStatus(ctx, p)
 }

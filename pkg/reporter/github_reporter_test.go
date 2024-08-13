@@ -21,34 +21,33 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/github"
 	"github.com/abcxyz/pkg/testutil"
 )
 
-func TestGitHubReporterValidateConfig(t *testing.T) {
+func TestGitHubReporterInputsValidate(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
-		name  string
-		flags flags.GitHubFlags
-		err   string
+		name   string
+		inputs *GitHubReporterInputs
+		err    string
 	}{
 		{
 			name: "success",
-			flags: flags.GitHubFlags{
-				FlagGitHubToken:             "token",
-				FlagGitHubOwner:             "owner",
-				FlagGitHubRepo:              "repo",
-				FlagGitHubPullRequestNumber: 1,
-				FlagGitHubServerURL:         "https://github.com",
-				FlagGitHubRunID:             1,
-				FlagGitHubRunAttempt:        1,
-				FlagGitHubJob:               "plan (terraform/project1)",
+			inputs: &GitHubReporterInputs{
+				GitHubToken:             "token",
+				GitHubOwner:             "owner",
+				GitHubRepo:              "repo",
+				GitHubPullRequestNumber: 1,
+				GitHubServerURL:         "https://github.com",
+				GitHubRunID:             1,
+				GitHubRunAttempt:        1,
+				GitHubJob:               "plan (terraform/project1)",
 			},
 		},
 		{
-			name:  "error",
-			flags: flags.GitHubFlags{},
+			name:   "error",
+			inputs: &GitHubReporterInputs{},
 			err: `one of github token or github app id are required
 github owner is required
 github repo is required
@@ -64,7 +63,7 @@ github run attempt is required`,
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := validateFlags(tc.flags)
+			err := tc.inputs.Validate()
 			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
 				t.Errorf(diff)
 			}
@@ -85,8 +84,8 @@ func TestGitHubReporterCreateStatus(t *testing.T) {
 		{
 			name: "success",
 			params: &Params{
-				Operation:     PlanOperation,
-				Status:        SuccessStatus,
+				Operation:     OperationPlan,
+				Status:        StatusSuccess,
 				IsDestroy:     false,
 				EntrypointDir: "terraform/project1",
 			},
@@ -101,8 +100,8 @@ func TestGitHubReporterCreateStatus(t *testing.T) {
 		{
 			name: "success_destroy",
 			params: &Params{
-				Operation:     PlanOperation,
-				Status:        SuccessStatus,
+				Operation:     OperationPlan,
+				Status:        StatusSuccess,
 				IsDestroy:     true,
 				EntrypointDir: "terraform/project1",
 			},
@@ -117,8 +116,8 @@ func TestGitHubReporterCreateStatus(t *testing.T) {
 		{
 			name: "error",
 			params: &Params{
-				Operation:     PlanOperation,
-				Status:        SuccessStatus,
+				Operation:     OperationPlan,
+				Status:        StatusSuccess,
 				IsDestroy:     false,
 				EntrypointDir: "terraform/project1",
 			},
@@ -146,117 +145,19 @@ func TestGitHubReporterCreateStatus(t *testing.T) {
 
 			reporter := &GitHubReporter{
 				gitHubClient: gitHubClient,
-				flags: flags.GitHubFlags{
-					FlagGitHubOwner:             "owner",
-					FlagGitHubRepo:              "repo",
-					FlagGitHubPullRequestNumber: 1,
-					FlagGitHubServerURL:         "https://github.com",
-					FlagGitHubRunID:             1,
-					FlagGitHubRunAttempt:        1,
-					FlagGitHubJob:               "plan (terraform/project1)",
+				inputs: &GitHubReporterInputs{
+					GitHubOwner:             "owner",
+					GitHubRepo:              "repo",
+					GitHubPullRequestNumber: 1,
+					GitHubServerURL:         "https://github.com",
+					GitHubRunID:             1,
+					GitHubRunAttempt:        1,
+					GitHubJob:               "plan (terraform/project1)",
 				},
 				logURL: tc.logURL,
 			}
 
 			err := reporter.CreateStatus(context.Background(), tc.params)
-			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
-				t.Errorf(diff)
-			}
-
-			if diff := cmp.Diff(gitHubClient.Reqs, tc.expGitHubClientReqs); diff != "" {
-				t.Errorf("GitHubClient calls not as expected; (-got,+want): %s", diff)
-			}
-		})
-	}
-}
-
-func TestGitHubReporterUpdateStatus(t *testing.T) {
-	t.Parallel()
-	cases := []struct {
-		name                   string
-		params                 *Params
-		logURL                 string
-		expGitHubClientReqs    []*github.Request
-		updateIssueCommentsErr error
-		err                    string
-	}{
-		{
-			name: "success",
-			params: &Params{
-				Operation:     ApplyOperation,
-				Status:        SuccessStatus,
-				IsDestroy:     false,
-				EntrypointDir: "terraform/project1",
-			},
-			logURL: "https://github.com",
-			expGitHubClientReqs: []*github.Request{
-				{
-					Name:   "UpdateIssueComment",
-					Params: []any{"owner", "repo", int64(1), "#### 🔱 Guardian 🔱 **`APPLY`** **`🟩 SUCCESS`** [[logs](https://github.com)]\n\n**Entrypoint:** terraform/project1"},
-				},
-			},
-		},
-		{
-			name: "success_destroy",
-			params: &Params{
-				Operation:     ApplyOperation,
-				Status:        FailureStatus,
-				IsDestroy:     true,
-				EntrypointDir: "terraform/project1",
-			},
-			logURL: "https://github.com",
-			expGitHubClientReqs: []*github.Request{
-				{
-					Name:   "UpdateIssueComment",
-					Params: []any{"owner", "repo", int64(1), "#### 🔱 Guardian 🔱 **`APPLY`** **`💥 DESTROY`** **`🟥 FAILED`** [[logs](https://github.com)]\n\n**Entrypoint:** terraform/project1"},
-				},
-			},
-		},
-		{
-			name: "error",
-			params: &Params{
-				Operation:     ApplyOperation,
-				Status:        FailureStatus,
-				IsDestroy:     false,
-				EntrypointDir: "terraform/project1",
-			},
-			logURL:                 "https://github.com",
-			updateIssueCommentsErr: fmt.Errorf("FAILED!"),
-			err:                    "failed to report: FAILED!",
-			expGitHubClientReqs: []*github.Request{
-				{
-					Name:   "UpdateIssueComment",
-					Params: []any{"owner", "repo", int64(1), "#### 🔱 Guardian 🔱 **`APPLY`** **`🟥 FAILED`** [[logs](https://github.com)]\n\n**Entrypoint:** terraform/project1"},
-				},
-			},
-		},
-	}
-
-	for _, tc := range cases {
-		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			gitHubClient := &github.MockGitHubClient{
-				UpdateIssueCommentsErr: tc.updateIssueCommentsErr,
-			}
-
-			reporter := &GitHubReporter{
-				gitHubClient: gitHubClient,
-				flags: flags.GitHubFlags{
-					FlagGitHubOwner:             "owner",
-					FlagGitHubRepo:              "repo",
-					FlagGitHubPullRequestNumber: 1,
-					FlagGitHubServerURL:         "https://github.com",
-					FlagGitHubRunID:             1,
-					FlagGitHubRunAttempt:        1,
-					FlagGitHubJob:               "plan (terraform/project1)",
-				},
-				logURL:    tc.logURL,
-				commentID: int64(1),
-			}
-
-			err := reporter.UpdateStatus(context.Background(), tc.params)
 			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
 				t.Errorf(diff)
 			}
@@ -276,8 +177,8 @@ func TestGitHubReporterOversizeOutput(t *testing.T) {
 
 		expGitHubClientReqs := []*github.Request{
 			{
-				Name:   "UpdateIssueComment",
-				Params: []any{"owner", "repo", int64(1), "#### 🔱 Guardian 🔱 **`PLAN`** **`🟩 SUCCESS`** [[logs](https://github.com)]\n\n**Entrypoint:** terraform/project1\n\n> Message has been truncated. See workflow logs to view the full message."},
+				Name:   "CreateIssueComment",
+				Params: []any{"owner", "repo", int(1), "#### 🔱 Guardian 🔱 **`PLAN`** **`🟩 SUCCESS`** [[logs](https://github.com)]\n\n**Entrypoint:** terraform/project1\n\n> Message has been truncated. See workflow logs to view the full message."},
 			},
 		}
 
@@ -285,22 +186,21 @@ func TestGitHubReporterOversizeOutput(t *testing.T) {
 
 		reporter := &GitHubReporter{
 			gitHubClient: gitHubClient,
-			flags: flags.GitHubFlags{
-				FlagGitHubOwner:             "owner",
-				FlagGitHubRepo:              "repo",
-				FlagGitHubPullRequestNumber: 1,
-				FlagGitHubServerURL:         "https://github.com",
-				FlagGitHubRunID:             1,
-				FlagGitHubRunAttempt:        1,
-				FlagGitHubJob:               "plan (terraform/project1)",
+			inputs: &GitHubReporterInputs{
+				GitHubOwner:             "owner",
+				GitHubRepo:              "repo",
+				GitHubPullRequestNumber: 1,
+				GitHubServerURL:         "https://github.com",
+				GitHubRunID:             1,
+				GitHubRunAttempt:        1,
+				GitHubJob:               "plan (terraform/project1)",
 			},
-			logURL:    "https://github.com",
-			commentID: int64(1),
+			logURL: "https://github.com",
 		}
 
-		err := reporter.UpdateStatus(context.Background(), &Params{
-			Operation:     PlanOperation,
-			Status:        SuccessStatus,
+		err := reporter.CreateStatus(context.Background(), &Params{
+			Operation:     OperationPlan,
+			Status:        StatusSuccess,
 			EntrypointDir: "terraform/project1",
 			Output:        messageOverLimit(),
 		})

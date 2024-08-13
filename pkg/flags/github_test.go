@@ -67,7 +67,10 @@ func TestAfterParse(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			tc.flags.FromGitHubContext(tc.ghCtx)
+			err := tc.flags.afterParse(tc.ghCtx)
+			if err != nil {
+				t.Fatalf("unexpected err: %v", err)
+			}
 			if diff := cmp.Diff(tc.flags, tc.wantFlags); diff != "" {
 				t.Errorf("unexpected result (-got, +want):\n%s", diff)
 			}

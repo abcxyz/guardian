@@ -22,24 +22,25 @@ import (
 type (
 	// Operation is the operation Guardian is performing.
 	Operation int
+
 	// Status is the result of the operation Guardian is performing.
 	Status int
 )
 
 // the operations supported by reporters.
 const (
-	PlanOperation Operation = iota
-	ApplyOperation
-	UnknownOperation
+	OperationPlan Operation = iota
+	OperationApply
+	OperationUnknown
 )
 
 // the supported statuses for reporters.
 const (
-	StartStatus Status = iota
-	SuccessStatus
-	FailureStatus
-	NoChangesStatus
-	UnknownStatus
+	StatusStart Status = iota
+	StatusSuccess
+	StatusFailure
+	StatusNoChanges
+	StatusUnknown
 )
 
 // Params are the parameters for writing statuses.
@@ -55,7 +56,4 @@ type Params struct {
 type Reporter interface {
 	// CreateStatus reports the status of a run.
 	CreateStatus(ctx context.Context, params *Params) error
-
-	// UpdateStatus reports the status of a run.
-	UpdateStatus(ctx context.Context, params *Params) error
 }

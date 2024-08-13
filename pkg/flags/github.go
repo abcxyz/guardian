@@ -138,11 +138,20 @@ func (g *GitHubFlags) Register(set *cli.FlagSet) {
 		Usage:  "The GitHub SHA.",
 		Hidden: true,
 	})
+
+	set.AfterParse(func(existingErr error) error {
+		ghCtx, err := githubactions.New().Context()
+		if err != nil {
+			return fmt.Errorf("failed to create github context: %w", err)
+		}
+
+		return g.afterParse(ghCtx)
+	})
 }
 
-// FromGitHubContext maps missing GitHub flag values from the GitHub context.
-func (g *GitHubFlags) FromGitHubContext(gctx *githubactions.GitHubContext) {
-	owner, repo := gctx.Repo()
+// afterParse maps missing GitHub flag values from the GitHub context.
+func (g *GitHubFlags) afterParse(ghCtx *githubactions.GitHubContext) error {
+	owner, repo := ghCtx.Repo()
 
 	if g.FlagGitHubOwner == "" {
 		g.FlagGitHubOwner = owner
@@ -152,13 +161,15 @@ func (g *GitHubFlags) FromGitHubContext(gctx *githubactions.GitHubContext) {
 		g.FlagGitHubRepo = repo
 	}
 
-	eventNumber := gctx.Event["number"]
+	eventNumber := ghCtx.Event["number"]
 	if g.FlagGitHubPullRequestNumber <= 0 && eventNumber != nil {
 		prNumber, ok := eventNumber.(int)
 		if ok {
 			g.FlagGitHubPullRequestNumber = prNumber
 		}
 	}
+
+	return nil
 }
 
 // TokenSource creates a token source for a github client to call the GitHub API.

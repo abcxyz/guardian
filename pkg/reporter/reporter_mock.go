@@ -46,15 +46,3 @@ func (m *MockReporter) CreateStatus(ctx context.Context, p *Params) error {
 
 	return m.CreateStatusErr
 }
-
-// UpdateStatus implements the UpdateStatus function.
-func (m *MockReporter) UpdateStatus(ctx context.Context, p *Params) error {
-	m.reqMu.Lock()
-	defer m.reqMu.Unlock()
-	m.Reqs = append(m.Reqs, &Request{
-		Name:   "UpdateStatus",
-		Params: []any{*p},
-	})
-
-	return m.UpdateStatusErr
-}
