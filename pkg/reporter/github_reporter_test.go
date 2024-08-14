@@ -17,6 +17,7 @@ package reporter
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -35,7 +36,6 @@ func TestGitHubReporterInputsValidate(t *testing.T) {
 		{
 			name: "success",
 			inputs: &GitHubReporterInputs{
-				GitHubToken:             "token",
 				GitHubOwner:             "owner",
 				GitHubRepo:              "repo",
 				GitHubPullRequestNumber: 1,
@@ -48,13 +48,9 @@ func TestGitHubReporterInputsValidate(t *testing.T) {
 		{
 			name:   "error",
 			inputs: &GitHubReporterInputs{},
-			err: `one of github token or github app id are required
-github owner is required
+			err: `github owner is required
 github repo is required
-one of github pull request number or github sha are required
-github server url is required
-github run id is required
-github run attempt is required`,
+one of github pull request number or github sha are required`,
 		},
 	}
 
@@ -170,6 +166,85 @@ func TestGitHubReporterCreateStatus(t *testing.T) {
 	}
 }
 
+func TestGitHubReporterClearStatus(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name                 string
+		expGitHubClientReqs  []*github.Request
+		listIssueCommentsErr error
+		err                  string
+	}{
+		{
+			name: "success",
+			expGitHubClientReqs: []*github.Request{
+				{
+					Name:   "ListIssueComments",
+					Params: []any{"owner", "repo", int(1)},
+				},
+				{
+					Name:   "DeleteIssueComment",
+					Params: []any{"owner", "repo", int64(1)},
+				},
+				{
+					Name:   "DeleteIssueComment",
+					Params: []any{"owner", "repo", int64(3)},
+				},
+			},
+		},
+		{
+			name: "error",
+			expGitHubClientReqs: []*github.Request{
+				{
+					Name:   "ListIssueComments",
+					Params: []any{"owner", "repo", int(1)},
+				},
+			},
+			listIssueCommentsErr: fmt.Errorf("ERROR LISTING!"),
+			err:                  "failed to list comments: ERROR LISTING!",
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			gitHubClient := &github.MockGitHubClient{
+				ListIssueCommentResponse: &github.IssueCommentResponse{
+					Comments: []*github.IssueComment{
+						{ID: 1, Body: githubCommentPrefix + " guardian comment"},
+						{ID: 2, Body: "Not a guardian comment"},
+						{ID: 3, Body: githubCommentPrefix + " guardian comment"},
+					},
+				},
+				ListIssueCommentsErr: tc.listIssueCommentsErr,
+			}
+
+			reporter := &GitHubReporter{
+				gitHubClient: gitHubClient,
+				inputs: &GitHubReporterInputs{
+					GitHubOwner:             "owner",
+					GitHubRepo:              "repo",
+					GitHubPullRequestNumber: 1,
+					GitHubServerURL:         "https://github.com",
+					GitHubRunID:             1,
+					GitHubRunAttempt:        1,
+					GitHubJob:               "plan (terraform/project1)",
+				},
+			}
+
+			err := reporter.ClearStatus(context.Background())
+			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
+				t.Errorf(diff)
+			}
+
+			if diff := cmp.Diff(gitHubClient.Reqs, tc.expGitHubClientReqs); diff != "" {
+				t.Errorf("GitHubClient calls not as expected; (-got,+want): %s", diff)
+			}
+		})
+	}
+}
+
 func TestGitHubReporterOversizeOutput(t *testing.T) {
 	t.Parallel()
 
@@ -202,7 +277,7 @@ func TestGitHubReporterOversizeOutput(t *testing.T) {
 		err := reporter.CreateStatus(context.Background(), StatusSuccess, &Params{
 			Operation: "plan",
 			Dir:       "terraform/project1",
-			Output:    messageOverLimit(),
+			Details:   messageOverLimit(),
 		})
 		if err != nil {
 			t.Errorf("unepexted error: %v", err)
@@ -212,6 +287,77 @@ func TestGitHubReporterOversizeOutput(t *testing.T) {
 			t.Errorf("GitHubClient calls not as expected; (-got,+want): %s", diff)
 		}
 	})
+}
+
+func TestFormatOutputForGitHubDiff(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name    string
+		content string
+		exp     string
+	}{
+		{
+			name: "replaces_tilde",
+			content: `
+first section -
+first section +
+first section ~
+first section !
+
+    second section -
+    second section +
+    second section ~
+    second section !
+	
+- third section
++ third section
+~ third section
+! third section
+	
+    - fourth section
+    + fourth section
+    -/+ fourth section
+    +/- fourth section
+    ~ fourth section
+    ! fourth section`,
+			exp: `
+first section -
+first section +
+first section ~
+first section !
+
+    second section -
+    second section +
+    second section ~
+    second section !
+	
+- third section
++ third section
+! third section
+! third section
+	
+-     fourth section
++     fourth section
+-/+     fourth section
++/-     fourth section
+!     fourth section
+!     fourth section`,
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			output := formatOutputForGitHubDiff(tc.content)
+			if got, want := strings.TrimSpace(output), strings.TrimSpace(tc.exp); got != want {
+				t.Errorf("expected\n\n%s\n\nto be\n\n%s\n\n", got, want)
+			}
+		})
+	}
 }
 
 func messageOverLimit() string {

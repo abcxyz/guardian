@@ -17,6 +17,11 @@ package reporter
 
 import (
 	"context"
+	"fmt"
+	"io"
+	"strings"
+
+	"github.com/abcxyz/guardian/pkg/github"
 )
 
 // Status is the result of the operation Guardian is performing.
@@ -32,15 +37,47 @@ const (
 
 // Params are the parameters for writing reports.
 type Params struct {
-	Dir       string
-	Operation string
-	IsDestroy bool
-	Output    string
 	HasDiff   bool
+	Details   string
+	Dir       string
+	IsDestroy bool
+	Message   string
+	Operation string
 }
 
 // Reporter defines the minimum interface for a reporter.
 type Reporter interface {
 	// CreateStatus reports the status of a run.
 	CreateStatus(ctx context.Context, status Status, params *Params) error
+
+	// ClearStatus clears any existing statuses that can be removed.
+	ClearStatus(ctx context.Context) error
+}
+
+type Config struct {
+	GitHub github.Config
+}
+
+func NewReporter(ctx context.Context, t string, c *Config, stdout io.Writer) (Reporter, error) {
+	if strings.EqualFold(t, "local") {
+		return NewLocalReporter(ctx, stdout)
+	}
+
+	if strings.EqualFold(t, "github") {
+		gc, err := c.GitHub.NewGitHubClient(ctx, map[string]string{
+			"contents":      "read",
+			"pull_requests": "write",
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create github client: %w", err)
+		}
+
+		return NewGitHubReporter(ctx, gc, &GitHubReporterInputs{
+			GitHubOwner:             c.GitHub.Owner,
+			GitHubRepo:              c.GitHub.Repo,
+			GitHubPullRequestNumber: c.GitHub.PullRequestNumber,
+		})
+	}
+
+	return nil, fmt.Errorf("unknown reporter type: %s", t)
 }

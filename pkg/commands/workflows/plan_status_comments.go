@@ -21,14 +21,10 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/sethvargo/go-githubactions"
-
-	"github.com/abcxyz/guardian/pkg/commands/plan"
-	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/github"
+	"github.com/abcxyz/guardian/pkg/reporter"
 	"github.com/abcxyz/guardian/pkg/util"
 	"github.com/abcxyz/pkg/cli"
-	"github.com/abcxyz/pkg/logging"
 )
 
 var _ cli.Command = (*PlanStatusCommentCommand)(nil)
@@ -36,19 +32,13 @@ var _ cli.Command = (*PlanStatusCommentCommand)(nil)
 type PlanStatusCommentCommand struct {
 	cli.BaseCommand
 
-	cfg *PlanStatusCommentsConfig
+	githubConfig github.Config
 
-	gitHubLogURL string
+	flagReporter   string
+	flagInitResult string
+	flagPlanResult []string
 
-	flags.GitHubFlags
-	flags.RetryFlags
-
-	flagPullRequestNumber int
-	flagInitResult        string
-	flagPlanResult        []string
-
-	actions      *githubactions.Action
-	gitHubClient github.GitHub
+	reporterClient reporter.Reporter
 }
 
 func (c *PlanStatusCommentCommand) Desc() string {
@@ -66,16 +56,16 @@ Usage: {{ COMMAND }} [options]
 func (c *PlanStatusCommentCommand) Flags() *cli.FlagSet {
 	set := c.NewFlagSet()
 
-	c.GitHubFlags.Register(set)
-	c.RetryFlags.Register(set)
+	c.githubConfig.Register(set)
 
 	f := set.NewSection("COMMAND OPTIONS")
 
-	f.IntVar(&cli.IntVar{
-		Name:    "pull-request-number",
-		Target:  &c.flagPullRequestNumber,
-		Example: "100",
-		Usage:   "The GitHub pull request number to remove plan comments from.",
+	f.StringVar(&cli.StringVar{
+		Name:    "reporter",
+		Target:  &c.flagReporter,
+		Example: "github",
+		Default: "local",
+		Usage:   "The reporting strategy for Guardian status updates.",
 	})
 
 	f.StringVar(&cli.StringVar{
@@ -93,18 +83,6 @@ func (c *PlanStatusCommentCommand) Flags() *cli.FlagSet {
 	})
 
 	set.AfterParse(func(existingErr error) (merr error) {
-		if c.GitHubFlags.FlagGitHubOwner == "" {
-			merr = errors.Join(merr, fmt.Errorf("missing flag: github-owner is required"))
-		}
-
-		if c.GitHubFlags.FlagGitHubRepo == "" {
-			merr = errors.Join(merr, fmt.Errorf("missing flag: github-repo is required"))
-		}
-
-		if c.flagPullRequestNumber <= 0 {
-			merr = errors.Join(merr, fmt.Errorf("missing flag: pull-request-number is required"))
-		}
-
 		if c.flagInitResult == "" {
 			merr = errors.Join(merr, fmt.Errorf("missing flag: init-result is required"))
 		}
@@ -120,8 +98,6 @@ func (c *PlanStatusCommentCommand) Flags() *cli.FlagSet {
 }
 
 func (c *PlanStatusCommentCommand) Run(ctx context.Context, args []string) error {
-	logger := logging.FromContext(ctx)
-
 	f := c.Flags()
 	if err := f.Parse(args); err != nil {
 		return fmt.Errorf("failed to parse flags: %w", err)
@@ -132,95 +108,46 @@ func (c *PlanStatusCommentCommand) Run(ctx context.Context, args []string) error
 		return flag.ErrHelp
 	}
 
-	c.actions = githubactions.New(githubactions.WithWriter(c.Stdout()))
-	actionsCtx, err := c.actions.Context()
+	rc, err := reporter.NewReporter(ctx, c.flagReporter, &reporter.Config{GitHub: c.githubConfig}, c.Stdout())
 	if err != nil {
-		return fmt.Errorf("failed to load github context: %w", err)
+		return fmt.Errorf("failed to create reporter client: %w", err)
 	}
-
-	c.cfg = &PlanStatusCommentsConfig{}
-	if err := c.cfg.MapGitHubContext(actionsCtx); err != nil {
-		return fmt.Errorf("failed to load github context: %w", err)
-	}
-	logger.DebugContext(ctx, "loaded configuration", "plan_status_comments_config", c.cfg)
-
-	tokenSource, err := c.GitHubFlags.TokenSource(ctx, map[string]string{
-		"pull_requests": "write",
-	})
-	if err != nil {
-		return fmt.Errorf("failed to get token source: %w", err)
-	}
-	c.gitHubClient = github.NewClient(
-		ctx,
-		tokenSource,
-		github.WithRetryInitialDelay(c.RetryFlags.FlagRetryInitialDelay),
-		github.WithRetryMaxAttempts(c.RetryFlags.FlagRetryMaxAttempts),
-		github.WithRetryMaxDelay(c.RetryFlags.FlagRetryMaxDelay),
-	)
+	c.reporterClient = rc
 
 	return c.Process(ctx)
 }
 
 // Process handles the main logic for the Guardian remove plan comments process.
 func (c *PlanStatusCommentCommand) Process(ctx context.Context) error {
-	logger := logging.FromContext(ctx).
-		With("github_owner", c.GitHubFlags.FlagGitHubOwner).
-		With("github_repo", c.GitHubFlags.FlagGitHubOwner).
-		With("init_result", c.flagInitResult).
-		With("plan_result", c.flagPlanResult)
-
-	logger.DebugContext(ctx, "determining plan status...")
-
-	c.gitHubLogURL = fmt.Sprintf("[[logs](%s/%s/%s/actions/runs/%d/attempts/%d)]", c.cfg.ServerURL, c.GitHubFlags.FlagGitHubOwner, c.GitHubFlags.FlagGitHubRepo, c.cfg.RunID, c.cfg.RunAttempt)
-	logger.DebugContext(ctx, "computed github log url", "github_log_url", c.gitHubLogURL)
-
 	// this case improves user experience, when the planning job does not have a plan diff
 	// there are no comments, this informs the user that the job ran successfully
 	if c.flagInitResult == "success" && util.SliceContainsOnly(c.flagPlanResult, "success") {
-		if _, err := c.gitHubClient.CreateIssueComment(
-			ctx,
-			c.GitHubFlags.FlagGitHubOwner,
-			c.GitHubFlags.FlagGitHubRepo,
-			c.flagPullRequestNumber,
-			fmt.Sprintf("%s 🟩 Plan completed successfully. %s", plan.CommentPrefix, c.gitHubLogURL),
-		); err != nil {
+		err := c.reporterClient.CreateStatus(ctx, reporter.StatusSuccess, &reporter.Params{Operation: "plan", Message: "Plan completed successfully."})
+		if err != nil {
 			return fmt.Errorf("failed to create plan status comment: %w", err)
 		}
-
 		return nil
 	}
 
 	// this case does not require a comment because the planning job should
-	// have commented that there was a failure, for which directory
+	// have commented that there was a failure and for which directory
 	if c.flagInitResult == "failure" || slices.Contains(c.flagPlanResult, "failure") {
 		return fmt.Errorf("init or plan has one or more failures")
 	}
 
 	// this case improves user experience, when no Terraform changes were submitted
-	// the plan job is skipped, this informs the user that the job ran successfully
+	// and the plan job is skipped, this informs the user that the job ran successfully
 	// but no changes are needed
 	if c.flagInitResult == "success" && util.SliceContainsOnly(c.flagPlanResult, "skipped") {
-		if _, err := c.gitHubClient.CreateIssueComment(
-			ctx,
-			c.GitHubFlags.FlagGitHubOwner,
-			c.GitHubFlags.FlagGitHubRepo,
-			c.flagPullRequestNumber,
-			fmt.Sprintf("%s 🟦 No Terraform changes detected, planning skipped. %s", plan.CommentPrefix, c.gitHubLogURL),
-		); err != nil {
+		err := c.reporterClient.CreateStatus(ctx, reporter.StatusNoOperation, &reporter.Params{Operation: "plan", Message: "No Terraform changes detected, planning skipped."})
+		if err != nil {
 			return fmt.Errorf("failed to create plan status comment: %w", err)
 		}
-
 		return nil
 	}
 
-	// if we got this far, something went wrong or a new status was created
-	if _, err := c.gitHubClient.CreateIssueComment(
-		ctx,
-		c.GitHubFlags.FlagGitHubOwner,
-		c.GitHubFlags.FlagGitHubRepo,
-		c.flagPullRequestNumber,
-		fmt.Sprintf("%s 🟨 Unable to determine plan status. %s", plan.CommentPrefix, c.gitHubLogURL),
-	); err != nil {
+	err := c.reporterClient.CreateStatus(ctx, reporter.StatusUnknown, &reporter.Params{Operation: "plan", Message: "Unable to determine plan status."})
+	if err != nil {
 		return fmt.Errorf("failed to create plan status comment: %w", err)
 	}
 

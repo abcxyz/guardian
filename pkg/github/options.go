@@ -22,7 +22,7 @@ type Option func(*Config) *Config
 // WithRetryMaxAttempts configures the maximum number of retry attempts for the GitHub Client.
 func WithRetryMaxAttempts(maxRetries uint64) Option {
 	return func(c *Config) *Config {
-		c.maxRetries = maxRetries
+		c.MaxRetries = maxRetries
 		return c
 	}
 }
@@ -30,7 +30,7 @@ func WithRetryMaxAttempts(maxRetries uint64) Option {
 // WithRetryInitialDelay configures the initial delay time before sending a retry for the GitHub Client.
 func WithRetryInitialDelay(initialRetryDelay time.Duration) Option {
 	return func(c *Config) *Config {
-		c.initialRetryDelay = initialRetryDelay
+		c.InitialRetryDelay = initialRetryDelay
 		return c
 	}
 }
@@ -38,7 +38,7 @@ func WithRetryInitialDelay(initialRetryDelay time.Duration) Option {
 // WithRetryMaxDelay configures the maximum delay time before sending a retry for the GitHub Client.
 func WithRetryMaxDelay(maxRetryDelay time.Duration) Option {
 	return func(c *Config) *Config {
-		c.maxRetryDelay = maxRetryDelay
+		c.MaxRetryDelay = maxRetryDelay
 		return c
 	}
 }
