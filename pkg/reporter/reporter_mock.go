@@ -32,7 +32,7 @@ type MockReporter struct {
 	Reqs  []*Request
 
 	CreateStatusErr error
-	UpdateStatusErr error
+	ClearStatusErr  error
 }
 
 // CreateStatus implements the CreateStatus function.
@@ -50,4 +50,15 @@ func (m *MockReporter) CreateStatus(ctx context.Context, s Status, p *Params) er
 	})
 
 	return m.CreateStatusErr
+}
+
+// ClearStatus implements the ClearStatus function.
+func (m *MockReporter) ClearStatus(ctx context.Context) error {
+	m.reqMu.Lock()
+	defer m.reqMu.Unlock()
+	m.Reqs = append(m.Reqs, &Request{
+		Name: "ClearStatus",
+	})
+
+	return m.ClearStatusErr
 }

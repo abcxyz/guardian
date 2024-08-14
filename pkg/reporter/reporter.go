@@ -32,15 +32,19 @@ const (
 
 // Params are the parameters for writing reports.
 type Params struct {
-	Dir       string
-	Operation string
-	IsDestroy bool
-	Output    string
 	HasDiff   bool
+	Details   string
+	Dir       string
+	IsDestroy bool
+	Message   string
+	Operation string
 }
 
 // Reporter defines the minimum interface for a reporter.
 type Reporter interface {
 	// CreateStatus reports the status of a run.
 	CreateStatus(ctx context.Context, status Status, params *Params) error
+
+	// ClearStatus clears any existing statuses that can be removed.
+	ClearStatus(ctx context.Context) error
 }

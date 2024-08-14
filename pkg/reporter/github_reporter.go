@@ -22,8 +22,9 @@ import (
 	"strings"
 	"time"
 
+	gh "github.com/google/go-github/v53/github"
+
 	"github.com/abcxyz/guardian/pkg/github"
-	"github.com/abcxyz/pkg/githubauth"
 	"github.com/abcxyz/pkg/logging"
 )
 
@@ -110,18 +111,6 @@ func (i *GitHubReporterInputs) Validate() error {
 		merr = errors.Join(merr, fmt.Errorf("one of github pull request number or github sha are required"))
 	}
 
-	if i.GitHubServerURL == "" {
-		merr = errors.Join(merr, fmt.Errorf("github server url is required"))
-	}
-
-	if i.GitHubRunID <= 0 {
-		merr = errors.Join(merr, fmt.Errorf("github run id is required"))
-	}
-
-	if i.GitHubRunAttempt <= 0 {
-		merr = errors.Join(merr, fmt.Errorf("github run attempt is required"))
-	}
-
 	return merr
 }
 
@@ -133,9 +122,16 @@ func NewGitHubReporter(ctx context.Context, i *GitHubReporterInputs) (Reporter, 
 		return nil, fmt.Errorf("failed to validate github reporter inputs: %w", err)
 	}
 
-	tokenSource, err := TokenSource(ctx, i, map[string]string{
-		"contents":      "read",
-		"pull_requests": "write",
+	tokenSource, err := github.TokenSource(ctx, &github.TokenSourceInputs{
+		GitHubToken:             i.GitHubToken,
+		GitHubAppID:             i.GitHubAppID,
+		GitHubAppPrivateKeyPEM:  i.GitHubAppPrivateKeyPEM,
+		GitHubAppInstallationID: i.GitHubAppInstallationID,
+		GitHubRepo:              i.GitHubRepo,
+		Permissions: map[string]string{
+			"contents":      "read",
+			"pull_requests": "write",
+		},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get token source: %w", err)
@@ -168,10 +164,13 @@ func NewGitHubReporter(ctx context.Context, i *GitHubReporterInputs) (Reporter, 
 
 	logger.DebugContext(ctx, "computed pull request number", "computed_pull_request_number", i.GitHubPullRequestNumber)
 
-	logURL, err := gc.ResolveJobLogsURL(ctx, i.GitHubJob, i.GitHubOwner, i.GitHubRepo, i.GitHubRunID)
-	if err != nil {
-		logger.WarnContext(ctx, "could not resolve direct url to job logs", "err", err)
-		logURL = fmt.Sprintf("%s/%s/%s/actions/runs/%d/attempts/%d", i.GitHubServerURL, i.GitHubOwner, i.GitHubRepo, i.GitHubRunID, i.GitHubRunAttempt)
+	logURL := ""
+	if i.GitHubServerURL != "" || i.GitHubRunID > 0 || i.GitHubRunAttempt > 0 {
+		logURL, err = gc.ResolveJobLogsURL(ctx, i.GitHubJob, i.GitHubOwner, i.GitHubRepo, i.GitHubRunID)
+		if err != nil {
+			logger.WarnContext(ctx, "could not resolve direct url to job logs", "err", err)
+			logURL = fmt.Sprintf("%s/%s/%s/actions/runs/%d/attempts/%d", i.GitHubServerURL, i.GitHubOwner, i.GitHubRepo, i.GitHubRunID, i.GitHubRunAttempt)
+		}
 	}
 
 	return &GitHubReporter{
@@ -179,32 +178,6 @@ func NewGitHubReporter(ctx context.Context, i *GitHubReporterInputs) (Reporter, 
 		inputs:       i,
 		logURL:       logURL,
 	}, nil
-}
-
-// TokenSource creates a token source for a github client to call the GitHub API.
-func TokenSource(ctx context.Context, i *GitHubReporterInputs, permissions map[string]string) (githubauth.TokenSource, error) {
-	if i.GitHubToken != "" {
-		githubTokenSource, err := githubauth.NewStaticTokenSource(i.GitHubToken)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create github static token source: %w", err)
-		}
-		return githubTokenSource, nil
-	} else {
-		app, err := githubauth.NewApp(
-			i.GitHubAppID,
-			i.GitHubAppPrivateKeyPEM,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create github app token source: %w", err)
-		}
-
-		installation, err := app.InstallationForID(ctx, i.GitHubAppInstallationID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get github app installation: %w", err)
-		}
-
-		return installation.SelectedReposTokenSource(permissions, i.GitHubRepo), nil
-	}
 }
 
 // CreateStatus implements the reporter Status function by writing a GitHub status comment.
@@ -223,6 +196,43 @@ func (g *GitHubReporter) CreateStatus(ctx context.Context, st Status, p *Params)
 	)
 	if err != nil {
 		return fmt.Errorf("failed to report: %w", err)
+	}
+
+	return nil
+}
+
+// ClearStatus deletes all github comments with the guardian prefix.
+func (g *GitHubReporter) ClearStatus(ctx context.Context) error {
+	listOpts := &gh.IssueListCommentsOptions{
+		ListOptions: gh.ListOptions{PerPage: 100},
+	}
+
+	for {
+		response, err := g.gitHubClient.ListIssueComments(ctx, g.inputs.GitHubOwner, g.inputs.GitHubRepo, g.inputs.GitHubPullRequestNumber, listOpts)
+		if err != nil {
+			return fmt.Errorf("failed to list comments: %w", err)
+		}
+
+		if response.Comments == nil {
+			return nil
+		}
+
+		for _, comment := range response.Comments {
+			// prefix is not found, skip
+			if !strings.HasPrefix(comment.Body, githubCommentPrefix) {
+				continue
+			}
+
+			// found the prefix, delete the comment
+			if err := g.gitHubClient.DeleteIssueComment(ctx, g.inputs.GitHubOwner, g.inputs.GitHubRepo, comment.ID); err != nil {
+				return fmt.Errorf("failed to delete comment: %w", err)
+			}
+		}
+
+		if response.Pagination == nil {
+			break
+		}
+		listOpts.Page = response.Pagination.NextPage
 	}
 
 	return nil
@@ -258,11 +268,15 @@ func (g *GitHubReporter) statusMessage(st Status, p *Params) (strings.Builder, e
 		fmt.Fprintf(&msg, "\n\n**Entrypoint:** %s", p.Dir)
 	}
 
-	if p.Output != "" {
-		detailsText := fmt.Sprintf("\n\n%s", g.markdownZippy("Output", p.Output))
+	if p.Message != "" {
+		fmt.Fprintf(&msg, "\n\n %s", p.Message)
+	}
+
+	if p.Details != "" {
+		detailsText := fmt.Sprintf("\n\n%s", g.markdownZippy("Details", p.Details))
 
 		if p.HasDiff {
-			detailsText = fmt.Sprintf("\n\n%s", g.markdownDiffZippy("Output", g.formatOutputForGitHubDiff(p.Output)))
+			detailsText = fmt.Sprintf("\n\n%s", g.markdownDiffZippy("Details", formatOutputForGitHubDiff(p.Details)))
 		}
 
 		// if the length of the entire message would exceed the max length
@@ -300,7 +314,7 @@ func (g *GitHubReporter) markdownDiffZippy(title, body string) string {
 
 // formatOutputForGitHubDiff formats the Terraform diff output for use with
 // GitHub diff markdown formatting.
-func (g *GitHubReporter) formatOutputForGitHubDiff(content string) string {
+func formatOutputForGitHubDiff(content string) string {
 	content = tildeChanged.ReplaceAllString(content, `$1!`)
 	content = swapLeadingWhitespace.ReplaceAllString(content, "$2$1")
 
