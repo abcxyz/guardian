@@ -56,16 +56,11 @@ func (g *GlobalFlags) Register(set *cli.FlagSet) {
 			merr = errors.Join(merr, fmt.Errorf("unsupported value for platform flag: %s", g.FlagPlatform))
 		}
 
-		switch g.FlagPlatform {
-		case "github":
-		case "local":
-		default:
+		if g.FlagPlatform == "" {
+			g.FlagPlatform = "local"
 			if v, _ := strconv.ParseBool(set.GetEnv("GITHUB_ACTIONS")); v {
 				g.FlagPlatform = "github"
-				break
 			}
-
-			g.FlagPlatform = "local"
 		}
 
 		return merr
