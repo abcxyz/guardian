@@ -24,6 +24,7 @@ import (
 	"github.com/sethvargo/go-retry"
 	"golang.org/x/oauth2"
 
+	"github.com/abcxyz/pkg/githubauth"
 	"github.com/abcxyz/pkg/pointer"
 )
 
@@ -595,4 +596,39 @@ func (g *GitHubClient) withRetries(ctx context.Context, retryFunc retry.RetryFun
 		return fmt.Errorf("failed to execute retriable function: %w", err)
 	}
 	return nil
+}
+
+type GitHubAppInputs struct {
+	GitHubAppID             string
+	GitHubAppPrivateKeyPEM  string
+	GitHubAppInstallationID string
+	GitHubRepo              string
+	Permissions             map[string]string
+}
+
+// TokenSource creates a token source from a GitHub token or GitHub App used for
+// authenticating a github client.
+func TokenSource(ctx context.Context, token string, appInputs *GitHubAppInputs) (githubauth.TokenSource, error) {
+	if token != "" {
+		githubTokenSource, err := githubauth.NewStaticTokenSource(token)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create github static token source: %w", err)
+		}
+		return githubTokenSource, nil
+	} else {
+		app, err := githubauth.NewApp(
+			appInputs.GitHubAppID,
+			appInputs.GitHubAppPrivateKeyPEM,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create github app token source: %w", err)
+		}
+
+		installation, err := app.InstallationForID(ctx, appInputs.GitHubAppInstallationID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get github app installation: %w", err)
+		}
+
+		return installation.SelectedReposTokenSource(appInputs.Permissions, appInputs.GitHubRepo), nil
+	}
 }
