@@ -87,18 +87,6 @@ func (c *PolicyCommand) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("failed to parse flags: %w", err)
 	}
 
-	tokenSource, err := c.GitHubFlags.TokenSource(ctx, map[string]string{
-		"contents":      "read",
-		"pull_requests": "write",
-	})
-	if err != nil {
-		return fmt.Errorf("failed to get token source: %w", err)
-	}
-	token, err := tokenSource.GitHubToken(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get token: %w", err)
-	}
-
 	var gitHubParams GitHubParams
 	action := githubactions.New(githubactions.WithWriter(c.Stdout()))
 	actx, err := action.Context()
