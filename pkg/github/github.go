@@ -611,26 +611,30 @@ type TokenSourceInputs struct {
 // TokenSource creates a token source from a GitHub token or GitHub App used for
 // authenticating a github client.
 func TokenSource(ctx context.Context, inputs *TokenSourceInputs) (githubauth.TokenSource, error) {
+	if inputs == nil {
+		return nil, fmt.Errorf("inputs cannot be nil")
+	}
+
 	if inputs.GitHubToken != "" {
 		githubTokenSource, err := githubauth.NewStaticTokenSource(inputs.GitHubToken)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create github static token source: %w", err)
 		}
 		return githubTokenSource, nil
-	} else {
-		app, err := githubauth.NewApp(
-			inputs.GitHubAppID,
-			inputs.GitHubAppPrivateKeyPEM,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create github app token source: %w", err)
-		}
-
-		installation, err := app.InstallationForID(ctx, inputs.GitHubAppInstallationID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get github app installation: %w", err)
-		}
-
-		return installation.SelectedReposTokenSource(inputs.Permissions, inputs.GitHubRepo), nil
 	}
+
+	app, err := githubauth.NewApp(
+		inputs.GitHubAppID,
+		inputs.GitHubAppPrivateKeyPEM,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create github app token source: %w", err)
+	}
+
+	installation, err := app.InstallationForID(ctx, inputs.GitHubAppInstallationID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get github app installation: %w", err)
+	}
+
+	return installation.SelectedReposTokenSource(inputs.Permissions, inputs.GitHubRepo), nil
 }
