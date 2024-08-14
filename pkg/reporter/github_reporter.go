@@ -36,18 +36,11 @@ const (
 	githubTruncatedMessage     = "\n\n> Message has been truncated. See workflow logs to view the full message."
 )
 
-var githubOperationText = map[Operation]string{
-	OperationPlan:    "PLAN",
-	OperationApply:   "APPLY",
-	OperationUnknown: "UNKNOWN",
-}
-
 var githubStatusText = map[Status]string{
-	StatusStart:     "🟨 STARTED",
-	StatusSuccess:   "🟩 SUCCESS",
-	StatusNoChanges: "🟦 NO CHANGES",
-	StatusFailure:   "🟥 FAILED",
-	StatusUnknown:   "⛔️ UNKNOWN",
+	StatusSuccess:     "🟩 SUCCESS",
+	StatusNoOperation: "🟦 NO CHANGES",
+	StatusFailure:     "🟥 FAILED",
+	StatusUnknown:     "⛔️ UNKNOWN",
 }
 
 var (
@@ -214,10 +207,9 @@ func TokenSource(ctx context.Context, i *GitHubReporterInputs, permissions map[s
 	}
 }
 
-// CreateStatus implements the reporter Status function. It creates a new GitHub comment and persists the comment ID
-// in a private struct var for use by the UpdateStatus function.
-func (g *GitHubReporter) CreateStatus(ctx context.Context, p *Params) error {
-	msg, err := g.statusMessage(p)
+// CreateStatus implements the reporter Status function by writing a GitHub status comment.
+func (g *GitHubReporter) CreateStatus(ctx context.Context, st Status, p *Params) error {
+	msg, err := g.statusMessage(st, p)
 	if err != nil {
 		return fmt.Errorf("failed to generate status message")
 	}
@@ -237,66 +229,50 @@ func (g *GitHubReporter) CreateStatus(ctx context.Context, p *Params) error {
 }
 
 // statusMessage generates the status message based on the provided reporter values.
-func (g *GitHubReporter) statusMessage(p *Params) (strings.Builder, error) {
+func (g *GitHubReporter) statusMessage(st Status, p *Params) (strings.Builder, error) {
 	var msg strings.Builder
 
-	if _, err := msg.WriteString(githubCommentPrefix); err != nil {
-		return msg, fmt.Errorf("failed to write Guardian prefix to report: %w", err)
-	}
+	fmt.Fprintf(&msg, "%s", githubCommentPrefix)
 
-	operationText, ok := githubOperationText[p.Operation]
-	if !ok {
-		operationText = githubOperationText[OperationUnknown]
-	}
-
-	if _, err := msg.WriteString(fmt.Sprintf(" %s", g.markdownPill(operationText))); err != nil {
-		return msg, fmt.Errorf("failed to write Guardian operation indicator to report: %w", err)
+	operationText := strings.ToUpper(strings.TrimSpace(p.Operation))
+	if operationText != "" {
+		fmt.Fprintf(&msg, " %s", g.markdownPill(operationText))
 	}
 
 	if p.IsDestroy {
-		if _, err := msg.WriteString(fmt.Sprintf(" %s", g.markdownPill(githubDestroyIndicatorText))); err != nil {
-			return msg, fmt.Errorf("failed to write destroy indicator to report: %w", err)
-		}
+		fmt.Fprintf(&msg, " %s", g.markdownPill(githubDestroyIndicatorText))
 	}
 
-	statusText, ok := githubStatusText[p.Status]
+	statusText, ok := githubStatusText[st]
 	if !ok {
 		statusText = githubStatusText[StatusUnknown]
 	}
 
-	if _, err := msg.WriteString(fmt.Sprintf(" %s", g.markdownPill(statusText))); err != nil {
-		return msg, fmt.Errorf("failed to write status indicator to report: %w", err)
-	}
+	fmt.Fprintf(&msg, " %s", g.markdownPill(statusText))
 
 	if g.logURL != "" {
-		if _, err := msg.WriteString(fmt.Sprintf(" [%s]", g.markdownURL("logs", g.logURL))); err != nil {
-			return msg, fmt.Errorf("failed to write log url to report: %w", err)
+		fmt.Fprintf(&msg, " [%s]", g.markdownURL("logs", g.logURL))
+	}
+
+	if p.Dir != "" {
+		fmt.Fprintf(&msg, "\n\n**Entrypoint:** %s", p.Dir)
+	}
+
+	if p.Output != "" {
+		detailsText := fmt.Sprintf("\n\n%s", g.markdownZippy("Output", p.Output))
+
+		if p.HasDiff {
+			detailsText = fmt.Sprintf("\n\n%s", g.markdownDiffZippy("Output", g.formatOutputForGitHubDiff(p.Output)))
 		}
-	}
 
-	if p.EntrypointDir != "" {
-		if _, err := msg.WriteString(fmt.Sprintf("\n\n**Entrypoint:** %s", p.EntrypointDir)); err != nil {
-			return msg, fmt.Errorf("failed to write entrypointDir to report: %w", err)
+		// if the length of the entire message would exceed the max length
+		// append a truncated message instead of the details text.
+		totalLength := len([]rune(msg.String())) + len([]rune(detailsText))
+		if totalLength > githubMaxCommentLength {
+			detailsText = githubTruncatedMessage
 		}
-	}
 
-	detailsText := ""
-	if strings.TrimSpace(p.Output) != "" {
-		formattedOutput := g.formatOutputForGitHubDiff(p.Output)
-		detailsText = fmt.Sprintf("\n\n%s", g.markdownZippy("Output", formattedOutput))
-	}
-
-	// if the length of the entire message would exceed the max length, add a truncated message.
-	totalLength := len([]rune(msg.String())) + len([]rune(detailsText))
-	if totalLength > githubMaxCommentLength {
-		if _, err := msg.WriteString(githubTruncatedMessage); err != nil {
-			return msg, fmt.Errorf("failed to write truncated message to report: %w", err)
-		}
-		return msg, nil
-	}
-
-	if _, err := msg.WriteString(detailsText); err != nil {
-		return msg, fmt.Errorf("failed to write output to report: %w", err)
+		fmt.Fprintf(&msg, "%s", detailsText)
 	}
 
 	return msg, nil
@@ -315,6 +291,11 @@ func (g *GitHubReporter) markdownURL(text, URL string) string {
 // markdonZippy returns a collapsible section with a given title and body.
 func (g *GitHubReporter) markdownZippy(title, body string) string {
 	return fmt.Sprintf("<details>\n<summary>%s</summary>\n\n```\n\n%s\n```\n</details>", title, body)
+}
+
+// markdonDiffZippy returns a collapsible section with a given title and body.
+func (g *GitHubReporter) markdownDiffZippy(title, body string) string {
+	return fmt.Sprintf("<details>\n<summary>%s</summary>\n\n```diff\n\n%s\n```\n</details>", title, body)
 }
 
 // formatOutputForGitHubDiff formats the Terraform diff output for use with

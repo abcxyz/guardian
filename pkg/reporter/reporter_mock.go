@@ -36,12 +36,17 @@ type MockReporter struct {
 }
 
 // CreateStatus implements the CreateStatus function.
-func (m *MockReporter) CreateStatus(ctx context.Context, p *Params) error {
+func (m *MockReporter) CreateStatus(ctx context.Context, s Status, p *Params) error {
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
+
+	// make a copy to prevent outside modification
+	pCopy := new(Params)
+	*pCopy = *p
+
 	m.Reqs = append(m.Reqs, &Request{
 		Name:   "CreateStatus",
-		Params: []any{*p},
+		Params: []any{s, pCopy},
 	})
 
 	return m.CreateStatusErr

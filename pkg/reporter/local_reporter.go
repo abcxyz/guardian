@@ -18,25 +18,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 )
 
 var _ Reporter = (*LocalReporter)(nil)
-
-// mapping of operations to display text.
-var stdoutOperationText = map[Operation]string{
-	OperationPlan:    "PLAN",
-	OperationApply:   "APPLY",
-	OperationUnknown: "UNKNOWN",
-}
-
-// mapping of statuses to display text.
-var stdoutStatusText = map[Status]string{
-	StatusStart:     "STARTED",
-	StatusSuccess:   "SUCCESS",
-	StatusNoChanges: "NO CHANGES",
-	StatusFailure:   "FAILED",
-	StatusUnknown:   "UNKNOWN",
-}
 
 // LocalReporter implements the reporter interface for writing to stdout.
 type LocalReporter struct {
@@ -50,23 +35,15 @@ func NewLocalReporter(ctx context.Context, stdout io.Writer) (Reporter, error) {
 	}, nil
 }
 
-// CreateStatus write the status to stdout.
-func (s *LocalReporter) CreateStatus(ctx context.Context, p *Params) error {
-	operationText, ok := stdoutOperationText[p.Operation]
-	if !ok {
-		operationText = stdoutOperationText[OperationUnknown]
+// CreateStatus writes the status to stdout.
+func (s *LocalReporter) CreateStatus(ctx context.Context, st Status, p *Params) error {
+	op := strings.ToUpper(strings.TrimSpace(p.Operation))
+
+	if op != "" {
+		fmt.Fprintf(s.stdout, "%s - %s", op, st)
+		return nil
 	}
 
-	statusText, ok := stdoutStatusText[p.Status]
-	if !ok {
-		statusText = stdoutStatusText[StatusUnknown]
-	}
-
-	fmt.Fprintf(s.stdout, "%s - %s", operationText, statusText)
+	fmt.Fprintf(s.stdout, "%s", st)
 	return nil
-}
-
-// UpdateStatus write the status to stdout.
-func (s *LocalReporter) UpdateStatus(ctx context.Context, p *Params) error {
-	return s.CreateStatus(ctx, p)
 }

@@ -75,6 +75,7 @@ func TestGitHubReporterCreateStatus(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
 		name                   string
+		status                 Status
 		params                 *Params
 		logURL                 string
 		expGitHubClientReqs    []*github.Request
@@ -82,12 +83,12 @@ func TestGitHubReporterCreateStatus(t *testing.T) {
 		err                    string
 	}{
 		{
-			name: "success",
+			name:   "success",
+			status: StatusSuccess,
 			params: &Params{
-				Operation:     OperationPlan,
-				Status:        StatusSuccess,
-				IsDestroy:     false,
-				EntrypointDir: "terraform/project1",
+				Operation: "plan",
+				IsDestroy: false,
+				Dir:       "terraform/project1",
 			},
 			logURL: "https://github.com",
 			expGitHubClientReqs: []*github.Request{
@@ -98,12 +99,12 @@ func TestGitHubReporterCreateStatus(t *testing.T) {
 			},
 		},
 		{
-			name: "success_destroy",
+			name:   "success_destroy",
+			status: StatusSuccess,
 			params: &Params{
-				Operation:     OperationPlan,
-				Status:        StatusSuccess,
-				IsDestroy:     true,
-				EntrypointDir: "terraform/project1",
+				Operation: "plan",
+				IsDestroy: true,
+				Dir:       "terraform/project1",
 			},
 			logURL: "https://github.com",
 			expGitHubClientReqs: []*github.Request{
@@ -114,12 +115,12 @@ func TestGitHubReporterCreateStatus(t *testing.T) {
 			},
 		},
 		{
-			name: "error",
+			name:   "error",
+			status: StatusSuccess,
 			params: &Params{
-				Operation:     OperationPlan,
-				Status:        StatusSuccess,
-				IsDestroy:     false,
-				EntrypointDir: "terraform/project1",
+				Operation: "plan",
+				IsDestroy: false,
+				Dir:       "terraform/project1",
 			},
 			logURL:                 "https://github.com",
 			createIssueCommentsErr: fmt.Errorf("FAILED!"),
@@ -157,7 +158,7 @@ func TestGitHubReporterCreateStatus(t *testing.T) {
 				logURL: tc.logURL,
 			}
 
-			err := reporter.CreateStatus(context.Background(), tc.params)
+			err := reporter.CreateStatus(context.Background(), tc.status, tc.params)
 			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
 				t.Errorf(diff)
 			}
@@ -198,11 +199,10 @@ func TestGitHubReporterOversizeOutput(t *testing.T) {
 			logURL: "https://github.com",
 		}
 
-		err := reporter.CreateStatus(context.Background(), &Params{
-			Operation:     OperationPlan,
-			Status:        StatusSuccess,
-			EntrypointDir: "terraform/project1",
-			Output:        messageOverLimit(),
+		err := reporter.CreateStatus(context.Background(), StatusSuccess, &Params{
+			Operation: "plan",
+			Dir:       "terraform/project1",
+			Output:    messageOverLimit(),
 		})
 		if err != nil {
 			t.Errorf("unepexted error: %v", err)
