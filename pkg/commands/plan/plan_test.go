@@ -35,43 +35,6 @@ import (
 	"github.com/abcxyz/pkg/testutil"
 )
 
-func TestAfterParse(t *testing.T) {
-	t.Parallel()
-
-	cases := []struct {
-		name string
-		args []string
-		err  string
-	}{
-		{
-			name: "validate_github_flags",
-			args: []string{"-pull-request-number=1", "-bucket-name=my-bucket"},
-			err:  "missing flag: github-owner is required\nmissing flag: github-repo is required",
-		},
-		{
-			name: "validate_pull_request_number",
-			args: []string{"-github-owner=owner", "-github-repo=repo", "-bucket-name=my-bucket"},
-			err:  "missing flag: pull-request-number is required",
-		},
-	}
-
-	for _, tc := range cases {
-		tc := tc
-
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			c := &PlanCommand{}
-
-			f := c.Flags()
-			err := f.Parse(tc.args)
-			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
-				t.Errorf(diff)
-			}
-		})
-	}
-}
-
 var terraformNoDiffMock = &terraform.MockTerraformClient{
 	FormatResponse: &terraform.MockTerraformResponse{
 		Stdout:   "terraform format success",

@@ -29,38 +29,6 @@ import (
 	"github.com/abcxyz/pkg/testutil"
 )
 
-func TestValidatePermissionsAfterParse(t *testing.T) {
-	t.Parallel()
-
-	cases := []struct {
-		name string
-		args []string
-		err  string
-	}{
-		{
-			name: "validate_github_flags",
-			args: []string{},
-			err:  "missing flag: github-owner is required\nmissing flag: github-repo is required",
-		},
-	}
-
-	for _, tc := range cases {
-		tc := tc
-
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			c := &ValidatePermissionsCommand{}
-
-			f := c.Flags()
-			err := f.Parse(tc.args)
-			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
-				t.Errorf(diff)
-			}
-		})
-	}
-}
-
 func TestValidatePermissionsProcess(t *testing.T) {
 	t.Parallel()
 

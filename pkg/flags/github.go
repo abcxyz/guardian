@@ -16,8 +16,9 @@ package flags
 
 import (
 	"context"
-	"errors"
 	"fmt"
+
+	"github.com/sethvargo/go-githubactions"
 
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/githubauth"
@@ -32,6 +33,12 @@ type GitHubFlags struct {
 	FlagGitHubAppID             string
 	FlagGitHubAppInstallationID string
 	FlagGitHubAppPrivateKeyPEM  string
+	FlagGitHubServerURL         string
+	FlagGitHubRunID             int64
+	FlagGitHubRunAttempt        int64
+	FlagGitHubJob               string
+	FlagGitHubPullRequestNumber int
+	FlagGitHubSHA               string
 }
 
 func (g *GitHubFlags) Register(set *cli.FlagSet) {
@@ -42,6 +49,7 @@ func (g *GitHubFlags) Register(set *cli.FlagSet) {
 		EnvVar: "GITHUB_TOKEN",
 		Target: &g.FlagGitHubToken,
 		Usage:  "The GitHub access token to make GitHub API calls. This value is automatically set on GitHub Actions.",
+		Hidden: true,
 	})
 
 	f.StringVar(&cli.StringVar{
@@ -49,6 +57,7 @@ func (g *GitHubFlags) Register(set *cli.FlagSet) {
 		Target:  &g.FlagGitHubOwner,
 		Example: "organization-name",
 		Usage:   "The GitHub repository owner.",
+		Hidden:  true,
 	})
 
 	f.StringVar(&cli.StringVar{
@@ -56,6 +65,7 @@ func (g *GitHubFlags) Register(set *cli.FlagSet) {
 		Target:  &g.FlagGitHubRepo,
 		Example: "repository-name",
 		Usage:   "The GitHub repository name.",
+		Hidden:  true,
 	})
 
 	f.StringVar(&cli.StringVar{
@@ -63,6 +73,7 @@ func (g *GitHubFlags) Register(set *cli.FlagSet) {
 		EnvVar: "GITHUB_APP_ID",
 		Target: &g.FlagGitHubAppID,
 		Usage:  "The ID of GitHub App to use for requesting tokens to make GitHub API calls.",
+		Hidden: true,
 	})
 
 	f.StringVar(&cli.StringVar{
@@ -70,6 +81,7 @@ func (g *GitHubFlags) Register(set *cli.FlagSet) {
 		EnvVar: "GITHUB_APP_INSTALLATION_ID",
 		Target: &g.FlagGitHubAppInstallationID,
 		Usage:  "The Installation ID of GitHub App to use for requesting tokens to make GitHub API calls.",
+		Hidden: true,
 	})
 
 	f.StringVar(&cli.StringVar{
@@ -77,25 +89,90 @@ func (g *GitHubFlags) Register(set *cli.FlagSet) {
 		EnvVar: "GITHUB_APP_PRIVATE_KEY_PEM",
 		Target: &g.FlagGitHubAppPrivateKeyPEM,
 		Usage:  "The PEM formatted private key to use with the GitHub App.",
+		Hidden: true,
 	})
 
-	set.AfterParse(func(merr error) error {
-		if g.FlagGitHubToken == "" && g.FlagGitHubAppID == "" {
-			merr = errors.Join(merr, fmt.Errorf("one of github token or github app id are required"))
+	f.StringVar(&cli.StringVar{
+		Name:   "github-server-url",
+		EnvVar: "GITHUB_SERVER_URL",
+		Target: &g.FlagGitHubServerURL,
+		Usage:  "The GitHub server URL.",
+		Hidden: true,
+	})
+
+	f.Int64Var(&cli.Int64Var{
+		Name:   "github-run-id",
+		EnvVar: "GITHUB_RUN_ID",
+		Target: &g.FlagGitHubRunID,
+		Usage:  "The GitHub workflow run ID.",
+		Hidden: true,
+	})
+
+	f.Int64Var(&cli.Int64Var{
+		Name:   "github-run-attempt",
+		EnvVar: "GITHUB_RUN_ATTEMPT",
+		Target: &g.FlagGitHubRunAttempt,
+		Usage:  "The GitHub workflow run attempt.",
+		Hidden: true,
+	})
+
+	f.StringVar(&cli.StringVar{
+		Name:   "github-job",
+		EnvVar: "GITHUB_JOB",
+		Target: &g.FlagGitHubJob,
+		Usage:  "The GitHub job id.",
+		Hidden: true,
+	})
+
+	f.IntVar(&cli.IntVar{
+		Name:   "github-pull-request-number",
+		Target: &g.FlagGitHubPullRequestNumber,
+		Usage:  "The GitHub pull request number.",
+		Hidden: true,
+	})
+
+	f.StringVar(&cli.StringVar{
+		Name:   "github-commit-sha",
+		EnvVar: "GITHUB_SHA",
+		Target: &g.FlagGitHubSHA,
+		Usage:  "The GitHub SHA.",
+		Hidden: true,
+	})
+
+	set.AfterParse(func(existingErr error) error {
+		ghCtx, err := githubactions.New().Context()
+		if err != nil {
+			return fmt.Errorf("failed to create github context: %w", err)
 		}
-		if g.FlagGitHubToken != "" && g.FlagGitHubAppID != "" {
-			merr = errors.Join(merr, fmt.Errorf("only one of github token or github app id are allowed"))
-		}
-		if g.FlagGitHubAppID != "" && g.FlagGitHubAppInstallationID == "" {
-			merr = errors.Join(merr, fmt.Errorf("a github app installation id is required when using a github app id"))
-		}
-		if g.FlagGitHubAppID != "" && g.FlagGitHubAppPrivateKeyPEM == "" {
-			merr = errors.Join(merr, fmt.Errorf("a github app private key is required when using a github app id"))
-		}
-		return merr
+
+		return g.afterParse(ghCtx)
 	})
 }
 
+// afterParse maps missing GitHub flag values from the GitHub context.
+func (g *GitHubFlags) afterParse(ghCtx *githubactions.GitHubContext) error {
+	owner, repo := ghCtx.Repo()
+
+	if g.FlagGitHubOwner == "" {
+		g.FlagGitHubOwner = owner
+	}
+
+	if g.FlagGitHubRepo == "" {
+		g.FlagGitHubRepo = repo
+	}
+
+	eventNumber := ghCtx.Event["number"]
+	if g.FlagGitHubPullRequestNumber <= 0 && eventNumber != nil {
+		prNumber, ok := eventNumber.(int)
+		if ok {
+			g.FlagGitHubPullRequestNumber = prNumber
+		}
+	}
+
+	return nil
+}
+
+// TokenSource creates a token source for a github client to call the GitHub API.
 func (g *GitHubFlags) TokenSource(ctx context.Context, permissions map[string]string) (githubauth.TokenSource, error) {
 	if g.FlagGitHubToken != "" {
 		githubTokenSource, err := githubauth.NewStaticTokenSource(g.FlagGitHubToken)

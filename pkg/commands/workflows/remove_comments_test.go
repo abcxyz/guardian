@@ -30,53 +30,6 @@ import (
 	"github.com/abcxyz/pkg/testutil"
 )
 
-func TestRemoveGuardianCommentsAfterParse(t *testing.T) {
-	t.Parallel()
-
-	cases := []struct {
-		name string
-		args []string
-		err  string
-	}{
-		{
-			name: "validate_github_flags",
-			args: []string{"-pull-request-number=1", "-for-command=plan"},
-			err:  "missing flag: github-owner is required\nmissing flag: github-repo is required",
-		},
-		{
-			name: "validate_pull_request_number",
-			args: []string{"-for-command=plan", "-github-owner=owner", "-github-repo=repo"},
-			err:  "missing flag: pull-request-number is required",
-		},
-		{
-			name: "validate_comment_type",
-			args: []string{"-pull-request-number=1", "-github-owner=owner", "-github-repo=repo"},
-			err:  "missing flag: for-command is required",
-		},
-		{
-			name: "wrong_comment_type",
-			args: []string{"-for-command=test", "-for-command=wrong", "-pull-request-number=1", "-github-owner=owner", "-github-repo=repo"},
-			err:  "invalid value(s) for-command: [\"test\" \"wrong\"] must be one of [\"apply\" \"plan\"]",
-		},
-	}
-
-	for _, tc := range cases {
-		tc := tc
-
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			c := &RemoveGuardianCommentsCommand{}
-
-			f := c.Flags()
-			err := f.Parse(tc.args)
-			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
-				t.Errorf(diff)
-			}
-		})
-	}
-}
-
 func TestRemoveGuardianCommentsProcess(t *testing.T) {
 	t.Parallel()
 

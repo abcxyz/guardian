@@ -30,53 +30,6 @@ import (
 	"github.com/abcxyz/pkg/testutil"
 )
 
-func TestPlanStatusCommentsAfterParse(t *testing.T) {
-	t.Parallel()
-
-	cases := []struct {
-		name string
-		args []string
-		err  string
-	}{
-		{
-			name: "validate_github_flags",
-			args: []string{"-pull-request-number=1", "-init-result=success", "-plan-result=success"},
-			err:  "missing flag: github-owner is required\nmissing flag: github-repo is required",
-		},
-		{
-			name: "validate_pull_request_number",
-			args: []string{"-github-owner=owner", "-github-repo=repo", "-init-result=success", "-plan-result=success"},
-			err:  "missing flag: pull-request-number is required",
-		},
-		{
-			name: "validate_init_result",
-			args: []string{"-github-owner=owner", "-github-repo=repo", "-pull-request-number=1", "-plan-result=success"},
-			err:  "missing flag: init-result is required",
-		},
-		{
-			name: "validate_plan_result",
-			args: []string{"-github-owner=owner", "-github-repo=repo", "-pull-request-number=1", "-init-result=success"},
-			err:  "missing flag: plan-result is required",
-		},
-	}
-
-	for _, tc := range cases {
-		tc := tc
-
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			c := &PlanStatusCommentCommand{}
-
-			f := c.Flags()
-			err := f.Parse(tc.args)
-			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
-				t.Errorf(diff)
-			}
-		})
-	}
-}
-
 func TestPlanStatusCommentsProcess(t *testing.T) {
 	t.Parallel()
 
