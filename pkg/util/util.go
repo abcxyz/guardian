@@ -17,10 +17,22 @@ package util
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 )
+
+// Headerf writes a header text to a writer.
+func Headerf(w io.Writer, f string, a ...any) {
+	fmt.Fprintf(w, "\n")
+	fmt.Fprintf(w, "--------------------")
+	fmt.Fprintf(w, "\n")
+	fmt.Fprintf(w, f, a...)
+	fmt.Fprintf(w, "\n")
+	fmt.Fprintf(w, "--------------------")
+	fmt.Fprintf(w, "\n")
+}
 
 // SliceContainsOnly checks that all values of a slice are a single value.
 // Returns false when the input is an empty slice.
