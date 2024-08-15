@@ -15,50 +15,56 @@
 package github
 
 import (
-	"context"
-	"fmt"
 	"time"
 
 	"github.com/sethvargo/go-githubactions"
-	"golang.org/x/oauth2"
 
 	"github.com/abcxyz/pkg/cli"
 )
 
 // Config is the config values for the GitHub client.
 type Config struct {
+	// Retry
 	MaxRetries        uint64
 	InitialRetryDelay time.Duration
 	MaxRetryDelay     time.Duration
 
-	Token             string
-	Owner             string
-	Repo              string
-	AppID             string
-	AppInstallationID string
-	AppPrivateKeyPEM  string
-	ServerURL         string
-	RunID             int64
-	RunAttempt        int64
-	Job               string
-	PullRequestNumber int
-	SHA               string
+	// Auth
+	GitHubToken             string
+	GitHubOwner             string
+	GitHubRepo              string
+	GitHubAppID             string
+	GitHubAppInstallationID string
+	GitHubAppPrivateKeyPEM  string
+	Permissions             map[string]string
+
+	GitHubServerURL         string
+	GitHubRunID             int64
+	GitHubRunAttempt        int64
+	GitHubJob               string
+	GitHubPullRequestNumber int
+	GitHubSHA               string
 }
 
-func (c *Config) Register(set *cli.FlagSet) {
+func (c *Config) RegisterFlags(set *cli.FlagSet) {
+	githubContext, _ := githubactions.New().Context()
+	owner, repo := githubContext.Repo()
+	prNumber, _ := githubContext.Event["number"].(int)
+
 	f := set.NewSection("GITHUB OPTIONS")
 
 	f.StringVar(&cli.StringVar{
 		Name:   "github-token",
 		EnvVar: "GITHUB_TOKEN",
-		Target: &c.Token,
+		Target: &c.GitHubToken,
 		Usage:  "The GitHub access token to make GitHub API calls. This value is automatically set on GitHub Actions.",
 		Hidden: true,
 	})
 
 	f.StringVar(&cli.StringVar{
 		Name:    "github-owner",
-		Target:  &c.Owner,
+		Target:  &c.GitHubOwner,
+		Default: owner,
 		Example: "organization-name",
 		Usage:   "The GitHub repository owner.",
 		Hidden:  true,
@@ -66,7 +72,8 @@ func (c *Config) Register(set *cli.FlagSet) {
 
 	f.StringVar(&cli.StringVar{
 		Name:    "github-repo",
-		Target:  &c.Repo,
+		Target:  &c.GitHubRepo,
+		Default: repo,
 		Example: "repository-name",
 		Usage:   "The GitHub repository name.",
 		Hidden:  true,
@@ -75,7 +82,7 @@ func (c *Config) Register(set *cli.FlagSet) {
 	f.StringVar(&cli.StringVar{
 		Name:   "github-app-id",
 		EnvVar: "GITHUB_APP_ID",
-		Target: &c.AppID,
+		Target: &c.GitHubAppID,
 		Usage:  "The ID of GitHub App to use for requesting tokens to make GitHub API calls.",
 		Hidden: true,
 	})
@@ -83,7 +90,7 @@ func (c *Config) Register(set *cli.FlagSet) {
 	f.StringVar(&cli.StringVar{
 		Name:   "github-app-installation-id",
 		EnvVar: "GITHUB_APP_INSTALLATION_ID",
-		Target: &c.AppInstallationID,
+		Target: &c.GitHubAppInstallationID,
 		Usage:  "The Installation ID of GitHub App to use for requesting tokens to make GitHub API calls.",
 		Hidden: true,
 	})
@@ -91,7 +98,7 @@ func (c *Config) Register(set *cli.FlagSet) {
 	f.StringVar(&cli.StringVar{
 		Name:   "github-app-private-key-pem",
 		EnvVar: "GITHUB_APP_PRIVATE_KEY_PEM",
-		Target: &c.AppPrivateKeyPEM,
+		Target: &c.GitHubAppPrivateKeyPEM,
 		Usage:  "The PEM formatted private key to use with the GitHub App.",
 		Hidden: true,
 	})
@@ -99,7 +106,7 @@ func (c *Config) Register(set *cli.FlagSet) {
 	f.StringVar(&cli.StringVar{
 		Name:   "github-server-url",
 		EnvVar: "GITHUB_SERVER_URL",
-		Target: &c.ServerURL,
+		Target: &c.GitHubServerURL,
 		Usage:  "The GitHub server URL.",
 		Hidden: true,
 	})
@@ -107,7 +114,7 @@ func (c *Config) Register(set *cli.FlagSet) {
 	f.Int64Var(&cli.Int64Var{
 		Name:   "github-run-id",
 		EnvVar: "GITHUB_RUN_ID",
-		Target: &c.RunID,
+		Target: &c.GitHubRunID,
 		Usage:  "The GitHub workflow run ID.",
 		Hidden: true,
 	})
@@ -115,7 +122,7 @@ func (c *Config) Register(set *cli.FlagSet) {
 	f.Int64Var(&cli.Int64Var{
 		Name:   "github-run-attempt",
 		EnvVar: "GITHUB_RUN_ATTEMPT",
-		Target: &c.RunAttempt,
+		Target: &c.GitHubRunAttempt,
 		Usage:  "The GitHub workflow run attempt.",
 		Hidden: true,
 	})
@@ -123,76 +130,24 @@ func (c *Config) Register(set *cli.FlagSet) {
 	f.StringVar(&cli.StringVar{
 		Name:   "github-job",
 		EnvVar: "GITHUB_JOB",
-		Target: &c.Job,
+		Target: &c.GitHubJob,
 		Usage:  "The GitHub job id.",
 		Hidden: true,
 	})
 
 	f.IntVar(&cli.IntVar{
-		Name:   "github-pull-request-number",
-		Target: &c.PullRequestNumber,
-		Usage:  "The GitHub pull request number.",
-		Hidden: true,
+		Name:    "github-pull-request-number",
+		Target:  &c.GitHubPullRequestNumber,
+		Default: prNumber,
+		Usage:   "The GitHub pull request number.",
+		Hidden:  true,
 	})
 
 	f.StringVar(&cli.StringVar{
 		Name:   "github-commit-sha",
 		EnvVar: "GITHUB_SHA",
-		Target: &c.SHA,
+		Target: &c.GitHubSHA,
 		Usage:  "The GitHub SHA.",
 		Hidden: true,
-	})
-
-	set.AfterParse(func(existingErr error) error {
-		ghCtx, err := githubactions.New().Context()
-		if err != nil {
-			return fmt.Errorf("failed to create github context: %w", err)
-		}
-
-		return c.afterParse(ghCtx)
-	})
-}
-
-// afterParse maps missing GitHub config values from the GitHub context.
-func (c *Config) afterParse(ghCtx *githubactions.GitHubContext) error {
-	owner, repo := ghCtx.Repo()
-
-	if c.Owner == "" {
-		c.Owner = owner
-	}
-
-	if c.Repo == "" {
-		c.Repo = repo
-	}
-
-	eventNumber := ghCtx.Event["number"]
-	if c.PullRequestNumber <= 0 && eventNumber != nil {
-		prNumber, ok := eventNumber.(int)
-		if ok {
-			c.PullRequestNumber = prNumber
-		}
-	}
-
-	return nil
-}
-
-// NewGitHubClient creates a new GitHub client from the GitHub config.
-func (c *Config) NewGitHubClient(ctx context.Context, perms map[string]string) (*GitHubClient, error) {
-	ts, err := c.TokenSource(ctx, perms)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create github token source: %w", err)
-	}
-	return NewClient(ctx, ts), nil
-}
-
-// TokenSource creates a token source for a github client to call the GitHub API.
-func (c *Config) TokenSource(ctx context.Context, permissions map[string]string) (oauth2.TokenSource, error) {
-	return TokenSource(ctx, &TokenSourceInputs{
-		GitHubToken:             c.Token,
-		GitHubAppID:             c.AppID,
-		GitHubAppPrivateKeyPEM:  c.AppPrivateKeyPEM,
-		GitHubAppInstallationID: c.AppInstallationID,
-		GitHubRepo:              c.Repo,
-		Permissions:             permissions,
 	})
 }

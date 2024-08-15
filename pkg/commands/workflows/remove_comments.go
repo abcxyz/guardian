@@ -51,7 +51,7 @@ Usage: {{ COMMAND }} [options]
 func (c *RemoveGuardianCommentsCommand) Flags() *cli.FlagSet {
 	set := c.NewFlagSet()
 
-	c.githubConfig.Register(set)
+	c.githubConfig.RegisterFlags(set)
 
 	return set
 }

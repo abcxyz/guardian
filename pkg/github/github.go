@@ -36,6 +36,16 @@ var ignoredStatusCodes = map[int]struct{}{
 	422: {},
 }
 
+// GitHubWorkflowResult is the result status for GitHub workflows.
+type GitHubWorkflowResult string
+
+const (
+	GitHubWorkflowResultSuccess   = "success"
+	GitHubWorkflowResultFailure   = "failure"
+	GitHubWorkflowResultCancelled = "cancelled"
+	GitHubWorkflowResultSkipped   = "skipped"
+)
+
 // Pagination is the paging details for a list response.
 type Pagination struct {
 	NextPage int
@@ -155,7 +165,51 @@ type GitHubClient struct {
 	client *github.Client
 }
 
+// NewGitHubClient creates a new GitHub client.
+func NewGitHubClient(ctx context.Context, c *Config) (*GitHubClient, error) {
+	if c.MaxRetries <= 0 {
+		c.MaxRetries = 3
+	}
+	if c.InitialRetryDelay <= 0 {
+		c.InitialRetryDelay = 1 * time.Second
+	}
+	if c.MaxRetryDelay <= 0 {
+		c.MaxRetryDelay = 20 * time.Second
+	}
+
+	var ts oauth2.TokenSource
+	if c.GitHubToken != "" {
+		ts = oauth2.StaticTokenSource(&oauth2.Token{
+			AccessToken: c.GitHubToken,
+		})
+	} else {
+		app, err := githubauth.NewApp(c.GitHubAppID, c.GitHubAppPrivateKeyPEM)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create github app token source: %w", err)
+		}
+
+		installation, err := app.InstallationForID(ctx, c.GitHubAppInstallationID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get github app installation: %w", err)
+		}
+
+		ts = installation.SelectedReposOAuth2TokenSource(ctx, c.Permissions, c.GitHubRepo)
+	}
+
+	tc := oauth2.NewClient(ctx, ts)
+
+	client := github.NewClient(tc)
+
+	g := &GitHubClient{
+		cfg:    c,
+		client: client,
+	}
+
+	return g, nil
+}
+
 // NewClient creates a new GitHub client.
+// TODO(verbanicm): remove this throughout.
 func NewClient(ctx context.Context, ts oauth2.TokenSource, opts ...Option) *GitHubClient {
 	cfg := &Config{
 		MaxRetries:        3,

@@ -19,10 +19,23 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 
 	"github.com/abcxyz/guardian/pkg/github"
 )
+
+const (
+	ReporterTypeLocal  string = "local"
+	ReporterTypeGitHub string = "github"
+)
+
+// SortedReporterTypes are the sorted Reporter types for printing messages and prediction.
+var SortedReporterTypes = func() []string {
+	allowed := append([]string{}, ReporterTypeLocal, ReporterTypeGitHub)
+	sort.Strings(allowed)
+	return allowed
+}()
 
 // Status is the result of the operation Guardian is performing.
 type Status string
@@ -54,28 +67,32 @@ type Reporter interface {
 	ClearStatus(ctx context.Context) error
 }
 
+// Config is the configuration needed to generate different reporter types.
 type Config struct {
 	GitHub github.Config
 }
 
+// NewReporter creates a new reporter based on the provided type.
 func NewReporter(ctx context.Context, t string, c *Config, stdout io.Writer) (Reporter, error) {
-	if strings.EqualFold(t, "local") {
+	if strings.EqualFold(t, ReporterTypeLocal) {
 		return NewLocalReporter(ctx, stdout)
 	}
 
-	if strings.EqualFold(t, "github") {
-		gc, err := c.GitHub.NewGitHubClient(ctx, map[string]string{
-			"contents":      "read",
-			"pull_requests": "write",
-		})
+	c.GitHub.Permissions = map[string]string{
+		"contents":      "read",
+		"pull_requests": "write",
+	}
+
+	if strings.EqualFold(t, ReporterTypeGitHub) {
+		gc, err := github.NewGitHubClient(ctx, &c.GitHub)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create github client: %w", err)
 		}
 
 		return NewGitHubReporter(ctx, gc, &GitHubReporterInputs{
-			GitHubOwner:             c.GitHub.Owner,
-			GitHubRepo:              c.GitHub.Repo,
-			GitHubPullRequestNumber: c.GitHub.PullRequestNumber,
+			GitHubOwner:             c.GitHub.GitHubOwner,
+			GitHubRepo:              c.GitHub.GitHubRepo,
+			GitHubPullRequestNumber: c.GitHub.GitHubPullRequestNumber,
 		})
 	}
 

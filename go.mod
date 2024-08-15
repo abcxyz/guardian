@@ -13,6 +13,7 @@ require (
 	github.com/google/go-github/v53 v53.2.0
 	github.com/googleapis/gax-go/v2 v2.12.4
 	github.com/hashicorp/hcl/v2 v2.20.1
+	github.com/posener/complete/v2 v2.1.0
 	github.com/sethvargo/go-githubactions v1.2.0
 	github.com/sethvargo/go-retry v0.2.4
 	golang.org/x/exp v0.0.0-20240613232115-7f521ea00fb8
@@ -50,7 +51,6 @@ require (
 	github.com/kr/text v0.2.0 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
-	github.com/posener/complete/v2 v2.1.0 // indirect
 	github.com/posener/script v1.2.0 // indirect
 	github.com/stoewer/go-strcase v1.3.0 // indirect
 	github.com/zclconf/go-cty v1.14.4 // indirect

@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/posener/complete/v2"
+
 	"github.com/abcxyz/guardian/pkg/github"
 	"github.com/abcxyz/guardian/pkg/reporter"
 	"github.com/abcxyz/guardian/pkg/util"
@@ -56,7 +58,7 @@ Usage: {{ COMMAND }} [options]
 func (c *PlanStatusCommentCommand) Flags() *cli.FlagSet {
 	set := c.NewFlagSet()
 
-	c.githubConfig.Register(set)
+	c.githubConfig.RegisterFlags(set)
 
 	f := set.NewSection("COMMAND OPTIONS")
 
@@ -64,8 +66,11 @@ func (c *PlanStatusCommentCommand) Flags() *cli.FlagSet {
 		Name:    "reporter",
 		Target:  &c.flagReporter,
 		Example: "github",
-		Default: "local",
-		Usage:   "The reporting strategy for Guardian status updates.",
+		Default: reporter.ReporterTypeLocal,
+		Usage:   fmt.Sprintf("The reporting strategy for Guardian status updates. Valid values are %q", reporter.SortedReporterTypes),
+		Predict: complete.PredictFunc(func(prefix string) []string {
+			return reporter.SortedReporterTypes
+		}),
 	})
 
 	f.StringVar(&cli.StringVar{
@@ -121,7 +126,7 @@ func (c *PlanStatusCommentCommand) Run(ctx context.Context, args []string) error
 func (c *PlanStatusCommentCommand) Process(ctx context.Context) error {
 	// this case improves user experience, when the planning job does not have a plan diff
 	// there are no comments, this informs the user that the job ran successfully
-	if c.flagInitResult == "success" && util.SliceContainsOnly(c.flagPlanResult, "success") {
+	if c.flagInitResult == github.GitHubWorkflowResultSuccess && util.SliceContainsOnly(c.flagPlanResult, github.GitHubWorkflowResultSuccess) {
 		err := c.reporterClient.CreateStatus(ctx, reporter.StatusSuccess, &reporter.Params{Operation: "plan", Message: "Plan completed successfully."})
 		if err != nil {
 			return fmt.Errorf("failed to create plan status comment: %w", err)
@@ -131,14 +136,14 @@ func (c *PlanStatusCommentCommand) Process(ctx context.Context) error {
 
 	// this case does not require a comment because the planning job should
 	// have commented that there was a failure and for which directory
-	if c.flagInitResult == "failure" || slices.Contains(c.flagPlanResult, "failure") {
+	if c.flagInitResult == github.GitHubWorkflowResultFailure || slices.Contains(c.flagPlanResult, github.GitHubWorkflowResultFailure) {
 		return fmt.Errorf("init or plan has one or more failures")
 	}
 
 	// this case improves user experience, when no Terraform changes were submitted
 	// and the plan job is skipped, this informs the user that the job ran successfully
 	// but no changes are needed
-	if c.flagInitResult == "success" && util.SliceContainsOnly(c.flagPlanResult, "skipped") {
+	if c.flagInitResult == github.GitHubWorkflowResultSuccess && util.SliceContainsOnly(c.flagPlanResult, github.GitHubWorkflowResultSkipped) {
 		err := c.reporterClient.CreateStatus(ctx, reporter.StatusNoOperation, &reporter.Params{Operation: "plan", Message: "No Terraform changes detected, planning skipped."})
 		if err != nil {
 			return fmt.Errorf("failed to create plan status comment: %w", err)

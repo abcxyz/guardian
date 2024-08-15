@@ -186,12 +186,10 @@ func (g *GitHubReporter) ClearStatus(ctx context.Context) error {
 		}
 
 		if response.Pagination == nil {
-			break
+			return nil
 		}
 		listOpts.Page = response.Pagination.NextPage
 	}
-
-	return nil
 }
 
 // statusMessage generates the status message based on the provided reporter values.

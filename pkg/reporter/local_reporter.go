@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 )
 
 var _ Reporter = (*LocalReporter)(nil)
@@ -37,13 +38,13 @@ func NewLocalReporter(ctx context.Context, stdout io.Writer) (Reporter, error) {
 // CreateStatus writes the status to stdout.
 func (s *LocalReporter) CreateStatus(ctx context.Context, st Status, p *Params) error {
 	if p.Operation != "" {
-		fmt.Fprintf(s.stdout, "%s", p.Operation)
+		fmt.Fprintf(s.stdout, "%s", strings.ToUpper(p.Operation))
 	}
 
 	fmt.Fprintf(s.stdout, " - %s", st)
 
 	if p.Message != "" {
-		fmt.Fprintf(s.stdout, ": %s", st)
+		fmt.Fprintf(s.stdout, ": %s", p.Message)
 	}
 
 	fmt.Fprintf(s.stdout, "\n")
