@@ -80,7 +80,7 @@ func TestPullRequest_AssignReviewers(t *testing.T) {
 			},
 		},
 		{
-			name: "returns_error",
+			name: "returns_api_error",
 			assignReviewersInput: &AssignReviewersInput{
 				Teams: []string{"test-team-name"},
 				Users: []string{"test-user-name"},

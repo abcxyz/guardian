@@ -21,7 +21,7 @@ import "context"
 // ChangeRequest defines the minimum interface for a code review platform's
 // change request.
 type ChangeRequest interface {
-	// AssignReviewers adds a set of principals to the review the proposed code
+	// AssignReviewers adds a set of principals to review the proposed code
 	// changes.
 	AssignReviewers(ctx context.Context, input *AssignReviewersInput) error
 }
