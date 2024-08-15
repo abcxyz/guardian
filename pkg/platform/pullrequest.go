@@ -71,6 +71,9 @@ func NewPullRequest(ctx context.Context, inputs *PullRequestInput) (*PullRequest
 // AssignReviewers calls the GitHub API to assign users and teams as reviewers
 // for the current pull request.
 func (p *PullRequest) AssignReviewers(ctx context.Context, inputs *AssignReviewersInput) error {
+	if inputs == nil {
+		return fmt.Errorf("inputs cannot be nil")
+	}
 	if _, err := p.client.RequestReviewers(ctx, p.params.Owner, p.params.Repository, p.params.PullRequestNumber, inputs.Users, inputs.Teams); err != nil {
 		return fmt.Errorf("failed to assign reviewers to pull request: %w", err)
 	}

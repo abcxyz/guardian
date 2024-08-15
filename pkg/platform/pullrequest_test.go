@@ -34,17 +34,20 @@ const (
 func TestPullRequest_AssignReviewers(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
-		name                string
-		users               []string
-		teams               []string
-		requestReviewersErr error
-		wantErr             string
-		expGitHubClientReqs []*github.Request
+		name                 string
+		assignReviewersInput *AssignReviewersInput
+		users                []string
+		teams                []string
+		requestReviewersErr  error
+		wantErr              string
+		expGitHubClientReqs  []*github.Request
 	}{
 		{
-			name:  "calls_with_users_and_teams",
-			users: []string{"test-user-name"},
-			teams: []string{"test-team-name"},
+			name: "calls_with_users_and_teams",
+			assignReviewersInput: &AssignReviewersInput{
+				Teams: []string{"test-team-name"},
+				Users: []string{"test-user-name"},
+			},
 			expGitHubClientReqs: []*github.Request{
 				{
 					Name:   "RequestReviewers",
@@ -53,8 +56,10 @@ func TestPullRequest_AssignReviewers(t *testing.T) {
 			},
 		},
 		{
-			name:  "calls_with_only_users",
-			users: []string{"test-user-name"},
+			name: "calls_with_only_users",
+			assignReviewersInput: &AssignReviewersInput{
+				Users: []string{"test-user-name"},
+			},
 			expGitHubClientReqs: []*github.Request{
 				{
 					Name:   "RequestReviewers",
@@ -63,8 +68,10 @@ func TestPullRequest_AssignReviewers(t *testing.T) {
 			},
 		},
 		{
-			name:  "calls_with_only_teams",
-			teams: []string{"test-team-name"},
+			name: "calls_with_only_teams",
+			assignReviewersInput: &AssignReviewersInput{
+				Teams: []string{"test-team-name"},
+			},
 			expGitHubClientReqs: []*github.Request{
 				{
 					Name:   "RequestReviewers",
@@ -73,9 +80,11 @@ func TestPullRequest_AssignReviewers(t *testing.T) {
 			},
 		},
 		{
-			name:                "returns_error",
-			users:               []string{"test-user-name"},
-			teams:               []string{"test-team-name"},
+			name: "returns_error",
+			assignReviewersInput: &AssignReviewersInput{
+				Teams: []string{"test-team-name"},
+				Users: []string{"test-user-name"},
+			},
 			requestReviewersErr: fmt.Errorf("failed"),
 			wantErr:             "failed to assign reviewers to pull request: failed",
 			expGitHubClientReqs: []*github.Request{
@@ -84,6 +93,10 @@ func TestPullRequest_AssignReviewers(t *testing.T) {
 					Params: []any{testOwner, testRepo, testPullRequestNumber, []string{"test-user-name"}, []string{"test-team-name"}},
 				},
 			},
+		},
+		{
+			name:    "returns_error_with_missing_inputs",
+			wantErr: "inputs cannot be nil",
 		},
 	}
 
@@ -106,10 +119,7 @@ func TestPullRequest_AssignReviewers(t *testing.T) {
 				},
 			}
 
-			err := pr.AssignReviewers(ctx, &AssignReviewersInput{
-				Teams: tc.teams,
-				Users: tc.users,
-			})
+			err := pr.AssignReviewers(ctx, tc.assignReviewersInput)
 			if diff := testutil.DiffErrString(err, tc.wantErr); diff != "" {
 				t.Errorf(diff)
 			}
