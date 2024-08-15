@@ -36,12 +36,15 @@ var ignoredStatusCodes = map[int]struct{}{
 	422: {},
 }
 
-// Config is the config values for the GitHub client.
-type Config struct {
-	maxRetries        uint64
-	initialRetryDelay time.Duration
-	maxRetryDelay     time.Duration
-}
+// GitHubWorkflowResult is the result status for GitHub workflows.
+type GitHubWorkflowResult string
+
+const (
+	GitHubWorkflowResultSuccess   = "success"
+	GitHubWorkflowResultFailure   = "failure"
+	GitHubWorkflowResultCancelled = "cancelled"
+	GitHubWorkflowResultSkipped   = "skipped"
+)
 
 // Pagination is the paging details for a list response.
 type Pagination struct {
@@ -162,12 +165,56 @@ type GitHubClient struct {
 	client *github.Client
 }
 
+// NewGitHubClient creates a new GitHub client.
+func NewGitHubClient(ctx context.Context, c *Config) (*GitHubClient, error) {
+	if c.MaxRetries <= 0 {
+		c.MaxRetries = 3
+	}
+	if c.InitialRetryDelay <= 0 {
+		c.InitialRetryDelay = 1 * time.Second
+	}
+	if c.MaxRetryDelay <= 0 {
+		c.MaxRetryDelay = 20 * time.Second
+	}
+
+	var ts oauth2.TokenSource
+	if c.GitHubToken != "" {
+		ts = oauth2.StaticTokenSource(&oauth2.Token{
+			AccessToken: c.GitHubToken,
+		})
+	} else {
+		app, err := githubauth.NewApp(c.GitHubAppID, c.GitHubAppPrivateKeyPEM)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create github app token source: %w", err)
+		}
+
+		installation, err := app.InstallationForID(ctx, c.GitHubAppInstallationID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get github app installation: %w", err)
+		}
+
+		ts = installation.SelectedReposOAuth2TokenSource(ctx, c.Permissions, c.GitHubRepo)
+	}
+
+	tc := oauth2.NewClient(ctx, ts)
+
+	client := github.NewClient(tc)
+
+	g := &GitHubClient{
+		cfg:    c,
+		client: client,
+	}
+
+	return g, nil
+}
+
 // NewClient creates a new GitHub client.
+// TODO(verbanicm): remove this throughout.
 func NewClient(ctx context.Context, ts oauth2.TokenSource, opts ...Option) *GitHubClient {
 	cfg := &Config{
-		maxRetries:        3,
-		initialRetryDelay: 1 * time.Second,
-		maxRetryDelay:     20 * time.Second,
+		MaxRetries:        3,
+		InitialRetryDelay: 1 * time.Second,
+		MaxRetryDelay:     20 * time.Second,
 	}
 
 	for _, opt := range opts {
@@ -584,9 +631,9 @@ func (g *GitHubClient) RequestReviewers(ctx context.Context, owner, repo string,
 }
 
 func (g *GitHubClient) withRetries(ctx context.Context, retryFunc retry.RetryFunc) error {
-	backoff := retry.NewFibonacci(g.cfg.initialRetryDelay)
-	backoff = retry.WithMaxRetries(g.cfg.maxRetries, backoff)
-	backoff = retry.WithCappedDuration(g.cfg.maxRetryDelay, backoff)
+	backoff := retry.NewFibonacci(g.cfg.InitialRetryDelay)
+	backoff = retry.WithMaxRetries(g.cfg.MaxRetries, backoff)
+	backoff = retry.WithCappedDuration(g.cfg.MaxRetryDelay, backoff)
 
 	if err := retry.Do(ctx, backoff, retryFunc); err != nil {
 		return fmt.Errorf("failed to execute retriable function: %w", err)

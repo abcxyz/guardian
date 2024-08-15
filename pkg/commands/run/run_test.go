@@ -17,14 +17,10 @@ package run
 import (
 	"context"
 	"fmt"
-	"io"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/sethvargo/go-githubactions"
-
-	"github.com/abcxyz/guardian/pkg/commands/actions"
 	"github.com/abcxyz/guardian/pkg/terraform"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/testutil"
@@ -118,13 +114,7 @@ func TestPlan_Process(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			action := githubactions.New(githubactions.WithWriter(io.Discard))
-
 			c := &RunCommand{
-				GitHubActionCommand: actions.GitHubActionCommand{
-					FlagIsGitHubActions: tc.flagIsGitHubActions,
-					Action:              action,
-				},
 				directory: "testdir",
 				childPath: "testdir",
 

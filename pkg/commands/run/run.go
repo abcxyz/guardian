@@ -21,10 +21,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/sethvargo/go-githubactions"
 	"golang.org/x/exp/slices"
 
-	"github.com/abcxyz/guardian/pkg/commands/actions"
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/terraform"
 	"github.com/abcxyz/guardian/pkg/util"
@@ -35,14 +33,13 @@ import (
 var _ cli.Command = (*RunCommand)(nil)
 
 type RunCommand struct {
-	actions.GitHubActionCommand
+	cli.BaseCommand
 
 	directory        string
 	childPath        string
 	terraformCommand string
 	terraformArgs    []string
 
-	flags.RetryFlags
 	flags.CommonFlags
 
 	flagAllowedTerraformCommands []string
@@ -67,8 +64,6 @@ Usage: {{ COMMAND }} [options]
 func (c *RunCommand) Flags() *cli.FlagSet {
 	set := c.NewFlagSet()
 
-	c.GitHubActionCommand.Register(set)
-	c.RetryFlags.Register(set)
 	c.CommonFlags.Register(set)
 
 	f := set.NewSection("COMMAND OPTIONS")
@@ -127,7 +122,6 @@ func (c *RunCommand) Run(ctx context.Context, args []string) error {
 	}
 	c.childPath = childPath
 
-	c.Action = githubactions.New(githubactions.WithWriter(c.Stdout()))
 	c.terraformClient = terraform.NewTerraformClient(c.directory)
 
 	return c.Process(ctx)
@@ -137,7 +131,7 @@ func (c *RunCommand) Run(ctx context.Context, args []string) error {
 func (c *RunCommand) Process(ctx context.Context) error {
 	var merr error
 
-	c.Outf("Starting Guardian run")
+	util.Headerf(c.Stdout(), "Starting Guardian Run")
 
 	if len(c.flagAllowedTerraformCommands) > 0 && !slices.Contains(c.flagAllowedTerraformCommands, c.terraformCommand) {
 		sort.Strings(c.flagAllowedTerraformCommands)
@@ -152,22 +146,18 @@ func (c *RunCommand) Process(ctx context.Context) error {
 			lockfileMode = "readonly"
 		}
 
-		if err := c.WithActionsOutGroup("Initializing Terraform", func() error {
-			_, err := c.terraformClient.Init(ctx, c.Stdout(), c.Stderr(), &terraform.InitOptions{
-				Input:       pointer.To(false),
-				Lockfile:    pointer.To(lockfileMode),
-				LockTimeout: pointer.To(c.flagLockTimeout.String()),
-			})
-			return err //nolint:wrapcheck // Want passthrough
+		util.Headerf(c.Stdout(), "Initializing Terraform")
+		if _, err := c.terraformClient.Init(ctx, c.Stdout(), c.Stderr(), &terraform.InitOptions{
+			Input:       pointer.To(false),
+			Lockfile:    pointer.To(lockfileMode),
+			LockTimeout: pointer.To(c.flagLockTimeout.String()),
 		}); err != nil {
 			return fmt.Errorf("failed to initialize: %w", err)
 		}
 	}
 
-	if err := c.WithActionsOutGroup("Running Terraform command", func() error {
-		_, err := c.terraformClient.Run(ctx, c.Stdout(), c.Stderr(), c.terraformCommand, c.terraformArgs...)
-		return err //nolint:wrapcheck // Want passthrough
-	}); err != nil {
+	util.Headerf(c.Stdout(), "Running Terraform Command")
+	if _, err := c.terraformClient.Run(ctx, c.Stdout(), c.Stderr(), c.terraformCommand, c.terraformArgs...); err != nil {
 		return fmt.Errorf("failed to run command: %w", err)
 	}
 

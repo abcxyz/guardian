@@ -17,15 +17,11 @@ package workflows
 import (
 	"context"
 	"fmt"
-	"os"
-	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/sethvargo/go-githubactions"
 
-	"github.com/abcxyz/guardian/pkg/flags"
-	"github.com/abcxyz/guardian/pkg/github"
+	"github.com/abcxyz/guardian/pkg/reporter"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/testutil"
 )
@@ -35,112 +31,62 @@ func TestPlanStatusCommentsProcess(t *testing.T) {
 
 	ctx := logging.WithLogger(context.Background(), logging.TestLogger(t))
 
-	defaultConfig := &PlanStatusCommentsConfig{
-		ServerURL:  "https://github.com",
-		RunID:      int64(100),
-		RunAttempt: int64(1),
-	}
-
 	cases := []struct {
 		name                  string
-		pullRequestNumber     int
-		flagIsGitHubActions   bool
-		flagGitHubOwner       string
-		flagGitHubRepo        string
-		flagPullRequestNumber int
 		flagInitResult        string
 		flagPlanResult        []string
-		gitHubClient          *github.MockGitHubClient
+		createStatusErr       error
 		err                   string
-		expGitHubClientReqs   []*github.Request
-		expStdout             string
-		expStderr             string
+		expReporterClientReqs []*reporter.Request
 	}{
 		{
-			name:                  "success",
-			flagIsGitHubActions:   true,
-			flagGitHubOwner:       "owner",
-			flagGitHubRepo:        "repo",
-			flagPullRequestNumber: 1,
-			flagInitResult:        "success",
-			flagPlanResult:        []string{"success"},
-			gitHubClient:          &github.MockGitHubClient{},
-			expGitHubClientReqs: []*github.Request{
+			name:           "success",
+			flagInitResult: "success",
+			flagPlanResult: []string{"success"},
+			expReporterClientReqs: []*reporter.Request{
 				{
-					Name:   "CreateIssueComment",
-					Params: []any{"owner", "repo", 1, "**`🔱 Guardian 🔱 PLAN`** - 🟩 Plan completed successfully. [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
+					Name:   "CreateStatus",
+					Params: []any{reporter.StatusSuccess, &reporter.Params{Operation: "plan", Message: "Plan completed successfully."}},
 				},
 			},
-			err:       "",
-			expStdout: "",
-			expStderr: "",
+			err: "",
 		},
 		{
-			name:                  "multi_failure",
-			flagIsGitHubActions:   true,
-			flagGitHubOwner:       "owner",
-			flagGitHubRepo:        "repo",
-			flagPullRequestNumber: 1,
-			flagInitResult:        "success",
-			flagPlanResult:        []string{"success", "failure"},
-			gitHubClient:          &github.MockGitHubClient{},
-			err:                   "init or plan has one or more failures",
-			expStdout:             "",
-			expStderr:             "",
+			name:           "multi_failure",
+			flagInitResult: "success",
+			flagPlanResult: []string{"success", "failure"},
+			err:            "init or plan has one or more failures",
 		},
 		{
-			name:                  "failure",
-			flagIsGitHubActions:   true,
-			flagGitHubOwner:       "owner",
-			flagGitHubRepo:        "repo",
-			flagPullRequestNumber: 2,
-			flagInitResult:        "failure",
-			flagPlanResult:        []string{"success"},
-			gitHubClient:          &github.MockGitHubClient{},
-			expGitHubClientReqs:   nil,
-			err:                   "init or plan has one or more failures",
-			expStdout:             "",
-			expStderr:             "",
+			name:           "failure",
+			flagInitResult: "failure",
+			flagPlanResult: []string{"success"},
+			err:            "init or plan has one or more failures",
 		},
 		{
-			name:                  "indeterminate",
-			flagIsGitHubActions:   true,
-			flagGitHubOwner:       "owner",
-			flagGitHubRepo:        "repo",
-			flagPullRequestNumber: 3,
-			flagInitResult:        "cancelled",
-			flagPlanResult:        []string{"cancelled"},
-			gitHubClient:          &github.MockGitHubClient{},
-			expGitHubClientReqs: []*github.Request{
+			name:           "indeterminate",
+			flagInitResult: "cancelled",
+			flagPlanResult: []string{"cancelled"},
+			expReporterClientReqs: []*reporter.Request{
 				{
-					Name:   "CreateIssueComment",
-					Params: []any{"owner", "repo", 3, "**`🔱 Guardian 🔱 PLAN`** - 🟨 Unable to determine plan status. [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
+					Name:   "CreateStatus",
+					Params: []any{reporter.StatusUnknown, &reporter.Params{Operation: "plan", Message: "Unable to determine plan status."}},
 				},
 			},
-			err:       "unable to determine plan status",
-			expStdout: "",
-			expStderr: "",
+			err: "unable to determine plan status",
 		},
 		{
-			name:                  "handles_errors",
-			flagIsGitHubActions:   true,
-			flagGitHubOwner:       "owner",
-			flagGitHubRepo:        "repo",
-			flagPullRequestNumber: 4,
-			flagInitResult:        "success",
-			flagPlanResult:        []string{"success"},
-			gitHubClient: &github.MockGitHubClient{
-				CreateIssueCommentsErr: fmt.Errorf("error creating comment"),
-			},
-			expGitHubClientReqs: []*github.Request{
+			name:           "handles_errors",
+			flagInitResult: "success",
+			flagPlanResult: []string{"success"},
+			expReporterClientReqs: []*reporter.Request{
 				{
-					Name:   "CreateIssueComment",
-					Params: []any{"owner", "repo", 4, "**`🔱 Guardian 🔱 PLAN`** - 🟩 Plan completed successfully. [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
+					Name:   "CreateStatus",
+					Params: []any{reporter.StatusSuccess, &reporter.Params{Operation: "plan", Message: "Plan completed successfully."}},
 				},
 			},
-			err:       "failed to create plan status comment: error creating comment",
-			expStdout: "",
-			expStderr: "",
+			createStatusErr: fmt.Errorf("error creating comment"),
+			err:             "failed to create plan status comment: error creating comment",
 		},
 	}
 
@@ -150,38 +96,23 @@ func TestPlanStatusCommentsProcess(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			actions := githubactions.New(githubactions.WithWriter(os.Stdout))
-
-			c := &PlanStatusCommentCommand{
-				cfg: defaultConfig,
-
-				GitHubFlags: flags.GitHubFlags{
-					FlagGitHubOwner: tc.flagGitHubOwner,
-					FlagGitHubRepo:  tc.flagGitHubRepo,
-				},
-				flagPullRequestNumber: tc.flagPullRequestNumber,
-				flagInitResult:        tc.flagInitResult,
-				flagPlanResult:        tc.flagPlanResult,
-				actions:               actions,
-				gitHubClient:          tc.gitHubClient,
+			mockReporterClient := &reporter.MockReporter{
+				CreateStatusErr: tc.createStatusErr,
 			}
 
-			_, stdout, stderr := c.Pipe()
+			c := &PlanStatusCommentCommand{
+				flagInitResult: tc.flagInitResult,
+				flagPlanResult: tc.flagPlanResult,
+				reporterClient: mockReporterClient,
+			}
 
 			err := c.Process(ctx)
 			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
 				t.Errorf(diff)
 			}
 
-			if diff := cmp.Diff(tc.gitHubClient.Reqs, tc.expGitHubClientReqs); diff != "" {
-				t.Errorf("GitHubClient calls not as expected; (-got,+want): %s", diff)
-			}
-
-			if got, want := strings.TrimSpace(stdout.String()), strings.TrimSpace(tc.expStdout); !strings.Contains(got, want) {
-				t.Errorf("expected stdout\n\n%s\n\nto contain\n\n%s\n\n", got, want)
-			}
-			if got, want := strings.TrimSpace(stderr.String()), strings.TrimSpace(tc.expStderr); !strings.Contains(got, want) {
-				t.Errorf("expected stderr\n\n%s\n\nto contain\n\n%s\n\n", got, want)
+			if diff := cmp.Diff(mockReporterClient.Reqs, tc.expReporterClientReqs); diff != "" {
+				t.Errorf("ReporterClient calls not as expected; (-got,+want): %s", diff)
 			}
 		})
 	}

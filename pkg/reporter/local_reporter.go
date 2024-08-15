@@ -37,13 +37,22 @@ func NewLocalReporter(ctx context.Context, stdout io.Writer) (Reporter, error) {
 
 // CreateStatus writes the status to stdout.
 func (s *LocalReporter) CreateStatus(ctx context.Context, st Status, p *Params) error {
-	op := strings.ToUpper(strings.TrimSpace(p.Operation))
-
-	if op != "" {
-		fmt.Fprintf(s.stdout, "%s - %s", op, st)
-		return nil
+	if p.Operation != "" {
+		fmt.Fprintf(s.stdout, "%s", strings.ToUpper(p.Operation))
 	}
 
-	fmt.Fprintf(s.stdout, "%s", st)
+	fmt.Fprintf(s.stdout, " - %s", st)
+
+	if p.Message != "" {
+		fmt.Fprintf(s.stdout, ": %s", p.Message)
+	}
+
+	fmt.Fprintf(s.stdout, "\n")
+
+	return nil
+}
+
+// ClearStatus is a no-op because we dont want to clear stdout.
+func (s *LocalReporter) ClearStatus(ctx context.Context) error {
 	return nil
 }
