@@ -150,13 +150,9 @@ func (c *PlanStatusCommentCommand) Run(ctx context.Context, args []string) error
 	if err != nil {
 		return fmt.Errorf("failed to get token source: %w", err)
 	}
-	token, err := tokenSource.GitHubToken(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get token: %w", err)
-	}
 	c.gitHubClient = github.NewClient(
 		ctx,
-		token,
+		tokenSource,
 		github.WithRetryInitialDelay(c.RetryFlags.FlagRetryInitialDelay),
 		github.WithRetryMaxAttempts(c.RetryFlags.FlagRetryMaxAttempts),
 		github.WithRetryMaxDelay(c.RetryFlags.FlagRetryMaxDelay),

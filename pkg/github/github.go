@@ -163,7 +163,7 @@ type GitHubClient struct {
 }
 
 // NewClient creates a new GitHub client.
-func NewClient(ctx context.Context, token string, opts ...Option) *GitHubClient {
+func NewClient(ctx context.Context, ts oauth2.TokenSource, opts ...Option) *GitHubClient {
 	cfg := &Config{
 		maxRetries:        3,
 		initialRetryDelay: 1 * time.Second,
@@ -176,10 +176,6 @@ func NewClient(ctx context.Context, token string, opts ...Option) *GitHubClient 
 		}
 	}
 
-	// TODO(#130): support multiple authentication methods
-	ts := oauth2.StaticTokenSource(
-		&oauth2.Token{AccessToken: token},
-	)
 	tc := oauth2.NewClient(ctx, ts)
 
 	client := github.NewClient(tc)
@@ -610,23 +606,18 @@ type TokenSourceInputs struct {
 
 // TokenSource creates a token source from a GitHub token or GitHub App used for
 // authenticating a github client.
-func TokenSource(ctx context.Context, inputs *TokenSourceInputs) (githubauth.TokenSource, error) {
+func TokenSource(ctx context.Context, inputs *TokenSourceInputs) (oauth2.TokenSource, error) {
 	if inputs == nil {
 		return nil, fmt.Errorf("inputs cannot be nil")
 	}
 
 	if inputs.GitHubToken != "" {
-		githubTokenSource, err := githubauth.NewStaticTokenSource(inputs.GitHubToken)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create github static token source: %w", err)
-		}
-		return githubTokenSource, nil
+		return oauth2.StaticTokenSource(&oauth2.Token{
+			AccessToken: inputs.GitHubToken,
+		}), nil
 	}
 
-	app, err := githubauth.NewApp(
-		inputs.GitHubAppID,
-		inputs.GitHubAppPrivateKeyPEM,
-	)
+	app, err := githubauth.NewApp(inputs.GitHubAppID, inputs.GitHubAppPrivateKeyPEM)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create github app token source: %w", err)
 	}
@@ -635,6 +626,5 @@ func TokenSource(ctx context.Context, inputs *TokenSourceInputs) (githubauth.Tok
 	if err != nil {
 		return nil, fmt.Errorf("failed to get github app installation: %w", err)
 	}
-
-	return installation.SelectedReposTokenSource(inputs.Permissions, inputs.GitHubRepo), nil
+	return installation.SelectedReposOAuth2TokenSource(ctx, inputs.Permissions, inputs.GitHubRepo), nil
 }
