@@ -22,10 +22,7 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/oauth2"
-
 	"github.com/abcxyz/guardian/pkg/github"
-	"github.com/abcxyz/pkg/githubauth"
 	"github.com/abcxyz/pkg/logging"
 )
 
@@ -135,9 +132,16 @@ func NewGitHubReporter(ctx context.Context, i *GitHubReporterInputs) (Reporter, 
 		return nil, fmt.Errorf("failed to validate github reporter inputs: %w", err)
 	}
 
-	tokenSource, err := TokenSource(ctx, i, map[string]string{
-		"contents":      "read",
-		"pull_requests": "write",
+	tokenSource, err := github.TokenSource(ctx, &github.TokenSourceInputs{
+		GitHubToken:             i.GitHubToken,
+		GitHubAppID:             i.GitHubAppID,
+		GitHubAppPrivateKeyPEM:  i.GitHubAppPrivateKeyPEM,
+		GitHubAppInstallationID: i.GitHubAppInstallationID,
+		GitHubRepo:              i.GitHubRepo,
+		Permissions: map[string]string{
+			"contents":      "read",
+			"pull_requests": "write",
+		},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get token source: %w", err)
@@ -177,27 +181,6 @@ func NewGitHubReporter(ctx context.Context, i *GitHubReporterInputs) (Reporter, 
 		inputs:       i,
 		logURL:       logURL,
 	}, nil
-}
-
-// TokenSource creates a token source for a github client to call the GitHub API.
-func TokenSource(ctx context.Context, i *GitHubReporterInputs, permissions map[string]string) (oauth2.TokenSource, error) {
-	if i.GitHubToken != "" {
-		return oauth2.StaticTokenSource(&oauth2.Token{
-			AccessToken: i.GitHubToken,
-		}), nil
-	} else {
-		app, err := githubauth.NewApp(i.GitHubAppID, i.GitHubAppPrivateKeyPEM)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create github app token source: %w", err)
-		}
-
-		installation, err := app.InstallationForID(ctx, i.GitHubAppInstallationID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get github app installation: %w", err)
-		}
-
-		return installation.SelectedReposOAuth2TokenSource(ctx, permissions, i.GitHubRepo), nil
-	}
 }
 
 // CreateStatus implements the reporter Status function by writing a GitHub status comment.
