@@ -2,13 +2,15 @@ package codereview
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/abcxyz/guardian/pkg/github"
-	"github.com/abcxyz/pkg/logging"
 )
 
+var _ CodeReview = (*PullRequest)(nil)
+
+// PullRequestInput defines the required inputs for creating a new PullRequest
+// instance.
 type PullRequestInput struct {
 	GitHubToken string
 
@@ -21,11 +23,13 @@ type PullRequestInput struct {
 	PullRequestNumber int
 }
 
+// PullRequest is the GitHub implementation for the CodeReview interface.
 type PullRequest struct {
 	client github.GitHub
 	params *PullRequestInput
 }
 
+// NewPullRequest creates a new PullRequest instance.
 func NewPullRequest(ctx context.Context, inputs *PullRequestInput) (*PullRequest, error) {
 	tokenSource, err := github.TokenSource(ctx, &github.TokenSourceInputs{
 		GitHubToken:             inputs.GitHubToken,
@@ -51,39 +55,10 @@ func NewPullRequest(ctx context.Context, inputs *PullRequestInput) (*PullRequest
 }
 
 // AssignReviewers calls the GitHub API to assign users and teams as reviewers
-// for the current pull request. This makes a request per user and team to avoid
-// an uncaught behavior from the GitHub API, which does not assign any of the
-// provided reviewers if any of the principals exist on the pending review list.
-func (p *PullRequest) AssignReviewers(ctx context.Context, users, teams []string) error {
-	logger := logging.FromContext(ctx)
-
-	var hasSucceeded bool
-	var merr error
-	for _, u := range users {
-		if _, err := p.client.RequestReviewers(ctx, p.params.Owner, p.params.Repository, p.params.PullRequestNumber, []string{u}, nil); err != nil {
-			logger.ErrorContext(ctx, "failed to request review",
-				"user", u,
-				"error", err)
-			merr = errors.Join(merr, fmt.Errorf("failed to request review for team '%s': %w", u, err))
-			continue
-		}
-		hasSucceeded = true
+// for the current pull request.
+func (p *PullRequest) AssignReviewers(ctx context.Context, inputs *AssignReviewersInput) error {
+	if _, err := p.client.RequestReviewers(ctx, p.params.Owner, p.params.Repository, p.params.PullRequestNumber, inputs.Users, inputs.Teams); err != nil {
+		return fmt.Errorf("failed to assign reviewers to pull request: %w", err)
 	}
-
-	for _, t := range teams {
-		if _, err := p.client.RequestReviewers(ctx, p.params.Owner, p.params.Repository, p.params.PullRequestNumber, nil, []string{t}); err != nil {
-			logger.ErrorContext(ctx, "failed to request review",
-				"team", t,
-				"error", err)
-			merr = errors.Join(merr, fmt.Errorf("failed to request review for team '%s': %w", t, err))
-			continue
-		}
-		hasSucceeded = true
-	}
-
-	if hasSucceeded {
-		return nil
-	}
-
-	return merr
+	return nil
 }

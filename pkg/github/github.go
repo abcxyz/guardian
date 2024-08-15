@@ -36,6 +36,13 @@ var ignoredStatusCodes = map[int]struct{}{
 	422: {},
 }
 
+// Config is the config values for the GitHub client.
+type Config struct {
+	maxRetries        uint64
+	initialRetryDelay time.Duration
+	maxRetryDelay     time.Duration
+}
+
 // Pagination is the paging details for a list response.
 type Pagination struct {
 	NextPage int
@@ -158,9 +165,9 @@ type GitHubClient struct {
 // NewClient creates a new GitHub client.
 func NewClient(ctx context.Context, ts oauth2.TokenSource, opts ...Option) *GitHubClient {
 	cfg := &Config{
-		MaxRetries:        3,
-		InitialRetryDelay: 1 * time.Second,
-		MaxRetryDelay:     20 * time.Second,
+		maxRetries:        3,
+		initialRetryDelay: 1 * time.Second,
+		maxRetryDelay:     20 * time.Second,
 	}
 
 	for _, opt := range opts {
@@ -577,9 +584,9 @@ func (g *GitHubClient) RequestReviewers(ctx context.Context, owner, repo string,
 }
 
 func (g *GitHubClient) withRetries(ctx context.Context, retryFunc retry.RetryFunc) error {
-	backoff := retry.NewFibonacci(g.cfg.InitialRetryDelay)
-	backoff = retry.WithMaxRetries(g.cfg.MaxRetries, backoff)
-	backoff = retry.WithCappedDuration(g.cfg.MaxRetryDelay, backoff)
+	backoff := retry.NewFibonacci(g.cfg.initialRetryDelay)
+	backoff = retry.WithMaxRetries(g.cfg.maxRetries, backoff)
+	backoff = retry.WithCappedDuration(g.cfg.maxRetryDelay, backoff)
 
 	if err := retry.Do(ctx, backoff, retryFunc); err != nil {
 		return fmt.Errorf("failed to execute retriable function: %w", err)
