@@ -65,6 +65,7 @@ func (p *PullRequest) AssignReviewers(ctx context.Context, users, teams []string
 				"user", u,
 				"error", err)
 			merr = errors.Join(merr, fmt.Errorf("failed to request review for team '%s': %w", u, err))
+			continue
 		}
 		hasSucceeded = true
 	}
@@ -75,6 +76,7 @@ func (p *PullRequest) AssignReviewers(ctx context.Context, users, teams []string
 				"team", t,
 				"error", err)
 			merr = errors.Join(merr, fmt.Errorf("failed to request review for team '%s': %w", t, err))
+			continue
 		}
 		hasSucceeded = true
 	}
