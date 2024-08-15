@@ -7,7 +7,7 @@ toolchain go1.22.1
 require (
 	cloud.google.com/go/asset v1.19.1
 	cloud.google.com/go/storage v1.42.0
-	github.com/abcxyz/pkg v1.1.0
+	github.com/abcxyz/pkg v1.1.3
 	github.com/google/cel-go v0.20.1
 	github.com/google/go-cmp v0.6.0
 	github.com/google/go-github/v53 v53.2.0

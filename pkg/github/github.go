@@ -163,7 +163,7 @@ type GitHubClient struct {
 }
 
 // NewClient creates a new GitHub client.
-func NewClient(ctx context.Context, token string, opts ...Option) *GitHubClient {
+func NewClient(ctx context.Context, ts oauth2.TokenSource, opts ...Option) *GitHubClient {
 	cfg := &Config{
 		maxRetries:        3,
 		initialRetryDelay: 1 * time.Second,
@@ -176,10 +176,6 @@ func NewClient(ctx context.Context, token string, opts ...Option) *GitHubClient 
 		}
 	}
 
-	// TODO(#130): support multiple authentication methods
-	ts := oauth2.StaticTokenSource(
-		&oauth2.Token{AccessToken: token},
-	)
 	tc := oauth2.NewClient(ctx, ts)
 
 	client := github.NewClient(tc)

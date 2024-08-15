@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"github.com/sethvargo/go-githubactions"
+	"golang.org/x/oauth2"
 
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/githubauth"
@@ -173,18 +174,13 @@ func (g *GitHubFlags) afterParse(ghCtx *githubactions.GitHubContext) error {
 }
 
 // TokenSource creates a token source for a github client to call the GitHub API.
-func (g *GitHubFlags) TokenSource(ctx context.Context, permissions map[string]string) (githubauth.TokenSource, error) {
+func (g *GitHubFlags) TokenSource(ctx context.Context, permissions map[string]string) (oauth2.TokenSource, error) {
 	if g.FlagGitHubToken != "" {
-		githubTokenSource, err := githubauth.NewStaticTokenSource(g.FlagGitHubToken)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create github static token source: %w", err)
-		}
-		return githubTokenSource, nil
+		return oauth2.StaticTokenSource(&oauth2.Token{
+			AccessToken: g.FlagGitHubToken,
+		}), nil
 	} else {
-		app, err := githubauth.NewApp(
-			g.FlagGitHubAppID,
-			g.FlagGitHubAppPrivateKeyPEM,
-		)
+		app, err := githubauth.NewApp(g.FlagGitHubAppID, g.FlagGitHubAppPrivateKeyPEM)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create github app token source: %w", err)
 		}
@@ -194,6 +190,6 @@ func (g *GitHubFlags) TokenSource(ctx context.Context, permissions map[string]st
 			return nil, fmt.Errorf("failed to get github app installation: %w", err)
 		}
 
-		return installation.SelectedReposTokenSource(permissions, g.FlagGitHubRepo), nil
+		return installation.SelectedReposOAuth2TokenSource(ctx, permissions, g.FlagGitHubRepo), nil
 	}
 }

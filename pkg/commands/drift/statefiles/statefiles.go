@@ -204,11 +204,7 @@ func (c *DriftStatefilesCommand) Run(ctx context.Context, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to get token source: %w", err)
 	}
-	token, err := tokenSource.GitHubToken(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get token: %w", err)
-	}
-	c.githubClient = github.NewClient(ctx, token)
+	c.githubClient = github.NewClient(ctx, tokenSource)
 	c.issueService = drift.NewGitHubDriftIssueService(
 		c.githubClient,
 		c.GitHubFlags.FlagGitHubOwner,

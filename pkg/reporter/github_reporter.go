@@ -22,6 +22,8 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/oauth2"
+
 	"github.com/abcxyz/guardian/pkg/github"
 	"github.com/abcxyz/pkg/githubauth"
 	"github.com/abcxyz/pkg/logging"
@@ -140,14 +142,10 @@ func NewGitHubReporter(ctx context.Context, i *GitHubReporterInputs) (Reporter, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get token source: %w", err)
 	}
-	token, err := tokenSource.GitHubToken(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get token: %w", err)
-	}
 
 	gc := github.NewClient(
 		ctx,
-		token,
+		tokenSource,
 		github.WithRetryInitialDelay(1*time.Second),
 		github.WithRetryMaxAttempts(3),
 		github.WithRetryMaxDelay(30*time.Second),
@@ -182,18 +180,13 @@ func NewGitHubReporter(ctx context.Context, i *GitHubReporterInputs) (Reporter, 
 }
 
 // TokenSource creates a token source for a github client to call the GitHub API.
-func TokenSource(ctx context.Context, i *GitHubReporterInputs, permissions map[string]string) (githubauth.TokenSource, error) {
+func TokenSource(ctx context.Context, i *GitHubReporterInputs, permissions map[string]string) (oauth2.TokenSource, error) {
 	if i.GitHubToken != "" {
-		githubTokenSource, err := githubauth.NewStaticTokenSource(i.GitHubToken)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create github static token source: %w", err)
-		}
-		return githubTokenSource, nil
+		return oauth2.StaticTokenSource(&oauth2.Token{
+			AccessToken: i.GitHubToken,
+		}), nil
 	} else {
-		app, err := githubauth.NewApp(
-			i.GitHubAppID,
-			i.GitHubAppPrivateKeyPEM,
-		)
+		app, err := githubauth.NewApp(i.GitHubAppID, i.GitHubAppPrivateKeyPEM)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create github app token source: %w", err)
 		}
@@ -203,7 +196,7 @@ func TokenSource(ctx context.Context, i *GitHubReporterInputs, permissions map[s
 			return nil, fmt.Errorf("failed to get github app installation: %w", err)
 		}
 
-		return installation.SelectedReposTokenSource(permissions, i.GitHubRepo), nil
+		return installation.SelectedReposOAuth2TokenSource(ctx, permissions, i.GitHubRepo), nil
 	}
 }
 

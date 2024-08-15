@@ -167,12 +167,8 @@ func (c *DetectIamDriftCommand) Run(ctx context.Context, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to get token source: %w", err)
 	}
-	token, err := tokenSource.GitHubToken(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get token: %w", err)
-	}
 	issueService := NewGitHubDriftIssueService(
-		github.NewClient(ctx, token),
+		github.NewClient(ctx, tokenSource),
 		c.GitHubFlags.FlagGitHubOwner,
 		c.GitHubFlags.FlagGitHubRepo,
 		issueTitle,
