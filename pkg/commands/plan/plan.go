@@ -69,7 +69,7 @@ type PlanCommand struct {
 	storageParent string
 	storagePrefix string
 
-	githubConfig *github.Config
+	githubConfig github.Config
 
 	flags.GlobalFlags
 	flags.CommonFlags
@@ -171,7 +171,7 @@ func (c *PlanCommand) Run(ctx context.Context, args []string) error {
 	}
 
 	if c.flagStorage == "" {
-		c.flagStorage = path.Join("local://", cwd)
+		c.flagStorage = path.Join("file://", cwd)
 	}
 
 	dirAbs, err := util.PathEvalAbs(c.FlagDir)

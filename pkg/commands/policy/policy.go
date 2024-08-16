@@ -48,7 +48,7 @@ var _ cli.Command = (*PolicyCommand)(nil)
 type PolicyCommand struct {
 	cli.BaseCommand
 
-	githubConfig *github.Config
+	githubConfig github.Config
 
 	flags PolicyFlags
 
@@ -84,7 +84,7 @@ func (c *PolicyCommand) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("failed to parse flags: %w", err)
 	}
 
-	gc, err := github.NewGitHubClient(ctx, c.githubConfig)
+	gc, err := github.NewGitHubClient(ctx, &c.githubConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create github client: %w", err)
 	}
