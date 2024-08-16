@@ -14,7 +14,6 @@
 
 // Package platform defines interfaces for interacting with code review
 // platforms.
-
 package platform
 
 import (
