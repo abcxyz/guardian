@@ -21,7 +21,6 @@ import (
 
 	"github.com/abcxyz/guardian/internal/version"
 	driftflags "github.com/abcxyz/guardian/pkg/commands/drift/flags"
-	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/github"
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
@@ -46,7 +45,8 @@ const (
 type DetectIamDriftCommand struct {
 	cli.BaseCommand
 
-	flags.GitHubFlags
+	githubConfig github.Config
+
 	driftflags.DriftIssueFlags
 
 	flagOrganizationID        string
@@ -70,7 +70,7 @@ Usage: {{ COMMAND }} [options]
 func (c *DetectIamDriftCommand) Flags() *cli.FlagSet {
 	set := c.NewFlagSet()
 
-	c.GitHubFlags.Register(set)
+	c.githubConfig.RegisterFlags(set)
 	c.DriftIssueFlags.Register(set)
 
 	// Command options
@@ -161,16 +161,15 @@ func (c *DetectIamDriftCommand) Run(ctx context.Context, args []string) error {
 	if c.DriftIssueFlags.FlagGitHubCommentMessageAppend != "" {
 		m = strings.Join([]string{m, c.DriftIssueFlags.FlagGitHubCommentMessageAppend}, "\n\n")
 	}
-	tokenSource, err := c.GitHubFlags.TokenSource(ctx, map[string]string{
-		"issues": "write",
-	})
+	githubClient, err := github.NewGitHubClient(ctx, &c.githubConfig)
 	if err != nil {
-		return fmt.Errorf("failed to get token source: %w", err)
+		return fmt.Errorf("failed to create github client: %w", err)
 	}
+
 	issueService := NewGitHubDriftIssueService(
-		github.NewClient(ctx, tokenSource),
-		c.GitHubFlags.FlagGitHubOwner,
-		c.GitHubFlags.FlagGitHubRepo,
+		githubClient,
+		c.githubConfig.GitHubOwner,
+		c.githubConfig.GitHubRepo,
 		issueTitle,
 		issueBody,
 	)

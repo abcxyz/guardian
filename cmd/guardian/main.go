@@ -60,9 +60,6 @@ var rootCmd = func() cli.Command {
 						"remove-guardian-comments": func() cli.Command {
 							return &workflows.RemoveGuardianCommentsCommand{}
 						},
-						"validate-permissions": func() cli.Command {
-							return &workflows.ValidatePermissionsCommand{}
-						},
 						"plan-status-comment": func() cli.Command {
 							return &workflows.PlanStatusCommentCommand{}
 						},

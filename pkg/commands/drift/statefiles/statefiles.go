@@ -67,8 +67,8 @@ type DriftStatefilesCommand struct {
 	directory    string
 	tmpDirectory string
 
-	flags.GitHubFlags
-	flags.RetryFlags
+	githubConfig github.Config
+
 	flags.CommonFlags
 	driftflags.DriftIssueFlags
 
@@ -102,8 +102,7 @@ Usage: {{ COMMAND }} [options]
 func (c *DriftStatefilesCommand) Flags() *cli.FlagSet {
 	set := c.NewFlagSet()
 
-	c.GitHubFlags.Register(set)
-	c.RetryFlags.Register(set)
+	c.githubConfig.RegisterFlags(set)
 	c.CommonFlags.Register(set)
 	c.DriftIssueFlags.Register(set)
 
@@ -197,18 +196,17 @@ func (c *DriftStatefilesCommand) Run(ctx context.Context, args []string) error {
 	c.directory = dirAbs
 	c.tmpDirectory = tmpDir
 	c.gitClient = git.NewGitClient(c.tmpDirectory)
-	tokenSource, err := c.GitHubFlags.TokenSource(ctx, map[string]string{
-		"contents": "read",
-		"issues":   "write",
-	})
+
+	gc, err := github.NewGitHubClient(ctx, &c.githubConfig)
 	if err != nil {
-		return fmt.Errorf("failed to get token source: %w", err)
+		return fmt.Errorf("failed to create github client: %w", err)
 	}
-	c.githubClient = github.NewClient(ctx, tokenSource)
+	c.githubClient = gc
+
 	c.issueService = drift.NewGitHubDriftIssueService(
 		c.githubClient,
-		c.GitHubFlags.FlagGitHubOwner,
-		c.GitHubFlags.FlagGitHubRepo,
+		c.githubConfig.GitHubOwner,
+		c.githubConfig.GitHubRepo,
 		issueTitle,
 		issueBody,
 	)
@@ -227,8 +225,8 @@ func (c *DriftStatefilesCommand) Run(ctx context.Context, args []string) error {
 // Process handles the main logic for the Guardian init process.
 func (c *DriftStatefilesCommand) Process(ctx context.Context) error {
 	logger := logging.FromContext(ctx).
-		With("github_owner", c.GitHubFlags.FlagGitHubOwner).
-		With("github_repo", c.GitHubFlags.FlagGitHubOwner)
+		With("github_owner", c.githubConfig.GitHubOwner).
+		With("github_repo", c.githubConfig.GitHubOwner)
 
 	logger.DebugContext(ctx, "starting Guardian drift statefiles")
 	if err := c.cloneAllGitHubRepositories(ctx, logger); err != nil {
@@ -289,7 +287,7 @@ func (c *DriftStatefilesCommand) Process(ctx context.Context) error {
 
 func (c *DriftStatefilesCommand) cloneAllGitHubRepositories(ctx context.Context, logger *slog.Logger) error {
 	// Clone all git repositories.
-	repositories, err := c.githubClient.ListRepositories(ctx, c.GitHubFlags.FlagGitHubOwner, &githubAPI.RepositoryListByOrgOptions{})
+	repositories, err := c.githubClient.ListRepositories(ctx, c.githubConfig.GitHubOwner, &githubAPI.RepositoryListByOrgOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to determine github repositories: %w", err)
 	}
@@ -306,7 +304,7 @@ func (c *DriftStatefilesCommand) cloneAllGitHubRepositories(ctx context.Context,
 		"topics", c.flagTerraformRepoTopics)
 
 	for _, r := range repositoriesWithTerraform {
-		if err = c.gitClient.CloneRepository(ctx, c.GitHubFlags.FlagGitHubToken, r.Owner, r.Name); err != nil {
+		if err = c.gitClient.CloneRepository(ctx, c.githubConfig.GitHubToken, r.Owner, r.Name); err != nil {
 			return fmt.Errorf("failed to clone repository: %w", err)
 		}
 	}
