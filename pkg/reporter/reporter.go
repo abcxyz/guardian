@@ -69,7 +69,7 @@ type Reporter interface {
 
 // Config is the configuration needed to generate different reporter types.
 type Config struct {
-	GitHub github.Config
+	GitHub *github.Config
 }
 
 // NewReporter creates a new reporter based on the provided type.
@@ -84,7 +84,7 @@ func NewReporter(ctx context.Context, t string, c *Config, stdout io.Writer) (Re
 	}
 
 	if strings.EqualFold(t, TypeGitHub) {
-		gc, err := github.NewGitHubClient(ctx, &c.GitHub)
+		gc, err := github.NewGitHubClient(ctx, c.GitHub)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create github client: %w", err)
 		}

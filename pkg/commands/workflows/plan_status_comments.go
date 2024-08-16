@@ -34,7 +34,7 @@ var _ cli.Command = (*PlanStatusCommentCommand)(nil)
 type PlanStatusCommentCommand struct {
 	cli.BaseCommand
 
-	githubConfig github.Config
+	githubConfig *github.Config
 
 	flagReporter   string
 	flagInitResult string
