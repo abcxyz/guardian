@@ -22,9 +22,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/sethvargo/go-githubactions"
-
-	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/github"
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
@@ -50,8 +47,9 @@ var _ cli.Command = (*PolicyCommand)(nil)
 
 type PolicyCommand struct {
 	cli.BaseCommand
-	flags.RetryFlags
-	flags.GitHubFlags
+
+	githubConfig *github.Config
+
 	flags PolicyFlags
 
 	gitHubClient *github.GitHubClient
@@ -74,8 +72,7 @@ Usage: {{ COMMAND }} [options]
 // Flags returns the list of flags that are defined on the command.
 func (c *PolicyCommand) Flags() *cli.FlagSet {
 	set := cli.NewFlagSet()
-	c.GitHubFlags.Register(set)
-	c.RetryFlags.Register(set)
+	c.githubConfig.RegisterFlags(set)
 	c.flags.Register(set)
 	return set
 }
@@ -87,31 +84,11 @@ func (c *PolicyCommand) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("failed to parse flags: %w", err)
 	}
 
-	tokenSource, err := c.GitHubFlags.TokenSource(ctx, map[string]string{
-		"contents":      "read",
-		"pull_requests": "write",
-	})
+	gc, err := github.NewGitHubClient(ctx, c.githubConfig)
 	if err != nil {
-		return fmt.Errorf("failed to get token source: %w", err)
+		return fmt.Errorf("failed to create github client: %w", err)
 	}
-
-	var gitHubParams GitHubParams
-	action := githubactions.New(githubactions.WithWriter(c.Stdout()))
-	actx, err := action.Context()
-	if err != nil {
-		return fmt.Errorf("failed to load github context: %w", err)
-	}
-	if err = gitHubParams.FromGitHubContext(actx); err != nil {
-		return fmt.Errorf("failed to get github params from github context: %w", err)
-	}
-
-	c.gitHubClient = github.NewClient(
-		ctx,
-		tokenSource,
-		github.WithRetryInitialDelay(c.RetryFlags.FlagRetryInitialDelay),
-		github.WithRetryMaxAttempts(c.RetryFlags.FlagRetryMaxAttempts),
-		github.WithRetryMaxDelay(c.RetryFlags.FlagRetryMaxDelay),
-	)
+	c.gitHubClient = gc
 
 	return c.Process(ctx)
 }

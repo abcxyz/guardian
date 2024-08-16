@@ -208,33 +208,6 @@ func NewGitHubClient(ctx context.Context, c *Config) (*GitHubClient, error) {
 	return g, nil
 }
 
-// NewClient creates a new GitHub client.
-// TODO(verbanicm): remove this throughout.
-func NewClient(ctx context.Context, ts oauth2.TokenSource, opts ...Option) *GitHubClient {
-	cfg := &Config{
-		MaxRetries:        3,
-		InitialRetryDelay: 1 * time.Second,
-		MaxRetryDelay:     20 * time.Second,
-	}
-
-	for _, opt := range opts {
-		if opt != nil {
-			cfg = opt(cfg)
-		}
-	}
-
-	tc := oauth2.NewClient(ctx, ts)
-
-	client := github.NewClient(tc)
-
-	g := &GitHubClient{
-		cfg:    cfg,
-		client: client,
-	}
-
-	return g
-}
-
 // ListRepositories lists all repositories and returns details about the repositories.
 func (g *GitHubClient) ListRepositories(ctx context.Context, owner string, opts *github.RepositoryListByOrgOptions) ([]*Repository, error) {
 	pageStart := func(i *int) bool { return i == nil }
