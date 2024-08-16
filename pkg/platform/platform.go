@@ -47,7 +47,7 @@ type Platform interface{}
 type Config struct {
 	Type string
 
-	GitHub *github.Config
+	GitHub github.Config
 }
 
 func (c *Config) RegisterFlags(set *cli.FlagSet) {
@@ -91,7 +91,7 @@ func NewPlatform(ctx context.Context, t string, cfg *Config) (Platform, error) {
 	}
 
 	if strings.EqualFold(t, TypeGitHub) {
-		gc, err := github.NewGitHubClient(ctx, cfg.GitHub)
+		gc, err := github.NewGitHubClient(ctx, &cfg.GitHub)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create github client: %w", err)
 		}

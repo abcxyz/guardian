@@ -69,7 +69,7 @@ type PlanCommand struct {
 	storageParent string
 	storagePrefix string
 
-	platformConfig *platform.Config
+	platformConfig platform.Config
 
 	flags.CommonFlags
 
@@ -192,7 +192,7 @@ func (c *PlanCommand) Run(ctx context.Context, args []string) error {
 	}
 	c.storageClient = sc
 
-	rc, err := reporter.NewReporter(ctx, c.flagReporter, &reporter.Config{GitHub: *c.platformConfig.GitHub}, c.Stdout())
+	rc, err := reporter.NewReporter(ctx, c.flagReporter, &reporter.Config{GitHub: c.platformConfig.GitHub}, c.Stdout())
 	if err != nil {
 		return fmt.Errorf("failed to create reporter client: %w", err)
 	}
