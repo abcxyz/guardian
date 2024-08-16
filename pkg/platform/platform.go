@@ -33,7 +33,7 @@ const (
 )
 
 var (
-	allowedPlatforms = map[string]struct{}{
+	allowedTypes = map[string]struct{}{
 		TypeLocal:  {},
 		TypeGitHub: {},
 	}
@@ -57,17 +57,21 @@ func (c *Config) RegisterFlags(set *cli.FlagSet) {
 	// 1. Explicit value set through --platform flag
 	// 2. Inferred environment from well-known environment variables
 	// 3. Default value of "local"
+	types := make([]string, len(allowedTypes))
+	for k := range allowedTypes {
+		types = append(types, k)
+	}
 	f.StringVar(&cli.StringVar{
 		Name:    "platform",
 		Target:  &c.Type,
 		Example: "github",
-		Usage:   "The code review platform for Guardian to integrate with.",
+		Usage:   fmt.Sprintf("The code review platform for Guardian to integrate with. Allowed values are %q", types),
 	})
 
 	set.AfterParse(func(merr error) error {
 		c.Type = strings.ToLower(strings.TrimSpace(c.Type))
 
-		if _, ok := allowedPlatforms[c.Type]; !ok && c.Type != "" {
+		if _, ok := allowedTypes[c.Type]; !ok && c.Type != "" {
 			merr = errors.Join(merr, fmt.Errorf("unsupported value for platform flag: %s", c.Type))
 		}
 
