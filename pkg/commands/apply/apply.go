@@ -57,12 +57,13 @@ type RunResult struct {
 type ApplyCommand struct {
 	cli.BaseCommand
 
-	directory     string
-	childPath     string
-	planFilename  string
-	storageParent string
-	storagePrefix string
-	isDestroy     bool
+	directory         string
+	childPath         string
+	planFilename      string
+	planFileLocalPath string
+	storageParent     string
+	storagePrefix     string
+	isDestroy         bool
 
 	githubConfig *github.Config
 
@@ -287,6 +288,7 @@ func (c *ApplyCommand) Process(ctx context.Context) (merr error) {
 	if err := os.WriteFile(planFileLocalPath, planData, ownerReadWritePerms); err != nil {
 		return fmt.Errorf("failed to write plan file to disk [%s]: %w", planFileLocalPath, err)
 	}
+	c.planFileLocalPath = planFileLocalPath
 
 	rp := &reporter.Params{
 		Operation: "apply",
@@ -297,7 +299,7 @@ func (c *ApplyCommand) Process(ctx context.Context) (merr error) {
 
 	status := reporter.StatusSuccess
 
-	result, err := c.terraformApply(ctx, planFileLocalPath)
+	result, err := c.terraformApply(ctx)
 	if err != nil {
 		merr = errors.Join(merr, fmt.Errorf("failed to run Guardian apply: %w", err))
 		status = reporter.StatusFailure
@@ -314,7 +316,7 @@ func (c *ApplyCommand) Process(ctx context.Context) (merr error) {
 
 // terraformApply runs the required Terraform commands for a full run of
 // a Guardian apply using the Terraform CLI.
-func (c *ApplyCommand) terraformApply(ctx context.Context, planFileLocalPath string) (*RunResult, error) {
+func (c *ApplyCommand) terraformApply(ctx context.Context) (*RunResult, error) {
 	var stdout, stderr strings.Builder
 	multiStdout := io.MultiWriter(c.Stdout(), &stdout)
 	multiStderr := io.MultiWriter(c.Stderr(), &stderr)
@@ -349,7 +351,7 @@ func (c *ApplyCommand) terraformApply(ctx context.Context, planFileLocalPath str
 
 	util.Headerf(c.Stdout(), "Applying Terraform")
 	if _, err := c.terraformClient.Apply(ctx, multiStdout, multiStderr, &terraform.ApplyOptions{
-		File:            pointer.To(planFileLocalPath),
+		File:            pointer.To(c.planFileLocalPath),
 		CompactWarnings: pointer.To(true),
 		Input:           pointer.To(false),
 		NoColor:         pointer.To(true),

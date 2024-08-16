@@ -132,7 +132,7 @@ func TestPlan_Process(t *testing.T) {
 			expReporterClientReqs: []*reporter.Request{
 				{
 					Name:   "CreateStatus",
-					Params: []any{reporter.Status("SUCCESS"), &reporter.Params{HasDiff: true, Details: "terraform show success with diff", Dir: "testdata", Operation: "plan"}},
+					Params: []any{reporter.StatusSuccess, &reporter.Params{HasDiff: true, Details: "terraform show success with diff", Dir: "testdata", Operation: "plan"}},
 				},
 			},
 			expStorageClientReqs: []*storage.Request{
@@ -158,7 +158,7 @@ func TestPlan_Process(t *testing.T) {
 			expReporterClientReqs: []*reporter.Request{
 				{
 					Name:   "CreateStatus",
-					Params: []any{reporter.Status("SUCCESS"), &reporter.Params{HasDiff: true, IsDestroy: true, Details: "terraform show success with diff", Dir: "testdata", Operation: "plan"}},
+					Params: []any{reporter.StatusSuccess, &reporter.Params{HasDiff: true, IsDestroy: true, Details: "terraform show success with diff", Dir: "testdata", Operation: "plan"}},
 				},
 			},
 			expStorageClientReqs: []*storage.Request{
@@ -183,7 +183,7 @@ func TestPlan_Process(t *testing.T) {
 			expReporterClientReqs: []*reporter.Request{
 				{
 					Name:   "CreateStatus",
-					Params: []any{reporter.Status("NO CHANGES"), &reporter.Params{HasDiff: false, Dir: "testdata", Operation: "plan"}},
+					Params: []any{reporter.StatusNoOperation, &reporter.Params{HasDiff: false, Dir: "testdata", Operation: "plan"}},
 				},
 			},
 			expStorageClientReqs: []*storage.Request{
@@ -211,7 +211,7 @@ func TestPlan_Process(t *testing.T) {
 			expReporterClientReqs: []*reporter.Request{
 				{
 					Name:   "CreateStatus",
-					Params: []any{reporter.Status("FAILURE"), &reporter.Params{HasDiff: false, Details: "terraform init failed", Dir: "testdata", Operation: "plan"}},
+					Params: []any{reporter.StatusFailure, &reporter.Params{HasDiff: false, Details: "terraform init failed", Dir: "testdata", Operation: "plan"}},
 				},
 			},
 		},
