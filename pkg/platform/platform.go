@@ -79,7 +79,7 @@ func (c *Config) RegisterFlags(set *cli.FlagSet) {
 	set.AfterParse(func(merr error) error {
 		c.Type = strings.ToLower(strings.TrimSpace(c.Type))
 
-		if _, ok := allowedTypes[c.Type]; !ok && c.Type != "" {
+		if _, ok := allowedTypes[c.Type]; !ok && c.Type != TypeUnspecified {
 			merr = errors.Join(merr, fmt.Errorf("unsupported value for platform flag: %s", c.Type))
 		}
 
