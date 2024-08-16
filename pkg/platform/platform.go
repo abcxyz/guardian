@@ -85,12 +85,12 @@ func (c *Config) RegisterFlags(set *cli.FlagSet) {
 }
 
 // NewPlatform creates a new platform based on the provided type.
-func NewPlatform(ctx context.Context, t string, cfg *Config) (Platform, error) {
-	if strings.EqualFold(t, TypeLocal) {
+func NewPlatform(ctx context.Context, cfg *Config) (Platform, error) {
+	if strings.EqualFold(cfg.Type, TypeLocal) {
 		return NewLocal(ctx), nil
 	}
 
-	if strings.EqualFold(t, TypeGitHub) {
+	if strings.EqualFold(cfg.Type, TypeGitHub) {
 		gc, err := github.NewGitHubClient(ctx, &cfg.GitHub)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create github client: %w", err)
@@ -98,5 +98,5 @@ func NewPlatform(ctx context.Context, t string, cfg *Config) (Platform, error) {
 		return gc, nil
 	}
 
-	return nil, fmt.Errorf("unknown platform type: %s", t)
+	return nil, fmt.Errorf("unknown platform type: %s", cfg.Type)
 }
