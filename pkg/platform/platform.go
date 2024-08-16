@@ -57,9 +57,11 @@ func (c *Config) RegisterFlags(set *cli.FlagSet) {
 	// 1. Explicit value set through --platform flag
 	// 2. Inferred environment from well-known environment variables
 	// 3. Default value of "local"
+	i := 0
 	types := make([]string, len(allowedTypes))
 	for k := range allowedTypes {
-		types = append(types, k)
+		types[i] = k
+		i++
 	}
 	f.StringVar(&cli.StringVar{
 		Name:    "platform",
