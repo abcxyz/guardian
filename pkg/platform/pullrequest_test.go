@@ -37,15 +37,23 @@ func TestPullRequest_AssignReviewers(t *testing.T) {
 		expGitHubClientReqs  []*github.Request
 	}{
 		{
-			name: "calls_with_users_and_teams",
+			name: "calls_users_and_teams_individually",
 			assignReviewersInput: &AssignReviewersInput{
 				Teams: []string{"test-team-name"},
-				Users: []string{"test-user-name"},
+				Users: []string{"test-user-name", "test-user-name-2"},
 			},
 			expGitHubClientReqs: []*github.Request{
 				{
 					Name:   "RequestReviewers",
-					Params: []any{"test-owner", "test-repo", 1, []string{"test-user-name"}, []string{"test-team-name"}},
+					Params: []any{"test-owner", "test-repo", 1, []string{"test-user-name"}, []string(nil)},
+				},
+				{
+					Name:   "RequestReviewers",
+					Params: []any{"test-owner", "test-repo", 1, []string{"test-user-name-2"}, []string(nil)},
+				},
+				{
+					Name:   "RequestReviewers",
+					Params: []any{"test-owner", "test-repo", 1, []string(nil), []string{"test-team-name"}},
 				},
 			},
 		},
@@ -80,11 +88,15 @@ func TestPullRequest_AssignReviewers(t *testing.T) {
 				Users: []string{"test-user-name"},
 			},
 			requestReviewersErr: fmt.Errorf("failed"),
-			wantErr:             "failed to assign reviewers to pull request: failed",
+			wantErr:             "failed to assign all requested reviewers to pull request",
 			expGitHubClientReqs: []*github.Request{
 				{
 					Name:   "RequestReviewers",
-					Params: []any{"test-owner", "test-repo", 1, []string{"test-user-name"}, []string{"test-team-name"}},
+					Params: []any{"test-owner", "test-repo", 1, []string{"test-user-name"}, []string(nil)},
+				},
+				{
+					Name:   "RequestReviewers",
+					Params: []any{"test-owner", "test-repo", 1, []string(nil), []string{"test-team-name"}},
 				},
 			},
 		},
@@ -113,7 +125,7 @@ func TestPullRequest_AssignReviewers(t *testing.T) {
 				},
 			}
 
-			err := pr.AssignReviewers(ctx, tc.assignReviewersInput)
+			_, err := pr.AssignReviewers(ctx, tc.assignReviewersInput)
 			if diff := testutil.DiffErrString(err, tc.wantErr); diff != "" {
 				t.Errorf(diff)
 			}

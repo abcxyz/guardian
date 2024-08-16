@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"github.com/abcxyz/guardian/pkg/github"
+	"github.com/abcxyz/pkg/logging"
 )
 
 var _ ChangeRequest = (*PullRequest)(nil)
@@ -69,13 +70,40 @@ func NewPullRequest(ctx context.Context, inputs *PullRequestInput) (*PullRequest
 }
 
 // AssignReviewers calls the GitHub API to assign users and teams as reviewers
-// for the current pull request.
-func (p *PullRequest) AssignReviewers(ctx context.Context, inputs *AssignReviewersInput) error {
+// for the current pull request. GitHub's RequestReviewer API will result in
+// silent no-op when adding an existing reviewer with new reviewers. Instead,
+// we assign every principal individually to avoid the ambiguous API behavior.
+func (p *PullRequest) AssignReviewers(ctx context.Context, inputs *AssignReviewersInput) (*AssignReviewersResult, error) {
+	logger := logging.FromContext(ctx)
 	if inputs == nil {
-		return fmt.Errorf("inputs cannot be nil")
+		return nil, fmt.Errorf("inputs cannot be nil")
 	}
-	if _, err := p.client.RequestReviewers(ctx, p.params.Owner, p.params.Repository, p.params.PullRequestNumber, inputs.Users, inputs.Teams); err != nil {
-		return fmt.Errorf("failed to assign reviewers to pull request: %w", err)
+
+	var result AssignReviewersResult
+	for _, u := range inputs.Users {
+		if _, err := p.client.RequestReviewers(ctx, p.params.Owner, p.params.Repository, p.params.PullRequestNumber, []string{u}, nil); err != nil {
+			logger.ErrorContext(ctx, "failed to assign reviewer for pull request",
+				"user", u,
+				"error", err,
+			)
+			continue
+		}
+		result.Users = append(result.Users, u)
 	}
-	return nil
+	for _, t := range inputs.Teams {
+		if _, err := p.client.RequestReviewers(ctx, p.params.Owner, p.params.Repository, p.params.PullRequestNumber, nil, []string{t}); err != nil {
+			logger.ErrorContext(ctx, "failed to assign reviewer for pull request",
+				"team", t,
+				"error", err,
+			)
+			continue
+		}
+		result.Teams = append(result.Teams, t)
+	}
+
+	if len(result.Users) == 0 && len(result.Teams) == 0 {
+		return nil, fmt.Errorf("failed to assign all requested reviewers to pull request")
+	}
+
+	return &result, nil
 }

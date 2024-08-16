@@ -23,12 +23,19 @@ import "context"
 type ChangeRequest interface {
 	// AssignReviewers adds a set of principals to review the proposed code
 	// changes.
-	AssignReviewers(ctx context.Context, input *AssignReviewersInput) error
+	AssignReviewers(ctx context.Context, input *AssignReviewersInput) (*AssignReviewersResult, error)
 }
 
 // AssignReviewersInput defines the possible principals that can be assigned to
 // the review.
 type AssignReviewersInput struct {
+	Teams []string
+	Users []string
+}
+
+// AssignReviewersResult is a collection of principals who were succesfully
+// assigned to review a ChangeRequest.
+type AssignReviewersResult struct {
 	Teams []string
 	Users []string
 }

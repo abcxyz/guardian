@@ -29,6 +29,6 @@ func NewLocal(ctx context.Context) *Local {
 }
 
 // AssignReviewers is a no-op.
-func (l *Local) AssignReviewers(ctx context.Context, inputs *AssignReviewersInput) error {
-	return nil
+func (l *Local) AssignReviewers(ctx context.Context, inputs *AssignReviewersInput) (*AssignReviewersResult, error) {
+	return nil, nil
 }
