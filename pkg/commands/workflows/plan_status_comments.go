@@ -66,7 +66,7 @@ func (c *PlanStatusCommentCommand) Flags() *cli.FlagSet {
 		Name:    "reporter",
 		Target:  &c.flagReporter,
 		Example: "github",
-		Default: reporter.ReporterTypeLocal,
+		Default: reporter.TypeLocal,
 		Usage:   fmt.Sprintf("The reporting strategy for Guardian status updates. Valid values are %q", reporter.SortedReporterTypes),
 		Predict: complete.PredictFunc(func(prefix string) []string {
 			return reporter.SortedReporterTypes

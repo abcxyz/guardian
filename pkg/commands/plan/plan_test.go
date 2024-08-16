@@ -17,18 +17,13 @@ package plan
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 	"testing"
 	"time"
-	"unicode/utf8"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/sethvargo/go-githubactions"
 
-	"github.com/abcxyz/guardian/pkg/commands/actions"
-	"github.com/abcxyz/guardian/pkg/flags"
-	"github.com/abcxyz/guardian/pkg/github"
+	"github.com/abcxyz/guardian/pkg/reporter"
 	"github.com/abcxyz/guardian/pkg/storage"
 	"github.com/abcxyz/guardian/pkg/terraform"
 	"github.com/abcxyz/pkg/logging"
@@ -111,59 +106,59 @@ func TestPlan_Process(t *testing.T) {
 
 	ctx := logging.WithLogger(context.Background(), logging.TestLogger(t))
 
-	defaultConfig := &Config{
-		ServerURL:  "https://github.com",
-		RunID:      int64(100),
-		RunAttempt: int64(1),
-	}
-
 	cases := []struct {
 		name                     string
 		directory                string
 		storageParent            string
 		storagePrefix            string
-		flagIsGitHubActions      bool
-		flagGitHubOwner          string
-		flagGitHubRepo           string
-		flagPullRequestNumber    int
+		flagDestroy              bool
 		flagAllowLockfileChanges bool
 		flagLockTimeout          time.Duration
-		flagJobName              string
-		config                   *Config
 		terraformClient          *terraform.MockTerraformClient
 		err                      string
-		expGitHubClientReqs      []*github.Request
+		expReporterClientReqs    []*reporter.Request
 		expStorageClientReqs     []*storage.Request
 		expStdout                string
 		expStderr                string
-		resolveJobLogsURLErr     error
 	}{
 		{
 			name:                     "success_with_diff",
 			directory:                "testdata",
 			storageParent:            "storage-parent",
 			storagePrefix:            "",
-			flagIsGitHubActions:      true,
-			flagGitHubOwner:          "owner",
-			flagGitHubRepo:           "repo",
-			flagPullRequestNumber:    1,
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
-			flagJobName:              "example-job",
-			config:                   defaultConfig,
 			terraformClient:          terraformDiffMock,
-			expGitHubClientReqs: []*github.Request{
+			expReporterClientReqs: []*reporter.Request{
 				{
-					Name:   "ResolveJobLogsURL",
-					Params: []any{"example-job", "owner", "repo", int64(100)},
+					Name:   "CreateStatus",
+					Params: []any{reporter.StatusSuccess, &reporter.Params{HasDiff: true, Details: "terraform show success with diff", Dir: "testdata", Operation: "plan"}},
 				},
+			},
+			expStorageClientReqs: []*storage.Request{
 				{
-					Name:   "CreateIssueComment",
-					Params: []any{"owner", "repo", int(1), CommentPrefix + " 🟨 Running for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/job/1)]"},
+					Name: "CreateObject",
+					Params: []any{
+						"storage-parent",
+						"testdata/test-tfplan.binary",
+						"this is a plan binary",
+					},
 				},
+			},
+		},
+		{
+			name:                     "success_with_diff_destroy",
+			directory:                "testdata",
+			storageParent:            "storage-parent",
+			storagePrefix:            "",
+			flagAllowLockfileChanges: true,
+			flagLockTimeout:          10 * time.Minute,
+			flagDestroy:              true,
+			terraformClient:          terraformDiffMock,
+			expReporterClientReqs: []*reporter.Request{
 				{
-					Name:   "UpdateIssueComment",
-					Params: []any{"owner", "repo", int64(1), CommentPrefix + " 🟩 Successful for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/job/1)]\n\n<details>\n<summary>Details</summary>\n\n```diff\n\nterraform show success with diff\n```\n</details>"},
+					Name:   "CreateStatus",
+					Params: []any{reporter.StatusSuccess, &reporter.Params{HasDiff: true, IsDestroy: true, Details: "terraform show success with diff", Dir: "testdata", Operation: "plan"}},
 				},
 			},
 			expStorageClientReqs: []*storage.Request{
@@ -182,94 +177,15 @@ func TestPlan_Process(t *testing.T) {
 			directory:                "testdata",
 			storageParent:            "storage-parent",
 			storagePrefix:            "",
-			flagIsGitHubActions:      true,
-			flagGitHubOwner:          "owner",
-			flagGitHubRepo:           "repo",
-			flagPullRequestNumber:    2,
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
-			flagJobName:              "example-job",
-			config:                   defaultConfig,
 			terraformClient:          terraformNoDiffMock,
-			expGitHubClientReqs: []*github.Request{
+			expReporterClientReqs: []*reporter.Request{
 				{
-					Name:   "ResolveJobLogsURL",
-					Params: []any{"example-job", "owner", "repo", int64(100)},
-				},
-				{
-					Name:   "CreateIssueComment",
-					Params: []any{"owner", "repo", int(2), "**`🔱 Guardian 🔱 PLAN`** - 🟨 Running for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/job/1)]"},
-				},
-				{
-					Name:   "UpdateIssueComment",
-					Params: []any{"owner", "repo", int64(1), "**`🔱 Guardian 🔱 PLAN`** - 🟦 No changes for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/job/1)]"},
+					Name:   "CreateStatus",
+					Params: []any{reporter.StatusNoOperation, &reporter.Params{HasDiff: false, Dir: "testdata", Operation: "plan"}},
 				},
 			},
-			expStorageClientReqs: []*storage.Request{
-				{
-					Name: "CreateObject",
-					Params: []any{
-						"storage-parent",
-						"testdata/test-tfplan.binary",
-						"this is a plan binary",
-					},
-				},
-			},
-		},
-		{
-			name:                     "success_when_direct_log_url_resolution_fails",
-			directory:                "testdata",
-			storageParent:            "storage-parent",
-			storagePrefix:            "",
-			flagIsGitHubActions:      true,
-			flagGitHubOwner:          "owner",
-			flagGitHubRepo:           "repo",
-			flagPullRequestNumber:    2,
-			flagAllowLockfileChanges: true,
-			flagLockTimeout:          10 * time.Minute,
-			flagJobName:              "example-job",
-			config:                   defaultConfig,
-			terraformClient:          terraformNoDiffMock,
-			resolveJobLogsURLErr:     fmt.Errorf("couldn't resolve job logs url"),
-			expGitHubClientReqs: []*github.Request{
-				{
-					Name:   "ResolveJobLogsURL",
-					Params: []any{"example-job", "owner", "repo", int64(100)},
-				},
-				{
-					Name:   "CreateIssueComment",
-					Params: []any{"owner", "repo", int(2), CommentPrefix + " 🟨 Running for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
-				},
-				{
-					Name:   "UpdateIssueComment",
-					Params: []any{"owner", "repo", int64(1), CommentPrefix + " 🟦 No changes for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
-				},
-			},
-			expStorageClientReqs: []*storage.Request{
-				{
-					Name: "CreateObject",
-					Params: []any{
-						"storage-parent",
-						"testdata/test-tfplan.binary",
-						"this is a plan binary",
-					},
-				},
-			},
-		},
-		{
-			name:                     "skips_comments",
-			directory:                "testdata",
-			storageParent:            "storage-parent",
-			storagePrefix:            "",
-			flagIsGitHubActions:      false,
-			flagGitHubOwner:          "owner",
-			flagGitHubRepo:           "repo",
-			flagPullRequestNumber:    2,
-			flagAllowLockfileChanges: true,
-			flagLockTimeout:          10 * time.Minute,
-			flagJobName:              "example-job",
-			config:                   defaultConfig,
-			terraformClient:          terraformNoDiffMock,
 			expStorageClientReqs: []*storage.Request{
 				{
 					Name: "CreateObject",
@@ -286,53 +202,16 @@ func TestPlan_Process(t *testing.T) {
 			directory:                "testdata",
 			storageParent:            "storage-parent",
 			storagePrefix:            "",
-			flagIsGitHubActions:      true,
-			flagGitHubOwner:          "owner",
-			flagGitHubRepo:           "repo",
-			flagPullRequestNumber:    3,
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
-			flagJobName:              "example-job",
-			config:                   defaultConfig,
 			terraformClient:          terraformErrorMock,
 			expStdout:                "terraform init output",
 			expStderr:                "terraform init failed",
 			err:                      "failed to run Guardian plan: failed to initialize: failed to run terraform init",
-			expGitHubClientReqs: []*github.Request{
+			expReporterClientReqs: []*reporter.Request{
 				{
-					Name:   "ResolveJobLogsURL",
-					Params: []any{"example-job", "owner", "repo", int64(100)},
-				},
-				{
-					Name:   "CreateIssueComment",
-					Params: []any{"owner", "repo", int(3), CommentPrefix + " 🟨 Running for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/job/1)]"},
-				},
-				{
-					Name: "UpdateIssueComment",
-					Params: []any{
-						"owner",
-						"repo",
-						int64(1),
-						CommentPrefix + " 🟥 Failed for dir: `testdata` [[logs](https://github.com/owner/repo/actions/runs/100/job/1)]\n" +
-							"\n" +
-							"<details>\n" +
-							"<summary>Error</summary>\n" +
-							"\n" +
-							"```\n" +
-							"\n" +
-							"failed to initialize: failed to run terraform init\n" +
-							"```\n" +
-							"</details>\n" +
-							"\n" +
-							"<details>\n" +
-							"<summary>Details</summary>\n" +
-							"\n" +
-							"```diff\n" +
-							"\n" +
-							"terraform init failed\n" +
-							"```\n" +
-							"</details>",
-					},
+					Name:   "CreateStatus",
+					Params: []any{reporter.StatusFailure, &reporter.Params{HasDiff: false, Details: "terraform init failed", Dir: "testdata", Operation: "plan"}},
 				},
 			},
 		},
@@ -344,36 +223,22 @@ func TestPlan_Process(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			action := githubactions.New(githubactions.WithWriter(os.Stdout))
-			gitHubClient := &github.MockGitHubClient{
-				ResolveJobLogsURLErr: tc.resolveJobLogsURLErr,
-			}
-			storageClient := &storage.MockStorageClient{}
+			mockStorageClient := &storage.MockStorageClient{}
+			mockReporterClient := &reporter.MockReporter{}
 
 			c := &PlanCommand{
-				GitHubActionCommand: actions.GitHubActionCommand{
-					FlagIsGitHubActions: tc.flagIsGitHubActions,
-					Action:              action,
-				},
-				GitHubFlags: flags.GitHubFlags{
-					FlagGitHubOwner: tc.flagGitHubOwner,
-					FlagGitHubRepo:  tc.flagGitHubRepo,
-				},
-				cfg: tc.config,
-
 				directory:     tc.directory,
 				childPath:     tc.directory,
 				planFilename:  "test-tfplan.binary",
 				storageParent: tc.storageParent,
 				storagePrefix: tc.storagePrefix,
 
-				flagPullRequestNumber:    tc.flagPullRequestNumber,
+				flagDestroy:              tc.flagDestroy,
 				flagAllowLockfileChanges: tc.flagAllowLockfileChanges,
 				flagLockTimeout:          tc.flagLockTimeout,
-				flagJobName:              tc.flagJobName,
-				gitHubClient:             gitHubClient,
-				storageClient:            storageClient,
 				terraformClient:          tc.terraformClient,
+				storageClient:            mockStorageClient,
+				reporterClient:           mockReporterClient,
 			}
 
 			_, stdout, stderr := c.Pipe()
@@ -383,11 +248,11 @@ func TestPlan_Process(t *testing.T) {
 				t.Errorf(diff)
 			}
 
-			if diff := cmp.Diff(gitHubClient.Reqs, tc.expGitHubClientReqs); diff != "" {
-				t.Errorf("GitHubClient calls not as expected; (-got,+want): %s", diff)
+			if diff := cmp.Diff(mockReporterClient.Reqs, tc.expReporterClientReqs); diff != "" {
+				t.Errorf("Reporter calls not as expected; (-got,+want): %s", diff)
 			}
 
-			if diff := cmp.Diff(storageClient.Reqs, tc.expStorageClientReqs); diff != "" {
+			if diff := cmp.Diff(mockStorageClient.Reqs, tc.expStorageClientReqs); diff != "" {
 				t.Errorf("Storage calls not as expected; (-got,+want): %s", diff)
 			}
 
@@ -399,134 +264,4 @@ func TestPlan_Process(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestGetMessageBody(t *testing.T) {
-	t.Parallel()
-	bigMessage := messageOverLimit()
-	cases := []struct {
-		name      string
-		cmd       *PlanCommand
-		result    *RunResult
-		resultErr error
-		want      string
-	}{
-		{
-			name: "result_success",
-			cmd: &PlanCommand{
-				childPath:    "foo",
-				gitHubLogURL: "http://github.com/logs",
-			},
-			result: &RunResult{
-				hasChanges:     true,
-				commentDetails: "This comment is within the limits",
-			},
-			resultErr: nil,
-			want:      CommentPrefix + " 🟩 Successful for dir: `foo` http://github.com/logs\n\n<details>\n<summary>Details</summary>\n\n```diff\n\nThis comment is within the limits\n```\n</details>",
-		},
-		{
-			name: "result_error",
-			cmd: &PlanCommand{
-				childPath:    "foo",
-				gitHubLogURL: "http://github.com/logs",
-			},
-			result: &RunResult{
-				hasChanges:     true,
-				commentDetails: "This is a detailed error message",
-			},
-			resultErr: fmt.Errorf("the result had an error"),
-			want:      CommentPrefix + " 🟥 Failed for dir: `foo` http://github.com/logs\n\n<details>\n<summary>Error</summary>\n\n```\n\nthe result had an error\n```\n</details>\n\n<details>\n<summary>Details</summary>\n\n```diff\n\nThis is a detailed error message\n```\n</details>",
-		},
-		{
-			name: "result_no_changes",
-			cmd: &PlanCommand{
-				childPath:    "foo",
-				gitHubLogURL: "http://github.com/logs",
-			},
-			result: &RunResult{
-				hasChanges:     false,
-				commentDetails: "",
-			},
-			resultErr: nil,
-			want:      CommentPrefix + " 🟦 No changes for dir: `foo` http://github.com/logs",
-		},
-
-		{
-			name: "result_success_destroy",
-			cmd: &PlanCommand{
-				flagDestroy:  true,
-				childPath:    "foo",
-				gitHubLogURL: "http://github.com/logs",
-			},
-			result: &RunResult{
-				hasChanges:     true,
-				commentDetails: "This comment is within the limits",
-			},
-			resultErr: nil,
-			want:      CommentPrefix + " 🟩 Successful for dir: `foo` http://github.com/logs" + DestroyCommentText + "\n\n<details>\n<summary>Details</summary>\n\n```diff\n\nThis comment is within the limits\n```\n</details>",
-		},
-		{
-			name: "result_error_destroy",
-			cmd: &PlanCommand{
-				flagDestroy:  true,
-				childPath:    "foo",
-				gitHubLogURL: "http://github.com/logs",
-			},
-			result: &RunResult{
-				hasChanges:     true,
-				commentDetails: "This is a detailed error message",
-			},
-			resultErr: fmt.Errorf("the result had an error"),
-			want:      CommentPrefix + " 🟥 Failed for dir: `foo` http://github.com/logs" + DestroyCommentText + "\n\n<details>\n<summary>Error</summary>\n\n```\n\nthe result had an error\n```\n</details>\n\n<details>\n<summary>Details</summary>\n\n```diff\n\nThis is a detailed error message\n```\n</details>",
-		},
-		{
-			name: "result_no_changes_destroy",
-			cmd: &PlanCommand{
-				flagDestroy:  true,
-				childPath:    "foo",
-				gitHubLogURL: "http://github.com/logs",
-			},
-			result: &RunResult{
-				hasChanges:     false,
-				commentDetails: "",
-			},
-			resultErr: nil,
-			want:      CommentPrefix + " 🟦 No changes for dir: `foo` http://github.com/logs" + DestroyCommentText,
-		},
-		{
-			name: "result_success_over_limit",
-			cmd: &PlanCommand{
-				childPath:    "foo",
-				gitHubLogURL: "http://github.com/logs",
-			},
-			result: &RunResult{
-				hasChanges:     true,
-				commentDetails: bigMessage,
-			},
-			resultErr: nil,
-			want:      fmt.Sprintf(CommentPrefix+" 🟩 Successful for dir: `foo` http://github.com/logs\n\n<details>\n<summary>Details</summary>\n\n```diff\n\n%s...\n```\n</details>\n\nMessage has been truncated. See workflow logs to view the full message.", bigMessage[:gitHubMaxCommentLength-216]),
-		},
-	}
-
-	for _, tc := range cases {
-		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			got := tc.cmd.getMessageBody(tc.result, tc.resultErr)
-			if diff := cmp.Diff(got, tc.want); diff != "" {
-				t.Errorf("unexpected result; (-got,+want): %s", diff)
-			}
-			if length := utf8.RuneCountInString(got); length > gitHubMaxCommentLength {
-				t.Errorf("message produced had length %d over the maximum length: %s", length, got)
-			}
-		})
-	}
-}
-
-func messageOverLimit() string {
-	message := make([]rune, gitHubMaxCommentLength)
-	for i := 0; i < len(message); i++ {
-		message[i] = 'a'
-	}
-	return string(message)
 }
