@@ -18,25 +18,70 @@ package platform
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/abcxyz/guardian/pkg/github"
+	"github.com/abcxyz/pkg/cli"
 )
 
 const (
-	TypeLocal  string = "local"
-	TypeGitHub string = "github"
+	TypeLocal  = "local"
+	TypeGitHub = "github"
 )
 
-var _ Platform = (*github.GitHubClient)(nil)
+var (
+	allowedPlatforms = map[string]struct{}{
+		TypeLocal:  {},
+		TypeGitHub: {},
+	}
+	_ Platform = (*github.GitHubClient)(nil)
+)
 
 // Platform defines the minimum interface for a code review platform.
 type Platform interface{}
 
 // Config is the configuration needed to generate different reporter types.
 type Config struct {
+	Type string
+
 	GitHub *github.Config
+}
+
+func (c *Config) RegisterFlags(set *cli.FlagSet) {
+	f := set.NewSection("PLATFORM OPTIONS")
+	c.GitHub.RegisterFlags(set)
+
+	// Type value is loaded in the following order:
+	//
+	// 1. Explicit value set through --platform flag
+	// 2. Inferred environment from well-known environment variables
+	// 3. Default value of "local"
+	f.StringVar(&cli.StringVar{
+		Name:    "platform",
+		Target:  &c.Type,
+		Example: "github",
+		Usage:   "The code review platform for Guardian to integrate with.",
+	})
+
+	set.AfterParse(func(merr error) error {
+		c.Type = strings.ToLower(strings.TrimSpace(c.Type))
+
+		if _, ok := allowedPlatforms[c.Type]; !ok && c.Type != "" {
+			merr = errors.Join(merr, fmt.Errorf("unsupported value for platform flag: %s", c.Type))
+		}
+
+		if c.Type == "" {
+			c.Type = "local"
+			if v, _ := strconv.ParseBool(set.GetEnv("GITHUB_ACTIONS")); v {
+				c.Type = "github"
+			}
+		}
+
+		return merr
+	})
 }
 
 // NewPlatform creates a new platform based on the provided type.

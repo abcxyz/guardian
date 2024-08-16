@@ -32,7 +32,7 @@ import (
 
 	"github.com/abcxyz/guardian/pkg/commands/plan"
 	"github.com/abcxyz/guardian/pkg/flags"
-	"github.com/abcxyz/guardian/pkg/github"
+	"github.com/abcxyz/guardian/pkg/platform"
 	"github.com/abcxyz/guardian/pkg/reporter"
 	"github.com/abcxyz/guardian/pkg/storage"
 	"github.com/abcxyz/guardian/pkg/terraform"
@@ -65,9 +65,8 @@ type ApplyCommand struct {
 	storagePrefix     string
 	isDestroy         bool
 
-	githubConfig *github.Config
+	platformConfig *platform.Config
 
-	flags.GlobalFlags
 	flags.CommonFlags
 
 	flagReporter             string
@@ -98,9 +97,7 @@ Usage: {{ COMMAND }} [options]
 func (c *ApplyCommand) Flags() *cli.FlagSet {
 	set := c.NewFlagSet()
 
-	c.githubConfig.RegisterFlags(set)
-
-	c.GlobalFlags.Register(set)
+	c.platformConfig.RegisterFlags(set)
 	c.CommonFlags.Register(set)
 
 	f := set.NewSection("COMMAND OPTIONS")
@@ -186,7 +183,7 @@ func (c *ApplyCommand) Run(ctx context.Context, args []string) error {
 	}
 	c.storageClient = sc
 
-	rc, err := reporter.NewReporter(ctx, c.flagReporter, &reporter.Config{GitHub: *c.githubConfig}, c.Stdout())
+	rc, err := reporter.NewReporter(ctx, c.flagReporter, &reporter.Config{GitHub: *c.platformConfig.GitHub}, c.Stdout())
 	if err != nil {
 		return fmt.Errorf("failed to create reporter client: %w", err)
 	}
@@ -216,15 +213,15 @@ func (c *ApplyCommand) resolveStorageClient(ctx context.Context) (storage.Storag
 			return nil, err //nolint:wrapcheck // Want passthrough
 		}
 
-		if strings.EqualFold(c.GlobalFlags.FlagPlatform, flags.PlatformTypeGitHub) {
+		if strings.EqualFold(c.platformConfig.Type, platform.TypeGitHub) {
 			var merr error
-			if c.githubConfig.GitHubOwner == "" {
+			if c.platformConfig.GitHub.GitHubOwner == "" {
 				merr = errors.Join(merr, fmt.Errorf("github owner is required for storage type %s", storage.TypeGoogleCloudStorage))
 			}
-			if c.githubConfig.GitHubRepo == "" {
+			if c.platformConfig.GitHub.GitHubRepo == "" {
 				merr = errors.Join(merr, fmt.Errorf("github repo is required for storage type %s", storage.TypeGoogleCloudStorage))
 			}
-			if c.githubConfig.GitHubPullRequestNumber <= 0 {
+			if c.platformConfig.GitHub.GitHubPullRequestNumber <= 0 {
 				merr = errors.Join(merr, fmt.Errorf("github pull request number is required for storage type %s", storage.TypeGoogleCloudStorage))
 			}
 
@@ -232,7 +229,7 @@ func (c *ApplyCommand) resolveStorageClient(ctx context.Context) (storage.Storag
 				return nil, merr
 			}
 
-			c.storagePrefix = fmt.Sprintf("guardian-plans/%s/%s/%d", c.githubConfig.GitHubOwner, c.githubConfig.GitHubRepo, c.githubConfig.GitHubPullRequestNumber)
+			c.storagePrefix = fmt.Sprintf("guardian-plans/%s/%s/%d", c.platformConfig.GitHub.GitHubOwner, c.platformConfig.GitHub.GitHubRepo, c.platformConfig.GitHub.GitHubPullRequestNumber)
 		}
 		return sc, nil
 	}
