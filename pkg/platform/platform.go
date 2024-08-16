@@ -52,8 +52,6 @@ type Config struct {
 
 func (c *Config) RegisterFlags(set *cli.FlagSet) {
 	f := set.NewSection("PLATFORM OPTIONS")
-	c.GitHub.RegisterFlags(set)
-
 	// Type value is loaded in the following order:
 	//
 	// 1. Explicit value set through --platform flag
@@ -82,6 +80,8 @@ func (c *Config) RegisterFlags(set *cli.FlagSet) {
 
 		return merr
 	})
+
+	c.GitHub.RegisterFlags(set)
 }
 
 // NewPlatform creates a new platform based on the provided type.
