@@ -36,7 +36,7 @@ type Platform interface{}
 
 // Config is the configuration needed to generate different reporter types.
 type Config struct {
-	GitHub github.Config
+	GitHub *github.Config
 }
 
 // NewPlatform creates a new platform based on the provided type.
@@ -46,7 +46,7 @@ func NewPlatform(ctx context.Context, t string, cfg *Config) (Platform, error) {
 	}
 
 	if strings.EqualFold(t, TypeGitHub) {
-		gc, err := github.NewGitHubClient(ctx, &cfg.GitHub)
+		gc, err := github.NewGitHubClient(ctx, cfg.GitHub)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create github client: %w", err)
 		}
