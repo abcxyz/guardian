@@ -25,12 +25,6 @@ import (
 	"github.com/abcxyz/pkg/testutil"
 )
 
-const (
-	testOwner             = "test-owner"
-	testRepo              = "test-repo"
-	testPullRequestNumber = 1
-)
-
 func TestPullRequest_AssignReviewers(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
@@ -51,7 +45,7 @@ func TestPullRequest_AssignReviewers(t *testing.T) {
 			expGitHubClientReqs: []*github.Request{
 				{
 					Name:   "RequestReviewers",
-					Params: []any{testOwner, testRepo, testPullRequestNumber, []string{"test-user-name"}, []string{"test-team-name"}},
+					Params: []any{"test-owner", "test-repo", 1, []string{"test-user-name"}, []string{"test-team-name"}},
 				},
 			},
 		},
@@ -63,7 +57,7 @@ func TestPullRequest_AssignReviewers(t *testing.T) {
 			expGitHubClientReqs: []*github.Request{
 				{
 					Name:   "RequestReviewers",
-					Params: []any{testOwner, testRepo, testPullRequestNumber, []string{"test-user-name"}, []string(nil)},
+					Params: []any{"test-owner", "test-repo", 1, []string{"test-user-name"}, []string(nil)},
 				},
 			},
 		},
@@ -75,7 +69,7 @@ func TestPullRequest_AssignReviewers(t *testing.T) {
 			expGitHubClientReqs: []*github.Request{
 				{
 					Name:   "RequestReviewers",
-					Params: []any{testOwner, testRepo, testPullRequestNumber, []string(nil), []string{"test-team-name"}},
+					Params: []any{"test-owner", "test-repo", 1, []string(nil), []string{"test-team-name"}},
 				},
 			},
 		},
@@ -90,7 +84,7 @@ func TestPullRequest_AssignReviewers(t *testing.T) {
 			expGitHubClientReqs: []*github.Request{
 				{
 					Name:   "RequestReviewers",
-					Params: []any{testOwner, testRepo, testPullRequestNumber, []string{"test-user-name"}, []string{"test-team-name"}},
+					Params: []any{"test-owner", "test-repo", 1, []string{"test-user-name"}, []string{"test-team-name"}},
 				},
 			},
 		},
@@ -113,9 +107,9 @@ func TestPullRequest_AssignReviewers(t *testing.T) {
 			pr := &PullRequest{
 				client: gitHubClient,
 				params: &PullRequestInput{
-					Owner:             testOwner,
-					Repository:        testRepo,
-					PullRequestNumber: testPullRequestNumber,
+					Owner:             "test-owner",
+					Repository:        "test-repo",
+					PullRequestNumber: 1,
 				},
 			}
 
