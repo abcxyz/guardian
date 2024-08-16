@@ -20,16 +20,19 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/abcxyz/guardian/pkg/github"
 	"github.com/abcxyz/pkg/cli"
+	"github.com/posener/complete/v2"
 )
 
 const (
-	TypeLocal  = "local"
-	TypeGitHub = "github"
+	TypeUnspecified = ""
+	TypeLocal       = "local"
+	TypeGitHub      = "github"
 )
 
 var (
@@ -37,6 +40,12 @@ var (
 		TypeLocal:  {},
 		TypeGitHub: {},
 	}
+	// SortedTypes are the sorted Platform types for printing messages and prediction.
+	SortedTypes = func() []string {
+		allowed := append([]string{}, TypeLocal, TypeGitHub)
+		sort.Strings(allowed)
+		return allowed
+	}()
 	_ Platform = (*github.GitHubClient)(nil)
 )
 
@@ -57,17 +66,14 @@ func (c *Config) RegisterFlags(set *cli.FlagSet) {
 	// 1. Explicit value set through --platform flag
 	// 2. Inferred environment from well-known environment variables
 	// 3. Default value of "local"
-	i := 0
-	types := make([]string, len(allowedTypes))
-	for k := range allowedTypes {
-		types[i] = k
-		i++
-	}
 	f.StringVar(&cli.StringVar{
 		Name:    "platform",
 		Target:  &c.Type,
 		Example: "github",
-		Usage:   fmt.Sprintf("The code review platform for Guardian to integrate with. Allowed values are %q", types),
+		Usage:   fmt.Sprintf("The code review platform for Guardian to integrate with. Allowed values are %q", SortedTypes),
+		Predict: complete.PredictFunc(func(prefix string) []string {
+			return SortedTypes
+		}),
 	})
 
 	set.AfterParse(func(merr error) error {
@@ -77,10 +83,10 @@ func (c *Config) RegisterFlags(set *cli.FlagSet) {
 			merr = errors.Join(merr, fmt.Errorf("unsupported value for platform flag: %s", c.Type))
 		}
 
-		if c.Type == "" {
-			c.Type = "local"
+		if c.Type == TypeUnspecified {
+			c.Type = TypeLocal
 			if v, _ := strconv.ParseBool(set.GetEnv("GITHUB_ACTIONS")); v {
-				c.Type = "github"
+				c.Type = TypeGitHub
 			}
 		}
 

@@ -13,6 +13,7 @@ require (
 	github.com/google/go-github/v53 v53.2.0
 	github.com/googleapis/gax-go/v2 v2.12.4
 	github.com/hashicorp/hcl/v2 v2.20.1
+	github.com/posener/complete v1.2.3
 	github.com/posener/complete/v2 v2.1.0
 	github.com/sethvargo/go-githubactions v1.2.0
 	github.com/sethvargo/go-retry v0.2.4
@@ -48,6 +49,8 @@ require (
 	github.com/google/s2a-go v0.1.7 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.2 // indirect
+	github.com/hashicorp/errwrap v1.0.0 // indirect
+	github.com/hashicorp/go-multierror v1.0.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
