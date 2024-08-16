@@ -45,7 +45,7 @@ const (
 type DetectIamDriftCommand struct {
 	cli.BaseCommand
 
-	githubConfig *github.Config
+	githubConfig github.Config
 
 	driftflags.DriftIssueFlags
 
@@ -161,7 +161,7 @@ func (c *DetectIamDriftCommand) Run(ctx context.Context, args []string) error {
 	if c.DriftIssueFlags.FlagGitHubCommentMessageAppend != "" {
 		m = strings.Join([]string{m, c.DriftIssueFlags.FlagGitHubCommentMessageAppend}, "\n\n")
 	}
-	githubClient, err := github.NewGitHubClient(ctx, c.githubConfig)
+	githubClient, err := github.NewGitHubClient(ctx, &c.githubConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create github client: %w", err)
 	}

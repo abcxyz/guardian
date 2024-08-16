@@ -29,7 +29,7 @@ var _ cli.Command = (*RemoveGuardianCommentsCommand)(nil)
 type RemoveGuardianCommentsCommand struct {
 	cli.BaseCommand
 
-	githubConfig *github.Config
+	githubConfig github.Config
 
 	flagReporter string
 

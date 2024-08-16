@@ -67,7 +67,7 @@ type DriftStatefilesCommand struct {
 	directory    string
 	tmpDirectory string
 
-	githubConfig *github.Config
+	githubConfig github.Config
 
 	flags.CommonFlags
 	driftflags.DriftIssueFlags
@@ -197,7 +197,7 @@ func (c *DriftStatefilesCommand) Run(ctx context.Context, args []string) error {
 	c.tmpDirectory = tmpDir
 	c.gitClient = git.NewGitClient(c.tmpDirectory)
 
-	gc, err := github.NewGitHubClient(ctx, c.githubConfig)
+	gc, err := github.NewGitHubClient(ctx, &c.githubConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create github client: %w", err)
 	}
