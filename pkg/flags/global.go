@@ -23,9 +23,14 @@ import (
 	"github.com/abcxyz/pkg/cli"
 )
 
+const (
+	PlatformTypeLocal  = "local"
+	PlatformTypeGitHub = "github"
+)
+
 var allowedPlatforms = map[string]struct{}{
-	"local":  {},
-	"github": {},
+	PlatformTypeLocal:  {},
+	PlatformTypeGitHub: {},
 }
 
 // GlobalFlags represents the set of global flags that MUST be embedded in all

@@ -22,8 +22,8 @@ import (
 
 // The types of storage clients available.
 const (
-	FilesystemType         = "file"
-	GoogleCloudStorageType = "gcs"
+	TypeFilesystem         = "file"
+	TypeGoogleCloudStorage = "gcs"
 )
 
 // Storage defines the minimum interface for a blob storage system.

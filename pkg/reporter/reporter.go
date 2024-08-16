@@ -26,13 +26,13 @@ import (
 )
 
 const (
-	ReporterTypeLocal  string = "local"
-	ReporterTypeGitHub string = "github"
+	TypeLocal  string = "local"
+	TypeGitHub string = "github"
 )
 
 // SortedReporterTypes are the sorted Reporter types for printing messages and prediction.
 var SortedReporterTypes = func() []string {
-	allowed := append([]string{}, ReporterTypeLocal, ReporterTypeGitHub)
+	allowed := append([]string{}, TypeLocal, TypeGitHub)
 	sort.Strings(allowed)
 	return allowed
 }()
@@ -74,7 +74,7 @@ type Config struct {
 
 // NewReporter creates a new reporter based on the provided type.
 func NewReporter(ctx context.Context, t string, c *Config, stdout io.Writer) (Reporter, error) {
-	if strings.EqualFold(t, ReporterTypeLocal) {
+	if strings.EqualFold(t, TypeLocal) {
 		return NewLocalReporter(ctx, stdout)
 	}
 
@@ -83,7 +83,7 @@ func NewReporter(ctx context.Context, t string, c *Config, stdout io.Writer) (Re
 		"pull_requests": "write",
 	}
 
-	if strings.EqualFold(t, ReporterTypeGitHub) {
+	if strings.EqualFold(t, TypeGitHub) {
 		gc, err := github.NewGitHubClient(ctx, &c.GitHub)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create github client: %w", err)
