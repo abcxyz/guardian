@@ -33,7 +33,7 @@ type AssignReviewersInput struct {
 	Users []string
 }
 
-// AssignReviewersResult is a collection of principals who were succesfully
+// AssignReviewersResult is a collection of principals who were successfully
 // assigned to review a ChangeRequest.
 type AssignReviewersResult struct {
 	Teams []string
