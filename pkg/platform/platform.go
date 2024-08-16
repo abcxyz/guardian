@@ -43,7 +43,7 @@ var (
 // Platform defines the minimum interface for a code review platform.
 type Platform interface{}
 
-// Config is the configuration needed to generate different reporter types.
+// Config is the configuration needed to generate different Platform types.
 type Config struct {
 	Type string
 
