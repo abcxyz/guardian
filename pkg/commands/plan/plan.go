@@ -281,7 +281,7 @@ func (c *PlanCommand) Process(ctx context.Context) error {
 	}
 
 	if err := c.reporterClient.CreateStatus(ctx, status, rp); err != nil {
-		merr = errors.Join(merr, fmt.Errorf("failed to report update: %w", err))
+		merr = errors.Join(merr, fmt.Errorf("failed to report status: %w", err))
 	}
 
 	return merr

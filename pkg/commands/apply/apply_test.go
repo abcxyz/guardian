@@ -17,17 +17,13 @@ package apply
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/sethvargo/go-githubactions"
 
-	"github.com/abcxyz/guardian/pkg/commands/actions"
-	"github.com/abcxyz/guardian/pkg/flags"
-	"github.com/abcxyz/guardian/pkg/github"
+	"github.com/abcxyz/guardian/pkg/reporter"
 	"github.com/abcxyz/guardian/pkg/storage"
 	"github.com/abcxyz/guardian/pkg/terraform"
 	"github.com/abcxyz/pkg/logging"
@@ -71,30 +67,16 @@ func TestApply_Process(t *testing.T) {
 
 	ctx := logging.WithLogger(context.Background(), logging.TestLogger(t))
 
-	defaultConfig := &Config{
-		ServerURL:  "https://github.com",
-		RunID:      int64(100),
-		RunAttempt: int64(1),
-	}
-
 	cases := []struct {
 		name                     string
 		directory                string
-		flagIsGitHubActions      bool
-		flagGitHubOwner          string
-		flagGitHubRepo           string
-		flagCommitSHA            string
-		flagPullRequestNumber    int
-		flagBucketName           string
 		flagAllowLockfileChanges bool
 		flagLockTimeout          time.Duration
-		flagJobName              string
 		isDestroy                bool
-		config                   *Config
 		planExitCode             string
 		terraformClient          *terraform.MockTerraformClient
 		err                      string
-		expGitHubClientReqs      []*github.Request
+		expReporterClientReqs    []*reporter.Request
 		expStorageClientReqs     []*storage.Request
 		expStdout                string
 		expStderr                string
@@ -103,98 +85,29 @@ func TestApply_Process(t *testing.T) {
 		{
 			name:                     "success",
 			directory:                "testdir",
-			flagIsGitHubActions:      true,
-			flagGitHubOwner:          "owner",
-			flagGitHubRepo:           "repo",
-			flagCommitSHA:            "commit-sha-1",
-			flagBucketName:           "my-bucket-name",
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
-			flagJobName:              "example-job",
-			config:                   defaultConfig,
 			planExitCode:             "2",
 			terraformClient:          terraformMock,
-			expGitHubClientReqs: []*github.Request{
+			expReporterClientReqs: []*reporter.Request{
 				{
-					Name:   "ListPullRequestsForCommit",
-					Params: []any{"owner", "repo", "commit-sha-1"},
-				},
-				{
-					Name:   "ResolveJobLogsURL",
-					Params: []any{"example-job", "owner", "repo", int64(100)},
-				},
-				{
-					Name:   "CreateIssueComment",
-					Params: []any{"owner", "repo", int(1), "**`🔱 Guardian 🔱 APPLY`** - 🟨 Running for dir: `testdir` [[logs](https://github.com/owner/repo/actions/runs/100/job/1)]"},
-				},
-				{
-					Name:   "UpdateIssueComment",
-					Params: []any{"owner", "repo", int64(1), "**`🔱 Guardian 🔱 APPLY`** - 🟩 Successful for dir: `testdir` [[logs](https://github.com/owner/repo/actions/runs/100/job/1)]\n\n<details>\n<summary>Details</summary>\n\n```diff\n\nterraform apply success\n```\n</details>"},
+					Name:   "CreateStatus",
+					Params: []any{reporter.StatusSuccess, &reporter.Params{HasDiff: true, Details: "terraform apply success", Dir: "testdir", Operation: "apply"}},
 				},
 			},
 			expStorageClientReqs: []*storage.Request{
 				{
 					Name: "GetObject",
 					Params: []any{
-						"my-bucket-name",
-						"guardian-plans/owner/repo/1/testdir/test-tfplan.binary",
+						"storage-parent",
+						"testdir/test-tfplan.binary",
 					},
 				},
 				{
 					Name: "DeleteObject",
 					Params: []any{
-						"my-bucket-name",
-						"guardian-plans/owner/repo/1/testdir/test-tfplan.binary",
-					},
-				},
-			},
-		},
-		{
-			name:                     "success_when_direct_log_url_resolution_fails",
-			directory:                "testdir",
-			flagIsGitHubActions:      true,
-			flagGitHubOwner:          "owner",
-			flagGitHubRepo:           "repo",
-			flagCommitSHA:            "commit-sha-1",
-			flagBucketName:           "my-bucket-name",
-			flagAllowLockfileChanges: true,
-			flagLockTimeout:          10 * time.Minute,
-			flagJobName:              "example-job",
-			config:                   defaultConfig,
-			planExitCode:             "2",
-			terraformClient:          terraformMock,
-			resolveJobLogsURLErr:     fmt.Errorf("couldn't resolve job logs url"),
-			expGitHubClientReqs: []*github.Request{
-				{
-					Name:   "ListPullRequestsForCommit",
-					Params: []any{"owner", "repo", "commit-sha-1"},
-				},
-				{
-					Name:   "ResolveJobLogsURL",
-					Params: []any{"example-job", "owner", "repo", int64(100)},
-				},
-				{
-					Name:   "CreateIssueComment",
-					Params: []any{"owner", "repo", int(1), "**`🔱 Guardian 🔱 APPLY`** - 🟨 Running for dir: `testdir` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]"},
-				},
-				{
-					Name:   "UpdateIssueComment",
-					Params: []any{"owner", "repo", int64(1), "**`🔱 Guardian 🔱 APPLY`** - 🟩 Successful for dir: `testdir` [[logs](https://github.com/owner/repo/actions/runs/100/attempts/1)]\n\n<details>\n<summary>Details</summary>\n\n```diff\n\nterraform apply success\n```\n</details>"},
-				},
-			},
-			expStorageClientReqs: []*storage.Request{
-				{
-					Name: "GetObject",
-					Params: []any{
-						"my-bucket-name",
-						"guardian-plans/owner/repo/1/testdir/test-tfplan.binary",
-					},
-				},
-				{
-					Name: "DeleteObject",
-					Params: []any{
-						"my-bucket-name",
-						"guardian-plans/owner/repo/1/testdir/test-tfplan.binary",
+						"storage-parent",
+						"testdir/test-tfplan.binary",
 					},
 				},
 			},
@@ -202,49 +115,30 @@ func TestApply_Process(t *testing.T) {
 		{
 			name:                     "success_destroy",
 			directory:                "testdir",
-			flagIsGitHubActions:      true,
-			flagGitHubOwner:          "owner",
-			flagGitHubRepo:           "repo",
-			flagCommitSHA:            "commit-sha-1",
-			flagBucketName:           "my-bucket-name",
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
-			flagJobName:              "example-job",
 			isDestroy:                true,
-			config:                   defaultConfig,
 			planExitCode:             "2",
 			terraformClient:          terraformMock,
-			expGitHubClientReqs: []*github.Request{
+			expReporterClientReqs: []*reporter.Request{
 				{
-					Name:   "ListPullRequestsForCommit",
-					Params: []any{"owner", "repo", "commit-sha-1"},
-				},
-				{
-					Name:   "ResolveJobLogsURL",
-					Params: []any{"example-job", "owner", "repo", int64(100)},
-				},
-				{
-					Name:   "CreateIssueComment",
-					Params: []any{"owner", "repo", int(1), fmt.Sprintf("**`🔱 Guardian 🔱 APPLY`** - 🟨 Running for dir: `testdir` [[logs](https://github.com/owner/repo/actions/runs/100/job/1)]%s", DestroyCommentText)},
-				},
-				{
-					Name:   "UpdateIssueComment",
-					Params: []any{"owner", "repo", int64(1), fmt.Sprintf("**`🔱 Guardian 🔱 APPLY`** - 🟩 Successful for dir: `testdir` [[logs](https://github.com/owner/repo/actions/runs/100/job/1)]%s\n\n<details>\n<summary>Details</summary>\n\n```diff\n\nterraform apply success\n```\n</details>", DestroyCommentText)},
+					Name:   "CreateStatus",
+					Params: []any{reporter.StatusSuccess, &reporter.Params{HasDiff: true, IsDestroy: true, Details: "terraform apply success", Dir: "testdir", Operation: "apply"}},
 				},
 			},
 			expStorageClientReqs: []*storage.Request{
 				{
 					Name: "GetObject",
 					Params: []any{
-						"my-bucket-name",
-						"guardian-plans/owner/repo/1/testdir/test-tfplan.binary",
+						"storage-parent",
+						"testdir/test-tfplan.binary",
 					},
 				},
 				{
 					Name: "DeleteObject",
 					Params: []any{
-						"my-bucket-name",
-						"guardian-plans/owner/repo/1/testdir/test-tfplan.binary",
+						"storage-parent",
+						"testdir/test-tfplan.binary",
 					},
 				},
 			},
@@ -252,30 +146,23 @@ func TestApply_Process(t *testing.T) {
 		{
 			name:                     "skips_no_diff",
 			directory:                "testdir",
-			flagIsGitHubActions:      false,
-			flagGitHubOwner:          "owner",
-			flagGitHubRepo:           "repo",
-			flagPullRequestNumber:    2,
-			flagBucketName:           "my-bucket-name",
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
-			flagJobName:              "example-job",
-			config:                   defaultConfig,
 			planExitCode:             "0",
 			terraformClient:          terraformMock,
 			expStorageClientReqs: []*storage.Request{
 				{
 					Name: "GetObject",
 					Params: []any{
-						"my-bucket-name",
-						"guardian-plans/owner/repo/2/testdir/test-tfplan.binary",
+						"storage-parent",
+						"testdir/test-tfplan.binary",
 					},
 				},
 				{
 					Name: "DeleteObject",
 					Params: []any{
-						"my-bucket-name",
-						"guardian-plans/owner/repo/2/testdir/test-tfplan.binary",
+						"storage-parent",
+						"testdir/test-tfplan.binary",
 					},
 				},
 			},
@@ -284,47 +171,32 @@ func TestApply_Process(t *testing.T) {
 		{
 			name:                     "handles_error",
 			directory:                "testdir",
-			flagIsGitHubActions:      true,
-			flagGitHubOwner:          "owner",
-			flagGitHubRepo:           "repo",
-			flagPullRequestNumber:    3,
-			flagBucketName:           "my-bucket-name",
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
-			flagJobName:              "example-job",
-			config:                   defaultConfig,
 			planExitCode:             "2",
 			terraformClient:          terraformErrorMock,
 			expStdout:                "terraform apply output",
 			expStderr:                "terraform apply failed",
 			err:                      "failed to run Guardian apply: failed to apply: failed to run terraform apply",
-			expGitHubClientReqs: []*github.Request{
+			expReporterClientReqs: []*reporter.Request{
 				{
-					Name:   "ResolveJobLogsURL",
-					Params: []any{"example-job", "owner", "repo", int64(100)},
-				},
-				{
-					Name:   "CreateIssueComment",
-					Params: []any{"owner", "repo", int(3), "**`🔱 Guardian 🔱 APPLY`** - 🟨 Running for dir: `testdir` [[logs](https://github.com/owner/repo/actions/runs/100/job/1)]"},
-				},
-				{
-					Name:   "UpdateIssueComment",
-					Params: []any{"owner", "repo", int64(1), "**`🔱 Guardian 🔱 APPLY`** - 🟥 Failed for dir: `testdir` [[logs](https://github.com/owner/repo/actions/runs/100/job/1)]\n\n<details>\n<summary>Error</summary>\n\n```\n\nfailed to apply: failed to run terraform apply\n```\n</details>\n\n<details>\n<summary>Details</summary>\n\n```diff\n\nterraform apply failed\n```\n</details>"},
+					Name:   "CreateStatus",
+					Params: []any{reporter.StatusFailure, &reporter.Params{HasDiff: true, Details: "terraform apply failed", Dir: "testdir", Operation: "apply"}},
 				},
 			},
 			expStorageClientReqs: []*storage.Request{
 				{
 					Name: "GetObject",
 					Params: []any{
-						"my-bucket-name",
-						"guardian-plans/owner/repo/3/testdir/test-tfplan.binary",
+						"storage-parent",
+						"testdir/test-tfplan.binary",
 					},
 				},
 				{
 					Name: "DeleteObject",
 					Params: []any{
-						"my-bucket-name",
-						"guardian-plans/owner/repo/3/testdir/test-tfplan.binary",
+						"storage-parent",
+						"testdir/test-tfplan.binary",
 					},
 				},
 			},
@@ -332,48 +204,33 @@ func TestApply_Process(t *testing.T) {
 		{
 			name:                     "handles_error_destroy",
 			directory:                "testdir",
-			flagIsGitHubActions:      true,
-			flagGitHubOwner:          "owner",
-			flagGitHubRepo:           "repo",
-			flagPullRequestNumber:    3,
-			flagBucketName:           "my-bucket-name",
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
-			flagJobName:              "example-job",
 			isDestroy:                true,
-			config:                   defaultConfig,
 			planExitCode:             "2",
 			terraformClient:          terraformErrorMock,
 			expStdout:                "terraform apply output",
 			expStderr:                "terraform apply failed",
 			err:                      "failed to run Guardian apply: failed to apply: failed to run terraform apply",
-			expGitHubClientReqs: []*github.Request{
+			expReporterClientReqs: []*reporter.Request{
 				{
-					Name:   "ResolveJobLogsURL",
-					Params: []any{"example-job", "owner", "repo", int64(100)},
-				},
-				{
-					Name:   "CreateIssueComment",
-					Params: []any{"owner", "repo", int(3), fmt.Sprintf("**`🔱 Guardian 🔱 APPLY`** - 🟨 Running for dir: `testdir` [[logs](https://github.com/owner/repo/actions/runs/100/job/1)]%s", DestroyCommentText)},
-				},
-				{
-					Name:   "UpdateIssueComment",
-					Params: []any{"owner", "repo", int64(1), fmt.Sprintf("**`🔱 Guardian 🔱 APPLY`** - 🟥 Failed for dir: `testdir` [[logs](https://github.com/owner/repo/actions/runs/100/job/1)]%s\n\n<details>\n<summary>Error</summary>\n\n```\n\nfailed to apply: failed to run terraform apply\n```\n</details>\n\n<details>\n<summary>Details</summary>\n\n```diff\n\nterraform apply failed\n```\n</details>", DestroyCommentText)},
+					Name:   "CreateStatus",
+					Params: []any{reporter.StatusFailure, &reporter.Params{HasDiff: true, IsDestroy: true, Details: "terraform apply failed", Dir: "testdir", Operation: "apply"}},
 				},
 			},
 			expStorageClientReqs: []*storage.Request{
 				{
 					Name: "GetObject",
 					Params: []any{
-						"my-bucket-name",
-						"guardian-plans/owner/repo/3/testdir/test-tfplan.binary",
+						"storage-parent",
+						"testdir/test-tfplan.binary",
 					},
 				},
 				{
 					Name: "DeleteObject",
 					Params: []any{
-						"my-bucket-name",
-						"guardian-plans/owner/repo/3/testdir/test-tfplan.binary",
+						"storage-parent",
+						"testdir/test-tfplan.binary",
 					},
 				},
 			},
@@ -386,41 +243,25 @@ func TestApply_Process(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			action := githubactions.New(githubactions.WithWriter(os.Stdout))
-			gitHubClient := &github.MockGitHubClient{
-				ResolveJobLogsURLErr: tc.resolveJobLogsURLErr,
-			}
-			storageClient := &storage.MockStorageClient{
+			mockStorageClient := &storage.MockStorageClient{
 				Metadata: map[string]string{
 					"plan_exit_code": tc.planExitCode,
 				},
 			}
+			mockReporterClient := &reporter.MockReporter{}
 
 			c := &ApplyCommand{
-				GitHubActionCommand: actions.GitHubActionCommand{
-					FlagIsGitHubActions: tc.flagIsGitHubActions,
-					Action:              action,
-				},
-				GitHubFlags: flags.GitHubFlags{
-					FlagGitHubOwner: tc.flagGitHubOwner,
-					FlagGitHubRepo:  tc.flagGitHubRepo,
-				},
-				cfg: tc.config,
-
-				directory:    tc.directory,
-				childPath:    tc.directory,
-				planFileName: "test-tfplan.binary",
-
-				flagCommitSHA:            tc.flagCommitSHA,
-				flagPullRequestNumber:    tc.flagPullRequestNumber,
-				flagBucketName:           tc.flagBucketName,
+				directory:                tc.directory,
+				childPath:                tc.directory,
+				planFilename:             "test-tfplan.binary",
+				storageParent:            "storage-parent",
+				storagePrefix:            "",
 				flagAllowLockfileChanges: tc.flagAllowLockfileChanges,
 				flagLockTimeout:          tc.flagLockTimeout,
-				flagJobName:              tc.flagJobName,
 				isDestroy:                tc.isDestroy,
-				gitHubClient:             gitHubClient,
-				storageClient:            storageClient,
+				storageClient:            mockStorageClient,
 				terraformClient:          tc.terraformClient,
+				reporterClient:           mockReporterClient,
 			}
 
 			_, stdout, stderr := c.Pipe()
@@ -430,11 +271,11 @@ func TestApply_Process(t *testing.T) {
 				t.Errorf(diff)
 			}
 
-			if diff := cmp.Diff(gitHubClient.Reqs, tc.expGitHubClientReqs); diff != "" {
-				t.Errorf("GitHubClient calls not as expected; (-got,+want): %s", diff)
+			if diff := cmp.Diff(mockReporterClient.Reqs, tc.expReporterClientReqs); diff != "" {
+				t.Errorf("Reporter calls not as expected; (-got,+want): %s", diff)
 			}
 
-			if diff := cmp.Diff(storageClient.Reqs, tc.expStorageClientReqs); diff != "" {
+			if diff := cmp.Diff(mockStorageClient.Reqs, tc.expStorageClientReqs); diff != "" {
 				t.Errorf("Storage calls not as expected; (-got,+want): %s", diff)
 			}
 
