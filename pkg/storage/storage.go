@@ -40,3 +40,15 @@ type Storage interface {
 	// ObjectsWithName returns the paths of files for a given parent with the filename.
 	ObjectsWithName(ctx context.Context, bucket, filename string) ([]string, error)
 }
+
+// PlanStorage defines the minimum interface for storing Terraform plan files.
+type PlanStorage interface {
+	// SavePlan saves a plan file to a storage backend.
+	SavePlan(ctx context.Context, name string, contents []byte, metadata map[string]string) error
+
+	// GetPlan gets the plan file from a storage backend.
+	GetPlan(ctx context.Context, name string) (io.ReadCloser, map[string]string, error)
+
+	// DeletePlan deletes a plan file from storage backend.
+	DeletePlan(ctx context.Context, name string) error
+}

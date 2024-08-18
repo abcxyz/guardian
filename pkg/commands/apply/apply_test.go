@@ -97,16 +97,14 @@ func TestApply_Process(t *testing.T) {
 			},
 			expStorageClientReqs: []*storage.Request{
 				{
-					Name: "GetObject",
+					Name: "GetPlan",
 					Params: []any{
-						"storage-parent",
 						"testdir/test-tfplan.binary",
 					},
 				},
 				{
-					Name: "DeleteObject",
+					Name: "DeletePlan",
 					Params: []any{
-						"storage-parent",
 						"testdir/test-tfplan.binary",
 					},
 				},
@@ -128,16 +126,14 @@ func TestApply_Process(t *testing.T) {
 			},
 			expStorageClientReqs: []*storage.Request{
 				{
-					Name: "GetObject",
+					Name: "GetPlan",
 					Params: []any{
-						"storage-parent",
 						"testdir/test-tfplan.binary",
 					},
 				},
 				{
-					Name: "DeleteObject",
+					Name: "DeletePlan",
 					Params: []any{
-						"storage-parent",
 						"testdir/test-tfplan.binary",
 					},
 				},
@@ -152,16 +148,14 @@ func TestApply_Process(t *testing.T) {
 			terraformClient:          terraformMock,
 			expStorageClientReqs: []*storage.Request{
 				{
-					Name: "GetObject",
+					Name: "GetPlan",
 					Params: []any{
-						"storage-parent",
 						"testdir/test-tfplan.binary",
 					},
 				},
 				{
-					Name: "DeleteObject",
+					Name: "DeletePlan",
 					Params: []any{
-						"storage-parent",
 						"testdir/test-tfplan.binary",
 					},
 				},
@@ -186,16 +180,14 @@ func TestApply_Process(t *testing.T) {
 			},
 			expStorageClientReqs: []*storage.Request{
 				{
-					Name: "GetObject",
+					Name: "GetPlan",
 					Params: []any{
-						"storage-parent",
 						"testdir/test-tfplan.binary",
 					},
 				},
 				{
-					Name: "DeleteObject",
+					Name: "DeletePlan",
 					Params: []any{
-						"storage-parent",
 						"testdir/test-tfplan.binary",
 					},
 				},
@@ -220,16 +212,14 @@ func TestApply_Process(t *testing.T) {
 			},
 			expStorageClientReqs: []*storage.Request{
 				{
-					Name: "GetObject",
+					Name: "GetPlan",
 					Params: []any{
-						"storage-parent",
 						"testdir/test-tfplan.binary",
 					},
 				},
 				{
-					Name: "DeleteObject",
+					Name: "DeletePlan",
 					Params: []any{
-						"storage-parent",
 						"testdir/test-tfplan.binary",
 					},
 				},
@@ -243,7 +233,7 @@ func TestApply_Process(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			mockStorageClient := &storage.MockStorageClient{
+			mockPlanStorageClient := &storage.MockPlanStorageClient{
 				Metadata: map[string]string{
 					"plan_exit_code": tc.planExitCode,
 				},
@@ -254,12 +244,10 @@ func TestApply_Process(t *testing.T) {
 				directory:                tc.directory,
 				childPath:                tc.directory,
 				planFilename:             "test-tfplan.binary",
-				storageParent:            "storage-parent",
-				storagePrefix:            "",
 				flagAllowLockfileChanges: tc.flagAllowLockfileChanges,
 				flagLockTimeout:          tc.flagLockTimeout,
 				isDestroy:                tc.isDestroy,
-				storageClient:            mockStorageClient,
+				planStorageClient:        mockPlanStorageClient,
 				terraformClient:          tc.terraformClient,
 				reporterClient:           mockReporterClient,
 			}
@@ -275,8 +263,8 @@ func TestApply_Process(t *testing.T) {
 				t.Errorf("Reporter calls not as expected; (-got,+want): %s", diff)
 			}
 
-			if diff := cmp.Diff(mockStorageClient.Reqs, tc.expStorageClientReqs); diff != "" {
-				t.Errorf("Storage calls not as expected; (-got,+want): %s", diff)
+			if diff := cmp.Diff(mockPlanStorageClient.Reqs, tc.expStorageClientReqs); diff != "" {
+				t.Errorf("PlanStorage calls not as expected; (-got,+want): %s", diff)
 			}
 
 			if got, want := strings.TrimSpace(stdout.String()), strings.TrimSpace(tc.expStdout); !strings.Contains(got, want) {

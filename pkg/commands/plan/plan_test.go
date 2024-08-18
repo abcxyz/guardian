@@ -137,11 +137,11 @@ func TestPlan_Process(t *testing.T) {
 			},
 			expStorageClientReqs: []*storage.Request{
 				{
-					Name: "CreateObject",
+					Name: "SavePlan",
 					Params: []any{
-						"storage-parent",
 						"testdata/test-tfplan.binary",
 						"this is a plan binary",
+						map[string]string{"operation": "plan", "plan_exit_code": "2"},
 					},
 				},
 			},
@@ -163,11 +163,11 @@ func TestPlan_Process(t *testing.T) {
 			},
 			expStorageClientReqs: []*storage.Request{
 				{
-					Name: "CreateObject",
+					Name: "SavePlan",
 					Params: []any{
-						"storage-parent",
 						"testdata/test-tfplan.binary",
 						"this is a plan binary",
+						map[string]string{"operation": "destroy", "plan_exit_code": "2"},
 					},
 				},
 			},
@@ -188,11 +188,11 @@ func TestPlan_Process(t *testing.T) {
 			},
 			expStorageClientReqs: []*storage.Request{
 				{
-					Name: "CreateObject",
+					Name: "SavePlan",
 					Params: []any{
-						"storage-parent",
 						"testdata/test-tfplan.binary",
 						"this is a plan binary",
+						map[string]string{"operation": "plan", "plan_exit_code": "0"},
 					},
 				},
 			},
@@ -223,7 +223,7 @@ func TestPlan_Process(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			mockStorageClient := &storage.MockStorageClient{}
+			mockPlanStorageClient := &storage.MockPlanStorageClient{}
 			mockReporterClient := &reporter.MockReporter{}
 
 			c := &PlanCommand{
@@ -237,7 +237,7 @@ func TestPlan_Process(t *testing.T) {
 				flagAllowLockfileChanges: tc.flagAllowLockfileChanges,
 				flagLockTimeout:          tc.flagLockTimeout,
 				terraformClient:          tc.terraformClient,
-				storageClient:            mockStorageClient,
+				planStorageClient:        mockPlanStorageClient,
 				reporterClient:           mockReporterClient,
 			}
 
@@ -252,8 +252,8 @@ func TestPlan_Process(t *testing.T) {
 				t.Errorf("Reporter calls not as expected; (-got,+want): %s", diff)
 			}
 
-			if diff := cmp.Diff(mockStorageClient.Reqs, tc.expStorageClientReqs); diff != "" {
-				t.Errorf("Storage calls not as expected; (-got,+want): %s", diff)
+			if diff := cmp.Diff(mockPlanStorageClient.Reqs, tc.expStorageClientReqs); diff != "" {
+				t.Errorf("PlanStorage calls not as expected; (-got,+want): %s", diff)
 			}
 
 			if got, want := strings.TrimSpace(stdout.String()), strings.TrimSpace(tc.expStdout); !strings.Contains(got, want) {
