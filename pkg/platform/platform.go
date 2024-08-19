@@ -50,8 +50,23 @@ var (
 	_ Platform = (*GitHub)(nil)
 )
 
+// AssignReviewers
+type AssignReviewersInput struct {
+	Users []string
+	Teams []string
+}
+
+// AssignReviewersResult
+type AssignReviewersResult struct {
+	Users []string
+	Teams []string
+}
+
 // Platform defines the minimum interface for a code review platform.
-type Platform interface{}
+type Platform interface {
+	// AssignReviewers assigns principals to review a change request.
+	AssignReviewers(ctx context.Context, inputs *AssignReviewersInput) (*AssignReviewersResult, error)
+}
 
 // Config is the configuration needed to generate different Platform types.
 type Config struct {

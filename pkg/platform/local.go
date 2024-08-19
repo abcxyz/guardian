@@ -25,3 +25,8 @@ type Local struct{}
 func NewLocal(ctx context.Context) *Local {
 	return &Local{}
 }
+
+// AssignReviewers is a no-op.
+func (l *Local) AssignReviewers(ctx context.Context, inputs *AssignReviewersInput) (*AssignReviewersResult, error) {
+	return &AssignReviewersResult{}, nil
+}
