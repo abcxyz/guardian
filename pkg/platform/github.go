@@ -23,9 +23,8 @@ import (
 	"github.com/google/go-github/v53/github"
 	"golang.org/x/oauth2"
 
-	"github.com/abcxyz/pkg/githubauth"
-
 	gh "github.com/abcxyz/guardian/pkg/github"
+	"github.com/abcxyz/pkg/githubauth"
 )
 
 var _ Platform = (*GitHub)(nil)
