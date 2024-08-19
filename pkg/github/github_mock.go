@@ -241,21 +241,3 @@ func (m *MockGitHubClient) ResolveJobLogsURL(ctx context.Context, jobName, owner
 
 	return fmt.Sprintf("https://github.com/%s/%s/actions/runs/%d/job/%d", owner, repo, runID, 1), nil
 }
-
-func (m *MockGitHubClient) RequestReviewers(ctx context.Context, owner, repo string, number int, users, teams []string) (*RequestReviewersResponse, error) {
-	m.reqMu.Lock()
-	defer m.reqMu.Unlock()
-	m.Reqs = append(m.Reqs, &Request{
-		Name:   "RequestReviewers",
-		Params: []any{owner, repo, number, users, teams},
-	})
-
-	if m.RequestReviewersErr != nil {
-		return nil, m.RequestReviewersErr
-	}
-
-	return &RequestReviewersResponse{
-		Users: m.UserReviewers,
-		Teams: m.TeamReviewers,
-	}, nil
-}
