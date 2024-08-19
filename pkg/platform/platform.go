@@ -50,13 +50,15 @@ var (
 	_ Platform = (*GitHub)(nil)
 )
 
-// AssignReviewers
+// AssignReviewersInput defines the principal types that can be assigned to a
+// change request.
 type AssignReviewersInput struct {
 	Users []string
 	Teams []string
 }
 
-// AssignReviewersResult
+// AssignReviewersResult contains the principals that were successfully assigned
+// to a change request.
 type AssignReviewersResult struct {
 	Users []string
 	Teams []string
