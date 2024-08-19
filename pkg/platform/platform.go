@@ -26,7 +26,7 @@ import (
 
 	"github.com/posener/complete/v2"
 
-	"github.com/abcxyz/guardian/pkg/github"
+	gh "github.com/abcxyz/guardian/pkg/github"
 	"github.com/abcxyz/pkg/cli"
 )
 
@@ -47,7 +47,7 @@ var (
 		sort.Strings(allowed)
 		return allowed
 	}()
-	_ Platform = (*github.GitHubClient)(nil)
+	_ Platform = (*GitHub)(nil)
 )
 
 // Platform defines the minimum interface for a code review platform.
@@ -57,7 +57,7 @@ type Platform interface{}
 type Config struct {
 	Type string
 
-	GitHub github.Config
+	GitHub gh.Config
 }
 
 func (c *Config) RegisterFlags(set *cli.FlagSet) {
@@ -104,9 +104,9 @@ func NewPlatform(ctx context.Context, cfg *Config) (Platform, error) {
 	}
 
 	if strings.EqualFold(cfg.Type, TypeGitHub) {
-		gc, err := github.NewGitHubClient(ctx, &cfg.GitHub)
+		gc, err := NewGitHub(ctx, &cfg.GitHub)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create github client: %w", err)
+			return nil, fmt.Errorf("failed to create github: %w", err)
 		}
 		return gc, nil
 	}
