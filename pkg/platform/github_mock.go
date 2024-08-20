@@ -1,25 +1,10 @@
-// Copyright 2023 The Authors (see AUTHORS file)
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 package platform
 
 import (
 	"context"
+	"fmt"
 	"sync"
 )
-
-var _ Platform = (*MockGitHub)(nil)
 
 type Request struct {
 	Name   string
@@ -30,9 +15,9 @@ type MockGitHub struct {
 	reqMu sync.Mutex
 	Reqs  []*Request
 
-	Owner  string
-	Repo   string
-	Number int
+	Owner             string
+	Repo              string
+	PullRequestNumber int
 
 	AssignReviewersErr error
 	UserReviewers      []string
@@ -40,12 +25,24 @@ type MockGitHub struct {
 }
 
 func (m *MockGitHub) AssignReviewers(ctx context.Context, inputs *AssignReviewersInput) (*AssignReviewersResult, error) {
+	if inputs == nil {
+		return nil, fmt.Errorf("inputs cannot be nil")
+	}
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
-	m.Reqs = append(m.Reqs, &Request{
-		Name:   "AssignReviewers",
-		Params: []any{m.Owner, m.Repo, m.Number, inputs.Users, inputs.Teams},
-	})
+
+	for _, u := range inputs.Users {
+		m.Reqs = append(m.Reqs, &Request{
+			Name:   "AssignReviewers",
+			Params: []any{m.Owner, m.Repo, m.PullRequestNumber, []string{u}, []string(nil)},
+		})
+	}
+	for _, t := range inputs.Teams {
+		m.Reqs = append(m.Reqs, &Request{
+			Name:   "AssignReviewers",
+			Params: []any{m.Owner, m.Repo, m.PullRequestNumber, []string(nil), []string{t}},
+		})
+	}
 
 	if m.AssignReviewersErr != nil {
 		return nil, m.AssignReviewersErr
