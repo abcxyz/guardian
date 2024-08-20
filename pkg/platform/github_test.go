@@ -127,13 +127,6 @@ func TestGitHub_AssignReviewers(t *testing.T) {
 				},
 			}
 
-			if len(tc.users) > 0 {
-				client.UserReviewers = tc.users
-			}
-			if len(tc.teams) > 0 {
-				client.TeamReviewers = tc.teams
-			}
-
 			res, err := platform.AssignReviewers(ctx, &AssignReviewersInput{
 				Users: tc.users,
 				Teams: tc.teams,
