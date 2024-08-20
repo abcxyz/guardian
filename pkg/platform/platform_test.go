@@ -33,26 +33,18 @@ func TestGitHub_AssignReviewers(t *testing.T) {
 		teams                []string
 		assignReviewersErr   error
 		wantErr              string
-		expGitHubClientReqs  []*Request
+		expClientReqs        []*Request
 	}{
 		{
-			name: "calls_users_and_teams_individually",
+			name: "calls_users_and_teams",
 			assignReviewersInput: &AssignReviewersInput{
 				Teams: []string{"test-team-name"},
 				Users: []string{"test-user-name", "test-user-name-2"},
 			},
-			expGitHubClientReqs: []*Request{
+			expClientReqs: []*Request{
 				{
 					Name:   "AssignReviewers",
-					Params: []any{"test-owner", "test-repo", 1, []string{"test-user-name"}, []string(nil)},
-				},
-				{
-					Name:   "AssignReviewers",
-					Params: []any{"test-owner", "test-repo", 1, []string{"test-user-name-2"}, []string(nil)},
-				},
-				{
-					Name:   "AssignReviewers",
-					Params: []any{"test-owner", "test-repo", 1, []string(nil), []string{"test-team-name"}},
+					Params: []any{[]string{"test-user-name", "test-user-name-2"}, []string{"test-team-name"}},
 				},
 			},
 		},
@@ -61,10 +53,10 @@ func TestGitHub_AssignReviewers(t *testing.T) {
 			assignReviewersInput: &AssignReviewersInput{
 				Users: []string{"test-user-name"},
 			},
-			expGitHubClientReqs: []*Request{
+			expClientReqs: []*Request{
 				{
 					Name:   "AssignReviewers",
-					Params: []any{"test-owner", "test-repo", 1, []string{"test-user-name"}, []string(nil)},
+					Params: []any{[]string{"test-user-name"}, []string(nil)},
 				},
 			},
 		},
@@ -73,29 +65,25 @@ func TestGitHub_AssignReviewers(t *testing.T) {
 			assignReviewersInput: &AssignReviewersInput{
 				Teams: []string{"test-team-name"},
 			},
-			expGitHubClientReqs: []*Request{
+			expClientReqs: []*Request{
 				{
 					Name:   "AssignReviewers",
-					Params: []any{"test-owner", "test-repo", 1, []string(nil), []string{"test-team-name"}},
+					Params: []any{[]string(nil), []string{"test-team-name"}},
 				},
 			},
 		},
 		{
-			name: "returns_error_when",
+			name: "returns_error",
 			assignReviewersInput: &AssignReviewersInput{
 				Teams: []string{"test-team-name"},
 				Users: []string{"test-user-name"},
 			},
 			assignReviewersErr: fmt.Errorf("failed to assign all requested reviewers to pull request"),
 			wantErr:            "failed to assign all requested reviewers to pull request",
-			expGitHubClientReqs: []*Request{
+			expClientReqs: []*Request{
 				{
 					Name:   "AssignReviewers",
-					Params: []any{"test-owner", "test-repo", 1, []string{"test-user-name"}, []string(nil)},
-				},
-				{
-					Name:   "AssignReviewers",
-					Params: []any{"test-owner", "test-repo", 1, []string(nil), []string{"test-team-name"}},
+					Params: []any{[]string{"test-user-name"}, []string{"test-team-name"}},
 				},
 			},
 		},
@@ -112,11 +100,7 @@ func TestGitHub_AssignReviewers(t *testing.T) {
 
 			ctx := context.Background()
 
-			platform := &MockGitHub{
-				Owner:             "test-owner",
-				Repo:              "test-repo",
-				PullRequestNumber: 1,
-
+			platform := &MockPlatform{
 				AssignReviewersErr: tc.assignReviewersErr,
 			}
 
@@ -125,7 +109,7 @@ func TestGitHub_AssignReviewers(t *testing.T) {
 				t.Errorf(diff)
 			}
 
-			if diff := cmp.Diff(platform.Reqs, tc.expGitHubClientReqs); diff != "" {
+			if diff := cmp.Diff(platform.Reqs, tc.expClientReqs); diff != "" {
 				t.Errorf("GitHubClient calls not as expected; (-got,+want): %s", diff)
 			}
 		})
