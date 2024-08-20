@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package github provides the functionality to send requests to the GitHub API.
 package platform
 
 import (
