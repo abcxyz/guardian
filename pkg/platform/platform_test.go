@@ -27,69 +27,69 @@ import (
 func TestPlatform_AssignReviewers(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
-		name                 string
-		assignReviewersInput *AssignReviewersInput
-		users                []string
-		teams                []string
-		assignReviewersErr   error
-		wantErr              string
-		expClientReqs        []*Request
+		name               string
+		users              []string
+		teams              []string
+		assignReviewersErr error
+		wantErr            string
+		wantResult         *AssignReviewersResult
+		expClientReqs      []*Request
 	}{
 		{
-			name: "calls_users_and_teams",
-			assignReviewersInput: &AssignReviewersInput{
-				Teams: []string{"test-team-name"},
-				Users: []string{"test-user-name", "test-user-name-2"},
-			},
+			name:  "calls_users_and_teams",
+			teams: []string{"test-team-name"},
+			users: []string{"test-user-name", "test-user-name-2"},
 			expClientReqs: []*Request{
 				{
 					Name:   "AssignReviewers",
 					Params: []any{[]string{"test-user-name", "test-user-name-2"}, []string{"test-team-name"}},
 				},
 			},
+			wantResult: &AssignReviewersResult{
+				Users: []string{"test-user-name", "test-user-name-2"},
+				Teams: []string{"test-team-name"},
+			},
 		},
 		{
-			name: "calls_with_only_users",
-			assignReviewersInput: &AssignReviewersInput{
-				Users: []string{"test-user-name"},
-			},
+			name:  "calls_with_only_users",
+			users: []string{"test-user-name"},
 			expClientReqs: []*Request{
 				{
 					Name:   "AssignReviewers",
 					Params: []any{[]string{"test-user-name"}, []string(nil)},
 				},
 			},
+			wantResult: &AssignReviewersResult{
+				Users: []string{"test-user-name"},
+				Teams: []string(nil),
+			},
 		},
 		{
-			name: "calls_with_only_teams",
-			assignReviewersInput: &AssignReviewersInput{
-				Teams: []string{"test-team-name"},
-			},
+			name:  "calls_with_only_teams",
+			teams: []string{"test-team-name"},
 			expClientReqs: []*Request{
 				{
 					Name:   "AssignReviewers",
 					Params: []any{[]string(nil), []string{"test-team-name"}},
 				},
 			},
+			wantResult: &AssignReviewersResult{
+				Users: []string(nil),
+				Teams: []string{"test-team-name"},
+			},
 		},
 		{
-			name: "returns_error",
-			assignReviewersInput: &AssignReviewersInput{
-				Teams: []string{"test-team-name"},
-				Users: []string{"test-user-name"},
-			},
-			assignReviewersErr: fmt.Errorf("failed to assign all requested reviewers to pull request"),
-			wantErr:            "failed to assign all requested reviewers to pull request",
+			name:               "returns_error",
+			teams:              []string{"test-team-name"},
+			users:              []string{"test-user-name"},
+			assignReviewersErr: fmt.Errorf("failed"),
+			wantErr:            "failed",
 			expClientReqs: []*Request{
 				{
 					Name:   "AssignReviewers",
 					Params: []any{[]string{"test-user-name"}, []string{"test-team-name"}},
 				},
 			},
-		},
-		{
-			name:    "returns_error_with_missing_inputs",
-			wantErr: "inputs cannot be nil",
 		},
 	}
 
@@ -102,15 +102,24 @@ func TestPlatform_AssignReviewers(t *testing.T) {
 
 			platform := &MockPlatform{
 				AssignReviewersErr: tc.assignReviewersErr,
+				UserReviewers:      tc.users,
+				TeamReviewers:      tc.teams,
 			}
 
-			_, err := platform.AssignReviewers(ctx, tc.assignReviewersInput)
+			res, err := platform.AssignReviewers(ctx, &AssignReviewersInput{
+				Users: tc.users,
+				Teams: tc.teams,
+			})
 			if diff := testutil.DiffErrString(err, tc.wantErr); diff != "" {
 				t.Errorf(diff)
 			}
 
 			if diff := cmp.Diff(platform.Reqs, tc.expClientReqs); diff != "" {
-				t.Errorf("GitHubClient calls not as expected; (-got,+want): %s", diff)
+				t.Errorf("AssignReviewers call not as expected; (-got,+want): %s", diff)
+			}
+
+			if diff := cmp.Diff(res, tc.wantResult); diff != "" {
+				t.Errorf("AssignReviewers got unexpected result (-got, want):\n%s", diff)
 			}
 		})
 	}
