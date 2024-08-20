@@ -16,8 +16,10 @@ package policy
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
+	"github.com/abcxyz/guardian/pkg/platform"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/testutil"
 )
@@ -28,9 +30,10 @@ func TestPolicy_Process(t *testing.T) {
 	ctx := logging.WithLogger(context.Background(), logging.TestLogger(t))
 
 	cases := []struct {
-		name        string
-		resultsFile string
-		wantErr     string
+		name               string
+		resultsFile        string
+		assignReviewersErr error
+		wantErr            string
 	}{
 		{
 			name:        "succeeds_with_sufficient_approvals",
@@ -46,6 +49,12 @@ func TestPolicy_Process(t *testing.T) {
 			resultsFile: "testdata/missing_user_approval.json",
 			wantErr:     "failed: \"test_policy_name\" - test-error-message",
 		},
+		{
+			name:               "fails_with_platform_api_error",
+			resultsFile:        "testdata/missing_user_approval.json",
+			assignReviewersErr: fmt.Errorf("failed to assign reviewers"),
+			wantErr:            "failed to assign reviewers",
+		},
 	}
 
 	for _, tc := range cases {
@@ -57,6 +66,9 @@ func TestPolicy_Process(t *testing.T) {
 			c := &PolicyCommand{
 				flags: PolicyFlags{
 					ResultsFile: tc.resultsFile,
+				},
+				platform: &platform.MockPlatform{
+					AssignReviewersErr: tc.assignReviewersErr,
 				},
 			}
 
