@@ -24,7 +24,7 @@ import (
 	"github.com/abcxyz/pkg/testutil"
 )
 
-func TestGitHub_AssignReviewers(t *testing.T) {
+func TestPlatform_AssignReviewers(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
 		name                 string
