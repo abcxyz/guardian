@@ -109,8 +109,9 @@ func (g *GitHub) requestReviewers(ctx context.Context, reviewer *github.Reviewer
 }
 
 // AssignReviewers assigns a list of users and teams as reviewers of a target
-// Pull Request. Mixing existing reviewers in pending review state with new
-// reviewers will result in a no-op without errors thrown.
+// Pull Request. The implementation assigns one principal per request because
+// mixing existing reviewers in pending review state with new reviewers will
+// result in a no-op without errors thrown.
 func (g *GitHub) AssignReviewers(ctx context.Context, inputs *AssignReviewersInput) (*AssignReviewersResult, error) {
 	logger := logging.FromContext(ctx)
 	if inputs == nil {
