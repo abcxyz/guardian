@@ -91,7 +91,7 @@ func NewGitHub(ctx context.Context, cfg *gh.Config) (*GitHub, error) {
 }
 
 // RequestReviewers abstracts GitHub's RequestReviewers API with retries.
-func (g *GitHub) RequestReviewers(ctx context.Context, reviewer *github.ReviewersRequest) error {
+func (g *GitHub) requestReviewers(ctx context.Context, reviewer *github.ReviewersRequest) error {
 	if reviewer == nil {
 		return fmt.Errorf("reviewer cannot be nil")
 	}
@@ -119,7 +119,7 @@ func (g *GitHub) AssignReviewers(ctx context.Context, inputs *AssignReviewersInp
 
 	var result AssignReviewersResult
 	for _, u := range inputs.Users {
-		if err := g.RequestReviewers(ctx, &github.ReviewersRequest{Reviewers: []string{u}}); err != nil {
+		if err := g.requestReviewers(ctx, &github.ReviewersRequest{Reviewers: []string{u}}); err != nil {
 			logger.ErrorContext(ctx, "failed to assign reviewer for pull request",
 				"user", u,
 				"error", err,
@@ -129,7 +129,7 @@ func (g *GitHub) AssignReviewers(ctx context.Context, inputs *AssignReviewersInp
 		result.Users = append(result.Users, u)
 	}
 	for _, t := range inputs.Teams {
-		if err := g.RequestReviewers(ctx, &github.ReviewersRequest{TeamReviewers: []string{t}}); err != nil {
+		if err := g.requestReviewers(ctx, &github.ReviewersRequest{TeamReviewers: []string{t}}); err != nil {
 			logger.ErrorContext(ctx, "failed to assign reviewer for pull request",
 				"team", t,
 				"error", err,
