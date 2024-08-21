@@ -41,8 +41,8 @@ type CleanupCommand struct {
 	flags.RetryFlags
 	flags.CommonFlags
 
-	storageClient   storage.Storage
-	terraformParser parser.Terraform
+	newStorageClient func(ctx context.Context, parent string) (storage.Storage, error)
+	terraformParser  parser.Terraform
 }
 
 func (c *CleanupCommand) Desc() string {
@@ -92,11 +92,9 @@ func (c *CleanupCommand) Run(ctx context.Context, args []string) error {
 	}
 	c.directory = dirAbs
 
-	sc, err := storage.NewGoogleCloudStorage(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to create google cloud storage client: %w", err)
+	c.newStorageClient = func(ctx context.Context, parent string) (storage.Storage, error) {
+		return storage.NewGoogleCloudStorage(ctx, parent)
 	}
-	c.storageClient = sc
 
 	c.terraformParser, err = parser.NewTerraformParser(ctx, "")
 	if err != nil {
@@ -147,7 +145,12 @@ func (c *CleanupCommand) Process(ctx context.Context) error {
 		return fmt.Errorf("failed to parse gcs object %s: %w", statefileURI, err)
 	}
 
-	if err = c.storageClient.DeleteObject(ctx, bucketName, objectName); err != nil {
+	sc, err := c.newStorageClient(ctx, bucketName)
+	if err != nil {
+		return fmt.Errorf("failed to create storage client: %w", err)
+	}
+
+	if err = sc.DeleteObject(ctx, objectName); err != nil {
 		return fmt.Errorf("failed to delete statefile stored in gcs %s: %w", statefileURI, err)
 	}
 

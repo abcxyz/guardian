@@ -47,10 +47,11 @@ type Config struct {
 type GoogleCloudStorage struct {
 	client *storage.Client
 	cfg    *Config
+	parent string
 }
 
 // NewGoogleCloudStorage creates a new GoogleCloudStorage client.
-func NewGoogleCloudStorage(ctx context.Context) (*GoogleCloudStorage, error) {
+func NewGoogleCloudStorage(ctx context.Context, parent string) (*GoogleCloudStorage, error) {
 	cfg := &Config{
 		initialRetryDelay: 1 * time.Second,
 		maxRetryDelay:     20 * time.Second,
@@ -66,12 +67,13 @@ func NewGoogleCloudStorage(ctx context.Context) (*GoogleCloudStorage, error) {
 	return &GoogleCloudStorage{
 		cfg:    cfg,
 		client: client,
+		parent: parent,
 	}, nil
 }
 
 // objectHandleWithRetries retrieves an object handle configured with a retry mechanism.
-func (s *GoogleCloudStorage) objectHandleWithRetries(ctx context.Context, bucket, name string) (*storage.ObjectHandle, context.Context, context.CancelFunc) {
-	o := s.client.Bucket(bucket).Object(name).Retryer(
+func (s *GoogleCloudStorage) objectHandleWithRetries(ctx context.Context, name string) (*storage.ObjectHandle, context.Context, context.CancelFunc) {
+	o := s.client.Bucket(s.parent).Object(name).Retryer(
 		storage.WithBackoff(gax.Backoff{
 			Initial:    s.cfg.initialRetryDelay,
 			Max:        s.cfg.maxRetryDelay,
@@ -115,10 +117,10 @@ func makeCreateConfig(contentLength int, opts []CreateOption) *createConfig {
 }
 
 // CreateObject uploads an object to a Google Cloud Storage bucket using a set of upload options.
-func (s *GoogleCloudStorage) CreateObject(ctx context.Context, bucket, name string, contents []byte, opts ...CreateOption) (merr error) {
+func (s *GoogleCloudStorage) CreateObject(ctx context.Context, name string, contents []byte, opts ...CreateOption) (merr error) {
 	cfg := makeCreateConfig(len(contents), opts)
 
-	o, ctx, cancel := s.objectHandleWithRetries(ctx, bucket, name)
+	o, ctx, cancel := s.objectHandleWithRetries(ctx, name)
 	defer cancel()
 
 	if !cfg.allowOverwrite {
@@ -175,8 +177,8 @@ func (s *GoogleCloudStorage) CreateObject(ctx context.Context, bucket, name stri
 }
 
 // GetObject downloads an object from a Google Cloud Storage bucket. The caller must call Close on the returned Reader when done reading.
-func (s *GoogleCloudStorage) GetObject(ctx context.Context, bucket, name string) (io.ReadCloser, map[string]string, error) {
-	o, ctx, cancel := s.objectHandleWithRetries(ctx, bucket, name)
+func (s *GoogleCloudStorage) GetObject(ctx context.Context, name string) (io.ReadCloser, map[string]string, error) {
+	o, ctx, cancel := s.objectHandleWithRetries(ctx, name)
 
 	r, err := o.NewReader(ctx)
 	if err != nil {
@@ -198,8 +200,8 @@ func (s *GoogleCloudStorage) GetObject(ctx context.Context, bucket, name string)
 
 // DeleteObject deletes an object from a Google Cloud Storage bucket. If the object does not exist, no error
 // will be returned.
-func (s *GoogleCloudStorage) DeleteObject(ctx context.Context, bucket, name string) error {
-	o, ctx, cancel := s.objectHandleWithRetries(ctx, bucket, name)
+func (s *GoogleCloudStorage) DeleteObject(ctx context.Context, name string) error {
+	o, ctx, cancel := s.objectHandleWithRetries(ctx, name)
 	defer cancel()
 
 	if err := o.Delete(ctx); err != nil {
@@ -212,9 +214,9 @@ func (s *GoogleCloudStorage) DeleteObject(ctx context.Context, bucket, name stri
 }
 
 // ObjectsWithName returns all files in a bucket with a given file name.
-func (s *GoogleCloudStorage) ObjectsWithName(ctx context.Context, bucket, filename string) ([]string, error) {
+func (s *GoogleCloudStorage) ObjectsWithName(ctx context.Context, filename string) ([]string, error) {
 	var uris []string
-	b := s.client.Bucket(bucket)
+	b := s.client.Bucket(s.parent)
 	if _, err := b.Attrs(ctx); err != nil {
 		if err.Error() == "storage: bucket doesn't exist" {
 			return nil, ErrBucketNotFound
@@ -228,10 +230,10 @@ func (s *GoogleCloudStorage) ObjectsWithName(ctx context.Context, bucket, filena
 			break
 		}
 		if err != nil {
-			return nil, fmt.Errorf("failed to list bucket contents: Bucket(%q).Objects(): %w", bucket, err)
+			return nil, fmt.Errorf("failed to list bucket contents: Bucket(%q).Objects(): %w", s.parent, err)
 		}
 		if strings.HasSuffix(attrs.Name, filename) {
-			uris = append(uris, fmt.Sprintf("gs://%s/%s", bucket, attrs.Name))
+			uris = append(uris, fmt.Sprintf("gs://%s/%s", s.parent, attrs.Name))
 		}
 	}
 	return uris, nil

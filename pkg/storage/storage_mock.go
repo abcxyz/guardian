@@ -48,12 +48,12 @@ type BufferReadCloser struct {
 
 func (b *BufferReadCloser) Close() error { return nil }
 
-func (m *MockStorageClient) CreateObject(ctx context.Context, bucket, name string, contents []byte, opts ...CreateOption) error {
+func (m *MockStorageClient) CreateObject(ctx context.Context, name string, contents []byte, opts ...CreateOption) error {
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
 	m.Reqs = append(m.Reqs, &Request{
 		Name:   "CreateObject",
-		Params: []any{bucket, name, string(contents)},
+		Params: []any{name, string(contents)},
 	})
 
 	if m.UploadErr != nil {
@@ -62,12 +62,12 @@ func (m *MockStorageClient) CreateObject(ctx context.Context, bucket, name strin
 	return nil
 }
 
-func (m *MockStorageClient) GetObject(ctx context.Context, bucket, name string) (io.ReadCloser, map[string]string, error) {
+func (m *MockStorageClient) GetObject(ctx context.Context, name string) (io.ReadCloser, map[string]string, error) {
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
 	m.Reqs = append(m.Reqs, &Request{
 		Name:   "GetObject",
-		Params: []any{bucket, name},
+		Params: []any{name},
 	})
 
 	metadata := make(map[string]string, 0)
@@ -86,12 +86,12 @@ func (m *MockStorageClient) GetObject(ctx context.Context, bucket, name string) 
 	return &BufferReadCloser{bytes.NewBufferString(m.DownloadData)}, metadata, nil
 }
 
-func (m *MockStorageClient) DeleteObject(ctx context.Context, bucket, name string) error {
+func (m *MockStorageClient) DeleteObject(ctx context.Context, name string) error {
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
 	m.Reqs = append(m.Reqs, &Request{
 		Name:   "DeleteObject",
-		Params: []any{bucket, name},
+		Params: []any{name},
 	})
 
 	if m.DeleteErr != nil {
@@ -100,7 +100,7 @@ func (m *MockStorageClient) DeleteObject(ctx context.Context, bucket, name strin
 	return nil
 }
 
-func (m *MockStorageClient) ObjectsWithName(ctx context.Context, bucket, filename string) ([]string, error) {
+func (m *MockStorageClient) ObjectsWithName(ctx context.Context, name string) ([]string, error) {
 	if m.ListObjectErr != nil {
 		return nil, m.ListObjectErr
 	}

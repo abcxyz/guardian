@@ -21,7 +21,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -61,7 +60,6 @@ type ApplyCommand struct {
 	childPath         string
 	planFilename      string
 	planFileLocalPath string
-	storageParent     string
 	storagePrefix     string
 	isDestroy         bool
 
@@ -117,7 +115,10 @@ func (c *ApplyCommand) Flags() *cli.FlagSet {
 		Name:    "storage",
 		Target:  &c.flagStorage,
 		Example: "gcs://my-guardian-state-bucket",
-		Usage:   "The storage strategy to store Guardian plan files. Defaults to current working directory.",
+		Usage:   fmt.Sprintf("The storage strategy for saving Guardian plan files. Defaults to current working directory. Valid values are %q.", storage.SortedStorageTypes),
+		Predict: complete.PredictFunc(func(prefix string) []string {
+			return storage.SortedStorageTypes
+		}),
 	})
 
 	f.BoolVar(&cli.BoolVar{
@@ -176,8 +177,13 @@ func (c *ApplyCommand) Run(ctx context.Context, args []string) error {
 
 	c.terraformClient = terraform.NewTerraformClient(c.directory)
 
-	// TODO(verbanicm): create plan storage impl of storage
-	sc, err := c.resolveStorageClient(ctx)
+	storagePrefix, err := c.platformConfig.StoragePrefix()
+	if err != nil {
+		return fmt.Errorf("failed to parse storage flag: %w", err)
+	}
+	c.storagePrefix = storagePrefix
+
+	sc, err := storage.Parse(ctx, c.flagStorage)
 	if err != nil {
 		return fmt.Errorf("failed to create storage client: %w", err)
 	}
@@ -192,51 +198,6 @@ func (c *ApplyCommand) Run(ctx context.Context, args []string) error {
 	return c.Process(ctx)
 }
 
-// resolveStorageClient resolves and generated the storage client based on the storage flag.
-func (c *ApplyCommand) resolveStorageClient(ctx context.Context) (storage.Storage, error) {
-	u, err := url.Parse(c.flagStorage)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse storage flag url: %w", err)
-	}
-
-	t := u.Scheme
-
-	c.storageParent = path.Join(u.Host, u.Path)
-
-	if strings.EqualFold(t, storage.TypeFilesystem) {
-		return storage.NewFilesystemStorage(ctx) //nolint:wrapcheck // Want passthrough
-	}
-
-	if strings.EqualFold(t, storage.TypeGoogleCloudStorage) {
-		sc, err := storage.NewGoogleCloudStorage(ctx)
-		if err != nil {
-			return nil, err //nolint:wrapcheck // Want passthrough
-		}
-
-		if strings.EqualFold(c.platformConfig.Type, platform.TypeGitHub) {
-			var merr error
-			if c.platformConfig.GitHub.GitHubOwner == "" {
-				merr = errors.Join(merr, fmt.Errorf("github owner is required for storage type %s", storage.TypeGoogleCloudStorage))
-			}
-			if c.platformConfig.GitHub.GitHubRepo == "" {
-				merr = errors.Join(merr, fmt.Errorf("github repo is required for storage type %s", storage.TypeGoogleCloudStorage))
-			}
-			if c.platformConfig.GitHub.GitHubPullRequestNumber <= 0 {
-				merr = errors.Join(merr, fmt.Errorf("github pull request number is required for storage type %s", storage.TypeGoogleCloudStorage))
-			}
-
-			if merr != nil {
-				return nil, merr
-			}
-
-			c.storagePrefix = fmt.Sprintf("guardian-plans/%s/%s/%d", c.platformConfig.GitHub.GitHubOwner, c.platformConfig.GitHub.GitHubRepo, c.platformConfig.GitHub.GitHubPullRequestNumber)
-		}
-		return sc, nil
-	}
-
-	return nil, fmt.Errorf("unknown storage type: %s", t)
-}
-
 // Process handles the main logic for the Guardian apply run process.
 func (c *ApplyCommand) Process(ctx context.Context) (merr error) {
 	logger := logging.FromContext(ctx)
@@ -247,17 +208,17 @@ func (c *ApplyCommand) Process(ctx context.Context) (merr error) {
 		c.planFilename = "tfplan.binary"
 	}
 
-	storageObjectPath := path.Join(c.storagePrefix, c.childPath, c.planFilename)
-	logger.DebugContext(ctx, "storage object path", "path", storageObjectPath)
+	planStoragePath := path.Join(c.storagePrefix, c.childPath, c.planFilename)
+	logger.DebugContext(ctx, "plan storage path", "path", planStoragePath)
 
-	planData, planExitCode, err := c.downloadGuardianPlan(ctx, storageObjectPath)
+	planData, planExitCode, err := c.downloadGuardianPlan(ctx, planStoragePath)
 	if err != nil {
 		return fmt.Errorf("failed to download guardian plan file: %w", err)
 	}
 
-	// we always want to delete the remote plan file to keep the bucket clean
+	// we always want to delete the plan file to keep things clean
 	defer func() {
-		if err := c.deleteGuardianPlan(ctx, storageObjectPath); err != nil {
+		if err := c.deleteGuardianPlan(ctx, planStoragePath); err != nil {
 			merr = errors.Join(merr, fmt.Errorf("failed to delete plan file: %w", err))
 		}
 	}()
@@ -370,7 +331,7 @@ func (c *ApplyCommand) terraformApply(ctx context.Context) (*RunResult, error) {
 func (c *ApplyCommand) downloadGuardianPlan(ctx context.Context, path string) (planData []byte, planExitCode string, outErr error) {
 	util.Headerf(c.Stdout(), "Downloading Guardian plan file")
 
-	rc, metadata, err := c.storageClient.GetObject(ctx, c.storageParent, path)
+	rc, metadata, err := c.storageClient.GetObject(ctx, path)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to download object: %w", err)
 	}
@@ -407,7 +368,7 @@ func (c *ApplyCommand) downloadGuardianPlan(ctx context.Context, path string) (p
 func (c *ApplyCommand) deleteGuardianPlan(ctx context.Context, path string) error {
 	util.Headerf(c.Stdout(), "Deleting Guardian plan file")
 
-	if err := c.storageClient.DeleteObject(ctx, c.storageParent, path); err != nil {
+	if err := c.storageClient.DeleteObject(ctx, path); err != nil {
 		return fmt.Errorf("failed to delete apply file: %w", err)
 	}
 
