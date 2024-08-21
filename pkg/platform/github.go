@@ -19,12 +19,13 @@ import (
 	"fmt"
 	"time"
 
-	gh "github.com/abcxyz/guardian/pkg/github"
-	"github.com/abcxyz/pkg/githubauth"
-	"github.com/abcxyz/pkg/logging"
 	"github.com/google/go-github/v53/github"
 	"github.com/sethvargo/go-retry"
 	"golang.org/x/oauth2"
+
+	gh "github.com/abcxyz/guardian/pkg/github"
+	"github.com/abcxyz/pkg/githubauth"
+	"github.com/abcxyz/pkg/logging"
 )
 
 var (
