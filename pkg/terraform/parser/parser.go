@@ -82,26 +82,27 @@ type Terraform interface {
 	StateWithoutResources(ctx context.Context, uri string) (bool, error)
 }
 
+// TerraformParser implements [Terraform].
 type TerraformParser struct {
-	GCS               storage.Storage
 	OrganizationID    string
 	gcpAssetsByID     map[string]*assetinventory.HierarchyNode
 	gcpFoldersByName  map[string]*assetinventory.HierarchyNode
 	gcpProjectsByName map[string]*assetinventory.HierarchyNode
+	newStorageClient  func(ctx context.Context, parent string) (storage.Storage, error)
 }
 
 // NewTerraformParser creates a new terraform parser.
 func NewTerraformParser(ctx context.Context, organizationID string) (*TerraformParser, error) {
-	client, err := storage.NewGoogleCloudStorage(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize gcs Client: %w", err)
+	newStorageClientFunc := func(ctx context.Context, parent string) (storage.Storage, error) {
+		return storage.NewGoogleCloudStorage(ctx, parent)
 	}
+
 	return &TerraformParser{
-		GCS:               client,
 		gcpAssetsByID:     make(map[string]*assetinventory.HierarchyNode),
 		gcpFoldersByName:  make(map[string]*assetinventory.HierarchyNode),
 		gcpProjectsByName: make(map[string]*assetinventory.HierarchyNode),
 		OrganizationID:    organizationID,
+		newStorageClient:  newStorageClientFunc,
 	}, nil
 }
 
@@ -120,7 +121,11 @@ func (p *TerraformParser) StateFileURIs(ctx context.Context, gcsBuckets []string
 	logger := logging.FromContext(ctx)
 	var gcsURIs []string
 	for _, bucket := range gcsBuckets {
-		allStateFiles, err := p.GCS.ObjectsWithName(ctx, bucket, "default.tfstate")
+		sc, err := p.newStorageClient(ctx, bucket)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create storage client: %w", err)
+		}
+		allStateFiles, err := sc.ObjectsWithName(ctx, "default.tfstate")
 		if err != nil {
 			// If you delete a GCP project that still has a terraform state
 			// bucket then the bucket will continue to show up in the asset
@@ -143,7 +148,11 @@ func (p *TerraformParser) StateWithoutResources(ctx context.Context, uri string)
 	if err != nil {
 		return false, fmt.Errorf("failed to parse GCS URI: %w", err)
 	}
-	r, _, err := p.GCS.GetObject(ctx, bucket, name)
+	sc, err := p.newStorageClient(ctx, bucket)
+	if err != nil {
+		return false, fmt.Errorf("failed to create storage client: %w", err)
+	}
+	r, _, err := sc.GetObject(ctx, name)
 	if err != nil {
 		return false, fmt.Errorf("failed to download gcs URI for terraform: %w", err)
 	}
@@ -166,7 +175,11 @@ func (p *TerraformParser) ProcessStates(ctx context.Context, gcsUris []string) (
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse GCS URI: %w", err)
 		}
-		r, _, err := p.GCS.GetObject(ctx, bucket, name)
+		sc, err := p.newStorageClient(ctx, bucket)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create storage client: %w", err)
+		}
+		r, _, err := sc.GetObject(ctx, name)
 		if err != nil {
 			return nil, fmt.Errorf("failed to download gcs URI for terraform: %w", err)
 		}

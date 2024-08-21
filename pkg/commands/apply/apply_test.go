@@ -74,6 +74,8 @@ func TestApply_Process(t *testing.T) {
 		flagLockTimeout          time.Duration
 		isDestroy                bool
 		planExitCode             string
+		storageParent            string
+		storagePrefix            string
 		terraformClient          *terraform.MockTerraformClient
 		err                      string
 		expReporterClientReqs    []*reporter.Request
@@ -83,8 +85,10 @@ func TestApply_Process(t *testing.T) {
 		resolveJobLogsURLErr     error
 	}{
 		{
-			name:                     "success",
-			directory:                "testdir",
+			name:      "success",
+			directory: "testdir",
+
+			storagePrefix:            "",
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
 			planExitCode:             "2",
@@ -99,22 +103,22 @@ func TestApply_Process(t *testing.T) {
 				{
 					Name: "GetObject",
 					Params: []any{
-						"storage-parent",
 						"testdir/test-tfplan.binary",
 					},
 				},
 				{
 					Name: "DeleteObject",
 					Params: []any{
-						"storage-parent",
 						"testdir/test-tfplan.binary",
 					},
 				},
 			},
 		},
 		{
-			name:                     "success_destroy",
-			directory:                "testdir",
+			name:      "success_destroy",
+			directory: "testdir",
+
+			storagePrefix:            "",
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
 			isDestroy:                true,
@@ -130,22 +134,22 @@ func TestApply_Process(t *testing.T) {
 				{
 					Name: "GetObject",
 					Params: []any{
-						"storage-parent",
 						"testdir/test-tfplan.binary",
 					},
 				},
 				{
 					Name: "DeleteObject",
 					Params: []any{
-						"storage-parent",
 						"testdir/test-tfplan.binary",
 					},
 				},
 			},
 		},
 		{
-			name:                     "skips_no_diff",
-			directory:                "testdir",
+			name:      "skips_no_diff",
+			directory: "testdir",
+
+			storagePrefix:            "",
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
 			planExitCode:             "0",
@@ -154,14 +158,12 @@ func TestApply_Process(t *testing.T) {
 				{
 					Name: "GetObject",
 					Params: []any{
-						"storage-parent",
 						"testdir/test-tfplan.binary",
 					},
 				},
 				{
 					Name: "DeleteObject",
 					Params: []any{
-						"storage-parent",
 						"testdir/test-tfplan.binary",
 					},
 				},
@@ -169,8 +171,10 @@ func TestApply_Process(t *testing.T) {
 			expStdout: "Guardian plan file has no diff, exiting",
 		},
 		{
-			name:                     "handles_error",
-			directory:                "testdir",
+			name:      "handles_error",
+			directory: "testdir",
+
+			storagePrefix:            "",
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
 			planExitCode:             "2",
@@ -188,22 +192,22 @@ func TestApply_Process(t *testing.T) {
 				{
 					Name: "GetObject",
 					Params: []any{
-						"storage-parent",
 						"testdir/test-tfplan.binary",
 					},
 				},
 				{
 					Name: "DeleteObject",
 					Params: []any{
-						"storage-parent",
 						"testdir/test-tfplan.binary",
 					},
 				},
 			},
 		},
 		{
-			name:                     "handles_error_destroy",
-			directory:                "testdir",
+			name:      "handles_error_destroy",
+			directory: "testdir",
+
+			storagePrefix:            "",
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
 			isDestroy:                true,
@@ -222,14 +226,12 @@ func TestApply_Process(t *testing.T) {
 				{
 					Name: "GetObject",
 					Params: []any{
-						"storage-parent",
 						"testdir/test-tfplan.binary",
 					},
 				},
 				{
 					Name: "DeleteObject",
 					Params: []any{
-						"storage-parent",
 						"testdir/test-tfplan.binary",
 					},
 				},
@@ -254,8 +256,7 @@ func TestApply_Process(t *testing.T) {
 				directory:                tc.directory,
 				childPath:                tc.directory,
 				planFilename:             "test-tfplan.binary",
-				storageParent:            "storage-parent",
-				storagePrefix:            "",
+				storagePrefix:            tc.storagePrefix,
 				flagAllowLockfileChanges: tc.flagAllowLockfileChanges,
 				flagLockTimeout:          tc.flagLockTimeout,
 				isDestroy:                tc.isDestroy,

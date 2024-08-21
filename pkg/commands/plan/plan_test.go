@@ -124,7 +124,6 @@ func TestPlan_Process(t *testing.T) {
 		{
 			name:                     "success_with_diff",
 			directory:                "testdata",
-			storageParent:            "storage-parent",
 			storagePrefix:            "",
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
@@ -139,7 +138,6 @@ func TestPlan_Process(t *testing.T) {
 				{
 					Name: "CreateObject",
 					Params: []any{
-						"storage-parent",
 						"testdata/test-tfplan.binary",
 						"this is a plan binary",
 					},
@@ -149,7 +147,6 @@ func TestPlan_Process(t *testing.T) {
 		{
 			name:                     "success_with_diff_destroy",
 			directory:                "testdata",
-			storageParent:            "storage-parent",
 			storagePrefix:            "",
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
@@ -165,7 +162,6 @@ func TestPlan_Process(t *testing.T) {
 				{
 					Name: "CreateObject",
 					Params: []any{
-						"storage-parent",
 						"testdata/test-tfplan.binary",
 						"this is a plan binary",
 					},
@@ -175,7 +171,6 @@ func TestPlan_Process(t *testing.T) {
 		{
 			name:                     "success_with_no_diff",
 			directory:                "testdata",
-			storageParent:            "storage-parent",
 			storagePrefix:            "",
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
@@ -190,7 +185,6 @@ func TestPlan_Process(t *testing.T) {
 				{
 					Name: "CreateObject",
 					Params: []any{
-						"storage-parent",
 						"testdata/test-tfplan.binary",
 						"this is a plan binary",
 					},
@@ -200,7 +194,6 @@ func TestPlan_Process(t *testing.T) {
 		{
 			name:                     "handles_error",
 			directory:                "testdata",
-			storageParent:            "storage-parent",
 			storagePrefix:            "",
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
@@ -227,12 +220,10 @@ func TestPlan_Process(t *testing.T) {
 			mockReporterClient := &reporter.MockReporter{}
 
 			c := &PlanCommand{
-				directory:     tc.directory,
-				childPath:     tc.directory,
-				planFilename:  "test-tfplan.binary",
-				storageParent: tc.storageParent,
-				storagePrefix: tc.storagePrefix,
-
+				directory:                tc.directory,
+				childPath:                tc.directory,
+				planFilename:             "test-tfplan.binary",
+				storagePrefix:            tc.storagePrefix,
 				flagDestroy:              tc.flagDestroy,
 				flagAllowLockfileChanges: tc.flagAllowLockfileChanges,
 				flagLockTimeout:          tc.flagLockTimeout,

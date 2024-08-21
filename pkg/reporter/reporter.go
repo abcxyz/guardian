@@ -78,12 +78,12 @@ func NewReporter(ctx context.Context, t string, c *Config, stdout io.Writer) (Re
 		return NewLocalReporter(ctx, stdout)
 	}
 
-	c.GitHub.Permissions = map[string]string{
-		"contents":      "read",
-		"pull_requests": "write",
-	}
-
 	if strings.EqualFold(t, TypeGitHub) {
+		c.GitHub.Permissions = map[string]string{
+			"contents":      "read",
+			"pull_requests": "write",
+		}
+
 		gc, err := github.NewGitHubClient(ctx, &c.GitHub)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create github client: %w", err)
