@@ -31,11 +31,10 @@ import (
 var (
 	_ Platform = (*GitHub)(nil)
 
+	// ignoredStatusCodes are status codes that should not be retried. This list
+	// is taken from the GitHub REST API documentation.
 	ignoredStatusCodes = map[int]struct{}{
-		400: {},
-		401: {},
 		403: {},
-		404: {},
 		422: {},
 	}
 )
