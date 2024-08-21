@@ -31,11 +31,10 @@ import (
 var (
 	_ Platform = (*GitHub)(nil)
 
+	// ignoredStatusCodes are status codes that should not be retried. This list
+	// is taken from the GitHub REST API documentation.
 	ignoredStatusCodes = map[int]struct{}{
-		400: {},
-		401: {},
 		403: {},
-		404: {},
 		422: {},
 	}
 )
@@ -90,12 +89,12 @@ func NewGitHub(ctx context.Context, cfg *gh.Config) (*GitHub, error) {
 }
 
 // RequestReviewers abstracts GitHub's RequestReviewers API with retries.
-func (g *GitHub) requestReviewers(ctx context.Context, reviewer *github.ReviewersRequest) error {
-	if reviewer == nil {
+func (g *GitHub) requestReviewers(ctx context.Context, reviewers *github.ReviewersRequest) error {
+	if reviewers == nil {
 		return fmt.Errorf("reviewer cannot be nil")
 	}
 	return g.withRetries(ctx, func(ctx context.Context) error {
-		if _, resp, err := g.client.PullRequests.RequestReviewers(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, g.cfg.GitHubPullRequestNumber, *reviewer); err != nil {
+		if _, resp, err := g.client.PullRequests.RequestReviewers(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, g.cfg.GitHubPullRequestNumber, *reviewers); err != nil {
 			if resp != nil {
 				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
 					return retry.RetryableError(err)
@@ -111,14 +110,14 @@ func (g *GitHub) requestReviewers(ctx context.Context, reviewer *github.Reviewer
 // Pull Request. The implementation assigns one principal per request because
 // mixing existing reviewers in pending review state with new reviewers will
 // result in a no-op without errors thrown.
-func (g *GitHub) AssignReviewers(ctx context.Context, inputs *AssignReviewersInput) (*AssignReviewersResult, error) {
+func (g *GitHub) AssignReviewers(ctx context.Context, input *AssignReviewersInput) (*AssignReviewersResult, error) {
 	logger := logging.FromContext(ctx)
-	if inputs == nil {
-		return nil, fmt.Errorf("inputs cannot be nil")
+	if input == nil {
+		return nil, fmt.Errorf("input cannot be nil")
 	}
 
 	var result AssignReviewersResult
-	for _, u := range inputs.Users {
+	for _, u := range input.Users {
 		if err := g.requestReviewers(ctx, &github.ReviewersRequest{Reviewers: []string{u}}); err != nil {
 			logger.ErrorContext(ctx, "failed to assign reviewer for pull request",
 				"user", u,
@@ -128,7 +127,7 @@ func (g *GitHub) AssignReviewers(ctx context.Context, inputs *AssignReviewersInp
 		}
 		result.Users = append(result.Users, u)
 	}
-	for _, t := range inputs.Teams {
+	for _, t := range input.Teams {
 		if err := g.requestReviewers(ctx, &github.ReviewersRequest{TeamReviewers: []string{t}}); err != nil {
 			logger.ErrorContext(ctx, "failed to assign reviewer for pull request",
 				"team", t,

@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/abcxyz/guardian/pkg/github"
+	"github.com/abcxyz/guardian/pkg/platform"
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
 )
@@ -48,11 +48,9 @@ var _ cli.Command = (*PolicyCommand)(nil)
 type PolicyCommand struct {
 	cli.BaseCommand
 
-	githubConfig github.Config
-
-	flags PolicyFlags
-
-	gitHubClient *github.GitHubClient
+	platformConfig platform.Config
+	flags          PolicyFlags
+	platform       platform.Platform
 }
 
 // Desc implements cli.Command.
@@ -72,7 +70,7 @@ Usage: {{ COMMAND }} [options]
 // Flags returns the list of flags that are defined on the command.
 func (c *PolicyCommand) Flags() *cli.FlagSet {
 	set := cli.NewFlagSet()
-	c.githubConfig.RegisterFlags(set)
+	c.platformConfig.RegisterFlags(set)
 	c.flags.Register(set)
 	return set
 }
@@ -84,11 +82,11 @@ func (c *PolicyCommand) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("failed to parse flags: %w", err)
 	}
 
-	gc, err := github.NewGitHubClient(ctx, &c.githubConfig)
+	platform, err := platform.NewPlatform(ctx, &c.platformConfig)
 	if err != nil {
-		return fmt.Errorf("failed to create github client: %w", err)
+		return fmt.Errorf("failed to create platform: %w", err)
 	}
-	c.gitHubClient = gc
+	c.platform = platform
 
 	return c.Process(ctx)
 }
@@ -136,6 +134,12 @@ func (c *PolicyCommand) Process(ctx context.Context) error {
 		)
 	}
 
-	// TODO: assign principals as reviewers to current pull request
+	if _, err := c.platform.AssignReviewers(ctx, &platform.AssignReviewersInput{
+		Teams: teams,
+		Users: users,
+	}); err != nil {
+		return fmt.Errorf("failed to assign reviewers: %w", err)
+	}
+
 	return merr
 }
