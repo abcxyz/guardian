@@ -17,7 +17,12 @@ package storage
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"net/url"
+	"path"
+	"sort"
+	"strings"
 )
 
 // The types of storage clients available.
@@ -26,29 +31,61 @@ const (
 	TypeGoogleCloudStorage = "gcs"
 )
 
+// SortedStorageTypes are the sorted Storage types for printing messages and prediction.
+var SortedStorageTypes = func() []string {
+	allowed := append([]string{}, TypeFilesystem, TypeGoogleCloudStorage)
+	sort.Strings(allowed)
+	return allowed
+}()
+
 // Storage defines the minimum interface for a blob storage system.
 type Storage interface {
 	// CreateObject creates a blob storage object.
-	CreateObject(ctx context.Context, bucket, name string, contents []byte, opts ...CreateOption) error
+	CreateObject(ctx context.Context, name string, contents []byte, opts ...CreateOption) error
 
 	// GetObject gets a blob storage object and metadata if any. The caller must call Close on the returned Reader when done reading.
-	GetObject(ctx context.Context, bucket, name string) (io.ReadCloser, map[string]string, error)
+	GetObject(ctx context.Context, name string) (io.ReadCloser, map[string]string, error)
 
 	// DeleteObject deletes a blob storage object.
-	DeleteObject(ctx context.Context, bucket, name string) error
+	DeleteObject(ctx context.Context, name string) error
 
 	// ObjectsWithName returns the paths of files for a given parent with the filename.
-	ObjectsWithName(ctx context.Context, bucket, filename string) ([]string, error)
+	ObjectsWithName(ctx context.Context, name string) ([]string, error)
 }
 
-// PlanStorage defines the minimum interface for storing Terraform plan files.
-type PlanStorage interface {
-	// SavePlan saves a plan file to a storage backend.
-	SavePlan(ctx context.Context, name string, contents []byte, metadata map[string]string) error
+// NewStorageClient creates a new storage client based on the provided type.
+func NewStorageClient(ctx context.Context, t, parent string) (Storage, error) {
+	if strings.EqualFold(t, TypeFilesystem) {
+		return NewFilesystemStorage(ctx, parent)
+	}
 
-	// GetPlan gets the plan file from a storage backend.
-	GetPlan(ctx context.Context, name string) (io.ReadCloser, map[string]string, error)
+	if strings.EqualFold(t, TypeGoogleCloudStorage) {
+		return NewGoogleCloudStorage(ctx, parent)
+	}
 
-	// DeletePlan deletes a plan file from storage backend.
-	DeletePlan(ctx context.Context, name string) error
+	return nil, fmt.Errorf("unknown storage type: %s", t)
+}
+
+// Parse creates a new  storage client by parsing a storage url.
+func Parse(ctx context.Context, u string) (Storage, error) {
+	if u == "" {
+		return nil, fmt.Errorf("url is requierd")
+	}
+
+	parsed, err := url.Parse(u)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse storage url: %w", err)
+	}
+
+	parent := path.Join(parsed.Host, parsed.Path)
+
+	if strings.EqualFold(parsed.Scheme, TypeFilesystem) {
+		return NewFilesystemStorage(ctx, parent)
+	}
+
+	if strings.EqualFold(parsed.Scheme, TypeGoogleCloudStorage) {
+		return NewGoogleCloudStorage(ctx, parent)
+	}
+
+	return nil, fmt.Errorf("unknown storage type: %s", parsed.Scheme)
 }

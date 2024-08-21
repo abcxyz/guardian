@@ -74,6 +74,8 @@ func TestApply_Process(t *testing.T) {
 		flagLockTimeout          time.Duration
 		isDestroy                bool
 		planExitCode             string
+		storageParent            string
+		storagePrefix            string
 		terraformClient          *terraform.MockTerraformClient
 		err                      string
 		expReporterClientReqs    []*reporter.Request
@@ -83,8 +85,10 @@ func TestApply_Process(t *testing.T) {
 		resolveJobLogsURLErr     error
 	}{
 		{
-			name:                     "success",
-			directory:                "testdir",
+			name:      "success",
+			directory: "testdir",
+
+			storagePrefix:            "",
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
 			planExitCode:             "2",
@@ -97,13 +101,13 @@ func TestApply_Process(t *testing.T) {
 			},
 			expStorageClientReqs: []*storage.Request{
 				{
-					Name: "GetPlan",
+					Name: "GetObject",
 					Params: []any{
 						"testdir/test-tfplan.binary",
 					},
 				},
 				{
-					Name: "DeletePlan",
+					Name: "DeleteObject",
 					Params: []any{
 						"testdir/test-tfplan.binary",
 					},
@@ -111,8 +115,10 @@ func TestApply_Process(t *testing.T) {
 			},
 		},
 		{
-			name:                     "success_destroy",
-			directory:                "testdir",
+			name:      "success_destroy",
+			directory: "testdir",
+
+			storagePrefix:            "",
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
 			isDestroy:                true,
@@ -126,13 +132,13 @@ func TestApply_Process(t *testing.T) {
 			},
 			expStorageClientReqs: []*storage.Request{
 				{
-					Name: "GetPlan",
+					Name: "GetObject",
 					Params: []any{
 						"testdir/test-tfplan.binary",
 					},
 				},
 				{
-					Name: "DeletePlan",
+					Name: "DeleteObject",
 					Params: []any{
 						"testdir/test-tfplan.binary",
 					},
@@ -140,21 +146,23 @@ func TestApply_Process(t *testing.T) {
 			},
 		},
 		{
-			name:                     "skips_no_diff",
-			directory:                "testdir",
+			name:      "skips_no_diff",
+			directory: "testdir",
+
+			storagePrefix:            "",
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
 			planExitCode:             "0",
 			terraformClient:          terraformMock,
 			expStorageClientReqs: []*storage.Request{
 				{
-					Name: "GetPlan",
+					Name: "GetObject",
 					Params: []any{
 						"testdir/test-tfplan.binary",
 					},
 				},
 				{
-					Name: "DeletePlan",
+					Name: "DeleteObject",
 					Params: []any{
 						"testdir/test-tfplan.binary",
 					},
@@ -163,8 +171,10 @@ func TestApply_Process(t *testing.T) {
 			expStdout: "Guardian plan file has no diff, exiting",
 		},
 		{
-			name:                     "handles_error",
-			directory:                "testdir",
+			name:      "handles_error",
+			directory: "testdir",
+
+			storagePrefix:            "",
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
 			planExitCode:             "2",
@@ -180,13 +190,13 @@ func TestApply_Process(t *testing.T) {
 			},
 			expStorageClientReqs: []*storage.Request{
 				{
-					Name: "GetPlan",
+					Name: "GetObject",
 					Params: []any{
 						"testdir/test-tfplan.binary",
 					},
 				},
 				{
-					Name: "DeletePlan",
+					Name: "DeleteObject",
 					Params: []any{
 						"testdir/test-tfplan.binary",
 					},
@@ -194,8 +204,10 @@ func TestApply_Process(t *testing.T) {
 			},
 		},
 		{
-			name:                     "handles_error_destroy",
-			directory:                "testdir",
+			name:      "handles_error_destroy",
+			directory: "testdir",
+
+			storagePrefix:            "",
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
 			isDestroy:                true,
@@ -212,13 +224,13 @@ func TestApply_Process(t *testing.T) {
 			},
 			expStorageClientReqs: []*storage.Request{
 				{
-					Name: "GetPlan",
+					Name: "GetObject",
 					Params: []any{
 						"testdir/test-tfplan.binary",
 					},
 				},
 				{
-					Name: "DeletePlan",
+					Name: "DeleteObject",
 					Params: []any{
 						"testdir/test-tfplan.binary",
 					},
@@ -233,7 +245,7 @@ func TestApply_Process(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			mockPlanStorageClient := &storage.MockPlanStorageClient{
+			mockStorageClient := &storage.MockStorageClient{
 				Metadata: map[string]string{
 					"plan_exit_code": tc.planExitCode,
 				},
@@ -244,10 +256,11 @@ func TestApply_Process(t *testing.T) {
 				directory:                tc.directory,
 				childPath:                tc.directory,
 				planFilename:             "test-tfplan.binary",
+				storagePrefix:            tc.storagePrefix,
 				flagAllowLockfileChanges: tc.flagAllowLockfileChanges,
 				flagLockTimeout:          tc.flagLockTimeout,
 				isDestroy:                tc.isDestroy,
-				planStorageClient:        mockPlanStorageClient,
+				storageClient:            mockStorageClient,
 				terraformClient:          tc.terraformClient,
 				reporterClient:           mockReporterClient,
 			}
@@ -263,8 +276,8 @@ func TestApply_Process(t *testing.T) {
 				t.Errorf("Reporter calls not as expected; (-got,+want): %s", diff)
 			}
 
-			if diff := cmp.Diff(mockPlanStorageClient.Reqs, tc.expStorageClientReqs); diff != "" {
-				t.Errorf("PlanStorage calls not as expected; (-got,+want): %s", diff)
+			if diff := cmp.Diff(mockStorageClient.Reqs, tc.expStorageClientReqs); diff != "" {
+				t.Errorf("Storage calls not as expected; (-got,+want): %s", diff)
 			}
 
 			if got, want := strings.TrimSpace(stdout.String()), strings.TrimSpace(tc.expStdout); !strings.Contains(got, want) {

@@ -69,7 +69,11 @@ func TestParser_StateFileURIs(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			p := &TerraformParser{GCS: tc.gcsClient}
+			p := &TerraformParser{
+				newStorageClient: func(ctx context.Context, parent string) (storage.Storage, error) {
+					return tc.gcsClient, nil
+				},
+			}
 
 			got, err := p.StateFileURIs(context.Background(), tc.gcsBuckets)
 			if tc.wantErr != "" && !strings.Contains(err.Error(), tc.wantErr) {
@@ -217,11 +221,15 @@ func TestParser_ProcessStates(t *testing.T) {
 				downloadErr = fmt.Errorf(tc.wantErr)
 			}
 
-			gcsClient := &storage.MockStorageClient{
-				DownloadData: string(data),
-				DownloadErr:  downloadErr,
+			p := &TerraformParser{
+				newStorageClient: func(ctx context.Context, parent string) (storage.Storage, error) {
+					return &storage.MockStorageClient{
+						DownloadData: string(data),
+						DownloadErr:  downloadErr,
+					}, nil
+				},
+				OrganizationID: orgID,
 			}
-			p := &TerraformParser{GCS: gcsClient, OrganizationID: orgID}
 
 			if tc.knownFolders != nil && tc.knownProjects != nil {
 				p.SetAssets(tc.knownFolders, tc.knownProjects)

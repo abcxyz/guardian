@@ -65,7 +65,6 @@ type PlanCommand struct {
 	directory     string
 	childPath     string
 	planFilename  string
-	storageParent string
 	storagePrefix string
 
 	platformConfig platform.Config
@@ -78,9 +77,9 @@ type PlanCommand struct {
 	flagAllowLockfileChanges bool
 	flagLockTimeout          time.Duration
 
-	planStorageClient storage.PlanStorage
-	terraformClient   terraform.Terraform
-	reporterClient    reporter.Reporter
+	storageClient   storage.Storage
+	terraformClient terraform.Terraform
+	reporterClient  reporter.Reporter
 }
 
 func (c *PlanCommand) Desc() string {
@@ -118,7 +117,10 @@ func (c *PlanCommand) Flags() *cli.FlagSet {
 		Name:    "storage",
 		Target:  &c.flagStorage,
 		Example: "gcs://my-guardian-state-bucket",
-		Usage:   "The storage strategy to store Guardian plan files. Defaults to current working directory.",
+		Usage:   fmt.Sprintf("The storage strategy for saving Guardian plan files. Defaults to current working directory. Valid values are %q.", storage.SortedStorageTypes),
+		Predict: complete.PredictFunc(func(prefix string) []string {
+			return storage.SortedStorageTypes
+		}),
 	})
 
 	f.BoolVar(&cli.BoolVar{
@@ -184,13 +186,17 @@ func (c *PlanCommand) Run(ctx context.Context, args []string) error {
 
 	c.terraformClient = terraform.NewTerraformClient(c.directory)
 
-	sc, err := storage.NewPlanStorageClient(ctx, c.flagStorage, &storage.PlanStorageConfig{
-		Platform: c.platformConfig,
-	})
+	storagePrefix, err := c.platformConfig.StoragePrefix()
+	if err != nil {
+		return fmt.Errorf("failed to parse storage flag: %w", err)
+	}
+	c.storagePrefix = storagePrefix
+
+	sc, err := storage.Parse(ctx, c.flagStorage)
 	if err != nil {
 		return fmt.Errorf("failed to create storage client: %w", err)
 	}
-	c.planStorageClient = sc
+	c.storageClient = sc
 
 	rc, err := reporter.NewReporter(ctx, c.flagReporter, &reporter.Config{GitHub: c.platformConfig.GitHub}, c.Stdout())
 	if err != nil {
@@ -365,7 +371,7 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 }
 
 // saveGuardianPlan uploads the Guardian plan binary to the configured Guardian storage client.
-func (c *PlanCommand) saveGuardianPlan(ctx context.Context, path string, data []byte, exitCode int) error {
+func (c *PlanCommand) saveGuardianPlan(ctx context.Context, p string, data []byte, exitCode int) error {
 	metadata := make(map[string]string)
 	metadata[MetaKeyExitCode] = strconv.Itoa(exitCode)
 
@@ -374,7 +380,9 @@ func (c *PlanCommand) saveGuardianPlan(ctx context.Context, path string, data []
 		metadata[MetaKeyOperation] = OperationDestroy
 	}
 
-	if err := c.planStorageClient.SavePlan(ctx, path, data, metadata); err != nil {
+	objectPath := path.Join(c.storagePrefix, p)
+
+	if err := c.storageClient.CreateObject(ctx, objectPath, data, storage.WithMetadata(metadata)); err != nil {
 		return fmt.Errorf("failed to save plan file: %w", err)
 	}
 

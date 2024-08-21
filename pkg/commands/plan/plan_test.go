@@ -124,7 +124,6 @@ func TestPlan_Process(t *testing.T) {
 		{
 			name:                     "success_with_diff",
 			directory:                "testdata",
-			storageParent:            "storage-parent",
 			storagePrefix:            "",
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
@@ -137,11 +136,10 @@ func TestPlan_Process(t *testing.T) {
 			},
 			expStorageClientReqs: []*storage.Request{
 				{
-					Name: "SavePlan",
+					Name: "CreateObject",
 					Params: []any{
 						"testdata/test-tfplan.binary",
 						"this is a plan binary",
-						map[string]string{"operation": "plan", "plan_exit_code": "2"},
 					},
 				},
 			},
@@ -149,7 +147,6 @@ func TestPlan_Process(t *testing.T) {
 		{
 			name:                     "success_with_diff_destroy",
 			directory:                "testdata",
-			storageParent:            "storage-parent",
 			storagePrefix:            "",
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
@@ -163,11 +160,10 @@ func TestPlan_Process(t *testing.T) {
 			},
 			expStorageClientReqs: []*storage.Request{
 				{
-					Name: "SavePlan",
+					Name: "CreateObject",
 					Params: []any{
 						"testdata/test-tfplan.binary",
 						"this is a plan binary",
-						map[string]string{"operation": "destroy", "plan_exit_code": "2"},
 					},
 				},
 			},
@@ -175,7 +171,6 @@ func TestPlan_Process(t *testing.T) {
 		{
 			name:                     "success_with_no_diff",
 			directory:                "testdata",
-			storageParent:            "storage-parent",
 			storagePrefix:            "",
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
@@ -188,11 +183,10 @@ func TestPlan_Process(t *testing.T) {
 			},
 			expStorageClientReqs: []*storage.Request{
 				{
-					Name: "SavePlan",
+					Name: "CreateObject",
 					Params: []any{
 						"testdata/test-tfplan.binary",
 						"this is a plan binary",
-						map[string]string{"operation": "plan", "plan_exit_code": "0"},
 					},
 				},
 			},
@@ -200,7 +194,6 @@ func TestPlan_Process(t *testing.T) {
 		{
 			name:                     "handles_error",
 			directory:                "testdata",
-			storageParent:            "storage-parent",
 			storagePrefix:            "",
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
@@ -223,21 +216,19 @@ func TestPlan_Process(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			mockPlanStorageClient := &storage.MockPlanStorageClient{}
+			mockStorageClient := &storage.MockStorageClient{}
 			mockReporterClient := &reporter.MockReporter{}
 
 			c := &PlanCommand{
-				directory:     tc.directory,
-				childPath:     tc.directory,
-				planFilename:  "test-tfplan.binary",
-				storageParent: tc.storageParent,
-				storagePrefix: tc.storagePrefix,
-
+				directory:                tc.directory,
+				childPath:                tc.directory,
+				planFilename:             "test-tfplan.binary",
+				storagePrefix:            tc.storagePrefix,
 				flagDestroy:              tc.flagDestroy,
 				flagAllowLockfileChanges: tc.flagAllowLockfileChanges,
 				flagLockTimeout:          tc.flagLockTimeout,
 				terraformClient:          tc.terraformClient,
-				planStorageClient:        mockPlanStorageClient,
+				storageClient:            mockStorageClient,
 				reporterClient:           mockReporterClient,
 			}
 
@@ -252,8 +243,8 @@ func TestPlan_Process(t *testing.T) {
 				t.Errorf("Reporter calls not as expected; (-got,+want): %s", diff)
 			}
 
-			if diff := cmp.Diff(mockPlanStorageClient.Reqs, tc.expStorageClientReqs); diff != "" {
-				t.Errorf("PlanStorage calls not as expected; (-got,+want): %s", diff)
+			if diff := cmp.Diff(mockStorageClient.Reqs, tc.expStorageClientReqs); diff != "" {
+				t.Errorf("Storage calls not as expected; (-got,+want): %s", diff)
 			}
 
 			if got, want := strings.TrimSpace(stdout.String()), strings.TrimSpace(tc.expStdout); !strings.Contains(got, want) {

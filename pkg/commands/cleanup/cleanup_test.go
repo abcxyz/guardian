@@ -67,6 +67,7 @@ func TestEntrypointsProcess(t *testing.T) {
 		name                 string
 		directory            string
 		getStatefileResp     string
+		isEmptyStatefile     bool
 		expStorageClientReqs []*storage.Request
 		err                  string
 	}{
@@ -74,15 +75,11 @@ func TestEntrypointsProcess(t *testing.T) {
 			name:             "success",
 			directory:        path.Join(cwd, "testdata/backends/project1"),
 			getStatefileResp: emptyStatefile,
+			isEmptyStatefile: true,
 			expStorageClientReqs: []*storage.Request{
-				{
-					Name:   "GetObject",
-					Params: []any{string("my-made-up-bucket"), string("my/path/to/file/project1/default.tfstate")},
-				},
 				{
 					Name: "DeleteObject",
 					Params: []any{
-						"my-made-up-bucket",
 						"my/path/to/file/project1/default.tfstate",
 					},
 				},
@@ -92,12 +89,7 @@ func TestEntrypointsProcess(t *testing.T) {
 			name:             "success_no_delete_non_empty",
 			directory:        path.Join(cwd, "testdata/backends/project2"),
 			getStatefileResp: statefileWithResources,
-			expStorageClientReqs: []*storage.Request{
-				{
-					Name:   "GetObject",
-					Params: []any{string("my-made-up-bucket"), string("my/path/to/file/project2/default.tfstate")},
-				},
-			},
+			isEmptyStatefile: false,
 		},
 	}
 
@@ -107,16 +99,20 @@ func TestEntrypointsProcess(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			storageClient := &storage.MockStorageClient{
+			mockStorageClient := &storage.MockStorageClient{
 				DownloadData: tc.getStatefileResp,
 			}
-			tfParser := &parser.TerraformParser{GCS: storageClient}
+			mockTerraformParser := &parser.MockTerraformParser{
+				StateWithoutResourcesResp: tc.isEmptyStatefile,
+			}
 
 			c := &CleanupCommand{
 				directory: tc.directory,
 
-				storageClient:   storageClient,
-				terraformParser: tfParser,
+				newStorageClient: func(ctx context.Context, parent string) (storage.Storage, error) {
+					return mockStorageClient, nil
+				},
+				terraformParser: mockTerraformParser,
 			}
 
 			err := c.Process(ctx)
@@ -126,7 +122,7 @@ func TestEntrypointsProcess(t *testing.T) {
 			less := func(a, b *storage.Request) bool {
 				return fmt.Sprintf("%s-%s", a.Name, a.Params) < fmt.Sprintf("%s-%s", b.Name, b.Params)
 			}
-			if diff := cmp.Diff(storageClient.Reqs, tc.expStorageClientReqs, cmpopts.SortSlices(less)); diff != "" {
+			if diff := cmp.Diff(mockStorageClient.Reqs, tc.expStorageClientReqs, cmpopts.SortSlices(less)); diff != "" {
 				t.Errorf("Storage calls not as expected; (-got,+want): %s", diff)
 			}
 		})

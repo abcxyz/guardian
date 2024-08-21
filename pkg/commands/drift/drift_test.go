@@ -16,24 +16,18 @@ package drift
 
 import (
 	"context"
-	"fmt"
-	"os"
-	"path/filepath"
-	"runtime"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 
 	"github.com/abcxyz/guardian/pkg/assetinventory"
-	"github.com/abcxyz/guardian/pkg/storage"
 	"github.com/abcxyz/guardian/pkg/terraform/parser"
 )
 
 var (
-	orgID        = "1231231"
-	bucket       = "my-bucket"
-	bucketGCSURI = "gs://my-bucket/abcsdasd/12312/default.tfstate"
-	folder       = &assetinventory.HierarchyNode{
+	orgID  = "1231231"
+	bucket = "my-bucket"
+	folder = &assetinventory.HierarchyNode{
 		ID:         "123123123123",
 		Name:       "123123123123",
 		NodeType:   assetinventory.Folder,
@@ -83,15 +77,14 @@ func TestDrift_DetectDrift(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
-		name                   string
-		terraformStatefilename string
-		assetInventoryClient   assetinventory.AssetInventory
-		gcsBuckets             []string
-		want                   *IAMDrift
+		name                 string
+		processStatesResp    []*assetinventory.AssetIAM
+		assetInventoryClient assetinventory.AssetInventory
+		gcsBuckets           []string
+		want                 *IAMDrift
 	}{
 		{
-			name:                   "success_no_drift",
-			terraformStatefilename: "testdata/test_valid.tfstate",
+			name: "success_no_drift",
 			assetInventoryClient: &assetinventory.MockAssetInventoryClient{
 				IAMData: []*assetinventory.AssetIAM{
 					orgSABrowser,
@@ -104,14 +97,20 @@ func TestDrift_DetectDrift(t *testing.T) {
 				AssetProjectData: []*assetinventory.HierarchyNode{project},
 				BucketsData:      []string{bucket},
 			},
+			processStatesResp: []*assetinventory.AssetIAM{
+				orgSABrowser,
+				orgGroupBrowser,
+				orgUserBrowser,
+				folderViewer,
+				projectAdmin,
+			},
 			want: &IAMDrift{
 				ClickOpsChanges:         []string{},
 				MissingTerraformChanges: []string{},
 			},
 		},
 		{
-			name:                   "success_all_click_ops_drift",
-			terraformStatefilename: "testdata/test_ignored.tfstate",
+			name: "success_all_click_ops_drift",
 			assetInventoryClient: &assetinventory.MockAssetInventoryClient{
 				IAMData: []*assetinventory.AssetIAM{
 					orgSABrowser,
@@ -136,13 +135,19 @@ func TestDrift_DetectDrift(t *testing.T) {
 			},
 		},
 		{
-			name:                   "success_all_missing_terraform_drift",
-			terraformStatefilename: "testdata/test_valid.tfstate",
+			name: "success_all_missing_terraform_drift",
 			assetInventoryClient: &assetinventory.MockAssetInventoryClient{
 				IAMData:          []*assetinventory.AssetIAM{},
 				AssetFolderData:  []*assetinventory.HierarchyNode{folder},
 				AssetProjectData: []*assetinventory.HierarchyNode{project},
 				BucketsData:      []string{bucket},
+			},
+			processStatesResp: []*assetinventory.AssetIAM{
+				orgSABrowser,
+				orgGroupBrowser,
+				orgUserBrowser,
+				folderViewer,
+				projectAdmin,
 			},
 			want: &IAMDrift{
 				ClickOpsChanges: []string{},
@@ -164,17 +169,11 @@ func TestDrift_DetectDrift(t *testing.T) {
 			t.Parallel()
 
 			ctx := context.Background()
-			data, err := os.ReadFile(absolutePath(tc.terraformStatefilename))
-			if err != nil {
-				t.Errorf("ProcessStates() failed to read json file %v", err)
-			}
-			gcsClient := &storage.MockStorageClient{
-				DownloadData:   string(data),
-				ListObjectURIs: []string{bucketGCSURI},
-			}
 			d := &IAMDriftDetector{
-				assetInventoryClient:  tc.assetInventoryClient,
-				terraformParser:       &parser.TerraformParser{GCS: gcsClient, OrganizationID: orgID},
+				assetInventoryClient: tc.assetInventoryClient,
+				terraformParser: &parser.MockTerraformParser{
+					ProcessStatesResp: tc.processStatesResp,
+				},
 				organizationID:        orgID,
 				maxConcurrentRequests: 1,
 				foldersByID:           make(map[string]*assetinventory.HierarchyNode),
@@ -190,10 +189,4 @@ func TestDrift_DetectDrift(t *testing.T) {
 			}
 		})
 	}
-}
-
-func absolutePath(filename string) (fn string) {
-	_, fn, _, _ = runtime.Caller(0)
-	repoRoot := filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(fn))))
-	return fmt.Sprintf("%s/%s", repoRoot, filename)
 }

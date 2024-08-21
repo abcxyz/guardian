@@ -24,16 +24,18 @@ import (
 )
 
 // FilesystemStorage implements the Storage interface for a local filesystem.
-type FilesystemStorage struct{}
+type FilesystemStorage struct {
+	parent string
+}
 
-// FilesystemStorage creates a new FilesystemStorage client.
-func NewFilesystemStorage(ctx context.Context) (*FilesystemStorage, error) {
-	return &FilesystemStorage{}, nil
+// NewFilesystemStorage creates a new FilesystemStorage client.
+func NewFilesystemStorage(ctx context.Context, parent string) (*FilesystemStorage, error) {
+	return &FilesystemStorage{parent: parent}, nil
 }
 
 // CreateObject creates a file in the supplied to the local filesystem..
-func (s *FilesystemStorage) CreateObject(ctx context.Context, folder, filename string, contents []byte, _ ...CreateOption) (merr error) {
-	pth := filepath.Join(folder, filename)
+func (s *FilesystemStorage) CreateObject(ctx context.Context, filename string, contents []byte, _ ...CreateOption) (merr error) {
+	pth := filepath.Join(s.parent, filename)
 	dir := filepath.Dir(pth)
 
 	if err := os.MkdirAll(dir, 0o700); err != nil {
@@ -47,8 +49,8 @@ func (s *FilesystemStorage) CreateObject(ctx context.Context, folder, filename s
 }
 
 // GetObject returns a reader for a file on the local filesystem. The caller must call Close on the returned Reader when done reading.
-func (s *FilesystemStorage) GetObject(ctx context.Context, folder, filename string) (io.ReadCloser, map[string]string, error) {
-	pth := filepath.Join(folder, filename)
+func (s *FilesystemStorage) GetObject(ctx context.Context, filename string) (io.ReadCloser, map[string]string, error) {
+	pth := filepath.Join(s.parent, filename)
 	f, err := os.Open(pth)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to read file: %w", err)
@@ -58,8 +60,8 @@ func (s *FilesystemStorage) GetObject(ctx context.Context, folder, filename stri
 
 // DeleteObject deletes an object from a from the local filesystem. If the object does not exist, no error
 // will be returned.
-func (s *FilesystemStorage) DeleteObject(ctx context.Context, folder, filename string) error {
-	pth := filepath.Join(folder, filename)
+func (s *FilesystemStorage) DeleteObject(ctx context.Context, filename string) error {
+	pth := filepath.Join(s.parent, filename)
 	if err := os.Remove(pth); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("failed to delete object: %w", err)
 	}
@@ -67,10 +69,10 @@ func (s *FilesystemStorage) DeleteObject(ctx context.Context, folder, filename s
 }
 
 // ObjectsWithName recursively searches a directory for files matching the given filename.
-func (s *FilesystemStorage) ObjectsWithName(ctx context.Context, folder, filename string) ([]string, error) {
+func (s *FilesystemStorage) ObjectsWithName(ctx context.Context, filename string) ([]string, error) {
 	var matches []string
 
-	if err := filepath.WalkDir(folder, func(pth string, d fs.DirEntry, err error) error {
+	if err := filepath.WalkDir(s.parent, func(pth string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return fmt.Errorf("failed to walk directory %s: %w", pth, err)
 		}
