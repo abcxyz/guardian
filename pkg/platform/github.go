@@ -20,13 +20,25 @@ import (
 	"time"
 
 	"github.com/google/go-github/v53/github"
+	"github.com/sethvargo/go-retry"
 	"golang.org/x/oauth2"
 
 	gh "github.com/abcxyz/guardian/pkg/github"
 	"github.com/abcxyz/pkg/githubauth"
+	"github.com/abcxyz/pkg/logging"
 )
 
-var _ Platform = (*GitHub)(nil)
+var (
+	_ Platform = (*GitHub)(nil)
+
+	ignoredStatusCodes = map[int]struct{}{
+		400: {},
+		401: {},
+		403: {},
+		404: {},
+		422: {},
+	}
+)
 
 // GitHub implements the Platform interface.
 type GitHub struct {
@@ -75,4 +87,72 @@ func NewGitHub(ctx context.Context, cfg *gh.Config) (*GitHub, error) {
 	}
 
 	return g, nil
+}
+
+// RequestReviewers abstracts GitHub's RequestReviewers API with retries.
+func (g *GitHub) requestReviewers(ctx context.Context, reviewer *github.ReviewersRequest) error {
+	if reviewer == nil {
+		return fmt.Errorf("reviewer cannot be nil")
+	}
+	return g.withRetries(ctx, func(ctx context.Context) error {
+		if _, resp, err := g.client.PullRequests.RequestReviewers(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, g.cfg.GitHubPullRequestNumber, *reviewer); err != nil {
+			if resp != nil {
+				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
+					return retry.RetryableError(err)
+				}
+			}
+			return fmt.Errorf("failed to request reviewers: %w", err)
+		}
+		return nil
+	})
+}
+
+// AssignReviewers assigns a list of users and teams as reviewers of a target
+// Pull Request. The implementation assigns one principal per request because
+// mixing existing reviewers in pending review state with new reviewers will
+// result in a no-op without errors thrown.
+func (g *GitHub) AssignReviewers(ctx context.Context, inputs *AssignReviewersInput) (*AssignReviewersResult, error) {
+	logger := logging.FromContext(ctx)
+	if inputs == nil {
+		return nil, fmt.Errorf("inputs cannot be nil")
+	}
+
+	var result AssignReviewersResult
+	for _, u := range inputs.Users {
+		if err := g.requestReviewers(ctx, &github.ReviewersRequest{Reviewers: []string{u}}); err != nil {
+			logger.ErrorContext(ctx, "failed to assign reviewer for pull request",
+				"user", u,
+				"error", err,
+			)
+			continue
+		}
+		result.Users = append(result.Users, u)
+	}
+	for _, t := range inputs.Teams {
+		if err := g.requestReviewers(ctx, &github.ReviewersRequest{TeamReviewers: []string{t}}); err != nil {
+			logger.ErrorContext(ctx, "failed to assign reviewer for pull request",
+				"team", t,
+				"error", err,
+			)
+			continue
+		}
+		result.Teams = append(result.Teams, t)
+	}
+
+	if len(result.Users) == 0 && len(result.Teams) == 0 {
+		return nil, fmt.Errorf("failed to assign all requested reviewers to pull request")
+	}
+
+	return &result, nil
+}
+
+func (g *GitHub) withRetries(ctx context.Context, retryFunc retry.RetryFunc) error {
+	backoff := retry.NewFibonacci(g.cfg.InitialRetryDelay)
+	backoff = retry.WithMaxRetries(g.cfg.MaxRetries, backoff)
+	backoff = retry.WithCappedDuration(g.cfg.MaxRetryDelay, backoff)
+
+	if err := retry.Do(ctx, backoff, retryFunc); err != nil {
+		return fmt.Errorf("failed to execute retriable function: %w", err)
+	}
+	return nil
 }
