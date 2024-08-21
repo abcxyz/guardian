@@ -17,30 +17,94 @@ package platform
 import (
 	"context"
 	"fmt"
+	"time"
 
-	"github.com/abcxyz/guardian/pkg/github"
+	"github.com/google/go-github/v53/github"
+	"github.com/sethvargo/go-retry"
+	"golang.org/x/oauth2"
+
+	gh "github.com/abcxyz/guardian/pkg/github"
+	"github.com/abcxyz/pkg/githubauth"
 	"github.com/abcxyz/pkg/logging"
 )
 
-var _ Platform = (*GitHub)(nil)
+var (
+	_ Platform = (*GitHub)(nil)
+
+	ignoredStatusCodes = map[int]struct{}{
+		400: {},
+		401: {},
+		403: {},
+		404: {},
+		422: {},
+	}
+)
 
 // GitHub implements the Platform interface.
 type GitHub struct {
-	cfg    *github.Config
-	client github.GitHub
+	cfg    *gh.Config
+	client *github.Client
 }
 
 // NewGitHub creates a new GitHub client.
-func NewGitHub(ctx context.Context, cfg *github.Config) (*GitHub, error) {
-	client, err := github.NewGitHubClient(ctx, cfg)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create gitHub client: %w", err)
+func NewGitHub(ctx context.Context, cfg *gh.Config) (*GitHub, error) {
+	if cfg.MaxRetries <= 0 {
+		cfg.MaxRetries = 3
+	}
+	if cfg.InitialRetryDelay <= 0 {
+		cfg.InitialRetryDelay = 1 * time.Second
+	}
+	if cfg.MaxRetryDelay <= 0 {
+		cfg.MaxRetryDelay = 20 * time.Second
 	}
 
-	return &GitHub{
+	var ts oauth2.TokenSource
+	if cfg.GitHubToken != "" {
+		ts = oauth2.StaticTokenSource(&oauth2.Token{
+			AccessToken: cfg.GitHubToken,
+		})
+	} else {
+		app, err := githubauth.NewApp(cfg.GitHubAppID, cfg.GitHubAppPrivateKeyPEM)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create github app token source: %w", err)
+		}
+
+		installation, err := app.InstallationForID(ctx, cfg.GitHubAppInstallationID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get github app installation: %w", err)
+		}
+
+		ts = installation.SelectedReposOAuth2TokenSource(ctx, cfg.Permissions, cfg.GitHubRepo)
+	}
+
+	tc := oauth2.NewClient(ctx, ts)
+
+	client := github.NewClient(tc)
+
+	g := &GitHub{
 		cfg:    cfg,
 		client: client,
-	}, nil
+	}
+
+	return g, nil
+}
+
+// RequestReviewers abstracts GitHub's RequestReviewers API with retries.
+func (g *GitHub) requestReviewers(ctx context.Context, reviewer *github.ReviewersRequest) error {
+	if reviewer == nil {
+		return fmt.Errorf("reviewer cannot be nil")
+	}
+	return g.withRetries(ctx, func(ctx context.Context) error {
+		if _, resp, err := g.client.PullRequests.RequestReviewers(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, g.cfg.GitHubPullRequestNumber, *reviewer); err != nil {
+			if resp != nil {
+				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
+					return retry.RetryableError(err)
+				}
+			}
+			return fmt.Errorf("failed to request reviewers: %w", err)
+		}
+		return nil
+	})
 }
 
 // AssignReviewers assigns a list of users and teams as reviewers of a target
@@ -55,7 +119,7 @@ func (g *GitHub) AssignReviewers(ctx context.Context, inputs *AssignReviewersInp
 
 	var result AssignReviewersResult
 	for _, u := range inputs.Users {
-		if _, err := g.client.RequestReviewers(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, g.cfg.GitHubPullRequestNumber, []string{u}, nil); err != nil {
+		if err := g.requestReviewers(ctx, &github.ReviewersRequest{Reviewers: []string{u}}); err != nil {
 			logger.ErrorContext(ctx, "failed to assign reviewer for pull request",
 				"user", u,
 				"error", err,
@@ -65,7 +129,7 @@ func (g *GitHub) AssignReviewers(ctx context.Context, inputs *AssignReviewersInp
 		result.Users = append(result.Users, u)
 	}
 	for _, t := range inputs.Teams {
-		if _, err := g.client.RequestReviewers(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, g.cfg.GitHubPullRequestNumber, nil, []string{t}); err != nil {
+		if err := g.requestReviewers(ctx, &github.ReviewersRequest{TeamReviewers: []string{t}}); err != nil {
 			logger.ErrorContext(ctx, "failed to assign reviewer for pull request",
 				"team", t,
 				"error", err,
@@ -80,4 +144,15 @@ func (g *GitHub) AssignReviewers(ctx context.Context, inputs *AssignReviewersInp
 	}
 
 	return &result, nil
+}
+
+func (g *GitHub) withRetries(ctx context.Context, retryFunc retry.RetryFunc) error {
+	backoff := retry.NewFibonacci(g.cfg.InitialRetryDelay)
+	backoff = retry.WithMaxRetries(g.cfg.MaxRetries, backoff)
+	backoff = retry.WithCappedDuration(g.cfg.MaxRetryDelay, backoff)
+
+	if err := retry.Do(ctx, backoff, retryFunc); err != nil {
+		return fmt.Errorf("failed to execute retriable function: %w", err)
+	}
+	return nil
 }
