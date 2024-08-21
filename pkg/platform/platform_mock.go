@@ -33,12 +33,12 @@ type MockPlatform struct {
 	AssignReviewersErr error
 }
 
-func (m *MockPlatform) AssignReviewers(ctx context.Context, inputs *AssignReviewersInput) (*AssignReviewersResult, error) {
+func (m *MockPlatform) AssignReviewers(ctx context.Context, input *AssignReviewersInput) (*AssignReviewersResult, error) {
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
 	m.Reqs = append(m.Reqs, &Request{
 		Name:   "AssignReviewers",
-		Params: []any{inputs},
+		Params: []any{input},
 	})
 
 	if m.AssignReviewersErr != nil {
@@ -46,7 +46,7 @@ func (m *MockPlatform) AssignReviewers(ctx context.Context, inputs *AssignReview
 	}
 
 	return &AssignReviewersResult{
-		Teams: inputs.Teams,
-		Users: inputs.Users,
+		Teams: input.Teams,
+		Users: input.Users,
 	}, nil
 }
