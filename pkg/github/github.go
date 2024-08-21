@@ -151,10 +151,6 @@ type GitHub interface {
 
 	// ResolveJobLogsURL finds the direct URL to the logs for a specific workflow run job.
 	ResolveJobLogsURL(ctx context.Context, jobName, owner, repo string, runID int64) (string, error)
-
-	// RequestReviewers assigns a list of users and teams as reviewers of a target
-	// Pull Request.
-	RequestReviewers(ctx context.Context, owner, repo string, number int, users, teams []string) (*RequestReviewersResponse, error)
 }
 
 var _ GitHub = (*GitHubClient)(nil)
@@ -568,39 +564,6 @@ func (g *GitHubClient) ResolveJobLogsURL(ctx context.Context, jobName, owner, re
 	}
 
 	return "", fmt.Errorf("failed to resolve direct URL to job logs: no job found matching name %s", jobName)
-}
-
-// RequestReviewers assigns a list of users and teams as reviewers of a target
-// Pull Request. Mixing existing reviewers in pending review state with new
-// reviewers will result in a no-op without errors thrown.
-func (g *GitHubClient) RequestReviewers(ctx context.Context, owner, repo string, number int, users, teams []string) (*RequestReviewersResponse, error) {
-	var assigned *RequestReviewersResponse
-	if err := g.withRetries(ctx, func(ctx context.Context) error {
-		pr, resp, err := g.client.PullRequests.RequestReviewers(ctx, owner, repo, number, github.ReviewersRequest{
-			Reviewers:     users,
-			TeamReviewers: teams,
-		})
-		if err != nil {
-			if resp != nil {
-				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
-					return retry.RetryableError(err)
-				}
-			}
-			return fmt.Errorf("failed to request reviewers: %w", err)
-		}
-
-		for _, u := range pr.RequestedReviewers {
-			assigned.Users = append(assigned.Users, *u.Login)
-		}
-		for _, t := range pr.RequestedTeams {
-			assigned.Teams = append(assigned.Teams, *t.Slug)
-		}
-
-		return nil
-	}); err != nil {
-		return nil, fmt.Errorf("failed to request reviewers: %w", err)
-	}
-	return assigned, nil
 }
 
 func (g *GitHubClient) withRetries(ctx context.Context, retryFunc retry.RetryFunc) error {
