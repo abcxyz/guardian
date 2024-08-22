@@ -68,6 +68,9 @@ type AssignReviewersResult struct {
 type Platform interface {
 	// AssignReviewers assigns principals to review a change request.
 	AssignReviewers(ctx context.Context, inputs *AssignReviewersInput) (*AssignReviewersResult, error)
+
+	// ModifierContent returns the modifier content for parsing modifier flags.
+	ModifierContent(ctx context.Context) string
 }
 
 // Config is the configuration needed to generate different Platform types.

@@ -31,34 +31,52 @@ type MockReporter struct {
 	reqMu sync.Mutex
 	Reqs  []*Request
 
-	CreateStatusErr error
-	ClearStatusErr  error
+	StatusErr             error
+	EntrypointsSummaryErr error
+	ClearErr              error
 }
 
-// CreateStatus implements the CreateStatus function.
-func (m *MockReporter) CreateStatus(ctx context.Context, s Status, p *Params) error {
+// Status implements the Status function.
+func (m *MockReporter) Status(ctx context.Context, s Status, p *StatusParams) error {
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
 
 	// make a copy to prevent outside modification
-	pCopy := new(Params)
+	pCopy := new(StatusParams)
 	*pCopy = *p
 
 	m.Reqs = append(m.Reqs, &Request{
-		Name:   "CreateStatus",
+		Name:   "Status",
 		Params: []any{s, pCopy},
 	})
 
-	return m.CreateStatusErr
+	return m.StatusErr
 }
 
-// ClearStatus implements the ClearStatus function.
-func (m *MockReporter) ClearStatus(ctx context.Context) error {
+// EntrypointsSummary implements the EntrypointsSummary function.
+func (m *MockReporter) EntrypointsSummary(ctx context.Context, p *EntrypointsSummaryParams) error {
+	m.reqMu.Lock()
+	defer m.reqMu.Unlock()
+
+	// make a copy to prevent outside modification
+	pCopy := new(EntrypointsSummaryParams)
+	*pCopy = *p
+
+	m.Reqs = append(m.Reqs, &Request{
+		Name:   "EntrypointsSummary",
+		Params: []any{pCopy},
+	})
+
+	return m.EntrypointsSummaryErr
+}
+
+// Cleartatus implements the Clear function.
+func (m *MockReporter) Clear(ctx context.Context) error {
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
 	m.Reqs = append(m.Reqs, &Request{
-		Name: "ClearStatus",
+		Name: "Clear",
 	})
 
-	return m.ClearStatusErr
+	return m.ClearErr
 }

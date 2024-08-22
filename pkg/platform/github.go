@@ -155,3 +155,9 @@ func (g *GitHub) withRetries(ctx context.Context, retryFunc retry.RetryFunc) err
 	}
 	return nil
 }
+
+// ModifierContent returns the pull request body as the content to parse modifiers
+// from.
+func (g *GitHub) ModifierContent(ctx context.Context) string {
+	return g.cfg.GitHubPullRequestBody
+}

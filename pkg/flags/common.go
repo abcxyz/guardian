@@ -32,11 +32,4 @@ func (c *CommonFlags) Register(set *cli.FlagSet) {
 		Example: "./terraform",
 		Usage:   "The location of the terraform directory",
 	})
-
-	f.StringVar(&cli.StringVar{
-		Name:    "body-contents",
-		Target:  &c.FlagBodyContents,
-		Example: "${{ github.event.pull_request.body }}",
-		Usage:   "The string contents of the change request body.",
-	})
 }

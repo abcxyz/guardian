@@ -105,7 +105,7 @@ func (c *PlanCommand) Flags() *cli.FlagSet {
 	f.StringVar(&cli.StringVar{
 		Name:    "reporter",
 		Target:  &c.flagReporter,
-		Default: reporter.TypeLocal,
+		Default: reporter.TypeNone,
 		Example: "github",
 		Usage:   fmt.Sprintf("The reporting strategy for Guardian status updates. Valid values are %q.", reporter.SortedReporterTypes),
 		Predict: complete.PredictFunc(func(prefix string) []string {
@@ -198,7 +198,7 @@ func (c *PlanCommand) Run(ctx context.Context, args []string) error {
 	}
 	c.storageClient = sc
 
-	rc, err := reporter.NewReporter(ctx, c.flagReporter, &reporter.Config{GitHub: c.platformConfig.GitHub}, c.Stdout())
+	rc, err := reporter.NewReporter(ctx, c.flagReporter, &reporter.Config{GitHub: c.platformConfig.GitHub})
 	if err != nil {
 		return fmt.Errorf("failed to create reporter client: %w", err)
 	}
@@ -217,7 +217,7 @@ func (c *PlanCommand) Process(ctx context.Context) error {
 		c.planFilename = "tfplan.binary"
 	}
 
-	rp := &reporter.Params{
+	rp := &reporter.StatusParams{
 		Operation: "plan",
 		IsDestroy: c.flagDestroy,
 		Dir:       c.directory,
@@ -238,7 +238,7 @@ func (c *PlanCommand) Process(ctx context.Context) error {
 		rp.HasDiff = true
 	}
 
-	if err := c.reporterClient.CreateStatus(ctx, status, rp); err != nil {
+	if err := c.reporterClient.Status(ctx, status, rp); err != nil {
 		merr = errors.Join(merr, fmt.Errorf("failed to report status: %w", err))
 	}
 

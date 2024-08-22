@@ -19,6 +19,8 @@ import (
 	"flag"
 	"fmt"
 
+	"github.com/posener/complete/v2"
+
 	"github.com/abcxyz/guardian/pkg/github"
 	"github.com/abcxyz/guardian/pkg/reporter"
 	"github.com/abcxyz/pkg/cli"
@@ -53,6 +55,19 @@ func (c *RemoveGuardianCommentsCommand) Flags() *cli.FlagSet {
 
 	c.githubConfig.RegisterFlags(set)
 
+	f := set.NewSection("COMMAND OPTIONS")
+
+	f.StringVar(&cli.StringVar{
+		Name:    "reporter",
+		Target:  &c.flagReporter,
+		Default: reporter.TypeNone,
+		Example: "github",
+		Usage:   fmt.Sprintf("The reporting strategy for Guardian status updates. Valid values are %q.", reporter.SortedReporterTypes),
+		Predict: complete.PredictFunc(func(prefix string) []string {
+			return reporter.SortedReporterTypes
+		}),
+	})
+
 	return set
 }
 
@@ -67,7 +82,7 @@ func (c *RemoveGuardianCommentsCommand) Run(ctx context.Context, args []string) 
 		return flag.ErrHelp
 	}
 
-	rc, err := reporter.NewReporter(ctx, c.flagReporter, &reporter.Config{GitHub: c.githubConfig}, c.Stdout())
+	rc, err := reporter.NewReporter(ctx, c.flagReporter, &reporter.Config{GitHub: c.githubConfig})
 	if err != nil {
 		return fmt.Errorf("failed to create reporter client: %w", err)
 	}
@@ -78,7 +93,7 @@ func (c *RemoveGuardianCommentsCommand) Run(ctx context.Context, args []string) 
 
 // Process handles the main logic for the Guardian remove plan comments process.
 func (c *RemoveGuardianCommentsCommand) Process(ctx context.Context) error {
-	if err := c.reporterClient.ClearStatus(ctx); err != nil {
+	if err := c.reporterClient.Clear(ctx); err != nil {
 		return fmt.Errorf("failed to remove comments: %w", err)
 	}
 

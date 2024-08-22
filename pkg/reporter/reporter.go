@@ -18,7 +18,6 @@ package reporter
 import (
 	"context"
 	"fmt"
-	"io"
 	"sort"
 	"strings"
 
@@ -26,13 +25,13 @@ import (
 )
 
 const (
-	TypeLocal  string = "local"
+	TypeNone   string = "none"
 	TypeGitHub string = "github"
 )
 
 // SortedReporterTypes are the sorted Reporter types for printing messages and prediction.
 var SortedReporterTypes = func() []string {
-	allowed := append([]string{}, TypeLocal, TypeGitHub)
+	allowed := append([]string{}, TypeNone, TypeGitHub)
 	sort.Strings(allowed)
 	return allowed
 }()
@@ -42,14 +41,14 @@ type Status string
 
 // the supported statuses for reporters.
 const (
-	StatusSuccess     Status = Status("SUCCESS")
-	StatusFailure     Status = Status("FAILURE")
-	StatusNoOperation Status = Status("NO CHANGES")
-	StatusUnknown     Status = Status("UNKNOWN")
+	StatusSuccess     Status = Status("SUCCESS")    //nolint:errname // Not an error
+	StatusFailure     Status = Status("FAILURE")    //nolint:errname // Not an error
+	StatusNoOperation Status = Status("NO CHANGES") //nolint:errname // Not an error
+	StatusUnknown     Status = Status("UNKNOWN")    //nolint:errname // Not an error
 )
 
-// Params are the parameters for writing reports.
-type Params struct {
+// StatusParams are the parameters for writing status reports.
+type StatusParams struct {
 	HasDiff   bool
 	Details   string
 	Dir       string
@@ -58,13 +57,24 @@ type Params struct {
 	Operation string
 }
 
+// EntrypointsSummaryParams are the parameters for writing entrypoints summary reports.
+type EntrypointsSummaryParams struct {
+	Message       string
+	ModifiedDirs  []string
+	DestroyDirs   []string
+	AbandonedDirs []string
+}
+
 // Reporter defines the minimum interface for a reporter.
 type Reporter interface {
-	// CreateStatus reports the status of a run.
-	CreateStatus(ctx context.Context, status Status, params *Params) error
+	// Status reports the status of a run.
+	Status(ctx context.Context, status Status, params *StatusParams) error
 
-	// ClearStatus clears any existing statuses that can be removed.
-	ClearStatus(ctx context.Context) error
+	// EntrypointsSummary reports the summary for the entrypionts command.
+	EntrypointsSummary(ctx context.Context, params *EntrypointsSummaryParams) error
+
+	// Clear clears any existing reports that can be removed.
+	Clear(ctx context.Context) error
 }
 
 // Config is the configuration needed to generate different reporter types.
@@ -73,9 +83,9 @@ type Config struct {
 }
 
 // NewReporter creates a new reporter based on the provided type.
-func NewReporter(ctx context.Context, t string, c *Config, stdout io.Writer) (Reporter, error) {
-	if strings.EqualFold(t, TypeLocal) {
-		return NewLocalReporter(ctx, stdout)
+func NewReporter(ctx context.Context, t string, c *Config) (Reporter, error) {
+	if strings.EqualFold(t, TypeNone) {
+		return NewNoopReporter(ctx)
 	}
 
 	if strings.EqualFold(t, TypeGitHub) {
@@ -93,6 +103,11 @@ func NewReporter(ctx context.Context, t string, c *Config, stdout io.Writer) (Re
 			GitHubOwner:             c.GitHub.GitHubOwner,
 			GitHubRepo:              c.GitHub.GitHubRepo,
 			GitHubPullRequestNumber: c.GitHub.GitHubPullRequestNumber,
+			GitHubServerURL:         c.GitHub.GitHubServerURL,
+			GitHubRunID:             c.GitHub.GitHubRunID,
+			GitHubRunAttempt:        c.GitHub.GitHubRunAttempt,
+			GitHubJob:               c.GitHub.GitHubJob,
+			GitHubSHA:               c.GitHub.GitHubSHA,
 		})
 	}
 

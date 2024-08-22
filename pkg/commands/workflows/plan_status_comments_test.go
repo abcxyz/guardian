@@ -45,8 +45,8 @@ func TestPlanStatusCommentsProcess(t *testing.T) {
 			flagPlanResult: []string{"success"},
 			expReporterClientReqs: []*reporter.Request{
 				{
-					Name:   "CreateStatus",
-					Params: []any{reporter.StatusSuccess, &reporter.Params{Operation: "plan", Message: "Plan completed successfully."}},
+					Name:   "Status",
+					Params: []any{reporter.StatusSuccess, &reporter.StatusParams{Operation: "plan", Message: "Plan completed successfully."}},
 				},
 			},
 			err: "",
@@ -69,8 +69,8 @@ func TestPlanStatusCommentsProcess(t *testing.T) {
 			flagPlanResult: []string{"cancelled"},
 			expReporterClientReqs: []*reporter.Request{
 				{
-					Name:   "CreateStatus",
-					Params: []any{reporter.StatusUnknown, &reporter.Params{Operation: "plan", Message: "Unable to determine plan status."}},
+					Name:   "Status",
+					Params: []any{reporter.StatusUnknown, &reporter.StatusParams{Operation: "plan", Message: "Unable to determine plan status."}},
 				},
 			},
 			err: "unable to determine plan status",
@@ -81,8 +81,8 @@ func TestPlanStatusCommentsProcess(t *testing.T) {
 			flagPlanResult: []string{"success"},
 			expReporterClientReqs: []*reporter.Request{
 				{
-					Name:   "CreateStatus",
-					Params: []any{reporter.StatusSuccess, &reporter.Params{Operation: "plan", Message: "Plan completed successfully."}},
+					Name:   "Status",
+					Params: []any{reporter.StatusSuccess, &reporter.StatusParams{Operation: "plan", Message: "Plan completed successfully."}},
 				},
 			},
 			createStatusErr: fmt.Errorf("error creating comment"),
@@ -97,7 +97,7 @@ func TestPlanStatusCommentsProcess(t *testing.T) {
 			t.Parallel()
 
 			mockReporterClient := &reporter.MockReporter{
-				CreateStatusErr: tc.createStatusErr,
+				StatusErr: tc.createStatusErr,
 			}
 
 			c := &PlanStatusCommentCommand{

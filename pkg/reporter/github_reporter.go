@@ -136,11 +136,11 @@ func NewGitHubReporter(ctx context.Context, gc github.GitHub, i *GitHubReporterI
 	return r, nil
 }
 
-// CreateStatus implements the reporter Status function by writing a GitHub status comment.
-func (g *GitHubReporter) CreateStatus(ctx context.Context, st Status, p *Params) error {
+// Status implements the reporter Status function by writing a GitHub comment.
+func (g *GitHubReporter) Status(ctx context.Context, st Status, p *StatusParams) error {
 	msg, err := g.statusMessage(st, p)
 	if err != nil {
-		return fmt.Errorf("failed to generate status message")
+		return fmt.Errorf("failed to generate status message: %w", err)
 	}
 
 	_, err = g.gitHubClient.CreateIssueComment(
@@ -157,8 +157,28 @@ func (g *GitHubReporter) CreateStatus(ctx context.Context, st Status, p *Params)
 	return nil
 }
 
-// ClearStatus deletes all github comments with the guardian prefix.
-func (g *GitHubReporter) ClearStatus(ctx context.Context) error {
+// EntrypointsSummary implements the reporter EntrypointsSummary function by writing a GitHub comment.
+func (g *GitHubReporter) EntrypointsSummary(ctx context.Context, p *EntrypointsSummaryParams) error {
+	msg, err := g.entrypointsSummaryMessage(p)
+	if err != nil {
+		return fmt.Errorf("failed to generate summary message: %w", err)
+	}
+
+	if _, err = g.gitHubClient.CreateIssueComment(
+		ctx,
+		g.inputs.GitHubOwner,
+		g.inputs.GitHubRepo,
+		g.inputs.GitHubPullRequestNumber,
+		msg.String(),
+	); err != nil {
+		return fmt.Errorf("failed to report: %w", err)
+	}
+
+	return nil
+}
+
+// Clear deletes all github comments with the guardian prefix.
+func (g *GitHubReporter) Clear(ctx context.Context) error {
 	listOpts := &gh.IssueListCommentsOptions{
 		ListOptions: gh.ListOptions{PerPage: 100},
 	}
@@ -193,7 +213,7 @@ func (g *GitHubReporter) ClearStatus(ctx context.Context) error {
 }
 
 // statusMessage generates the status message based on the provided reporter values.
-func (g *GitHubReporter) statusMessage(st Status, p *Params) (strings.Builder, error) {
+func (g *GitHubReporter) statusMessage(st Status, p *StatusParams) (strings.Builder, error) {
 	var msg strings.Builder
 
 	fmt.Fprintf(&msg, "%s", githubCommentPrefix)
@@ -241,6 +261,35 @@ func (g *GitHubReporter) statusMessage(st Status, p *Params) (strings.Builder, e
 		}
 
 		fmt.Fprintf(&msg, "%s", detailsText)
+	}
+
+	return msg, nil
+}
+
+// entrypointsSummaryMessage generates the entrypoints summary message based on the provided reporter values.
+func (g *GitHubReporter) entrypointsSummaryMessage(p *EntrypointsSummaryParams) (strings.Builder, error) {
+	var msg strings.Builder
+
+	fmt.Fprintf(&msg, "%s", githubCommentPrefix)
+
+	if g.logURL != "" {
+		fmt.Fprintf(&msg, " [%s]", g.markdownURL("logs", g.logURL))
+	}
+
+	if p.Message != "" {
+		fmt.Fprintf(&msg, "\n\n%s\n", p.Message)
+	}
+
+	if len(p.ModifiedDirs) > 0 {
+		fmt.Fprintf(&msg, "\n**%s**\n%s", "Plan", strings.Join(p.ModifiedDirs, "\n"))
+	}
+
+	if len(p.DestroyDirs) > 0 {
+		fmt.Fprintf(&msg, "\n**%s**\n%s", "Destroy", strings.Join(p.DestroyDirs, "\n"))
+	}
+
+	if len(p.AbandonedDirs) > 0 {
+		fmt.Fprintf(&msg, "\n**%s**\n%s", "Abandon", strings.Join(p.AbandonedDirs, "\n"))
 	}
 
 	return msg, nil

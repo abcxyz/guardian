@@ -22,8 +22,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/git"
+	"github.com/abcxyz/guardian/pkg/platform"
+	"github.com/abcxyz/guardian/pkg/reporter"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/testutil"
 )
@@ -49,8 +50,10 @@ func TestEntrypointsProcess(t *testing.T) {
 		flagSourceRef         string
 		flagDetectChanges     bool
 		flagMaxDepth          int
-		flagBodyContents      string
+		modifierContent       string
 		gitClient             *git.MockGitClient
+		platformClient        *platform.MockPlatform
+		reporterClient        *reporter.MockReporter
 		err                   string
 		expStdout             string
 		expStderr             string
@@ -83,7 +86,7 @@ func TestEntrypointsProcess(t *testing.T) {
 			flagDestRef:           "main",
 			flagSourceRef:         "ldap/feature",
 			flagDetectChanges:     true,
-			flagBodyContents:      "GUARDIAN_DESTROY=testdata/backends/project3",
+			modifierContent:       "GUARDIAN_DESTROY=testdata/backends/project3",
 			gitClient: &git.MockGitClient{
 				DiffResp: []string{
 					path.Join(cwd, "testdata/backends/project1"),
@@ -147,18 +150,21 @@ func TestEntrypointsProcess(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
+			mockPlatformClient := &platform.MockPlatform{
+				ModifierContentResp: tc.modifierContent,
+			}
+			mockReporterClient := &reporter.MockReporter{}
+
 			c := &EntrypointsCommand{
 				directory: tc.directory,
-
-				CommonFlags: flags.CommonFlags{
-					FlagBodyContents: tc.flagBodyContents,
-				},
 
 				flagDestRef:       tc.flagDestRef,
 				flagSourceRef:     tc.flagSourceRef,
 				flagDetectChanges: tc.flagDetectChanges,
 				flagMaxDepth:      tc.flagMaxDepth,
 				gitClient:         tc.gitClient,
+				platformClient:    mockPlatformClient,
+				reporterClient:    mockReporterClient,
 			}
 
 			_, stdout, stderr := c.Pipe()
