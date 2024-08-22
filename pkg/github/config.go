@@ -15,8 +15,10 @@
 package github
 
 import (
+	"encoding/json"
 	"time"
 
+	"github.com/google/go-github/v53/github"
 	"github.com/sethvargo/go-githubactions"
 
 	"github.com/abcxyz/pkg/cli"
@@ -43,28 +45,47 @@ type Config struct {
 	GitHubRunAttempt        int64
 	GitHubJob               string
 	GitHubPullRequestNumber int
+	GitHubPullRequestBody   string
 	GitHubSHA               string
 }
 
+type configDefaults struct {
+	Owner             string
+	Repo              string
+	PullRequestNumber int
+	PullRequestBody   string
+}
+
 func (c *Config) RegisterFlags(set *cli.FlagSet) {
+	d := &configDefaults{}
+
 	githubContext, _ := githubactions.New().Context()
-	owner, repo := githubContext.Repo()
-	prNumber, _ := githubContext.Event["number"].(int)
+	d.Owner, d.Repo = githubContext.Repo()
+
+	data, _ := json.Marshal(githubContext.Event) //nolint:errchkjson //Shouldnt affect defaults
+
+	if githubContext.EventName == "pull_request" {
+		var event github.PullRequestEvent
+		if err := json.Unmarshal(data, &event); err == nil {
+			d.PullRequestNumber = event.GetNumber()
+			d.PullRequestBody = event.GetPullRequest().GetBody()
+		}
+	}
 
 	f := set.NewSection("GITHUB OPTIONS")
 
 	f.StringVar(&cli.StringVar{
 		Name:   "github-token",
-		EnvVar: "GITHUB_TOKEN",
+		EnvVar: "GITHUB_REPO_TOKEN",
 		Target: &c.GitHubToken,
-		Usage:  "The GitHub access token to make GitHub API calls. This value is automatically set on GitHub Actions.",
+		Usage:  "The GitHub access token to make GitHub API calls.",
 		Hidden: true,
 	})
 
 	f.StringVar(&cli.StringVar{
 		Name:    "github-owner",
 		Target:  &c.GitHubOwner,
-		Default: owner,
+		Default: d.Owner,
 		Example: "organization-name",
 		Usage:   "The GitHub repository owner.",
 		Hidden:  true,
@@ -73,7 +94,7 @@ func (c *Config) RegisterFlags(set *cli.FlagSet) {
 	f.StringVar(&cli.StringVar{
 		Name:    "github-repo",
 		Target:  &c.GitHubRepo,
-		Default: repo,
+		Default: d.Repo,
 		Example: "repository-name",
 		Usage:   "The GitHub repository name.",
 		Hidden:  true,
@@ -138,8 +159,16 @@ func (c *Config) RegisterFlags(set *cli.FlagSet) {
 	f.IntVar(&cli.IntVar{
 		Name:    "github-pull-request-number",
 		Target:  &c.GitHubPullRequestNumber,
-		Default: prNumber,
+		Default: d.PullRequestNumber,
 		Usage:   "The GitHub pull request number.",
+		Hidden:  true,
+	})
+
+	f.StringVar(&cli.StringVar{
+		Name:    "github-pull-request-body",
+		Target:  &c.GitHubPullRequestBody,
+		Default: d.PullRequestBody,
+		Usage:   "The GitHub pull request body.",
 		Hidden:  true,
 	})
 
