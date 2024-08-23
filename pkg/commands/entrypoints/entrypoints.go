@@ -27,11 +27,14 @@ import (
 	"slices"
 	"sort"
 
+	"github.com/posener/complete/v2"
 	"golang.org/x/exp/maps"
 
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/git"
 	"github.com/abcxyz/guardian/pkg/modifiers"
+	"github.com/abcxyz/guardian/pkg/platform"
+	"github.com/abcxyz/guardian/pkg/reporter"
 	"github.com/abcxyz/guardian/pkg/terraform"
 	"github.com/abcxyz/guardian/pkg/util"
 	"github.com/abcxyz/pkg/cli"
@@ -53,9 +56,11 @@ type EntrypointsCommand struct {
 
 	directory string
 
-	flags.RetryFlags
+	platformConfig platform.Config
+
 	flags.CommonFlags
 
+	flagReporter                string
 	flagDestRef                 string
 	flagSourceRef               string
 	flagDetectChanges           bool
@@ -64,7 +69,9 @@ type EntrypointsCommand struct {
 
 	parsedFlagMaxDepth *int
 
-	gitClient git.Git
+	gitClient      git.Git
+	platformClient platform.Platform
+	reporterClient reporter.Reporter
 }
 
 func (c *EntrypointsCommand) Desc() string {
@@ -82,10 +89,21 @@ Usage: {{ COMMAND }} [options]
 func (c *EntrypointsCommand) Flags() *cli.FlagSet {
 	set := c.NewFlagSet()
 
-	c.RetryFlags.Register(set)
+	c.platformConfig.RegisterFlags(set)
 	c.CommonFlags.Register(set)
 
 	f := set.NewSection("COMMAND OPTIONS")
+
+	f.StringVar(&cli.StringVar{
+		Name:    "reporter",
+		Target:  &c.flagReporter,
+		Default: reporter.TypeNone,
+		Example: "github",
+		Usage:   fmt.Sprintf("The reporting strategy for Guardian status updates. Valid values are %q.", reporter.SortedReporterTypes),
+		Predict: complete.PredictFunc(func(prefix string) []string {
+			return reporter.SortedReporterTypes
+		}),
+	})
 
 	f.StringVar(&cli.StringVar{
 		Name:    "dest-ref",
@@ -164,6 +182,18 @@ func (c *EntrypointsCommand) Run(ctx context.Context, args []string) error {
 
 	c.gitClient = git.NewGitClient(c.directory)
 
+	platform, err := platform.NewPlatform(ctx, &c.platformConfig)
+	if err != nil {
+		return fmt.Errorf("failed to create platform: %w", err)
+	}
+	c.platformClient = platform
+
+	rc, err := reporter.NewReporter(ctx, c.flagReporter, &reporter.Config{GitHub: c.platformConfig.GitHub})
+	if err != nil {
+		return fmt.Errorf("failed to create reporter client: %w", err)
+	}
+	c.reporterClient = rc
+
 	return c.Process(ctx)
 }
 
@@ -181,7 +211,7 @@ func (c *EntrypointsCommand) Process(ctx context.Context) error {
 		return fmt.Errorf("failed to find entrypoint directories: %w", err)
 	}
 
-	metaValues := modifiers.ParseBodyMetaValues(ctx, c.FlagBodyContents)
+	metaValues := modifiers.ParseBodyMetaValues(ctx, c.platformClient.ModifierContent(ctx))
 	logger.DebugContext(ctx, "parsed body meta values", "values", metaValues)
 
 	allEntrypointDirs := slices.Concat(nil, entrypointDirs, removedDirs)
@@ -206,6 +236,15 @@ func (c *EntrypointsCommand) Process(ctx context.Context) error {
 
 	if err := c.writeOutput(cwd, results); err != nil {
 		return fmt.Errorf("failed to write output: %w", err)
+	}
+
+	if err := c.reporterClient.EntrypointsSummary(ctx, &reporter.EntrypointsSummaryParams{
+		Message:       "Guardian will run for the following directories",
+		ModifiedDirs:  modifiedDirs,
+		DestroyDirs:   destroyDirs,
+		AbandonedDirs: abandonedDirs,
+	}); err != nil {
+		return fmt.Errorf("failed to create report: %w", err)
 	}
 
 	return nil

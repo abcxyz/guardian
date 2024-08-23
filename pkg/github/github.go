@@ -173,10 +173,15 @@ func NewGitHubClient(ctx context.Context, c *Config) (*GitHubClient, error) {
 		c.MaxRetryDelay = 20 * time.Second
 	}
 
+	ghToken := c.GuardianGitHubToken
+	if ghToken == "" {
+		ghToken = c.GitHubToken
+	}
+
 	var ts oauth2.TokenSource
-	if c.GitHubToken != "" {
+	if ghToken != "" {
 		ts = oauth2.StaticTokenSource(&oauth2.Token{
-			AccessToken: c.GitHubToken,
+			AccessToken: ghToken,
 		})
 	} else {
 		app, err := githubauth.NewApp(c.GitHubAppID, c.GitHubAppPrivateKeyPEM)
@@ -575,39 +580,4 @@ func (g *GitHubClient) withRetries(ctx context.Context, retryFunc retry.RetryFun
 		return fmt.Errorf("failed to execute retriable function: %w", err)
 	}
 	return nil
-}
-
-type TokenSourceInputs struct {
-	GitHubToken string
-
-	GitHubAppID             string
-	GitHubAppPrivateKeyPEM  string
-	GitHubAppInstallationID string
-	GitHubRepo              string
-	Permissions             map[string]string
-}
-
-// TokenSource creates a token source from a GitHub token or GitHub App used for
-// authenticating a github client.
-func TokenSource(ctx context.Context, inputs *TokenSourceInputs) (oauth2.TokenSource, error) {
-	if inputs == nil {
-		return nil, fmt.Errorf("inputs cannot be nil")
-	}
-
-	if inputs.GitHubToken != "" {
-		return oauth2.StaticTokenSource(&oauth2.Token{
-			AccessToken: inputs.GitHubToken,
-		}), nil
-	}
-
-	app, err := githubauth.NewApp(inputs.GitHubAppID, inputs.GitHubAppPrivateKeyPEM)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create github app token source: %w", err)
-	}
-
-	installation, err := app.InstallationForID(ctx, inputs.GitHubAppInstallationID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get github app installation: %w", err)
-	}
-	return installation.SelectedReposOAuth2TokenSource(ctx, inputs.Permissions, inputs.GitHubRepo), nil
 }

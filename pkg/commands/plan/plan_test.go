@@ -130,8 +130,8 @@ func TestPlan_Process(t *testing.T) {
 			terraformClient:          terraformDiffMock,
 			expReporterClientReqs: []*reporter.Request{
 				{
-					Name:   "CreateStatus",
-					Params: []any{reporter.StatusSuccess, &reporter.Params{HasDiff: true, Details: "terraform show success with diff", Dir: "testdata", Operation: "plan"}},
+					Name:   "Status",
+					Params: []any{reporter.StatusSuccess, &reporter.StatusParams{HasDiff: true, Details: "terraform show success with diff", Dir: "testdata", Operation: "plan"}},
 				},
 			},
 			expStorageClientReqs: []*storage.Request{
@@ -154,8 +154,8 @@ func TestPlan_Process(t *testing.T) {
 			terraformClient:          terraformDiffMock,
 			expReporterClientReqs: []*reporter.Request{
 				{
-					Name:   "CreateStatus",
-					Params: []any{reporter.StatusSuccess, &reporter.Params{HasDiff: true, IsDestroy: true, Details: "terraform show success with diff", Dir: "testdata", Operation: "plan"}},
+					Name:   "Status",
+					Params: []any{reporter.StatusSuccess, &reporter.StatusParams{HasDiff: true, IsDestroy: true, Details: "terraform show success with diff", Dir: "testdata", Operation: "plan"}},
 				},
 			},
 			expStorageClientReqs: []*storage.Request{
@@ -177,8 +177,8 @@ func TestPlan_Process(t *testing.T) {
 			terraformClient:          terraformNoDiffMock,
 			expReporterClientReqs: []*reporter.Request{
 				{
-					Name:   "CreateStatus",
-					Params: []any{reporter.StatusNoOperation, &reporter.Params{HasDiff: false, Dir: "testdata", Operation: "plan"}},
+					Name:   "Status",
+					Params: []any{reporter.StatusNoOperation, &reporter.StatusParams{HasDiff: false, Dir: "testdata", Operation: "plan"}},
 				},
 			},
 			expStorageClientReqs: []*storage.Request{
@@ -203,8 +203,8 @@ func TestPlan_Process(t *testing.T) {
 			err:                      "failed to run Guardian plan: failed to initialize: failed to run terraform init",
 			expReporterClientReqs: []*reporter.Request{
 				{
-					Name:   "CreateStatus",
-					Params: []any{reporter.StatusFailure, &reporter.Params{HasDiff: false, Details: "terraform init failed", Dir: "testdata", Operation: "plan"}},
+					Name:   "Status",
+					Params: []any{reporter.StatusFailure, &reporter.StatusParams{HasDiff: false, Details: "terraform init failed", Dir: "testdata", Operation: "plan"}},
 				},
 			},
 		},

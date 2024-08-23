@@ -95,8 +95,8 @@ func TestApply_Process(t *testing.T) {
 			terraformClient:          terraformMock,
 			expReporterClientReqs: []*reporter.Request{
 				{
-					Name:   "CreateStatus",
-					Params: []any{reporter.StatusSuccess, &reporter.Params{HasDiff: true, Details: "terraform apply success", Dir: "testdir", Operation: "apply"}},
+					Name:   "Status",
+					Params: []any{reporter.StatusSuccess, &reporter.StatusParams{HasDiff: true, Details: "terraform apply success", Dir: "testdir", Operation: "apply"}},
 				},
 			},
 			expStorageClientReqs: []*storage.Request{
@@ -126,8 +126,8 @@ func TestApply_Process(t *testing.T) {
 			terraformClient:          terraformMock,
 			expReporterClientReqs: []*reporter.Request{
 				{
-					Name:   "CreateStatus",
-					Params: []any{reporter.StatusSuccess, &reporter.Params{HasDiff: true, IsDestroy: true, Details: "terraform apply success", Dir: "testdir", Operation: "apply"}},
+					Name:   "Status",
+					Params: []any{reporter.StatusSuccess, &reporter.StatusParams{HasDiff: true, IsDestroy: true, Details: "terraform apply success", Dir: "testdir", Operation: "apply"}},
 				},
 			},
 			expStorageClientReqs: []*storage.Request{
@@ -184,8 +184,8 @@ func TestApply_Process(t *testing.T) {
 			err:                      "failed to run Guardian apply: failed to apply: failed to run terraform apply",
 			expReporterClientReqs: []*reporter.Request{
 				{
-					Name:   "CreateStatus",
-					Params: []any{reporter.StatusFailure, &reporter.Params{HasDiff: true, Details: "terraform apply failed", Dir: "testdir", Operation: "apply"}},
+					Name:   "Status",
+					Params: []any{reporter.StatusFailure, &reporter.StatusParams{HasDiff: true, Details: "terraform apply failed", Dir: "testdir", Operation: "apply"}},
 				},
 			},
 			expStorageClientReqs: []*storage.Request{
@@ -218,8 +218,8 @@ func TestApply_Process(t *testing.T) {
 			err:                      "failed to run Guardian apply: failed to apply: failed to run terraform apply",
 			expReporterClientReqs: []*reporter.Request{
 				{
-					Name:   "CreateStatus",
-					Params: []any{reporter.StatusFailure, &reporter.Params{HasDiff: true, IsDestroy: true, Details: "terraform apply failed", Dir: "testdir", Operation: "apply"}},
+					Name:   "Status",
+					Params: []any{reporter.StatusFailure, &reporter.StatusParams{HasDiff: true, IsDestroy: true, Details: "terraform apply failed", Dir: "testdir", Operation: "apply"}},
 				},
 			},
 			expStorageClientReqs: []*storage.Request{

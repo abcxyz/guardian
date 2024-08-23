@@ -57,10 +57,15 @@ func NewGitHub(ctx context.Context, cfg *gh.Config) (*GitHub, error) {
 		cfg.MaxRetryDelay = 20 * time.Second
 	}
 
+	ghToken := cfg.GuardianGitHubToken
+	if ghToken == "" {
+		ghToken = cfg.GitHubToken
+	}
+
 	var ts oauth2.TokenSource
-	if cfg.GitHubToken != "" {
+	if ghToken != "" {
 		ts = oauth2.StaticTokenSource(&oauth2.Token{
-			AccessToken: cfg.GitHubToken,
+			AccessToken: ghToken,
 		})
 	} else {
 		app, err := githubauth.NewApp(cfg.GitHubAppID, cfg.GitHubAppPrivateKeyPEM)
@@ -154,4 +159,10 @@ func (g *GitHub) withRetries(ctx context.Context, retryFunc retry.RetryFunc) err
 		return fmt.Errorf("failed to execute retriable function: %w", err)
 	}
 	return nil
+}
+
+// ModifierContent returns the pull request body as the content to parse modifiers
+// from.
+func (g *GitHub) ModifierContent(ctx context.Context) string {
+	return g.cfg.GitHubPullRequestBody
 }

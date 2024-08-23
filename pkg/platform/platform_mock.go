@@ -30,7 +30,8 @@ type MockPlatform struct {
 	reqMu sync.Mutex
 	Reqs  []*Request
 
-	AssignReviewersErr error
+	AssignReviewersErr  error
+	ModifierContentResp string
 }
 
 func (m *MockPlatform) AssignReviewers(ctx context.Context, input *AssignReviewersInput) (*AssignReviewersResult, error) {
@@ -49,4 +50,14 @@ func (m *MockPlatform) AssignReviewers(ctx context.Context, input *AssignReviewe
 		Teams: input.Teams,
 		Users: input.Users,
 	}, nil
+}
+
+func (m *MockPlatform) ModifierContent(ctx context.Context) string {
+	m.reqMu.Lock()
+	defer m.reqMu.Unlock()
+	m.Reqs = append(m.Reqs, &Request{
+		Name: "ModifierContent",
+	})
+
+	return m.ModifierContentResp
 }

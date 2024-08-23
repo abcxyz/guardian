@@ -66,7 +66,7 @@ func (c *PlanStatusCommentCommand) Flags() *cli.FlagSet {
 		Name:    "reporter",
 		Target:  &c.flagReporter,
 		Example: "github",
-		Default: reporter.TypeLocal,
+		Default: reporter.TypeNone,
 		Usage:   fmt.Sprintf("The reporting strategy for Guardian status updates. Valid values are %q", reporter.SortedReporterTypes),
 		Predict: complete.PredictFunc(func(prefix string) []string {
 			return reporter.SortedReporterTypes
@@ -113,7 +113,7 @@ func (c *PlanStatusCommentCommand) Run(ctx context.Context, args []string) error
 		return flag.ErrHelp
 	}
 
-	rc, err := reporter.NewReporter(ctx, c.flagReporter, &reporter.Config{GitHub: c.githubConfig}, c.Stdout())
+	rc, err := reporter.NewReporter(ctx, c.flagReporter, &reporter.Config{GitHub: c.githubConfig})
 	if err != nil {
 		return fmt.Errorf("failed to create reporter client: %w", err)
 	}
@@ -127,7 +127,7 @@ func (c *PlanStatusCommentCommand) Process(ctx context.Context) error {
 	// this case improves user experience, when the planning job does not have a plan diff
 	// there are no comments, this informs the user that the job ran successfully
 	if c.flagInitResult == github.GitHubWorkflowResultSuccess && util.SliceContainsOnly(c.flagPlanResult, github.GitHubWorkflowResultSuccess) {
-		err := c.reporterClient.CreateStatus(ctx, reporter.StatusSuccess, &reporter.Params{Operation: "plan", Message: "Plan completed successfully."})
+		err := c.reporterClient.Status(ctx, reporter.StatusSuccess, &reporter.StatusParams{Operation: "plan", Message: "Plan completed successfully."})
 		if err != nil {
 			return fmt.Errorf("failed to create plan status comment: %w", err)
 		}
@@ -144,14 +144,14 @@ func (c *PlanStatusCommentCommand) Process(ctx context.Context) error {
 	// and the plan job is skipped, this informs the user that the job ran successfully
 	// but no changes are needed
 	if c.flagInitResult == github.GitHubWorkflowResultSuccess && util.SliceContainsOnly(c.flagPlanResult, github.GitHubWorkflowResultSkipped) {
-		err := c.reporterClient.CreateStatus(ctx, reporter.StatusNoOperation, &reporter.Params{Operation: "plan", Message: "No Terraform changes detected, planning skipped."})
+		err := c.reporterClient.Status(ctx, reporter.StatusNoOperation, &reporter.StatusParams{Operation: "plan", Message: "No Terraform changes detected, planning skipped."})
 		if err != nil {
 			return fmt.Errorf("failed to create plan status comment: %w", err)
 		}
 		return nil
 	}
 
-	err := c.reporterClient.CreateStatus(ctx, reporter.StatusUnknown, &reporter.Params{Operation: "plan", Message: "Unable to determine plan status."})
+	err := c.reporterClient.Status(ctx, reporter.StatusUnknown, &reporter.StatusParams{Operation: "plan", Message: "Unable to determine plan status."})
 	if err != nil {
 		return fmt.Errorf("failed to create plan status comment: %w", err)
 	}

@@ -67,12 +67,12 @@ one of github pull request number or github sha are required`,
 	}
 }
 
-func TestGitHubReporterCreateStatus(t *testing.T) {
+func TestGitHubReporterStatus(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
 		name                   string
 		status                 Status
-		params                 *Params
+		params                 *StatusParams
 		logURL                 string
 		expGitHubClientReqs    []*github.Request
 		createIssueCommentsErr error
@@ -81,7 +81,7 @@ func TestGitHubReporterCreateStatus(t *testing.T) {
 		{
 			name:   "success",
 			status: StatusSuccess,
-			params: &Params{
+			params: &StatusParams{
 				Operation: "plan",
 				IsDestroy: false,
 				Dir:       "terraform/project1",
@@ -97,7 +97,7 @@ func TestGitHubReporterCreateStatus(t *testing.T) {
 		{
 			name:   "success_destroy",
 			status: StatusSuccess,
-			params: &Params{
+			params: &StatusParams{
 				Operation: "plan",
 				IsDestroy: true,
 				Dir:       "terraform/project1",
@@ -113,7 +113,7 @@ func TestGitHubReporterCreateStatus(t *testing.T) {
 		{
 			name:   "error",
 			status: StatusSuccess,
-			params: &Params{
+			params: &StatusParams{
 				Operation: "plan",
 				IsDestroy: false,
 				Dir:       "terraform/project1",
@@ -123,8 +123,7 @@ func TestGitHubReporterCreateStatus(t *testing.T) {
 			err:                    "failed to report: FAILED!",
 			expGitHubClientReqs: []*github.Request{
 				{
-					Name: "CreateIssueComment",
-					// Params: []any{"owner", "repo", int(1), GitHubCommentPrefix + " " + markdownPill(PlanOperationText) + " " + markdownPill(SuccessStatusText) + " [[logs](https://github.com)]\n\n**Entrypoint:** terraform/project1"},
+					Name:   "CreateIssueComment",
 					Params: []any{"owner", "repo", int(1), "#### 🔱 Guardian 🔱 **`PLAN`** **`🟩 SUCCESS`** [[logs](https://github.com)]\n\n**Entrypoint:** terraform/project1"},
 				},
 			},
@@ -154,7 +153,113 @@ func TestGitHubReporterCreateStatus(t *testing.T) {
 				logURL: tc.logURL,
 			}
 
-			err := reporter.CreateStatus(context.Background(), tc.status, tc.params)
+			err := reporter.Status(context.Background(), tc.status, tc.params)
+			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
+				t.Errorf(diff)
+			}
+
+			if diff := cmp.Diff(gitHubClient.Reqs, tc.expGitHubClientReqs); diff != "" {
+				t.Errorf("GitHubClient calls not as expected; (-got,+want): %s", diff)
+			}
+		})
+	}
+}
+
+func TestGitHubReporterCreateStatus(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name                   string
+		status                 Status
+		params                 *EntrypointsSummaryParams
+		logURL                 string
+		expGitHubClientReqs    []*github.Request
+		createIssueCommentsErr error
+		err                    string
+	}{
+		{
+			name:   "success",
+			status: StatusSuccess,
+			params: &EntrypointsSummaryParams{
+				Message:       "summary message",
+				ModifiedDirs:  []string{"modified"},
+				DestroyDirs:   []string{"destroy"},
+				AbandonedDirs: []string{"abandoned"},
+			},
+			logURL: "https://github.com",
+			expGitHubClientReqs: []*github.Request{
+				{
+					Name: "CreateIssueComment",
+					Params: []any{
+						"owner", "repo", int(1), "#### 🔱 Guardian 🔱 [[logs](https://github.com)]\n" +
+							"\n" +
+							"summary message\n" +
+							"\n" +
+							"**Plan**\n" +
+							"modified\n" +
+							"**Destroy**\n" +
+							"destroy\n" +
+							"**Abandon**\n" +
+							"abandoned",
+					},
+				},
+			},
+		},
+		{
+			name:   "error",
+			status: StatusSuccess,
+			params: &EntrypointsSummaryParams{
+				Message:       "summary message",
+				ModifiedDirs:  []string{"modified"},
+				DestroyDirs:   []string{"destroy"},
+				AbandonedDirs: []string{"abandoned"},
+			},
+			logURL:                 "https://github.com",
+			createIssueCommentsErr: fmt.Errorf("FAILED!"),
+			err:                    "failed to report: FAILED!",
+			expGitHubClientReqs: []*github.Request{
+				{
+					Name: "CreateIssueComment",
+					Params: []any{
+						"owner", "repo", int(1), "#### 🔱 Guardian 🔱 [[logs](https://github.com)]\n" +
+							"\n" +
+							"summary message\n" +
+							"\n" +
+							"**Plan**\n" +
+							"modified\n" +
+							"**Destroy**\n" +
+							"destroy\n" +
+							"**Abandon**\n" +
+							"abandoned",
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			gitHubClient := &github.MockGitHubClient{
+				CreateIssueCommentsErr: tc.createIssueCommentsErr,
+			}
+
+			reporter := &GitHubReporter{
+				gitHubClient: gitHubClient,
+				inputs: &GitHubReporterInputs{
+					GitHubOwner:             "owner",
+					GitHubRepo:              "repo",
+					GitHubPullRequestNumber: 1,
+					GitHubServerURL:         "https://github.com",
+					GitHubRunID:             1,
+					GitHubRunAttempt:        1,
+					GitHubJob:               "plan (terraform/project1)",
+				},
+				logURL: tc.logURL,
+			}
+
+			err := reporter.EntrypointsSummary(context.Background(), tc.params)
 			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
 				t.Errorf(diff)
 			}
@@ -233,7 +338,7 @@ func TestGitHubReporterClearStatus(t *testing.T) {
 				},
 			}
 
-			err := reporter.ClearStatus(context.Background())
+			err := reporter.Clear(context.Background())
 			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
 				t.Errorf(diff)
 			}
@@ -274,7 +379,7 @@ func TestGitHubReporterOversizeOutput(t *testing.T) {
 			logURL: "https://github.com",
 		}
 
-		err := reporter.CreateStatus(context.Background(), StatusSuccess, &Params{
+		err := reporter.Status(context.Background(), StatusSuccess, &StatusParams{
 			Operation: "plan",
 			Dir:       "terraform/project1",
 			Details:   messageOverLimit(),

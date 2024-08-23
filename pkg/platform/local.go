@@ -30,3 +30,8 @@ func NewLocal(ctx context.Context) *Local {
 func (l *Local) AssignReviewers(ctx context.Context, inputs *AssignReviewersInput) (*AssignReviewersResult, error) {
 	return &AssignReviewersResult{}, nil
 }
+
+// ModifierContent is a no-op.
+func (l *Local) ModifierContent(ctx context.Context) string {
+	return ""
+}
