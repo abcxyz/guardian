@@ -100,7 +100,7 @@ jobs:
         shell: 'bash'
         env:
           # used to delete old comments on pull requests (access to only this repo)
-          GITHUB_REPO_TOKEN: '${{ github.token }}'
+          GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
         run: |-
           guardian workflows remove-guardian-comments
 
@@ -108,7 +108,7 @@ jobs:
         id: 'entrypoints'
         shell: 'bash'
         env:
-          GITHUB_REPO_TOKEN: '${{ github.token }}'
+          GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
           SOURCE_REF: '${{ github.event.pull_request.base.sha }}'
           DEST_REF: '${{ github.event.pull_request.head.sha }}'
         run: |-
@@ -173,7 +173,7 @@ jobs:
         shell: 'bash'
         env:
           # used to create comments on pull requests (access to only this repo)
-          GITHUB_REPO_TOKEN: '${{ github.token }}'
+          GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
         run: |-
           guardian plan -dir="${DIRECTORY}" -storage="gcs://${GUARDIAN_BUCKET_NAME}"
 
@@ -237,7 +237,7 @@ jobs:
         shell: 'bash'
         env:
           # used to create comments on pull requests (access to only this repo)
-          GITHUB_REPO_TOKEN: '${{ github.token }}'
+          GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
         run: |-
           guardian plan -dir="${DIRECTORY}" -storage="gcs://${GUARDIAN_BUCKET_NAME}" -destroy
 
@@ -247,7 +247,7 @@ jobs:
         shell: 'bash'
         env:
           # used to create comments on pull requests (access to only this repo)
-          GITHUB_REPO_TOKEN: '${{ github.token }}'
+          GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
         run: |-
           guardian apply -dir="${DIRECTORY}" -storage="gcs://${GUARDIAN_BUCKET_NAME}"
 
@@ -282,7 +282,7 @@ jobs:
         shell: 'bash'
         env:
           # used to create comments on pull requests (access to only this repo)
-          GITHUB_REPO_TOKEN: '${{ github.token }}'
+          GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
         run: |-
           guardian workflows plan-status-comment \
             -init-result="${{ needs.init.result }}" \
@@ -344,7 +344,7 @@ jobs:
         shell: 'bash'
         env:
           # used to create comments on pull requests (access to only this repo)
-          GITHUB_REPO_TOKEN: '${{ github.token }}'
+          GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
         run: |-
           guardian apply -dir="${DIRECTORY}" -storage="gcs://${GUARDIAN_BUCKET_NAME}"
 
