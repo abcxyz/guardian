@@ -48,6 +48,11 @@ func (s *FilesystemStorage) CreateObject(ctx context.Context, filename string, c
 	return nil
 }
 
+// Parent returns the filesystem directory.
+func (s *FilesystemStorage) Parent() string {
+	return s.parent
+}
+
 // GetObject returns a reader for a file on the local filesystem. The caller must call Close on the returned Reader when done reading.
 func (s *FilesystemStorage) GetObject(ctx context.Context, filename string) (io.ReadCloser, map[string]string, error) {
 	pth := filepath.Join(s.parent, filename)

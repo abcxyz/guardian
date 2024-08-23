@@ -40,6 +40,9 @@ var SortedStorageTypes = func() []string {
 
 // Storage defines the minimum interface for a blob storage system.
 type Storage interface {
+	// Parent returns the storage parent name
+	Parent() string
+
 	// CreateObject creates a blob storage object.
 	CreateObject(ctx context.Context, name string, contents []byte, opts ...CreateOption) error
 
