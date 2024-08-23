@@ -110,8 +110,7 @@ jobs:
         shell: 'bash'
         env:
           GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
-          SOURCE_REF: '${{ github.event.pull_request.base.sha }}'
-          DEST_REF: '${{ github.event.pull_request.head.sha }}'
+          GITHUB_PULL_REQUEST_BODY: 'GUARDIAN_DESTROY=terraform/project2'
         run: |-
           ENTRYPOINTS=$(guardian entrypoints -dir=./terraform)
           echo "entrypoints -> ${ENTRYPOINTS}"
@@ -121,7 +120,6 @@ jobs:
           echo "destroy=$(echo $ENTRYPOINTS | jq -j -c '.destroy')" >> $GITHUB_OUTPUT
 
   plan:
-    name: 'plan (${{ matrix.working_directory }})'
     if: |
       needs.init.outputs.modified != '[]'
     needs:
@@ -138,6 +136,7 @@ jobs:
         working_directory: '${{ fromJSON(needs.init.outputs.modified) }}'
     env:
       DIRECTORY: '${{ matrix.working_directory }}'
+      GITHUB_JOB_NAME: '${{ github.job }} (${{ matrix.working_directory }})'
     steps:
       - name: 'Checkout'
         uses: 'actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332' # ratchet:actions/checkout@v4
@@ -179,7 +178,6 @@ jobs:
           guardian plan -dir="${DIRECTORY}" -storage="gcs://${GUARDIAN_BUCKET_NAME}"
 
   plan_destroy:
-    name: 'plan_destroy (${{ matrix.working_directory }})'
     if: |
       needs.init.outputs.destroy != '[]'
     needs:
@@ -196,6 +194,7 @@ jobs:
         working_directory: '${{ fromJSON(needs.init.outputs.destroy) }}'
     env:
       DIRECTORY: '${{ matrix.working_directory }}'
+      GITHUB_JOB_NAME: '${{ github.job }} (${{ matrix.working_directory }})'
     steps:
       - name: 'Checkout'
         uses: 'actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332' # ratchet:actions/checkout@v4
@@ -291,11 +290,11 @@ jobs:
             -plan-result="${{ needs.plan_destroy.result }}"
 
   apply:
-    name: 'apply (${{ matrix.working_directory }})'
     if: |
       needs.init.outputs.modified != '[]'
     needs:
       - 'init'
+      - 'plan'
       - 'plan_success'
     runs-on: 'ubuntu-latest'
     permissions:
@@ -309,6 +308,7 @@ jobs:
         working_directory: '${{ fromJSON(needs.init.outputs.modified) }}'
     env:
       DIRECTORY: '${{ matrix.working_directory }}'
+      GITHUB_JOB_NAME: '${{ github.job }} (${{ matrix.working_directory }})'
     steps:
       - name: 'Checkout'
         uses: 'actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332' # ratchet:actions/checkout@v4

@@ -70,6 +70,7 @@ type GitHubReporterInputs struct {
 	GitHubRunID             int64
 	GitHubRunAttempt        int64
 	GitHubJob               string
+	GitHubJobName           string
 	GitHubPullRequestNumber int
 	GitHubSHA               string
 }
@@ -124,13 +125,17 @@ func NewGitHubReporter(ctx context.Context, gc github.GitHub, i *GitHubReporterI
 		inputs:       i,
 	}
 
+	var logURL string
 	if i.GitHubServerURL != "" || i.GitHubRunID > 0 || i.GitHubRunAttempt > 0 {
-		logURL, err := gc.ResolveJobLogsURL(ctx, i.GitHubJob, i.GitHubOwner, i.GitHubRepo, i.GitHubRunID)
+		logURL = fmt.Sprintf("%s/%s/%s/actions/runs/%d/attempts/%d", i.GitHubServerURL, i.GitHubOwner, i.GitHubRepo, i.GitHubRunID, i.GitHubRunAttempt)
+	}
+
+	if i.GitHubJobName != "" {
+		resolvedURL, err := gc.ResolveJobLogsURL(ctx, i.GitHubJobName, i.GitHubOwner, i.GitHubRepo, i.GitHubRunID)
 		if err != nil {
-			logger.WarnContext(ctx, "could not resolve direct url to job logs", "err", err)
-			logURL = fmt.Sprintf("%s/%s/%s/actions/runs/%d/attempts/%d", i.GitHubServerURL, i.GitHubOwner, i.GitHubRepo, i.GitHubRunID, i.GitHubRunAttempt)
+			resolvedURL = logURL
 		}
-		r.logURL = logURL
+		r.logURL = resolvedURL
 	}
 
 	return r, nil

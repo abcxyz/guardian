@@ -239,7 +239,7 @@ func (c *ApplyCommand) Process(ctx context.Context) (merr error) {
 	rp := &reporter.StatusParams{
 		Operation: "apply",
 		IsDestroy: c.isDestroy,
-		Dir:       c.directory,
+		Dir:       c.childPath,
 		HasDiff:   true,
 	}
 
@@ -266,8 +266,6 @@ func (c *ApplyCommand) terraformApply(ctx context.Context) (*RunResult, error) {
 	var stdout, stderr strings.Builder
 	multiStdout := io.MultiWriter(c.Stdout(), &stdout)
 	multiStderr := io.MultiWriter(c.Stderr(), &stderr)
-
-	util.Headerf(c.Stdout(), "Running Terraform commands")
 
 	lockfileMode := "none"
 	if !c.flagAllowLockfileChanges {

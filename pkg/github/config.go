@@ -45,6 +45,7 @@ type Config struct {
 	GitHubRunID             int64
 	GitHubRunAttempt        int64
 	GitHubJob               string
+	GitHubJobName           string
 	GitHubPullRequestNumber int
 	GitHubPullRequestBody   string
 	GitHubSHA               string
@@ -172,8 +173,17 @@ GITHUB_TOKEN.`,
 		Hidden: true,
 	})
 
+	f.StringVar(&cli.StringVar{
+		Name:   "github-job-name",
+		EnvVar: "GITHUB_JOB_NAME",
+		Target: &c.GitHubJobName,
+		Usage:  "The GitHub job name.",
+		Hidden: true,
+	})
+
 	f.IntVar(&cli.IntVar{
 		Name:    "github-pull-request-number",
+		EnvVar:  "GITHUB_PULL_REQUEST_NUMBER",
 		Target:  &c.GitHubPullRequestNumber,
 		Default: d.PullRequestNumber,
 		Usage:   "The GitHub pull request number.",
@@ -182,6 +192,7 @@ GITHUB_TOKEN.`,
 
 	f.StringVar(&cli.StringVar{
 		Name:    "github-pull-request-body",
+		EnvVar:  "GITHUB_PULL_REQUEST_BODY",
 		Target:  &c.GitHubPullRequestBody,
 		Default: d.PullRequestBody,
 		Usage:   "The GitHub pull request body.",

@@ -111,25 +111,15 @@ func (c *PlanStatusCommentCommand) Run(ctx context.Context, args []string) error
 
 // Process handles the main logic for the Guardian remove plan comments process.
 func (c *PlanStatusCommentCommand) Process(ctx context.Context) error {
-	// this case improves user experience, when the planning job does not have a plan diff
-	// there are no comments, this informs the user that the job ran successfully
-	if c.flagInitResult == github.GitHubWorkflowResultSuccess && util.SliceContainsOnly(c.flagPlanResult, github.GitHubWorkflowResultSuccess) {
-		err := c.reporterClient.Status(ctx, reporter.StatusSuccess, &reporter.StatusParams{Operation: "plan", Message: "Plan completed successfully."})
-		if err != nil {
-			return fmt.Errorf("failed to create plan status comment: %w", err)
-		}
-		return nil
-	}
-
-	// this case does not require a comment because the planning job should
-	// have commented that there was a failure and for which directory
+	// there was at least one failure, we should return an error to fail the job
+	// no comments as each plan run will comment their failure status
 	if c.flagInitResult == github.GitHubWorkflowResultFailure || slices.Contains(c.flagPlanResult, github.GitHubWorkflowResultFailure) {
 		return fmt.Errorf("init or plan has one or more failures")
 	}
 
-	// this case improves user experience, when no Terraform changes were submitted
-	// and the plan job is skipped, this informs the user that the job ran successfully
-	// but no changes are needed
+	// all plan runs were skipped, meaning there were no changes to plan
+	// no plans were run so there will be no comments, we can improve user experience
+	// by showing status that there were no changes to be planned
 	if c.flagInitResult == github.GitHubWorkflowResultSuccess && util.SliceContainsOnly(c.flagPlanResult, github.GitHubWorkflowResultSkipped) {
 		err := c.reporterClient.Status(ctx, reporter.StatusNoOperation, &reporter.StatusParams{Operation: "plan", Message: "No Terraform changes detected, planning skipped."})
 		if err != nil {
@@ -138,10 +128,5 @@ func (c *PlanStatusCommentCommand) Process(ctx context.Context) error {
 		return nil
 	}
 
-	err := c.reporterClient.Status(ctx, reporter.StatusUnknown, &reporter.StatusParams{Operation: "plan", Message: "Unable to determine plan status."})
-	if err != nil {
-		return fmt.Errorf("failed to create plan status comment: %w", err)
-	}
-
-	return fmt.Errorf("unable to determine plan status")
+	return nil
 }

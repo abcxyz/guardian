@@ -107,6 +107,7 @@ func NewReporter(ctx context.Context, t string, c *Config) (Reporter, error) {
 			GitHubRunID:             c.GitHub.GitHubRunID,
 			GitHubRunAttempt:        c.GitHub.GitHubRunAttempt,
 			GitHubJob:               c.GitHub.GitHubJob,
+			GitHubJobName:           c.GitHub.GitHubJobName,
 			GitHubSHA:               c.GitHub.GitHubSHA,
 		})
 	}
