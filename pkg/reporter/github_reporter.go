@@ -164,14 +164,13 @@ func (g *GitHubReporter) EntrypointsSummary(ctx context.Context, p *EntrypointsS
 		return fmt.Errorf("failed to generate summary message: %w", err)
 	}
 
-	_, err = g.gitHubClient.CreateIssueComment(
+	if _, err = g.gitHubClient.CreateIssueComment(
 		ctx,
 		g.inputs.GitHubOwner,
 		g.inputs.GitHubRepo,
 		g.inputs.GitHubPullRequestNumber,
 		msg.String(),
-	)
-	if err != nil {
+	); err != nil {
 		return fmt.Errorf("failed to report: %w", err)
 	}
 
