@@ -18,16 +18,9 @@ package platform
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
-
-	"github.com/posener/complete/v2"
-
-	gh "github.com/abcxyz/guardian/pkg/github"
-	"github.com/abcxyz/pkg/cli"
 )
 
 const (
@@ -71,50 +64,6 @@ type Platform interface {
 
 	// ModifierContent returns the modifier content for parsing modifier flags.
 	ModifierContent(ctx context.Context) string
-}
-
-// Config is the configuration needed to generate different Platform types.
-type Config struct {
-	Type string
-
-	GitHub gh.Config
-}
-
-func (c *Config) RegisterFlags(set *cli.FlagSet) {
-	f := set.NewSection("PLATFORM OPTIONS")
-	// Type value is loaded in the following order:
-	//
-	// 1. Explicit value set through --platform flag
-	// 2. Inferred environment from well-known environment variables
-	// 3. Default value of "local"
-	f.StringVar(&cli.StringVar{
-		Name:    "platform",
-		Target:  &c.Type,
-		Example: "github",
-		Usage:   fmt.Sprintf("The code review platform for Guardian to integrate with. Allowed values are %q", SortedTypes),
-		Predict: complete.PredictFunc(func(prefix string) []string {
-			return SortedTypes
-		}),
-	})
-
-	set.AfterParse(func(merr error) error {
-		c.Type = strings.ToLower(strings.TrimSpace(c.Type))
-
-		if _, ok := allowedTypes[c.Type]; !ok && c.Type != TypeUnspecified {
-			merr = errors.Join(merr, fmt.Errorf("unsupported value for platform flag: %s", c.Type))
-		}
-
-		if c.Type == TypeUnspecified {
-			c.Type = TypeLocal
-			if v, _ := strconv.ParseBool(set.GetEnv("GITHUB_ACTIONS")); v {
-				c.Type = TypeGitHub
-			}
-		}
-
-		return merr
-	})
-
-	c.GitHub.RegisterFlags(set)
 }
 
 // NewPlatform creates a new platform based on the provided type.

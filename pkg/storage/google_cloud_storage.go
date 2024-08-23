@@ -116,6 +116,11 @@ func makeCreateConfig(contentLength int, opts []CreateOption) *createConfig {
 	return cfg
 }
 
+// Parent returns the Google Cloud Storage bucket name.
+func (s *GoogleCloudStorage) Parent() string {
+	return s.parent
+}
+
 // CreateObject uploads an object to a Google Cloud Storage bucket using a set of upload options.
 func (s *GoogleCloudStorage) CreateObject(ctx context.Context, name string, contents []byte, opts ...CreateOption) (merr error) {
 	cfg := makeCreateConfig(len(contents), opts)
