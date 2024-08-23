@@ -63,7 +63,10 @@ func (c *Config) RegisterFlags(set *cli.FlagSet) {
 	githubContext, _ := githubactions.New().Context()
 	d.Owner, d.Repo = githubContext.Repo()
 
-	data, _ := json.Marshal(githubContext.Event) //nolint:errchkjson //Shouldnt affect defaults
+	// we want a typed struct so we will "re-parse" the event payload based on event name.
+	// ignore err because we have no way of returning an error via the flags.Register function.
+	// this is ok beause this is just for defaulting values from the environment.
+	data, _ := json.Marshal(githubContext.Event) //nolint:errchkjson // Shouldnt affect defaults
 
 	if githubContext.EventName == "pull_request" {
 		var event github.PullRequestEvent
@@ -79,7 +82,11 @@ func (c *Config) RegisterFlags(set *cli.FlagSet) {
 		Name:   "guardian-github-token",
 		EnvVar: "GUARDIAN_GITHUB_TOKEN",
 		Target: &c.GuardianGitHubToken,
-		Usage:  "The GitHub access token for Guardian to make GitHub API calls.",
+		Usage: `The GitHub access token for Guardian to make GitHub API calls. 
+This is separate from GITHUB_TOKEN becuse Terraform uses GITHUB_TOKEN to authenticate
+to the GitHub APIs also. Splitting this up allows use to follow least privilege
+for the caller (e.g. Guardian vs Terraform). If not supplied this will default to 
+GITHUB_TOKEN.`,
 		Hidden: true,
 	})
 
