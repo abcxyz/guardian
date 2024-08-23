@@ -113,8 +113,7 @@ jobs:
         uses: 'actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332' # ratchet:actions/checkout@v4
         with:
           ref: '${{ github.event.pull_request.head.sha }}'
-
-      # REPLACE_APPROVERS_AGGREGATION
+      # REPLACE_APPROVERS_DATA_AGGREGATION
       - name: 'Authenticate to Google Cloud'
         uses: 'google-github-actions/auth@71fee32a0bb7e97b4d33d548e7d957010649d8fa' # ratchet:google-github-actions/auth@v2
         with:
@@ -156,6 +155,7 @@ jobs:
           -bucket-name="${GUARDIAN_BUCKET_NAME}" \
           -job-name="${JOB_NAME}"
       # REPLACE_OPA
+      # REPLACE_GUARDIAN_POLICY_COMMAND
   plan_success:
     if: '${{ always() }}'
     runs-on: 'ubuntu-latest'
