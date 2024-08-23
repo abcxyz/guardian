@@ -127,18 +127,19 @@ func (c *PolicyCommand) Process(ctx context.Context) error {
 
 			merr = errors.Join(merr, fmt.Errorf("failed: \"%s\" - %s", k, m.Message))
 		}
+	}
 
+	if len(teams) > 0 || len(users) > 0 {
 		logger.DebugContext(ctx, "found missing approvals",
 			"teams", teams,
 			"users", users,
 		)
-	}
-
-	if _, err := c.platform.AssignReviewers(ctx, &platform.AssignReviewersInput{
-		Teams: teams,
-		Users: users,
-	}); err != nil {
-		return fmt.Errorf("failed to assign reviewers: %w", err)
+		if _, err := c.platform.AssignReviewers(ctx, &platform.AssignReviewersInput{
+			Teams: teams,
+			Users: users,
+		}); err != nil {
+			return fmt.Errorf("failed to assign reviewers: %w", err)
+		}
 	}
 
 	return merr

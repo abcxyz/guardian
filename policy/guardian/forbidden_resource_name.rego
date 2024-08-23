@@ -3,7 +3,7 @@ package guardian.forbidden_resource_name
 import rego.v1
 import input as tfplan
 
-missing_approval contains {
+missing_approvals contains {
     "msg": msg,
     "assign_user_reviewers": assign_user_reviewers,
     "assign_team_reviewers": assign_team_reviewers
