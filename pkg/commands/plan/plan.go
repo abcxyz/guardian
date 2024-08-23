@@ -71,7 +71,6 @@ type PlanCommand struct {
 
 	flags.CommonFlags
 
-	flagReporter             string
 	flagDestroy              bool
 	flagStorage              string
 	flagAllowLockfileChanges bool
@@ -101,17 +100,6 @@ func (c *PlanCommand) Flags() *cli.FlagSet {
 	c.CommonFlags.Register(set)
 
 	f := set.NewSection("COMMAND OPTIONS")
-
-	f.StringVar(&cli.StringVar{
-		Name:    "reporter",
-		Target:  &c.flagReporter,
-		Default: reporter.TypeNone,
-		Example: "github",
-		Usage:   fmt.Sprintf("The reporting strategy for Guardian status updates. Valid values are %q.", reporter.SortedReporterTypes),
-		Predict: complete.PredictFunc(func(prefix string) []string {
-			return reporter.SortedReporterTypes
-		}),
-	})
 
 	f.StringVar(&cli.StringVar{
 		Name:    "storage",
@@ -198,7 +186,7 @@ func (c *PlanCommand) Run(ctx context.Context, args []string) error {
 	}
 	c.storageClient = sc
 
-	rc, err := reporter.NewReporter(ctx, c.flagReporter, &reporter.Config{GitHub: c.platformConfig.GitHub})
+	rc, err := reporter.NewReporter(ctx, c.platformConfig.Reporter, &reporter.Config{GitHub: c.platformConfig.GitHub})
 	if err != nil {
 		return fmt.Errorf("failed to create reporter client: %w", err)
 	}

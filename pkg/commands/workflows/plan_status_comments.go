@@ -21,9 +21,8 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/posener/complete/v2"
-
 	"github.com/abcxyz/guardian/pkg/github"
+	"github.com/abcxyz/guardian/pkg/platform"
 	"github.com/abcxyz/guardian/pkg/reporter"
 	"github.com/abcxyz/guardian/pkg/util"
 	"github.com/abcxyz/pkg/cli"
@@ -34,9 +33,8 @@ var _ cli.Command = (*PlanStatusCommentCommand)(nil)
 type PlanStatusCommentCommand struct {
 	cli.BaseCommand
 
-	githubConfig github.Config
+	platformConfig platform.Config
 
-	flagReporter   string
 	flagInitResult string
 	flagPlanResult []string
 
@@ -58,20 +56,9 @@ Usage: {{ COMMAND }} [options]
 func (c *PlanStatusCommentCommand) Flags() *cli.FlagSet {
 	set := c.NewFlagSet()
 
-	c.githubConfig.RegisterFlags(set)
+	c.platformConfig.RegisterFlags(set)
 
 	f := set.NewSection("COMMAND OPTIONS")
-
-	f.StringVar(&cli.StringVar{
-		Name:    "reporter",
-		Target:  &c.flagReporter,
-		Example: "github",
-		Default: reporter.TypeNone,
-		Usage:   fmt.Sprintf("The reporting strategy for Guardian status updates. Valid values are %q", reporter.SortedReporterTypes),
-		Predict: complete.PredictFunc(func(prefix string) []string {
-			return reporter.SortedReporterTypes
-		}),
-	})
 
 	f.StringVar(&cli.StringVar{
 		Name:    "init-result",
@@ -113,7 +100,7 @@ func (c *PlanStatusCommentCommand) Run(ctx context.Context, args []string) error
 		return flag.ErrHelp
 	}
 
-	rc, err := reporter.NewReporter(ctx, c.flagReporter, &reporter.Config{GitHub: c.githubConfig})
+	rc, err := reporter.NewReporter(ctx, c.platformConfig.Reporter, &reporter.Config{GitHub: c.platformConfig.GitHub})
 	if err != nil {
 		return fmt.Errorf("failed to create reporter client: %w", err)
 	}
