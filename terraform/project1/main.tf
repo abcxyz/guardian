@@ -17,3 +17,5 @@ terraform {
 }
 
 resource "null_resource" "empty" {}
+
+resource "null_resource" "null" {}
