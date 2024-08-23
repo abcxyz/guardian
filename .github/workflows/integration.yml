@@ -22,6 +22,7 @@ on:
       - 'reopened'
     branches:
       - 'main'
+      - 'release/**/*'
 
 # default permission for all jobs should just be read
 permissions:
