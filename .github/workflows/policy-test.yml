@@ -87,8 +87,12 @@ jobs:
         env:
           SOURCE_REF: '${{ github.event.pull_request.base.sha }}'
           DEST_REF: '${{ github.event.pull_request.head.sha }}'
+          REPO_TOKEN: '${{ github.token }}'
         run: |-
-          DIRECTORIES=$(guardian entrypoints -dir="./terraform" -detect-changes -source-ref="${SOURCE_REF}" -dest-ref="${DEST_REF}")
+          DIRECTORIES=$(guardian entrypoints -dir="./terraform" \
+            -detect-changes -source-ref="${SOURCE_REF}" -dest-ref="${DEST_REF}" \
+            -github-token="${REPO_TOKEN}"
+          )
           echo "entrypoints -> ${DIRECTORIES}"
           echo "directories=${DIRECTORIES}" >> $GITHUB_OUTPUT
 
@@ -100,7 +104,7 @@ jobs:
         run: |-
           guardian workflows remove-guardian-comments \
             -github-owner="${GITHUB_OWNER_NAME}" \
-            -github-repo="${GITHUB_REPO_NAME}" \
+            -github-repo="${GITHUB_REPO_NAME}"
             -github-token="${REPO_TOKEN}" \
             -pull-request-number="${PULL_REQUEST_NUMBER}" \
             -for-command="plan" \
