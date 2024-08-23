@@ -126,44 +126,44 @@ jobs:
       max-parallel: 100
       matrix:
         working_directory: '${{ fromJSON(needs.init.outputs.modified) }}'
-      steps:
-        - name: 'Checkout'
-          uses: 'actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332' # ratchet:actions/checkout@v4
+    steps:
+      - name: 'Checkout'
+        uses: 'actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332' # ratchet:actions/checkout@v4
 
-        - name: 'Authenticate to Google Cloud'
-          uses: 'google-github-actions/auth@71fee32a0bb7e97b4d33d548e7d957010649d8fa' # ratchet:google-github-actions/auth@v2
-          with:
-            workload_identity_provider: '${{ env.GUARDIAN_WIF_PROVIDER }}'
-            service_account: '${{ env.GUARDIAN_WIF_SERVICE_ACCOUNT }}'
+      - name: 'Authenticate to Google Cloud'
+        uses: 'google-github-actions/auth@71fee32a0bb7e97b4d33d548e7d957010649d8fa' # ratchet:google-github-actions/auth@v2
+        with:
+          workload_identity_provider: '${{ env.GUARDIAN_WIF_PROVIDER }}'
+          service_account: '${{ env.GUARDIAN_WIF_SERVICE_ACCOUNT }}'
 
-        - name: 'Setup Terraform'
-          uses: 'abcxyz/secure-setup-terraform@fa5832adc577578c1dfb422d13722bdeb711cf29' # ratchet:abcxyz/secure-setup-terraform@main
-          with:
-            terraform_version: '${{ env.GUARDIAN_TERRAFORM_VERSION }}'
-            terraform_module_location: './${{ matrix.working_directory }}'
-            terraform_lockfile_location: './${{ matrix.working_directory }}'
-            protect_lockfile: true
-            terraform_wrapper: false
+      - name: 'Setup Terraform'
+        uses: 'abcxyz/secure-setup-terraform@fa5832adc577578c1dfb422d13722bdeb711cf29' # ratchet:abcxyz/secure-setup-terraform@main
+        with:
+          terraform_version: '${{ env.GUARDIAN_TERRAFORM_VERSION }}'
+          terraform_module_location: './${{ matrix.working_directory }}'
+          terraform_lockfile_location: './${{ matrix.working_directory }}'
+          protect_lockfile: true
+          terraform_wrapper: false
 
-        - name: 'Download Guardian'
-          uses: 'actions/download-artifact@65a9edc5881444af0b9093a5e628f2fe47ea3b2e' # ratchet:actions/download-artifact@v4
-          with:
-            name: 'guardian'
-            path: '${{ runner.temp }}/.guardian'
+      - name: 'Download Guardian'
+        uses: 'actions/download-artifact@65a9edc5881444af0b9093a5e628f2fe47ea3b2e' # ratchet:actions/download-artifact@v4
+        with:
+          name: 'guardian'
+          path: '${{ runner.temp }}/.guardian'
 
-        - name: 'Setup Guardian'
-          env:
-            INSTALL_PATH: '${{ runner.temp }}/.guardian'
-          run: |-
-            chmod +x "${INSTALL_PATH}/guardian"
-            echo "${INSTALL_PATH}" >> $GITHUB_PATH
+      - name: 'Setup Guardian'
+        env:
+          INSTALL_PATH: '${{ runner.temp }}/.guardian'
+        run: |-
+          chmod +x "${INSTALL_PATH}/guardian"
+          echo "${INSTALL_PATH}" >> $GITHUB_PATH
 
-        - name: 'Guardian Plan'
-          shell: 'bash'
-          env:
-            DIRECTORY: '${{ matrix.working_directory }}'
-            # used to create comments on pull requests (access to only this repo)
-            REPO_TOKEN: '${{ github.token }}'
-            JOB_NAME: '${{ github.job }} (${{ matrix.working_directory }})'
-          run: |-
-            guardian plan
+      - name: 'Guardian Plan'
+        shell: 'bash'
+        env:
+          DIRECTORY: '${{ matrix.working_directory }}'
+          # used to create comments on pull requests (access to only this repo)
+          REPO_TOKEN: '${{ github.token }}'
+          JOB_NAME: '${{ github.job }} (${{ matrix.working_directory }})'
+        run: |-
+          guardian plan
