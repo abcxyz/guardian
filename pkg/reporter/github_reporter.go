@@ -282,19 +282,19 @@ func (g *GitHubReporter) entrypointsSummaryMessage(p *EntrypointsSummaryParams) 
 	}
 
 	if p.Message != "" {
-		fmt.Fprintf(&msg, "\n\n%s\n", p.Message)
+		fmt.Fprintf(&msg, "\n\n%s", p.Message)
 	}
 
 	if len(p.ModifiedDirs) > 0 {
-		fmt.Fprintf(&msg, "\n**%s**\n%s", "Plan", strings.Join(p.ModifiedDirs, "\n"))
+		fmt.Fprintf(&msg, "\n\n**%s**\n%s", "Plan", strings.Join(p.ModifiedDirs, "\n"))
 	}
 
 	if len(p.DestroyDirs) > 0 {
-		fmt.Fprintf(&msg, "\n**%s**\n%s", "Destroy", strings.Join(p.DestroyDirs, "\n"))
+		fmt.Fprintf(&msg, "\n\n**%s**\n%s", "Destroy", strings.Join(p.DestroyDirs, "\n"))
 	}
 
 	if len(p.AbandonedDirs) > 0 {
-		fmt.Fprintf(&msg, "\n**%s**\n%s", "Abandon", strings.Join(p.AbandonedDirs, "\n"))
+		fmt.Fprintf(&msg, "\n\n**%s**\n%s", "Abandon", strings.Join(p.AbandonedDirs, "\n"))
 	}
 
 	return msg, nil

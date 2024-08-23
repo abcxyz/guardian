@@ -196,8 +196,10 @@ func TestGitHubReporterCreateStatus(t *testing.T) {
 							"\n" +
 							"**Plan**\n" +
 							"modified\n" +
+							"\n" +
 							"**Destroy**\n" +
 							"destroy\n" +
+							"\n" +
 							"**Abandon**\n" +
 							"abandoned",
 					},
@@ -226,8 +228,10 @@ func TestGitHubReporterCreateStatus(t *testing.T) {
 							"\n" +
 							"**Plan**\n" +
 							"modified\n" +
+							"\n" +
 							"**Destroy**\n" +
 							"destroy\n" +
+							"\n" +
 							"**Abandon**\n" +
 							"abandoned",
 					},
