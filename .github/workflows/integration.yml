@@ -272,11 +272,11 @@ jobs:
             "data.guardian")
           echo "$DECISION" > policy_results.json
 
-        - name: 'Guardian Policy'
-          shell: 'bash'
-          run: |-
-            guardian policy \
-              -results-file=policy_results.json
+      - name: 'Guardian Policy'
+        shell: 'bash'
+        run: |-
+          guardian policy \
+            -results-file=policy_results.json
 
   plan_destroy:
     if: |
