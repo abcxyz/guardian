@@ -114,6 +114,7 @@ jobs:
         with:
           ref: '${{ github.event.pull_request.head.sha }}'
 
+      # REPLACE_APPROVERS_AGGREGATION
       - name: 'Authenticate to Google Cloud'
         uses: 'google-github-actions/auth@71fee32a0bb7e97b4d33d548e7d957010649d8fa' # ratchet:google-github-actions/auth@v2
         with:
@@ -154,7 +155,7 @@ jobs:
           -pull-request-number="${PULL_REQUEST_NUMBER}" \
           -bucket-name="${GUARDIAN_BUCKET_NAME}" \
           -job-name="${JOB_NAME}"
-
+      # REPLACE_OPA
   plan_success:
     if: '${{ always() }}'
     runs-on: 'ubuntu-latest'

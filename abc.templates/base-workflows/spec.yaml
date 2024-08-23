@@ -31,6 +31,9 @@ inputs:
       - rule: 'gcp_matches_service_account(guardian_service_account)'
   - name: 'guardian_state_bucket'
     desc: 'The Google Cloud storage bucket for Guardian state'
+  - name: 'policy_enforcement'
+    desc: 'Enable Guardian policy enforcement feature.'
+    default: 'false'
 
 steps:
   - desc: 'Include required files and directories'
@@ -59,7 +62,129 @@ steps:
           with: '{{.guardian_state_bucket}}'
         - to_replace: 'REPLACE_GUARDIAN_VERSION_TAG'
           with: '{{ trimPrefix ._git_tag "v" }}'
+        - to_replace: '# REPLACE_APPROVERS_AGGREGATION'
+          with: |-
+            {{- if .policy_enforcement -}}
 
+                  - uses: 'actions/github-script@v7'
+                    with:
+                      github-token: {{ "'${{ steps.mint-token.outputs.token }}'" }}
+                      script: |-
+                        const fs = require("fs/promises");
+                        const tmpDir = process.env["RUNNER_TEMP"];
+
+                        const res = await github.graphql(
+                          `
+                          query ($owner: String!, $repo: String!, $pullRequestNumber: Int!) {
+                            repository(owner: $owner, name: $repo) {
+                              pullRequest(number: $pullRequestNumber) {
+                                latestReviews(first: 100) {
+                                  nodes {
+                                    author {
+                                      login
+                                    }
+                                    state
+                                  }
+                                }
+                              }
+                            }
+                          }
+                          `,
+                          {
+                            owner: context.repo.owner,
+                            repo: context.repo.repo,
+                            pullRequestNumber: context.payload.pull_request.number,
+                          }
+                        );
+
+                        const users = new Set();
+                        res.repository.pullRequest.latestReviews.nodes.forEach((n) => {
+                          if(n.state == "APPROVED") {
+                            users.add(n.author.login)
+                          }
+                        });
+
+                        const teamRes = await github.graphql(
+                          `
+                          query paginate($cursor: String, $owner: String!) {
+                            organization(login: $owner) {
+                              teams(first: 100, after: $cursor) {
+                                totalCount
+                                nodes {
+                                  name
+                                  members(first: 100) {
+                                    nodes {
+                                      login
+                                    }
+                                  }
+                                }
+                                pageInfo {
+                                  hasNextPage
+                                  endCursor
+                                }
+                              }
+                            }
+                          }
+                          `,
+                          {
+                            owner: context.repo.owner,
+                          }
+                        );
+
+                        const teams = new Set();
+                        teamRes.organization.teams.nodes.forEach((n) => {
+                          if(n.members.nodes.some((u) => users.has(u.login))) {
+                            teams.add(n.name)
+                          }
+                        })
+
+                        const approverData = {
+                          "users":  Array.from(users),
+                          "teams": Array.from(teams)
+                        };
+
+                        const opts = Object.assign({}, { mode: 0o640, flag: 'wx', flush: true }, { encoding: "utf8" });
+                        await fs.writeFile(`${tmpDir}/approvers.json`, JSON.stringify(approverData), opts);
+
+            {{ end }}
+
+        - to_replace: '# REPLACE_OPA'
+          with: |-
+            {{- if .policy_enforcement }}
+                - name: 'Setup OPA'
+                  uses: 'open-policy-agent/setup-opa@v2'
+                  with:
+                    version: 'latest'
+
+                - name: 'Evaluate Policy'
+                  id: 'opa_eval'
+                  env:
+                    DIRECTORY: {{ "'${{ matrix.working_directory }}'" }}
+                    TEMP_DIR: {{ "'${{ runner.temp }}'" }}
+                  shell: 'bash'
+                  run: |-
+                    terraform -chdir=${DIRECTORY} show -json tfplan.binary > tfplan.json
+
+                    DECISION=$(opa eval --input tfplan.json \
+                      --format raw \
+                      --data ./policy \
+                      --data ${TEMP_DIR}/approvers.json \
+                      "data.guardian")
+
+                    echo "$DECISION" > policy_results.json
+            {{ end }}
+
+        - to_replace: '# REPLACE_GUARDIAN_POLICY_COMMAND'
+          with: |-
+            {{- if .policy_enforcement }}
+              - name: 'Guardian Policy'
+                shell: 'bash'
+                env:
+                  DIRECTORY: '${{ matrix.working_directory }}'
+                run: |-
+                  guardian policy \
+                    -results-file=policy_results.json
+            {{ end }}
   # TODO: once https://github.com/abcxyz/abc/pull/423 is available, switch to a rule requiring a '_git_tag' value
   - desc: 'Print warning if rendered without git tag'
     action: 'print'
