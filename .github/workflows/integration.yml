@@ -277,7 +277,7 @@ jobs:
         env:
           GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
         run: |-
-          export GUARDIAN_LOG_LEVEL=ERROR
+          export GUARDIAN_LOG_LEVEL=debug
           guardian policy \
             -guardian-github-token=$GUARDIAN_GITHUB_TOKEN \
             -results-file=policy_results.json
