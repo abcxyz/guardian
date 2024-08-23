@@ -61,8 +61,7 @@ jobs:
       pull-requests: 'write'
 
     outputs:
-      modified: '${{ steps.entrypoints.outputs.modified }}'
-      destroy: '${{ steps.entrypoints.outputs.destroy }}'
+      directories: '${{ steps.dirs.outputs.directories }}'
     steps:
       - name: 'Checkout'
         uses: 'actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332' # ratchet:actions/checkout@v4
@@ -89,12 +88,9 @@ jobs:
           SOURCE_REF: '${{ github.event.pull_request.base.sha }}'
           DEST_REF: '${{ github.event.pull_request.head.sha }}'
         run: |-
-          ENTRYPOINTS=$(guardian entrypoints -dir=./terraform -body-contents="GUARDIAN_DESTROY=terraform/project2")
-          echo "entrypoints -> ${ENTRYPOINTS}"
-
-          # parse the json response and create outputs for each type of directory
-          echo "modified=$(echo $ENTRYPOINTS | jq -j -c '.modified')" >> $GITHUB_OUTPUT
-          echo "destroy=$(echo $ENTRYPOINTS | jq -j -c '.destroy')" >> $GITHUB_OUTPUT
+          DIRECTORIES=$(guardian entrypoints -dir="./terraform" -detect-changes -source-ref="${SOURCE_REF}" -dest-ref="${DEST_REF}" -format=json)
+          echo "entrypoints -> ${DIRECTORIES}"
+          echo "directories=${DIRECTORIES}" >> $GITHUB_OUTPUT
 
       - name: 'Guardian Remove Previous Plan/Apply Comments'
         shell: 'bash'
@@ -113,7 +109,7 @@ jobs:
   plan:
     name: 'plan (${{ matrix.working_directory }})'
     if: |
-      needs.init.outputs.modified != '[]'
+      needs.init.outputs.directories != '[]'
     needs:
       - 'init'
     runs-on: 'ubuntu-latest'
@@ -125,7 +121,7 @@ jobs:
       fail-fast: false
       max-parallel: 100
       matrix:
-        working_directory: '${{ fromJSON(needs.init.outputs.modified) }}'
+        working_directory: '${{ fromJSON(needs.init.outputs.directories) }}'
     steps:
       - name: 'Checkout'
         uses: 'actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332' # ratchet:actions/checkout@v4
