@@ -19,9 +19,7 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/posener/complete/v2"
-
-	"github.com/abcxyz/guardian/pkg/github"
+	"github.com/abcxyz/guardian/pkg/platform"
 	"github.com/abcxyz/guardian/pkg/reporter"
 	"github.com/abcxyz/pkg/cli"
 )
@@ -31,9 +29,7 @@ var _ cli.Command = (*RemoveGuardianCommentsCommand)(nil)
 type RemoveGuardianCommentsCommand struct {
 	cli.BaseCommand
 
-	githubConfig github.Config
-
-	flagReporter string
+	platformConfig platform.Config
 
 	reporterClient reporter.Reporter
 }
@@ -53,20 +49,7 @@ Usage: {{ COMMAND }} [options]
 func (c *RemoveGuardianCommentsCommand) Flags() *cli.FlagSet {
 	set := c.NewFlagSet()
 
-	c.githubConfig.RegisterFlags(set)
-
-	f := set.NewSection("COMMAND OPTIONS")
-
-	f.StringVar(&cli.StringVar{
-		Name:    "reporter",
-		Target:  &c.flagReporter,
-		Default: reporter.TypeNone,
-		Example: "github",
-		Usage:   fmt.Sprintf("The reporting strategy for Guardian status updates. Valid values are %q.", reporter.SortedReporterTypes),
-		Predict: complete.PredictFunc(func(prefix string) []string {
-			return reporter.SortedReporterTypes
-		}),
-	})
+	c.platformConfig.RegisterFlags(set)
 
 	return set
 }
@@ -82,7 +65,7 @@ func (c *RemoveGuardianCommentsCommand) Run(ctx context.Context, args []string) 
 		return flag.ErrHelp
 	}
 
-	rc, err := reporter.NewReporter(ctx, c.flagReporter, &reporter.Config{GitHub: c.githubConfig})
+	rc, err := reporter.NewReporter(ctx, c.platformConfig.Reporter, &reporter.Config{GitHub: c.platformConfig.GitHub})
 	if err != nil {
 		return fmt.Errorf("failed to create reporter client: %w", err)
 	}

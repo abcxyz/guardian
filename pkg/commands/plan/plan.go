@@ -71,7 +71,6 @@ type PlanCommand struct {
 
 	flags.CommonFlags
 
-	flagReporter             string
 	flagDestroy              bool
 	flagStorage              string
 	flagAllowLockfileChanges bool
@@ -101,17 +100,6 @@ func (c *PlanCommand) Flags() *cli.FlagSet {
 	c.CommonFlags.Register(set)
 
 	f := set.NewSection("COMMAND OPTIONS")
-
-	f.StringVar(&cli.StringVar{
-		Name:    "reporter",
-		Target:  &c.flagReporter,
-		Default: reporter.TypeNone,
-		Example: "github",
-		Usage:   fmt.Sprintf("The reporting strategy for Guardian status updates. Valid values are %q.", reporter.SortedReporterTypes),
-		Predict: complete.PredictFunc(func(prefix string) []string {
-			return reporter.SortedReporterTypes
-		}),
-	})
 
 	f.StringVar(&cli.StringVar{
 		Name:    "storage",
@@ -198,7 +186,7 @@ func (c *PlanCommand) Run(ctx context.Context, args []string) error {
 	}
 	c.storageClient = sc
 
-	rc, err := reporter.NewReporter(ctx, c.flagReporter, &reporter.Config{GitHub: c.platformConfig.GitHub})
+	rc, err := reporter.NewReporter(ctx, c.platformConfig.Reporter, &reporter.Config{GitHub: c.platformConfig.GitHub})
 	if err != nil {
 		return fmt.Errorf("failed to create reporter client: %w", err)
 	}
@@ -220,7 +208,7 @@ func (c *PlanCommand) Process(ctx context.Context) error {
 	rp := &reporter.StatusParams{
 		Operation: "plan",
 		IsDestroy: c.flagDestroy,
-		Dir:       c.directory,
+		Dir:       c.childPath,
 	}
 
 	status := reporter.StatusNoOperation
@@ -251,8 +239,6 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 	var stdout, stderr strings.Builder
 	multiStdout := io.MultiWriter(c.Stdout(), &stdout)
 	multiStderr := io.MultiWriter(c.Stderr(), &stderr)
-
-	util.Headerf(c.Stdout(), "Running Terraform commands")
 
 	util.Headerf(c.Stdout(), "Check Terraform Format")
 	if _, err := c.terraformClient.Format(ctx, multiStdout, multiStderr, &terraform.FormatOptions{
@@ -356,7 +342,7 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 		return &RunResult{hasChanges: hasChanges}, fmt.Errorf("failed to read plan binary: %w", err)
 	}
 
-	util.Headerf(c.Stdout(), "Saving Plan File: %s", planFileLocalPath)
+	util.Headerf(c.Stdout(), "Saving Plan File")
 
 	if err := c.saveGuardianPlan(ctx, planFileLocalPath, planData, planExitCode); err != nil {
 		return &RunResult{hasChanges: hasChanges}, fmt.Errorf("failed to upload plan data: %w", err)
@@ -382,7 +368,13 @@ func (c *PlanCommand) saveGuardianPlan(ctx context.Context, p string, data []byt
 
 	objectPath := path.Join(c.storagePrefix, p)
 
-	if err := c.storageClient.CreateObject(ctx, objectPath, data, storage.WithMetadata(metadata)); err != nil {
+	c.Outf("Plan file path: %s %s", c.storageClient.Parent(), objectPath)
+
+	if err := c.storageClient.CreateObject(ctx, objectPath, data,
+		storage.WithContentType("application/octet-stream"),
+		storage.WithMetadata(metadata),
+		storage.WithAllowOverwrite(true),
+	); err != nil {
 		return fmt.Errorf("failed to save plan file: %w", err)
 	}
 

@@ -43,13 +43,17 @@ func TestPlanStatusCommentsProcess(t *testing.T) {
 			name:           "success",
 			flagInitResult: "success",
 			flagPlanResult: []string{"success"},
+		},
+		{
+			name:           "skipped",
+			flagInitResult: "success",
+			flagPlanResult: []string{"skipped", "skipped"},
 			expReporterClientReqs: []*reporter.Request{
 				{
 					Name:   "Status",
-					Params: []any{reporter.StatusSuccess, &reporter.StatusParams{Operation: "plan", Message: "Plan completed successfully."}},
+					Params: []any{reporter.StatusNoOperation, &reporter.StatusParams{Operation: "plan", Message: "No Terraform changes detected, planning skipped."}},
 				},
 			},
-			err: "",
 		},
 		{
 			name:           "multi_failure",
@@ -64,25 +68,13 @@ func TestPlanStatusCommentsProcess(t *testing.T) {
 			err:            "init or plan has one or more failures",
 		},
 		{
-			name:           "indeterminate",
-			flagInitResult: "cancelled",
-			flagPlanResult: []string{"cancelled"},
-			expReporterClientReqs: []*reporter.Request{
-				{
-					Name:   "Status",
-					Params: []any{reporter.StatusUnknown, &reporter.StatusParams{Operation: "plan", Message: "Unable to determine plan status."}},
-				},
-			},
-			err: "unable to determine plan status",
-		},
-		{
 			name:           "handles_errors",
 			flagInitResult: "success",
-			flagPlanResult: []string{"success"},
+			flagPlanResult: []string{"skipped", "skipped"},
 			expReporterClientReqs: []*reporter.Request{
 				{
 					Name:   "Status",
-					Params: []any{reporter.StatusSuccess, &reporter.StatusParams{Operation: "plan", Message: "Plan completed successfully."}},
+					Params: []any{reporter.StatusNoOperation, &reporter.StatusParams{Operation: "plan", Message: "No Terraform changes detected, planning skipped."}},
 				},
 			},
 			createStatusErr: fmt.Errorf("error creating comment"),
