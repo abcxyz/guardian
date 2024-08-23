@@ -277,6 +277,7 @@ jobs:
         env:
           GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
         run: |-
+          cat policy_results.json
           guardian policy \
             -guardian-github-token=$GUARDIAN_GITHUB_TOKEN \
             -results-file=policy_results.json
