@@ -57,10 +57,15 @@ func NewGitHub(ctx context.Context, cfg *gh.Config) (*GitHub, error) {
 		cfg.MaxRetryDelay = 20 * time.Second
 	}
 
+	ghToken := cfg.GuardianGitHubToken
+	if ghToken == "" {
+		ghToken = cfg.GitHubToken
+	}
+
 	var ts oauth2.TokenSource
-	if cfg.GitHubToken != "" {
+	if ghToken != "" {
 		ts = oauth2.StaticTokenSource(&oauth2.Token{
-			AccessToken: cfg.GitHubToken,
+			AccessToken: ghToken,
 		})
 	} else {
 		app, err := githubauth.NewApp(cfg.GitHubAppID, cfg.GitHubAppPrivateKeyPEM)
