@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: 'cli.abcxyz.dev/v1beta3'
+apiVersion: 'cli.abcxyz.dev/v1beta6'
 kind: 'Template'
 
 desc: 'Generate the default set of Guardian workflows Terraform infrastructure repositories.'
@@ -33,6 +33,8 @@ inputs:
     desc: 'The Google Cloud storage bucket for Guardian state'
   - name: 'policy_enforcement'
     desc: 'Enable Guardian policy enforcement feature.'
+    rules:
+      - rule: 'matches_uncapitalized_bool(policy_enforcement)'
     default: 'false'
 
 steps:
