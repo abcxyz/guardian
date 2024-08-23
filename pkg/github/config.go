@@ -32,6 +32,7 @@ type Config struct {
 	MaxRetryDelay     time.Duration
 
 	// Auth
+	GuardianGitHubToken     string
 	GitHubToken             string
 	GitHubOwner             string
 	GitHubRepo              string
@@ -75,8 +76,16 @@ func (c *Config) RegisterFlags(set *cli.FlagSet) {
 	f := set.NewSection("GITHUB OPTIONS")
 
 	f.StringVar(&cli.StringVar{
+		Name:   "guardian-github-token",
+		EnvVar: "GUARDIAN_GITHUB_TOKEN",
+		Target: &c.GuardianGitHubToken,
+		Usage:  "The GitHub access token for Guardian to make GitHub API calls.",
+		Hidden: true,
+	})
+
+	f.StringVar(&cli.StringVar{
 		Name:   "github-token",
-		EnvVar: "GITHUB_REPO_TOKEN",
+		EnvVar: "GITHUB_TOKEN",
 		Target: &c.GitHubToken,
 		Usage:  "The GitHub access token to make GitHub API calls.",
 		Hidden: true,

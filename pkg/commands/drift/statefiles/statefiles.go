@@ -303,8 +303,13 @@ func (c *DriftStatefilesCommand) cloneAllGitHubRepositories(ctx context.Context,
 		"number_of_matched_repositories", len(repositoriesWithTerraform),
 		"topics", c.flagTerraformRepoTopics)
 
+	ghToken := c.githubConfig.GuardianGitHubToken
+	if ghToken == "" {
+		ghToken = c.githubConfig.GitHubToken
+	}
+
 	for _, r := range repositoriesWithTerraform {
-		if err = c.gitClient.CloneRepository(ctx, c.githubConfig.GitHubToken, r.Owner, r.Name); err != nil {
+		if err = c.gitClient.CloneRepository(ctx, ghToken, r.Owner, r.Name); err != nil {
 			return fmt.Errorf("failed to clone repository: %w", err)
 		}
 	}
