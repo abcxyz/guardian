@@ -32,6 +32,7 @@ type MockStorageClient struct {
 	reqMu sync.Mutex
 	Reqs  []*Request
 
+	ParentResp     string
 	UploadErr      error
 	DownloadData   string
 	DownloadErr    error
@@ -47,6 +48,11 @@ type BufferReadCloser struct {
 }
 
 func (b *BufferReadCloser) Close() error { return nil }
+
+// Parent returns the filesystem directory.
+func (m *MockStorageClient) Parent() string {
+	return m.ParentResp
+}
 
 func (m *MockStorageClient) CreateObject(ctx context.Context, name string, contents []byte, opts ...CreateOption) error {
 	m.reqMu.Lock()
