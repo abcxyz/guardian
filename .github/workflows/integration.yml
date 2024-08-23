@@ -260,8 +260,8 @@ jobs:
       - name: 'Evaluate Policy'
         id: 'opa_eval'
         env:
-          DIRECTORY: {{ "'${{ matrix.working_directory }}'" }}
-          TEMP_DIR: {{ "'${{ runner.temp }}'" }}
+          DIRECTORY: '${{ matrix.working_directory }}'
+          TEMP_DIR: '${{ runner.temp }}'
         shell: 'bash'
         run: |-
           terraform -chdir=${DIRECTORY} show -json tfplan.binary > tfplan.json
