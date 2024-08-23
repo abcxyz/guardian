@@ -274,8 +274,11 @@ jobs:
 
       - name: 'Guardian Policy'
         shell: 'bash'
+        env:
+          GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
         run: |-
           guardian policy \
+            -guardian-github-token=$GUARDIAN_GITHUB_TOKEN \
             -results-file=policy_results.json
 
   plan_destroy:
