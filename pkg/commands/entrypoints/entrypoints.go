@@ -341,11 +341,6 @@ func (c *EntrypointsCommand) findRemovedDirs(dirs []string) ([]string, error) {
 	return removed, nil
 }
 
-// compareIgnoreCase wraps strings.EqualsFold to ignore case
-var compareIgnoreCase = func(v string) bool {
-	return strings.EqualFold(v, modifiers.MetaValueAll)
-}
-
 // processDestroyMetaValues processes the user supplied meta values for directories to destroy.
 func (c *EntrypointsCommand) processDestroyMetaValues(cwd string, dirs []string, metaValues modifiers.MetaValues) ([]string, error) {
 	metaDestroyDirs, ok := metaValues[modifiers.MetaKeyGuardianDestroy]
@@ -354,7 +349,9 @@ func (c *EntrypointsCommand) processDestroyMetaValues(cwd string, dirs []string,
 	}
 
 	// if the special modifier "all" is given, we should return all the dirs for destroy
-	if destroyAll := slices.ContainsFunc(metaDestroyDirs, compareIgnoreCase); destroyAll {
+	if destroyAll := slices.ContainsFunc(metaDestroyDirs, func(v string) bool {
+		return strings.EqualFold(v, modifiers.MetaValueAll)
+	}); destroyAll {
 		return dirs, nil
 	}
 
