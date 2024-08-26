@@ -16,7 +16,9 @@
 package plan
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -49,6 +51,8 @@ const (
 	// plan files metadata operation values.
 	OperationPlan    = "plan"
 	OperationDestroy = "destroy"
+
+	ownerReadWritePerms = 0o600
 )
 
 var _ cli.Command = (*PlanCommand)(nil)
@@ -318,6 +322,40 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 		}
 		return &RunResult{commentDetails: commentDetails}, fmt.Errorf("failed to plan: %w", err)
 	}
+
+	stdout.Reset()
+	stderr.Reset()
+
+	util.Headerf(c.Stdout(), "Saving output to JSON file")
+	_, err = c.terraformClient.Show(ctx, &stdout, multiStderr, &terraform.ShowOptions{
+		File:    pointer.To(c.planFilename),
+		NoColor: pointer.To(true),
+		JSON:    pointer.To(true),
+	})
+	if err != nil {
+		return &RunResult{
+			commentDetails: stderr.String(),
+			hasChanges:     hasChanges,
+		}, fmt.Errorf("failed to terraform show: %w", err)
+	}
+
+	planBasename := c.planFilename[:len(c.planFilename)-len(path.Ext(c.planFilename))]
+	jsonFilepath := path.Join(c.childPath, planBasename+".json")
+
+	var data any
+	if err := json.Unmarshal([]byte(stdout.String()), &data); err != nil {
+		return &RunResult{hasChanges: hasChanges}, fmt.Errorf("failed to unmarshal json plan: %w", err)
+	}
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(data); err != nil {
+		return &RunResult{hasChanges: hasChanges}, fmt.Errorf("failed to encode json: %w", err)
+	}
+
+	if err := os.WriteFile(jsonFilepath, buf.Bytes(), ownerReadWritePerms); err != nil {
+		return &RunResult{hasChanges: hasChanges}, fmt.Errorf("failed to write plan to json file: %w", err)
+	}
+	c.Outf("Plan JSON file path: %s", jsonFilepath)
 
 	stdout.Reset()
 	stderr.Reset()
