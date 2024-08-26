@@ -339,7 +339,7 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 		}, fmt.Errorf("failed to terraform show: %w", err)
 	}
 
-	planBasename := c.planFilename[:len(c.planFilename)-len(path.Ext(c.planFilename))]
+	planBasename := strings.TrimSuffix(c.planFilename, path.Ext(c.planFilename))
 	jsonFilepath := path.Join(c.childPath, planBasename+".json")
 
 	var data any
