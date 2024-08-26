@@ -345,10 +345,9 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 			return &RunResult{hasChanges: hasChanges}, fmt.Errorf("failed to write plan to json file: %w", err)
 		}
 		c.Outf("Plan JSON file path: %s", jsonFilepath)
+		stdout.Reset()
+		stderr.Reset()
 	}
-
-	stdout.Reset()
-	stderr.Reset()
 
 	util.Headerf(c.Stdout(), "Formatting output")
 	if _, err := c.terraformClient.Show(ctx, multiStdout, multiStderr, &terraform.ShowOptions{
