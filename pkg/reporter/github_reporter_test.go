@@ -147,7 +147,7 @@ func TestGitHubReporterStatus(t *testing.T) {
 	}
 }
 
-func TestGitHubReporterCreateStatus(t *testing.T) {
+func TestGitHubReporterEntrypointsSummary(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
 		name                   string
@@ -183,7 +183,25 @@ func TestGitHubReporterCreateStatus(t *testing.T) {
 							"destroy\n" +
 							"\n" +
 							"**Abandon**\n" +
-							"abandoned",
+							"abandoned" +
+							"\n\n" +
+							"<details>\n" +
+							"<summary>Help</summary>\n" +
+							"\n" +
+							"Abandoned directories are removed from source control without modification.\n" +
+							"\n" +
+							"To delete the resources, add one or more modifier comments to the pull request body instructing Guardian to destroy the directory.\n" +
+							"\n" +
+							"```\n" +
+							"GUARDIAN_DESTROY=path/to/directory\n" +
+							"```\n" +
+							"\n" +
+							"To delete all detected directories, use the special keyword `all`:\n" +
+							"\n" +
+							"```\n" +
+							"GUARDIAN_DESTROY=all\n" +
+							"```\n" +
+							"</details>",
 					},
 				},
 			},
@@ -215,7 +233,25 @@ func TestGitHubReporterCreateStatus(t *testing.T) {
 							"destroy\n" +
 							"\n" +
 							"**Abandon**\n" +
-							"abandoned",
+							"abandoned" +
+							"\n\n" +
+							"<details>\n" +
+							"<summary>Help</summary>\n" +
+							"\n" +
+							"Abandoned directories are removed from source control without modification.\n" +
+							"\n" +
+							"To delete the resources, add one or more modifier comments to the pull request body instructing Guardian to destroy the directory.\n" +
+							"\n" +
+							"```\n" +
+							"GUARDIAN_DESTROY=path/to/directory\n" +
+							"```\n" +
+							"\n" +
+							"To delete all detected directories, use the special keyword `all`:\n" +
+							"\n" +
+							"```\n" +
+							"GUARDIAN_DESTROY=all\n" +
+							"```\n" +
+							"</details>",
 					},
 				},
 			},
