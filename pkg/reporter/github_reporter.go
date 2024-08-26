@@ -30,10 +30,9 @@ import (
 var _ Reporter = (*GitHubReporter)(nil)
 
 const (
-	githubCommentPrefix        = "#### 🔱 Guardian 🔱"
-	githubMaxCommentLength     = 65536
-	githubDestroyIndicatorText = "💥 DESTROY"
-	githubTruncatedMessage     = "\n\n> Message has been truncated. See workflow logs to view the full message."
+	githubCommentPrefix    = "#### 🔱 Guardian 🔱"
+	githubMaxCommentLength = 65536
+	githubTruncatedMessage = "\n\n> Message has been truncated. See workflow logs to view the full message."
 )
 
 var githubStatusText = map[Status]string{
@@ -226,7 +225,7 @@ func (g *GitHubReporter) statusMessage(st Status, p *StatusParams) (strings.Buil
 	operationText := strings.ToUpper(strings.TrimSpace(p.Operation))
 	if operationText != "" {
 		if p.IsDestroy {
-			operationText += "- " + githubDestroyIndicatorText
+			operationText += "-DESTROY"
 		}
 		fmt.Fprintf(&msg, " %s", g.markdownPill(operationText))
 	}

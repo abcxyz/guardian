@@ -106,7 +106,7 @@ func TestGitHubReporterStatus(t *testing.T) {
 			expGitHubClientReqs: []*github.Request{
 				{
 					Name:   "CreateIssueComment",
-					Params: []any{"owner", "repo", int(1), "#### 🔱 Guardian 🔱 **`PLAN`** **`💥 DESTROY`** **`🟩 SUCCESS`** [[logs](https://github.com)]\n\n**Entrypoint:** terraform/project1"},
+					Params: []any{"owner", "repo", int(1), "#### 🔱 Guardian 🔱 **`PLAN-DESTROY`** **`🟩 SUCCESS`** [[logs](https://github.com)]\n\n**Entrypoint:** terraform/project1"},
 				},
 			},
 		},
