@@ -155,7 +155,7 @@ func TestPlan_Process(t *testing.T) {
 			expReporterClientReqs: []*reporter.Request{
 				{
 					Name:   "Status",
-					Params: []any{reporter.StatusSuccess, &reporter.StatusParams{HasDiff: true, Details: "terraform show success with diff", Dir: "testdata", Operation: "plan-destroy"}},
+					Params: []any{reporter.StatusSuccess, &reporter.StatusParams{HasDiff: true, Details: "terraform show success with diff", Dir: "testdata", Operation: "plan (destroy)"}},
 				},
 			},
 			expStorageClientReqs: []*storage.Request{

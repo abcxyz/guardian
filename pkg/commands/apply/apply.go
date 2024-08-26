@@ -238,7 +238,7 @@ func (c *ApplyCommand) Process(ctx context.Context) (merr error) {
 
 	operation := "apply"
 	if c.isDestroy {
-		operation = "apply-destroy"
+		operation = "apply (destroy)"
 	}
 
 	rp := &reporter.StatusParams{

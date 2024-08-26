@@ -207,7 +207,7 @@ func (c *PlanCommand) Process(ctx context.Context) error {
 
 	operation := "plan"
 	if c.flagDestroy {
-		operation = "plan-destroy"
+		operation = "plan (destroy)"
 	}
 
 	rp := &reporter.StatusParams{
