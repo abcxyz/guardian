@@ -16,9 +16,7 @@
 package plan
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -66,10 +64,11 @@ type RunResult struct {
 type PlanCommand struct {
 	cli.BaseCommand
 
-	directory     string
-	childPath     string
-	planFilename  string
-	storagePrefix string
+	directory        string
+	childPath        string
+	planFilename     string
+	skipJSONPlanFile bool
+	storagePrefix    string
 
 	platformConfig platform.Config
 
@@ -326,36 +325,27 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 	stdout.Reset()
 	stderr.Reset()
 
-	util.Headerf(c.Stdout(), "Writing Plan to Local JSON File")
-	_, err = c.terraformClient.Show(ctx, &stdout, multiStderr, &terraform.ShowOptions{
-		File:    pointer.To(c.planFilename),
-		NoColor: pointer.To(true),
-		JSON:    pointer.To(true),
-	})
-	if err != nil {
-		return &RunResult{
-			commentDetails: stderr.String(),
-			hasChanges:     hasChanges,
-		}, fmt.Errorf("failed to terraform show: %w", err)
-	}
+	if !c.skipJSONPlanFile {
+		util.Headerf(c.Stdout(), "Writing Plan to Local JSON File")
+		if _, err = c.terraformClient.Show(ctx, &stdout, multiStderr, &terraform.ShowOptions{
+			File:    pointer.To(c.planFilename),
+			NoColor: pointer.To(true),
+			JSON:    pointer.To(true),
+		}); err != nil {
+			return &RunResult{
+				commentDetails: stderr.String(),
+				hasChanges:     hasChanges,
+			}, fmt.Errorf("failed to terraform show: %w", err)
+		}
 
-	planBasename := strings.TrimSuffix(c.planFilename, path.Ext(c.planFilename))
-	jsonFilepath := path.Join(c.childPath, planBasename+".json")
+		planBasename := strings.TrimSuffix(c.planFilename, path.Ext(c.planFilename))
+		jsonFilepath := path.Join(c.childPath, planBasename+".json")
 
-	var data any
-	if err := json.Unmarshal([]byte(stdout.String()), &data); err != nil {
-		return &RunResult{hasChanges: hasChanges}, fmt.Errorf("failed to unmarshal json plan: %w", err)
+		if err := os.WriteFile(jsonFilepath, []byte(stdout.String()), ownerReadWritePerms); err != nil {
+			return &RunResult{hasChanges: hasChanges}, fmt.Errorf("failed to write plan to json file: %w", err)
+		}
+		c.Outf("Plan JSON file path: %s", jsonFilepath)
 	}
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(data); err != nil {
-		return &RunResult{hasChanges: hasChanges}, fmt.Errorf("failed to encode json: %w", err)
-	}
-
-	if err := os.WriteFile(jsonFilepath, buf.Bytes(), ownerReadWritePerms); err != nil {
-		return &RunResult{hasChanges: hasChanges}, fmt.Errorf("failed to write plan to json file: %w", err)
-	}
-	c.Outf("Plan JSON file path: %s", jsonFilepath)
 
 	stdout.Reset()
 	stderr.Reset()

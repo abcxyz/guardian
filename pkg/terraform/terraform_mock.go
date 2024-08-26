@@ -35,6 +35,7 @@ type MockTerraformClient struct {
 	PlanResponse     *MockTerraformResponse
 	ApplyResponse    *MockTerraformResponse
 	ShowResponse     *MockTerraformResponse
+	ShowJSONResponse *MockTerraformResponse
 	FormatResponse   *MockTerraformResponse
 	RunResponse      *MockTerraformResponse
 }
@@ -76,6 +77,12 @@ func (m *MockTerraformClient) Apply(ctx context.Context, stdout, stderr io.Write
 }
 
 func (m *MockTerraformClient) Show(ctx context.Context, stdout, stderr io.Writer, opts *ShowOptions) (int, error) {
+	if opts.JSON != nil && *opts.JSON && m.ShowJSONResponse != nil {
+		stdout.Write([]byte(m.ShowJSONResponse.Stdout))
+		stderr.Write([]byte(m.ShowJSONResponse.Stderr))
+		return m.ShowJSONResponse.ExitCode, m.ShowJSONResponse.Err
+	}
+
 	if m.ShowResponse != nil {
 		stdout.Write([]byte(m.ShowResponse.Stdout))
 		stderr.Write([]byte(m.ShowResponse.Stderr))

@@ -51,6 +51,10 @@ var terraformNoDiffMock = &terraform.MockTerraformClient{
 		Stdout:   "terraform show success - no diff",
 		ExitCode: 0,
 	},
+	ShowJSONResponse: &terraform.MockTerraformResponse{
+		Stdout:   `{"result": "terraform show success - no diff"}`,
+		ExitCode: 0,
+	},
 }
 
 var terraformDiffMock = &terraform.MockTerraformClient{
@@ -72,6 +76,10 @@ var terraformDiffMock = &terraform.MockTerraformClient{
 	},
 	ShowResponse: &terraform.MockTerraformResponse{
 		Stdout:   "terraform show success with diff",
+		ExitCode: 0,
+	},
+	ShowJSONResponse: &terraform.MockTerraformResponse{
+		Stdout:   `{"result": "terraform show success with diff"}`,
 		ExitCode: 0,
 	},
 }
@@ -97,6 +105,10 @@ var terraformErrorMock = &terraform.MockTerraformClient{
 	},
 	ShowResponse: &terraform.MockTerraformResponse{
 		Stdout:   "terraform show success - no diff",
+		ExitCode: 0,
+	},
+	ShowJSONResponse: &terraform.MockTerraformResponse{
+		Stdout:   `{"result": "terraform show success - no diff"}`,
 		ExitCode: 0,
 	},
 }
@@ -223,6 +235,7 @@ func TestPlan_Process(t *testing.T) {
 				directory:                tc.directory,
 				childPath:                tc.directory,
 				planFilename:             "test-tfplan.binary",
+				skipJSONPlanFile:         true,
 				storagePrefix:            tc.storagePrefix,
 				flagDestroy:              tc.flagDestroy,
 				flagAllowLockfileChanges: tc.flagAllowLockfileChanges,
