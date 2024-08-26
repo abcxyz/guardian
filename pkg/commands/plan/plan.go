@@ -326,8 +326,9 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 	stderr.Reset()
 
 	if !c.skipJSONPlanFile {
+		var jsonOut strings.Builder
 		util.Headerf(c.Stdout(), "Writing Plan to Local JSON File")
-		if _, err = c.terraformClient.Show(ctx, &stdout, multiStderr, &terraform.ShowOptions{
+		if _, err = c.terraformClient.Show(ctx, &jsonOut, multiStderr, &terraform.ShowOptions{
 			File:    pointer.To(c.planFilename),
 			NoColor: pointer.To(true),
 			JSON:    pointer.To(true),
@@ -341,11 +342,10 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 		planBasename := strings.TrimSuffix(c.planFilename, path.Ext(c.planFilename))
 		jsonFilepath := path.Join(c.childPath, planBasename+".json")
 
-		if err := os.WriteFile(jsonFilepath, []byte(stdout.String()), ownerReadWritePerms); err != nil {
+		if err := os.WriteFile(jsonFilepath, []byte(jsonOut.String()), ownerReadWritePerms); err != nil {
 			return &RunResult{hasChanges: hasChanges}, fmt.Errorf("failed to write plan to json file: %w", err)
 		}
 		c.Outf("Plan JSON file path: %s", jsonFilepath)
-		stdout.Reset()
 		stderr.Reset()
 	}
 
