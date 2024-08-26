@@ -290,12 +290,27 @@ func (g *GitHubReporter) entrypointsSummaryMessage(p *EntrypointsSummaryParams) 
 
 	if len(p.AbandonedDirs) > 0 {
 		fmt.Fprintf(&msg, "\n\n**%s**\n%s", "Abandon", strings.Join(p.AbandonedDirs, "\n"))
+		abandonedDirsNote := "Abandoned directories are removed from source control without modification.\n" +
+			"\n" +
+			"To delete the resources, add one or more modifier comments to the pull request body instructing Guardian to destroy the directory.\n" +
+			"\n" +
+			"```\n" +
+			"GUARDIAN_DESTROY=path/to/directory\n" +
+			"```\n" +
+			"\n" +
+			"To delete all detected directories, use the special keyword `all`:\n" +
+			"\n" +
+			"```\n" +
+			"GUARDIAN_DESTROY=all\n" +
+			"```"
+
+		fmt.Fprintf(&msg, "\n\n%s", g.markdownZippy("Help", abandonedDirsNote))
 	}
 
 	return msg, nil
 }
 
-// markdownPill returns a markdown element that is bolded and wraped in a code block.
+// markdownPill returns a markdown element that is bolded and wraped in a inline code block.
 func (g *GitHubReporter) markdownPill(text string) string {
 	return fmt.Sprintf("**`%s`**", text)
 }
@@ -307,7 +322,7 @@ func (g *GitHubReporter) markdownURL(text, URL string) string {
 
 // markdonZippy returns a collapsible section with a given title and body.
 func (g *GitHubReporter) markdownZippy(title, body string) string {
-	return fmt.Sprintf("<details>\n<summary>%s</summary>\n\n```\n\n%s\n```\n</details>", title, body)
+	return fmt.Sprintf("<details>\n<summary>%s</summary>\n\n%s\n</details>", title, body)
 }
 
 // markdonDiffZippy returns a collapsible section with a given title and body.

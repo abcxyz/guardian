@@ -89,6 +89,24 @@ func TestEntrypointsProcess(t *testing.T) {
 			expStdout: `{"update":["testdata/entrypoint1/project1","testdata/entrypoint1/project2"],"destroy":["testdata/entrypoint1/project3"]}`,
 		},
 		{
+			name:              "success_destroy_all",
+			flagDir:           []string{"testdata/entrypoint1"},
+			flagDestRef:       "main",
+			flagSourceRef:     "ldap/feature",
+			flagDetectChanges: true,
+			modifierContent:   "GUARDIAN_DESTROY=all",
+			newGitClient: func(ctx context.Context, dir string) git.Git {
+				return &git.MockGitClient{
+					DiffResp: []string{
+						path.Join(cwd, "testdata/entrypoint1/project1"),
+						path.Join(cwd, "testdata/entrypoint1/project2"),
+						path.Join(cwd, "testdata/entrypoint1/project3"),
+					},
+				}
+			},
+			expStdout: `{"update":[],"destroy":["testdata/entrypoint1/project1","testdata/entrypoint1/project2","testdata/entrypoint1/project3"]}`,
+		},
+		{
 			name:              "success_multi",
 			flagDir:           []string{"testdata/entrypoint1", "testdata/entrypoint2"},
 			flagDestRef:       "main",
@@ -147,6 +165,38 @@ GUARDIAN_DESTROY=testdata/entrypoint2/project5`,
 				}
 			},
 			expStdout: `{"update":["testdata/entrypoint1/project1","testdata/entrypoint2/project4"],"destroy":["testdata/entrypoint1/project3","testdata/entrypoint2/project5"]}`,
+		},
+		{
+			name:              "success_multi_destroy_all",
+			flagDir:           []string{"testdata/entrypoint1", "testdata/entrypoint2"},
+			flagDestRef:       "main",
+			flagSourceRef:     "ldap/feature",
+			flagDetectChanges: true,
+			modifierContent:   `GUARDIAN_DESTROY=all`,
+			newGitClient: func(ctx context.Context, dir string) git.Git {
+				var diffResp []string
+
+				if strings.HasSuffix(dir, "testdata/entrypoint1") {
+					diffResp = []string{
+						path.Join(cwd, "testdata/entrypoint1/project1"),
+						path.Join(cwd, "testdata/entrypoint1/project2"),
+						path.Join(cwd, "testdata/entrypoint1/project3"),
+					}
+				}
+
+				if strings.HasSuffix(dir, "testdata/entrypoint2") {
+					diffResp = []string{
+						path.Join(cwd, "testdata/entrypoint2/project3"),
+						path.Join(cwd, "testdata/entrypoint2/project4"),
+						path.Join(cwd, "testdata/entrypoint2/project5"),
+					}
+				}
+
+				return &git.MockGitClient{
+					DiffResp: diffResp,
+				}
+			},
+			expStdout: `{"update":[],"destroy":["testdata/entrypoint1/project1","testdata/entrypoint1/project2","testdata/entrypoint1/project3","testdata/entrypoint2/project3","testdata/entrypoint2/project4","testdata/entrypoint2/project5"]}`,
 		},
 		{
 			name:              "returns_json",

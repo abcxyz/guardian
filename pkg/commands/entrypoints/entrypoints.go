@@ -26,6 +26,7 @@ import (
 	"path"
 	"slices"
 	"sort"
+	"strings"
 
 	"golang.org/x/exp/maps"
 
@@ -345,6 +346,11 @@ func (c *EntrypointsCommand) processDestroyMetaValues(cwd string, dirs []string,
 	metaDestroyDirs, ok := metaValues[modifiers.MetaKeyGuardianDestroy]
 	if !ok {
 		return []string{}, nil
+	}
+
+	// if the special modifier "all" is given, we should return all the dirs for destroy
+	if destroyAll := slices.ContainsFunc(metaDestroyDirs, func(v string) bool { return strings.EqualFold(v, "all") }); destroyAll {
+		return dirs, nil
 	}
 
 	for i, dir := range metaDestroyDirs {
