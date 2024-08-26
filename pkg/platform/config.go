@@ -36,8 +36,6 @@ type Config struct {
 }
 
 func (c *Config) RegisterFlags(set *cli.FlagSet) {
-	c.GitHub.RegisterFlags(set)
-
 	f := set.NewSection("PLATFORM OPTIONS")
 	// Type value is loaded in the following order:
 	//
@@ -48,7 +46,7 @@ func (c *Config) RegisterFlags(set *cli.FlagSet) {
 		Name:    "platform",
 		Target:  &c.Type,
 		Example: "github",
-		Usage:   fmt.Sprintf("The code review platform for Guardian to integrate with. Allowed values are %q", SortedTypes),
+		Usage:   fmt.Sprintf("The code review platform for Guardian to integrate with. Allowed values are %q.", SortedTypes),
 		Predict: complete.PredictFunc(func(prefix string) []string {
 			return SortedTypes
 		}),
@@ -63,6 +61,9 @@ func (c *Config) RegisterFlags(set *cli.FlagSet) {
 			return reporter.SortedReporterTypes
 		}),
 	})
+
+	// leave last to put help under platform options
+	c.GitHub.RegisterFlags(set)
 
 	set.AfterParse(func(merr error) error {
 		c.Type = strings.ToLower(strings.TrimSpace(c.Type))

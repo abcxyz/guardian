@@ -25,11 +25,9 @@ import (
 	"os"
 	"path"
 	"slices"
-	"sort"
 
 	"golang.org/x/exp/maps"
 
-	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/git"
 	"github.com/abcxyz/guardian/pkg/modifiers"
 	"github.com/abcxyz/guardian/pkg/platform"
@@ -43,22 +41,18 @@ import (
 
 var _ cli.Command = (*EntrypointsCommand)(nil)
 
-// EntrypointsResult is the entryponts command result.
+// EntrypointsResult is the entrypoints command result.
 type EntrypointsResult struct {
-	Entrypoints []string `json:"entrypoints"`
-	Modified    []string `json:"modified"`
-	Destroy     []string `json:"destroy"`
+	Update  []string `json:"update"`
+	Destroy []string `json:"destroy"`
 }
 
 type EntrypointsCommand struct {
 	cli.BaseCommand
 
-	directory string
-
 	platformConfig platform.Config
 
-	flags.CommonFlags
-
+	flagDir                     []string
 	flagDestRef                 string
 	flagSourceRef               string
 	flagDetectChanges           bool
@@ -67,9 +61,10 @@ type EntrypointsCommand struct {
 
 	parsedFlagMaxDepth *int
 
-	gitClient      git.Git
 	platformClient platform.Platform
 	reporterClient reporter.Reporter
+
+	newGitClient func(ctx context.Context, dir string) git.Git
 }
 
 func (c *EntrypointsCommand) Desc() string {
@@ -87,10 +82,14 @@ Usage: {{ COMMAND }} [options]
 func (c *EntrypointsCommand) Flags() *cli.FlagSet {
 	set := c.NewFlagSet()
 
-	c.platformConfig.RegisterFlags(set)
-	c.CommonFlags.Register(set)
-
 	f := set.NewSection("COMMAND OPTIONS")
+
+	f.StringSliceVar(&cli.StringSliceVar{
+		Name:    "dir",
+		Target:  &c.flagDir,
+		Example: "./terraform",
+		Usage:   "The location of the terraform directory to search in. This flag can be repeated. Defaults to the current working directory.",
+	})
 
 	f.StringVar(&cli.StringVar{
 		Name:    "dest-ref",
@@ -126,6 +125,9 @@ func (c *EntrypointsCommand) Flags() *cli.FlagSet {
 		Default: -1,
 	})
 
+	// should come after command options in help output
+	c.platformConfig.RegisterFlags(set)
+
 	set.AfterParse(func(existingErr error) (merr error) {
 		if c.flagDetectChanges && c.flagSourceRef == "" && c.flagDestRef == "" {
 			merr = errors.Join(merr, fmt.Errorf("invalid flag: source-ref and dest-ref are required to detect changes, to ignore changes set the detect-changes flag"))
@@ -157,17 +159,15 @@ func (c *EntrypointsCommand) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("failed to get current working directory: %w", err)
 	}
 
-	if c.FlagDir == "" {
-		c.FlagDir = cwd
+	if len(c.flagDir) == 0 {
+		c.flagDir = append(c.flagDir, cwd)
 	}
 
-	dirAbs, err := util.PathEvalAbs(c.FlagDir)
-	if err != nil {
-		return fmt.Errorf("failed to absolute path for directory: %w", err)
+	if c.newGitClient == nil {
+		c.newGitClient = func(ctx context.Context, dir string) git.Git {
+			return git.NewGitClient(dir)
+		}
 	}
-	c.directory = dirAbs
-
-	c.gitClient = git.NewGitClient(c.directory)
 
 	platform, err := platform.NewPlatform(ctx, &c.platformConfig)
 	if err != nil {
@@ -193,32 +193,59 @@ func (c *EntrypointsCommand) Process(ctx context.Context) error {
 		return fmt.Errorf("failed to get current working directory: %w", err)
 	}
 
-	entrypointDirs, removedDirs, err := c.findEntrypointDirs(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to find entrypoint directories: %w", err)
+	var modifiedEntrypoints []string
+	var removedEntrypoints []string
+
+	for _, dir := range c.flagDir {
+		dirAbs, err := util.PathEvalAbs(dir)
+		if err != nil {
+			return fmt.Errorf("failed to find absolute path for directory: %w", err)
+		}
+
+		if c.flagDetectChanges {
+			modifiedDirs, removedDirs, err := c.detectEntrypointChanges(ctx, dirAbs)
+			if err != nil {
+				return fmt.Errorf("failed to detect entrypoint changes: %w", err)
+			}
+			modifiedEntrypoints = append(modifiedEntrypoints, modifiedDirs...)
+			removedEntrypoints = append(removedEntrypoints, removedDirs...)
+
+			continue
+		}
+
+		modifiedDirs, removedDirs, err := c.findEntrypointDirs(ctx, dirAbs)
+		if err != nil {
+			return fmt.Errorf("failed to find entrypoint directories: %w", err)
+		}
+		modifiedEntrypoints = append(modifiedEntrypoints, modifiedDirs...)
+		removedEntrypoints = append(removedEntrypoints, removedDirs...)
 	}
+
+	allEntrypointDirs := slices.Concat(nil, modifiedEntrypoints, removedEntrypoints)
 
 	metaValues := modifiers.ParseBodyMetaValues(ctx, c.platformClient.ModifierContent(ctx))
 	logger.DebugContext(ctx, "parsed body meta values", "values", metaValues)
 
-	allEntrypointDirs := slices.Concat(nil, entrypointDirs, removedDirs)
-
-	destroyDirs, err := c.processDestroyMetaValues(cwd, allEntrypointDirs, metaValues)
+	destroyEntrypoints, err := c.processDestroyMetaValues(cwd, allEntrypointDirs, metaValues)
 	if err != nil {
-		return fmt.Errorf("failed to find entrypoint directories: %w", err)
+		return fmt.Errorf("failed to process destroy entrypoints: %w", err)
 	}
-	logger.DebugContext(ctx, "found destroy dirs from meta values", "dirs", destroyDirs)
+	logger.DebugContext(ctx, "found destroy entrypoints from meta values", "dirs", destroyEntrypoints)
 
-	modifiedDirs := sets.Subtract(entrypointDirs, destroyDirs)
+	// update dirs are all entrypoints that aren't being destroyed
+	updatedEntrypoints := sets.Subtract(modifiedEntrypoints, destroyEntrypoints)
 
-	// TODO(verbanicm): write a comment to help the user with abandonded dirs
-	abandonedDirs := sets.Subtract(removedDirs, destroyDirs)
-	logger.DebugContext(ctx, "found abandonded dirs", "dirs", abandonedDirs)
+	abandonedEntrypoints := sets.Subtract(removedEntrypoints, destroyEntrypoints)
+	logger.DebugContext(ctx, "found abandonded entrypoints", "dirs", abandonedEntrypoints)
+
+	// sort them for consistent results
+	slices.Sort(updatedEntrypoints)
+	slices.Sort(destroyEntrypoints)
+	slices.Sort(abandonedEntrypoints)
 
 	results := &EntrypointsResult{
-		Entrypoints: entrypointDirs,
-		Modified:    modifiedDirs,
-		Destroy:     destroyDirs,
+		Update:  updatedEntrypoints,
+		Destroy: destroyEntrypoints,
 	}
 
 	if err := c.writeOutput(cwd, results); err != nil {
@@ -227,9 +254,9 @@ func (c *EntrypointsCommand) Process(ctx context.Context) error {
 
 	if err := c.reporterClient.EntrypointsSummary(ctx, &reporter.EntrypointsSummaryParams{
 		Message:       "Guardian will run for the following directories",
-		ModifiedDirs:  modifiedDirs,
-		DestroyDirs:   destroyDirs,
-		AbandonedDirs: abandonedDirs,
+		UpdateDirs:    updatedEntrypoints,
+		DestroyDirs:   destroyEntrypoints,
+		AbandonedDirs: abandonedEntrypoints,
 	}); err != nil {
 		return fmt.Errorf("failed to create report: %w", err)
 	}
@@ -237,13 +264,14 @@ func (c *EntrypointsCommand) Process(ctx context.Context) error {
 	return nil
 }
 
-// FindEntrypointDirs finds all the entrypoint directories.
-func (c *EntrypointsCommand) findEntrypointDirs(ctx context.Context) ([]string, []string, error) {
+// findEntrypointDirs finds all the entrypoint directories that have a terraform module.
+func (c *EntrypointsCommand) findEntrypointDirs(ctx context.Context, dir string) ([]string, []string, error) {
 	logger := logging.FromContext(ctx)
-
 	logger.DebugContext(ctx, "finding entrypoint directories")
 
-	entrypoints, err := terraform.GetEntrypointDirectories(c.directory, c.parsedFlagMaxDepth)
+	var removedDirs []string
+
+	entrypoints, err := terraform.GetEntrypointDirectories(dir, c.parsedFlagMaxDepth)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to find terraform directories: %w", err)
 	}
@@ -253,53 +281,50 @@ func (c *EntrypointsCommand) findEntrypointDirs(ctx context.Context) ([]string, 
 		entrypointDirs = append(entrypointDirs, e.Path)
 	}
 
-	logger.DebugContext(ctx, "terraform entrypoint directories", "entrypoint_dirs", entrypointDirs)
-
-	removedDirs := make([]string, 0)
-	if c.flagDetectChanges {
-		logger.DebugContext(ctx, "finding git diff directories")
-
-		diffDirs, err := c.gitClient.DiffDirsAbs(ctx, c.flagSourceRef, c.flagDestRef)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to find git diff directories: %w", err)
-		}
-		logger.DebugContext(ctx, "git diff directories", "directories", diffDirs)
-
-		removedDirs, err = c.findRemovedDirs(diffDirs)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to find removed dirs: %w", err)
-		}
-
-		moduleUsageGraph, err := terraform.ModuleUsage(ctx, c.directory, c.parsedFlagMaxDepth, !c.flagFailUnresolvableModules)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to get module usage for %s: %w", c.directory, err)
-		}
-
-		modifiedEntrypoints := make(map[string]struct{})
-
-		for _, changedFile := range diffDirs {
-			if entrypoints, ok := moduleUsageGraph.ModulesToEntrypoints[changedFile]; ok {
-				for entrypoint := range entrypoints {
-					modifiedEntrypoints[entrypoint] = struct{}{}
-				}
-			}
-			if _, ok := moduleUsageGraph.EntrypointToModules[changedFile]; ok {
-				modifiedEntrypoints[changedFile] = struct{}{}
-			}
-		}
-
-		files := maps.Keys(modifiedEntrypoints)
-		sort.Strings(files)
-
-		entrypointDirs = files
-	}
-
-	logger.DebugContext(ctx, "calculated entrypoints and removed dirs",
-		"entrypoints", entrypointDirs,
-		"removed_dirs", removedDirs,
-	)
+	logger.DebugContext(ctx, "calculated entrypoints and removed dirs", "entrypoints", entrypointDirs)
 
 	return entrypointDirs, removedDirs, nil
+}
+
+// detectChanges detects changed and removed entrypoints using git diff.
+func (c *EntrypointsCommand) detectEntrypointChanges(ctx context.Context, dir string) ([]string, []string, error) {
+	logger := logging.FromContext(ctx)
+	logger.DebugContext(ctx, "detecting changed entrypoints")
+
+	gitClient := c.newGitClient(ctx, dir)
+
+	diffDirs, err := gitClient.DiffDirsAbs(ctx, c.flagSourceRef, c.flagDestRef)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to find git diff directories: %w", err)
+	}
+	logger.DebugContext(ctx, "git diff directories", "directories", diffDirs)
+
+	removedDirs, err := c.findRemovedDirs(diffDirs)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to find removed dirs: %w", err)
+	}
+
+	moduleUsageGraph, err := terraform.ModuleUsage(ctx, dir, c.parsedFlagMaxDepth, !c.flagFailUnresolvableModules)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get module usage for %s: %w", dir, err)
+	}
+
+	modifiedEntrypoints := make(map[string]struct{})
+
+	for _, changedFile := range diffDirs {
+		if entrypoints, ok := moduleUsageGraph.ModulesToEntrypoints[changedFile]; ok {
+			for entrypoint := range entrypoints {
+				modifiedEntrypoints[entrypoint] = struct{}{}
+			}
+		}
+		if _, ok := moduleUsageGraph.EntrypointToModules[changedFile]; ok {
+			modifiedEntrypoints[changedFile] = struct{}{}
+		}
+	}
+
+	modifiedDirs := maps.Keys(modifiedEntrypoints)
+
+	return modifiedDirs, removedDirs, nil
 }
 
 // findRemovedDirs tests if any directories were removed from the filesystem and returns the list of removed dirs.
@@ -340,20 +365,12 @@ func (c *EntrypointsCommand) processDestroyMetaValues(cwd string, dirs []string,
 func (c *EntrypointsCommand) writeOutput(cwd string, results *EntrypointsResult) error {
 	// convert to child path for output
 	// using absolute path creates an ugly github workflow name
-	for k, dir := range results.Entrypoints {
+	for k, dir := range results.Update {
 		childPath, err := util.ChildPath(cwd, dir)
 		if err != nil {
 			return fmt.Errorf("failed to get child path for [%s]: %w", dir, err)
 		}
-		results.Entrypoints[k] = childPath
-	}
-
-	for k, dir := range results.Modified {
-		childPath, err := util.ChildPath(cwd, dir)
-		if err != nil {
-			return fmt.Errorf("failed to get child path for [%s]: %w", dir, err)
-		}
-		results.Modified[k] = childPath
+		results.Update[k] = childPath
 	}
 
 	for k, dir := range results.Destroy {

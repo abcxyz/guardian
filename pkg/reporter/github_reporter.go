@@ -30,10 +30,9 @@ import (
 var _ Reporter = (*GitHubReporter)(nil)
 
 const (
-	githubCommentPrefix        = "#### 🔱 Guardian 🔱"
-	githubMaxCommentLength     = 65536
-	githubDestroyIndicatorText = "💥 DESTROY"
-	githubTruncatedMessage     = "\n\n> Message has been truncated. See workflow logs to view the full message."
+	githubCommentPrefix    = "#### 🔱 Guardian 🔱"
+	githubMaxCommentLength = 65536
+	githubTruncatedMessage = "\n\n> Message has been truncated. See workflow logs to view the full message."
 )
 
 var githubStatusText = map[Status]string{
@@ -228,10 +227,6 @@ func (g *GitHubReporter) statusMessage(st Status, p *StatusParams) (strings.Buil
 		fmt.Fprintf(&msg, " %s", g.markdownPill(operationText))
 	}
 
-	if p.IsDestroy {
-		fmt.Fprintf(&msg, " %s", g.markdownPill(githubDestroyIndicatorText))
-	}
-
 	statusText, ok := githubStatusText[st]
 	if !ok {
 		statusText = githubStatusText[StatusUnknown]
@@ -285,8 +280,8 @@ func (g *GitHubReporter) entrypointsSummaryMessage(p *EntrypointsSummaryParams) 
 		fmt.Fprintf(&msg, "\n\n%s", p.Message)
 	}
 
-	if len(p.ModifiedDirs) > 0 {
-		fmt.Fprintf(&msg, "\n\n**%s**\n%s", "Plan", strings.Join(p.ModifiedDirs, "\n"))
+	if len(p.UpdateDirs) > 0 {
+		fmt.Fprintf(&msg, "\n\n**%s**\n%s", "Update", strings.Join(p.UpdateDirs, "\n"))
 	}
 
 	if len(p.DestroyDirs) > 0 {

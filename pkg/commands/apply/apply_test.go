@@ -127,7 +127,7 @@ func TestApply_Process(t *testing.T) {
 			expReporterClientReqs: []*reporter.Request{
 				{
 					Name:   "Status",
-					Params: []any{reporter.StatusSuccess, &reporter.StatusParams{HasDiff: true, IsDestroy: true, Details: "terraform apply success", Dir: "testdir", Operation: "apply"}},
+					Params: []any{reporter.StatusSuccess, &reporter.StatusParams{HasDiff: true, Details: "terraform apply success", Dir: "testdir", Operation: "apply (destroy)"}},
 				},
 			},
 			expStorageClientReqs: []*storage.Request{
@@ -219,7 +219,7 @@ func TestApply_Process(t *testing.T) {
 			expReporterClientReqs: []*reporter.Request{
 				{
 					Name:   "Status",
-					Params: []any{reporter.StatusFailure, &reporter.StatusParams{HasDiff: true, IsDestroy: true, Details: "terraform apply failed", Dir: "testdir", Operation: "apply"}},
+					Params: []any{reporter.StatusFailure, &reporter.StatusParams{HasDiff: true, Details: "terraform apply failed", Dir: "testdir", Operation: "apply (destroy)"}},
 				},
 			},
 			expStorageClientReqs: []*storage.Request{

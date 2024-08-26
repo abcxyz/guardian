@@ -83,7 +83,6 @@ func TestGitHubReporterStatus(t *testing.T) {
 			status: StatusSuccess,
 			params: &StatusParams{
 				Operation: "plan",
-				IsDestroy: false,
 				Dir:       "terraform/project1",
 			},
 			logURL: "https://github.com",
@@ -95,27 +94,10 @@ func TestGitHubReporterStatus(t *testing.T) {
 			},
 		},
 		{
-			name:   "success_destroy",
-			status: StatusSuccess,
-			params: &StatusParams{
-				Operation: "plan",
-				IsDestroy: true,
-				Dir:       "terraform/project1",
-			},
-			logURL: "https://github.com",
-			expGitHubClientReqs: []*github.Request{
-				{
-					Name:   "CreateIssueComment",
-					Params: []any{"owner", "repo", int(1), "#### 🔱 Guardian 🔱 **`PLAN`** **`💥 DESTROY`** **`🟩 SUCCESS`** [[logs](https://github.com)]\n\n**Entrypoint:** terraform/project1"},
-				},
-			},
-		},
-		{
 			name:   "error",
 			status: StatusSuccess,
 			params: &StatusParams{
 				Operation: "plan",
-				IsDestroy: false,
 				Dir:       "terraform/project1",
 			},
 			logURL:                 "https://github.com",
@@ -181,7 +163,7 @@ func TestGitHubReporterCreateStatus(t *testing.T) {
 			status: StatusSuccess,
 			params: &EntrypointsSummaryParams{
 				Message:       "summary message",
-				ModifiedDirs:  []string{"modified"},
+				UpdateDirs:    []string{"update"},
 				DestroyDirs:   []string{"destroy"},
 				AbandonedDirs: []string{"abandoned"},
 			},
@@ -194,8 +176,8 @@ func TestGitHubReporterCreateStatus(t *testing.T) {
 							"\n" +
 							"summary message\n" +
 							"\n" +
-							"**Plan**\n" +
-							"modified\n" +
+							"**Update**\n" +
+							"update\n" +
 							"\n" +
 							"**Destroy**\n" +
 							"destroy\n" +
@@ -211,7 +193,7 @@ func TestGitHubReporterCreateStatus(t *testing.T) {
 			status: StatusSuccess,
 			params: &EntrypointsSummaryParams{
 				Message:       "summary message",
-				ModifiedDirs:  []string{"modified"},
+				UpdateDirs:    []string{"update"},
 				DestroyDirs:   []string{"destroy"},
 				AbandonedDirs: []string{"abandoned"},
 			},
@@ -226,8 +208,8 @@ func TestGitHubReporterCreateStatus(t *testing.T) {
 							"\n" +
 							"summary message\n" +
 							"\n" +
-							"**Plan**\n" +
-							"modified\n" +
+							"**Update**\n" +
+							"update\n" +
 							"\n" +
 							"**Destroy**\n" +
 							"destroy\n" +

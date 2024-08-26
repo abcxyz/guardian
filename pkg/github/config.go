@@ -88,7 +88,6 @@ This is separate from GITHUB_TOKEN becuse Terraform uses GITHUB_TOKEN to authent
 to the GitHub APIs also. Splitting this up allows use to follow least privilege
 for the caller (e.g. Guardian vs Terraform). If not supplied this will default to 
 GITHUB_TOKEN.`,
-		Hidden: true,
 	})
 
 	f.StringVar(&cli.StringVar{
