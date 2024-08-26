@@ -40,105 +40,151 @@ func TestEntrypointsProcess(t *testing.T) {
 	}
 
 	cases := []struct {
-		name                  string
-		directory             string
-		flagIsGitHubActions   bool
-		flagGitHubOwner       string
-		flagGitHubRepo        string
-		flagPullRequestNumber int
-		flagDestRef           string
-		flagSourceRef         string
-		flagDetectChanges     bool
-		flagMaxDepth          int
-		modifierContent       string
-		gitClient             *git.MockGitClient
-		platformClient        *platform.MockPlatform
-		reporterClient        *reporter.MockReporter
-		err                   string
-		expStdout             string
-		expStderr             string
+		name              string
+		flagDir           []string
+		flagDestRef       string
+		flagSourceRef     string
+		flagDetectChanges bool
+		flagMaxDepth      int
+		modifierContent   string
+		newGitClient      func(ctx context.Context, dir string) git.Git
+		platformClient    *platform.MockPlatform
+		reporterClient    *reporter.MockReporter
+		err               string
+		expStdout         string
+		expStderr         string
 	}{
 		{
-			name:                  "success",
-			directory:             "testdata",
-			flagIsGitHubActions:   true,
-			flagGitHubOwner:       "owner",
-			flagGitHubRepo:        "repo",
-			flagPullRequestNumber: 1,
-			flagDestRef:           "main",
-			flagSourceRef:         "ldap/feature",
-			flagDetectChanges:     true,
-			gitClient: &git.MockGitClient{
-				DiffResp: []string{
-					path.Join(cwd, "testdata/backends/project1"),
-					path.Join(cwd, "testdata/backends/project2"),
-				},
+			name:              "success",
+			flagDir:           []string{"testdata/entrypoint1"},
+			flagDestRef:       "main",
+			flagSourceRef:     "ldap/feature",
+			flagDetectChanges: true,
+			newGitClient: func(ctx context.Context, dir string) git.Git {
+				return &git.MockGitClient{
+					DiffResp: []string{
+						path.Join(cwd, "testdata/entrypoint1/project1"),
+						path.Join(cwd, "testdata/entrypoint1/project2"),
+					},
+				}
 			},
-			expStdout: `{"entrypoints":["testdata/backends/project1","testdata/backends/project2"],"modified":["testdata/backends/project1","testdata/backends/project2"],"destroy":[]}`,
+			expStdout: `{"update":["testdata/entrypoint1/project1","testdata/entrypoint1/project2"],"destroy":[]}`,
 		},
 		{
-			name:                  "success_destroy",
-			directory:             "testdata",
-			flagIsGitHubActions:   true,
-			flagGitHubOwner:       "owner",
-			flagGitHubRepo:        "repo",
-			flagPullRequestNumber: 1,
-			flagDestRef:           "main",
-			flagSourceRef:         "ldap/feature",
-			flagDetectChanges:     true,
-			modifierContent:       "GUARDIAN_DESTROY=testdata/backends/project3",
-			gitClient: &git.MockGitClient{
-				DiffResp: []string{
-					path.Join(cwd, "testdata/backends/project1"),
-					path.Join(cwd, "testdata/backends/project2"),
-					path.Join(cwd, "testdata/backends/project3"),
-				},
+			name:              "success_destroy",
+			flagDir:           []string{"testdata/entrypoint1"},
+			flagDestRef:       "main",
+			flagSourceRef:     "ldap/feature",
+			flagDetectChanges: true,
+			modifierContent:   "GUARDIAN_DESTROY=testdata/entrypoint1/project3",
+			newGitClient: func(ctx context.Context, dir string) git.Git {
+				return &git.MockGitClient{
+					DiffResp: []string{
+						path.Join(cwd, "testdata/entrypoint1/project1"),
+						path.Join(cwd, "testdata/entrypoint1/project2"),
+						path.Join(cwd, "testdata/entrypoint1/project3"),
+					},
+				}
 			},
-			expStdout: `{"entrypoints":["testdata/backends/project1","testdata/backends/project2"],"modified":["testdata/backends/project1","testdata/backends/project2"],"destroy":["testdata/backends/project3"]}`,
+			expStdout: `{"update":["testdata/entrypoint1/project1","testdata/entrypoint1/project2"],"destroy":["testdata/entrypoint1/project3"]}`,
 		},
 		{
-			name:                  "returns_json",
-			directory:             "testdata",
-			flagIsGitHubActions:   true,
-			flagGitHubOwner:       "owner",
-			flagGitHubRepo:        "repo",
-			flagPullRequestNumber: 3,
-			flagDestRef:           "main",
-			flagSourceRef:         "ldap/feature",
-			flagDetectChanges:     true,
-			gitClient: &git.MockGitClient{
-				DiffResp: []string{
-					path.Join(cwd, "testdata/backends/project1"),
-					path.Join(cwd, "testdata/backends/project2"),
-				},
+			name:              "success_multi",
+			flagDir:           []string{"testdata/entrypoint1", "testdata/entrypoint2"},
+			flagDestRef:       "main",
+			flagSourceRef:     "ldap/feature",
+			flagDetectChanges: true,
+			newGitClient: func(ctx context.Context, dir string) git.Git {
+				var diffResp []string
+
+				if strings.HasSuffix(dir, "testdata/entrypoint1") {
+					diffResp = []string{
+						path.Join(cwd, "testdata/entrypoint1/project1"),
+						path.Join(cwd, "testdata/entrypoint1/project2"),
+					}
+				}
+
+				if strings.HasSuffix(dir, "testdata/entrypoint2") {
+					diffResp = []string{
+						path.Join(cwd, "testdata/entrypoint2/project3"),
+						path.Join(cwd, "testdata/entrypoint2/project4"),
+					}
+				}
+
+				return &git.MockGitClient{
+					DiffResp: diffResp,
+				}
 			},
-			expStdout: `{"entrypoints":["testdata/backends/project1","testdata/backends/project2"],"modified":["testdata/backends/project1","testdata/backends/project2"],"destroy":[]}`,
+			expStdout: `{"update":["testdata/entrypoint1/project1","testdata/entrypoint1/project2","testdata/entrypoint2/project3","testdata/entrypoint2/project4"],"destroy":[]}`,
 		},
 		{
-			name:                  "skips_detect_changes",
-			directory:             "testdata",
-			flagIsGitHubActions:   true,
-			flagGitHubOwner:       "owner",
-			flagGitHubRepo:        "repo",
-			flagPullRequestNumber: 1,
-			flagDestRef:           "main",
-			flagSourceRef:         "ldap/feature",
-			flagDetectChanges:     false,
-			gitClient:             &git.MockGitClient{},
-			expStdout:             `{"entrypoints":["testdata/backends/project1","testdata/backends/project2"],"modified":["testdata/backends/project1","testdata/backends/project2"],"destroy":[]}`,
+			name:              "success_multi_destroy",
+			flagDir:           []string{"testdata/entrypoint1", "testdata/entrypoint2"},
+			flagDestRef:       "main",
+			flagSourceRef:     "ldap/feature",
+			flagDetectChanges: true,
+			modifierContent: `GUARDIAN_DESTROY=testdata/entrypoint1/project3
+GUARDIAN_DESTROY=testdata/entrypoint2/project5`,
+			newGitClient: func(ctx context.Context, dir string) git.Git {
+				var diffResp []string
+
+				if strings.HasSuffix(dir, "testdata/entrypoint1") {
+					diffResp = []string{
+						path.Join(cwd, "testdata/entrypoint1/project1"),
+						path.Join(cwd, "testdata/entrypoint1/project3"),
+					}
+				}
+
+				if strings.HasSuffix(dir, "testdata/entrypoint2") {
+					diffResp = []string{
+						path.Join(cwd, "testdata/entrypoint2/project4"),
+						path.Join(cwd, "testdata/entrypoint2/project5"),
+					}
+				}
+
+				return &git.MockGitClient{
+					DiffResp: diffResp,
+				}
+			},
+			expStdout: `{"update":["testdata/entrypoint1/project1","testdata/entrypoint2/project4"],"destroy":["testdata/entrypoint1/project3","testdata/entrypoint2/project5"]}`,
 		},
 		{
-			name:                  "errors",
-			directory:             "testdata",
-			flagIsGitHubActions:   true,
-			flagGitHubOwner:       "owner",
-			flagGitHubRepo:        "repo",
-			flagPullRequestNumber: 2,
-			flagDestRef:           "main",
-			flagSourceRef:         "ldap/feature",
-			flagDetectChanges:     true,
-			gitClient: &git.MockGitClient{
-				DiffErr: fmt.Errorf("failed to run git diff"),
+			name:              "returns_json",
+			flagDir:           []string{"testdata/entrypoint1"},
+			flagDestRef:       "main",
+			flagSourceRef:     "ldap/feature",
+			flagDetectChanges: true,
+			newGitClient: func(ctx context.Context, dir string) git.Git {
+				return &git.MockGitClient{
+					DiffResp: []string{
+						path.Join(cwd, "testdata/entrypoint1/project1"),
+						path.Join(cwd, "testdata/entrypoint1/project2"),
+					},
+				}
+			},
+			expStdout: `{"update":["testdata/entrypoint1/project1","testdata/entrypoint1/project2"],"destroy":[]}`,
+		},
+		{
+			name:              "skips_detect_changes",
+			flagDir:           []string{"testdata/entrypoint1"},
+			flagDestRef:       "main",
+			flagSourceRef:     "ldap/feature",
+			flagDetectChanges: false,
+			newGitClient: func(ctx context.Context, dir string) git.Git {
+				return &git.MockGitClient{}
+			},
+			expStdout: `{"update":["testdata/entrypoint1/project1","testdata/entrypoint1/project2"],"destroy":[]}`,
+		},
+		{
+			name:              "errors",
+			flagDir:           []string{"testdata/entrypoint1"},
+			flagDestRef:       "main",
+			flagSourceRef:     "ldap/feature",
+			flagDetectChanges: true,
+			newGitClient: func(ctx context.Context, dir string) git.Git {
+				return &git.MockGitClient{
+					DiffErr: fmt.Errorf("failed to run git diff"),
+				}
 			},
 			err: "failed to find git diff directories: failed to run git diff",
 		},
@@ -156,15 +202,15 @@ func TestEntrypointsProcess(t *testing.T) {
 			mockReporterClient := &reporter.MockReporter{}
 
 			c := &EntrypointsCommand{
-				directory: tc.directory,
-
+				flagDir:           tc.flagDir,
 				flagDestRef:       tc.flagDestRef,
 				flagSourceRef:     tc.flagSourceRef,
 				flagDetectChanges: tc.flagDetectChanges,
 				flagMaxDepth:      tc.flagMaxDepth,
-				gitClient:         tc.gitClient,
 				platformClient:    mockPlatformClient,
 				reporterClient:    mockReporterClient,
+
+				newGitClient: tc.newGitClient,
 			}
 
 			_, stdout, stderr := c.Pipe()

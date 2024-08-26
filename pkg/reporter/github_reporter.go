@@ -285,8 +285,8 @@ func (g *GitHubReporter) entrypointsSummaryMessage(p *EntrypointsSummaryParams) 
 		fmt.Fprintf(&msg, "\n\n%s", p.Message)
 	}
 
-	if len(p.ModifiedDirs) > 0 {
-		fmt.Fprintf(&msg, "\n\n**%s**\n%s", "Plan", strings.Join(p.ModifiedDirs, "\n"))
+	if len(p.UpdateDirs) > 0 {
+		fmt.Fprintf(&msg, "\n\n**%s**\n%s", "Update", strings.Join(p.UpdateDirs, "\n"))
 	}
 
 	if len(p.DestroyDirs) > 0 {

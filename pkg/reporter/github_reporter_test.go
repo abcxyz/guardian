@@ -181,7 +181,7 @@ func TestGitHubReporterCreateStatus(t *testing.T) {
 			status: StatusSuccess,
 			params: &EntrypointsSummaryParams{
 				Message:       "summary message",
-				ModifiedDirs:  []string{"modified"},
+				UpdateDirs:    []string{"update"},
 				DestroyDirs:   []string{"destroy"},
 				AbandonedDirs: []string{"abandoned"},
 			},
@@ -194,8 +194,8 @@ func TestGitHubReporterCreateStatus(t *testing.T) {
 							"\n" +
 							"summary message\n" +
 							"\n" +
-							"**Plan**\n" +
-							"modified\n" +
+							"**Update**\n" +
+							"update\n" +
 							"\n" +
 							"**Destroy**\n" +
 							"destroy\n" +
@@ -211,7 +211,7 @@ func TestGitHubReporterCreateStatus(t *testing.T) {
 			status: StatusSuccess,
 			params: &EntrypointsSummaryParams{
 				Message:       "summary message",
-				ModifiedDirs:  []string{"modified"},
+				UpdateDirs:    []string{"update"},
 				DestroyDirs:   []string{"destroy"},
 				AbandonedDirs: []string{"abandoned"},
 			},
@@ -226,8 +226,8 @@ func TestGitHubReporterCreateStatus(t *testing.T) {
 							"\n" +
 							"summary message\n" +
 							"\n" +
-							"**Plan**\n" +
-							"modified\n" +
+							"**Update**\n" +
+							"update\n" +
 							"\n" +
 							"**Destroy**\n" +
 							"destroy\n" +

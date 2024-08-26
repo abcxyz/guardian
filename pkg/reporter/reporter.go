@@ -60,7 +60,7 @@ type StatusParams struct {
 // EntrypointsSummaryParams are the parameters for writing entrypoints summary reports.
 type EntrypointsSummaryParams struct {
 	Message       string
-	ModifiedDirs  []string
+	UpdateDirs    []string
 	DestroyDirs   []string
 	AbandonedDirs []string
 }
