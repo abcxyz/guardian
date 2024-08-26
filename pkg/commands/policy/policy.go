@@ -129,8 +129,11 @@ func (c *PolicyCommand) Process(ctx context.Context) error {
 		}
 	}
 
+	// Skips assigning reviewers but returns any errors found. This is possible if
+	// the rego policy is misconfigured/contains a bug to return an error message
+	// without any reviewers to assign.
 	if len(teams) == 0 && len(users) == 0 {
-		return nil
+		return merr
 	}
 
 	logger.DebugContext(ctx, "found missing approvals",
