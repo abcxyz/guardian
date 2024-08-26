@@ -76,7 +76,7 @@ jobs:
       contents: 'read'
       pull-requests: 'write'
     outputs:
-      update-dirs: '${{ steps.entrypoints.outputs.update }}'
+      update-dirs: '${{ steps.entrypoints.outputs.update-dirs }}'
       destroy-dirs: '${{ steps.entrypoints.outputs.destroy-dirs }}'
     steps:
       - name: 'Checkout'
