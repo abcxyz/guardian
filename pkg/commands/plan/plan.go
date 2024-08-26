@@ -326,7 +326,7 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 	stdout.Reset()
 	stderr.Reset()
 
-	util.Headerf(c.Stdout(), "Saving output to JSON file")
+	util.Headerf(c.Stdout(), "Writing Plan to Local JSON File")
 	_, err = c.terraformClient.Show(ctx, &stdout, multiStderr, &terraform.ShowOptions{
 		File:    pointer.To(c.planFilename),
 		NoColor: pointer.To(true),
