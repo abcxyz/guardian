@@ -52,7 +52,6 @@ type StatusParams struct {
 	HasDiff   bool
 	Details   string
 	Dir       string
-	IsDestroy bool
 	Message   string
 	Operation string
 }

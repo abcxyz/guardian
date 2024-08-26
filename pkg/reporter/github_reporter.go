@@ -224,9 +224,6 @@ func (g *GitHubReporter) statusMessage(st Status, p *StatusParams) (strings.Buil
 
 	operationText := strings.ToUpper(strings.TrimSpace(p.Operation))
 	if operationText != "" {
-		if p.IsDestroy {
-			operationText += "-DESTROY"
-		}
 		fmt.Fprintf(&msg, " %s", g.markdownPill(operationText))
 	}
 

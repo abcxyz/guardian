@@ -205,9 +205,13 @@ func (c *PlanCommand) Process(ctx context.Context) error {
 		c.planFilename = "tfplan.binary"
 	}
 
+	operation := "plan"
+	if c.flagDestroy {
+		operation = "plan-destroy"
+	}
+
 	rp := &reporter.StatusParams{
-		Operation: "plan",
-		IsDestroy: c.flagDestroy,
+		Operation: operation,
 		Dir:       c.childPath,
 	}
 

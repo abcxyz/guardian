@@ -236,9 +236,13 @@ func (c *ApplyCommand) Process(ctx context.Context) (merr error) {
 	}
 	c.planFileLocalPath = planFileLocalPath
 
+	operation := "apply"
+	if c.isDestroy {
+		operation = "apply-destroy"
+	}
+
 	rp := &reporter.StatusParams{
-		Operation: "apply",
-		IsDestroy: c.isDestroy,
+		Operation: operation,
 		Dir:       c.childPath,
 		HasDiff:   true,
 	}
