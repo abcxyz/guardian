@@ -127,13 +127,19 @@ func (c *PolicyCommand) Process(ctx context.Context) error {
 
 			merr = errors.Join(merr, fmt.Errorf("failed: \"%s\" - %s", k, m.Message))
 		}
-
-		logger.DebugContext(ctx, "found missing approvals",
-			"teams", teams,
-			"users", users,
-		)
 	}
 
+	// Skips assigning reviewers but returns any errors found. This is possible if
+	// the rego policy is misconfigured/contains a bug to return an error message
+	// without any reviewers to assign.
+	if len(teams) == 0 && len(users) == 0 {
+		return merr
+	}
+
+	logger.DebugContext(ctx, "found missing approvals",
+		"teams", teams,
+		"users", users,
+	)
 	if _, err := c.platform.AssignReviewers(ctx, &platform.AssignReviewersInput{
 		Teams: teams,
 		Users: users,
