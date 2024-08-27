@@ -31,6 +31,7 @@ import (
 )
 
 var terraformNoDiffMock = &terraform.MockTerraformClient{
+	PlanBody: []byte("this is a plan binary"),
 	FormatResponse: &terraform.MockTerraformResponse{
 		Stdout:   "terraform format success",
 		ExitCode: 0,
@@ -51,9 +52,14 @@ var terraformNoDiffMock = &terraform.MockTerraformClient{
 		Stdout:   "terraform show success - no diff",
 		ExitCode: 0,
 	},
+	ShowJSONResponse: &terraform.MockTerraformResponse{
+		Stdout:   `{"result": "terraform show success - no diff"}`,
+		ExitCode: 0,
+	},
 }
 
 var terraformDiffMock = &terraform.MockTerraformClient{
+	PlanBody: []byte("this is a plan binary"),
 	FormatResponse: &terraform.MockTerraformResponse{
 		Stdout:   "terraform format success",
 		ExitCode: 0,
@@ -74,9 +80,14 @@ var terraformDiffMock = &terraform.MockTerraformClient{
 		Stdout:   "terraform show success with diff",
 		ExitCode: 0,
 	},
+	ShowJSONResponse: &terraform.MockTerraformResponse{
+		Stdout:   `{"result": "terraform show success with diff"}`,
+		ExitCode: 0,
+	},
 }
 
 var terraformErrorMock = &terraform.MockTerraformClient{
+	PlanBody: []byte("this is a plan binary"),
 	FormatResponse: &terraform.MockTerraformResponse{
 		Stdout:   "terraform format success",
 		ExitCode: 0,
@@ -97,6 +108,10 @@ var terraformErrorMock = &terraform.MockTerraformClient{
 	},
 	ShowResponse: &terraform.MockTerraformResponse{
 		Stdout:   "terraform show success - no diff",
+		ExitCode: 0,
+	},
+	ShowJSONResponse: &terraform.MockTerraformResponse{
+		Stdout:   `{"result": "terraform show success - no diff"}`,
 		ExitCode: 0,
 	},
 }
@@ -224,6 +239,7 @@ func TestPlan_Process(t *testing.T) {
 				childPath:                tc.directory,
 				planFilename:             "test-tfplan.binary",
 				storagePrefix:            tc.storagePrefix,
+				flagOutputDir:            t.TempDir(),
 				flagDestroy:              tc.flagDestroy,
 				flagAllowLockfileChanges: tc.flagAllowLockfileChanges,
 				flagLockTimeout:          tc.flagLockTimeout,
