@@ -141,7 +141,8 @@ func (c *PlanCommand) Flags() *cli.FlagSet {
 	f.StringVar(&cli.StringVar{
 		Name:    "output-dir",
 		Target:  &c.flagOutputDir,
-		Example: ".",
+		Example: "./output/plan",
+		Usage:   "Write the plan binary and JSON file to a target local directory.",
 	})
 	return set
 }
