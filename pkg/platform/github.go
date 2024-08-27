@@ -208,7 +208,7 @@ func (g *GitHub) GetLatestApprovers(ctx context.Context) (*GetLatestApproversRes
 
 	// Explicitly sets the default Users and Teams to empty slices. If these are
 	// not explicitly provided to OPA, then the policy result may be incorrect.
-	result := GetLatestApproversResult{
+	result := &GetLatestApproversResult{
 		Teams: []string{},
 		Users: []string{},
 	}
@@ -241,7 +241,7 @@ func (g *GitHub) GetLatestApprovers(ctx context.Context) (*GetLatestApproversRes
 		"teams", result.Teams,
 	)
 
-	return &result, nil
+	return result, nil
 }
 
 func (g *GitHub) withRetries(ctx context.Context, retryFunc retry.RetryFunc) error {
