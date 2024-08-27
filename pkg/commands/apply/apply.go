@@ -310,10 +310,7 @@ func (c *ApplyCommand) terraformApply(ctx context.Context) (*RunResult, error) {
 
 	stderr.Reset()
 
-	util.Headerf(c.Stdout(), "Formatting output")
-	githubOutput := terraform.FormatOutputForGitHubDiff(stdout.String())
-
-	return &RunResult{commentDetails: githubOutput}, nil
+	return &RunResult{commentDetails: stdout.String()}, nil
 }
 
 // downloadGuardianPlan downloads the Guardian plan binary from the configured Guardian storage bucket
