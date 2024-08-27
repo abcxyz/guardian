@@ -186,7 +186,7 @@ func (c *PlanCommand) Run(ctx context.Context, args []string) error {
 		c.flagOutputDir = childPath
 	}
 	if c.flagOutputDir, err = filepath.Abs(c.flagOutputDir); err != nil {
-		return fmt.Errorf("failted to get absolute path for output directory: %w", err)
+		return fmt.Errorf("failed to get absolute path for output directory: %w", err)
 	}
 
 	c.terraformClient = terraform.NewTerraformClient(c.directory)

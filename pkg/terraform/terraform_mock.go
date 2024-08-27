@@ -16,10 +16,14 @@ package terraform
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"os"
 )
 
 var _ Terraform = (*MockTerraformClient)(nil)
+
+const ownerReadWritePerms = 0o600
 
 type MockTerraformResponse struct {
 	Stdout   string
@@ -62,6 +66,11 @@ func (m *MockTerraformClient) Plan(ctx context.Context, stdout, stderr io.Writer
 	if m.PlanResponse != nil {
 		stdout.Write([]byte(m.PlanResponse.Stdout))
 		stderr.Write([]byte(m.PlanResponse.Stderr))
+
+		if err := os.WriteFile(*opts.Out, []byte("this is a plan binary"), ownerReadWritePerms); err != nil {
+			return 1, fmt.Errorf("failed to write plan file: %w", err)
+		}
+
 		return m.PlanResponse.ExitCode, m.PlanResponse.Err
 	}
 	return 0, nil

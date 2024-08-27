@@ -236,6 +236,7 @@ func TestPlan_Process(t *testing.T) {
 				childPath:                tc.directory,
 				planFilename:             "test-tfplan.binary",
 				storagePrefix:            tc.storagePrefix,
+				flagOutputDir:            t.TempDir(),
 				flagDestroy:              tc.flagDestroy,
 				flagAllowLockfileChanges: tc.flagAllowLockfileChanges,
 				flagLockTimeout:          tc.flagLockTimeout,
