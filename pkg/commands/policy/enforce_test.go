@@ -24,7 +24,7 @@ import (
 	"github.com/abcxyz/pkg/testutil"
 )
 
-func TestPolicy_Process(t *testing.T) {
+func TestEnforce_Process(t *testing.T) {
 	t.Parallel()
 
 	ctx := logging.WithLogger(context.Background(), logging.TestLogger(t))
@@ -63,8 +63,8 @@ func TestPolicy_Process(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			c := &PolicyCommand{
-				flags: PolicyFlags{
+			c := &EnforceCommand{
+				flags: EnforceFlags{
 					ResultsFile: tc.resultsFile,
 				},
 				platform: &platform.MockPlatform{

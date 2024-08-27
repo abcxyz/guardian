@@ -21,12 +21,12 @@ import (
 	"github.com/abcxyz/pkg/cli"
 )
 
-type PolicyFlags struct {
+type EnforceFlags struct {
 	ResultsFile string
 }
 
-func (e *PolicyFlags) Register(set *cli.FlagSet) {
-	f := set.NewSection("POLICY OPTIONS")
+func (e *EnforceFlags) Register(set *cli.FlagSet) {
+	f := set.NewSection("ENFORCE OPTIONS")
 
 	f.StringVar(&cli.StringVar{
 		Name:    "results-file",

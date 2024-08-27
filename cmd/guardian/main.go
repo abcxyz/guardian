@@ -104,7 +104,15 @@ var rootCmd = func() cli.Command {
 				return &run.RunCommand{}
 			},
 			"policy": func() cli.Command {
-				return &policy.PolicyCommand{}
+				return &cli.RootCommand{
+					Name:        "policy",
+					Description: "Perform operations related to policy enforcement",
+					Commands: map[string]cli.CommandFactory{
+						"enforce": func() cli.Command {
+							return &policy.EnforceCommand{}
+						},
+					},
+				}
 			},
 		},
 	}
