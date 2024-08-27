@@ -44,7 +44,7 @@ var (
 type GitHub struct {
 	cfg           *gh.Config
 	client        *github.Client
-	graphQLClient *githubv4.Client
+	graphqlClient *githubv4.Client
 }
 
 // NewGitHub creates a new GitHub client.
@@ -86,12 +86,12 @@ func NewGitHub(ctx context.Context, cfg *gh.Config) (*GitHub, error) {
 	tc := oauth2.NewClient(ctx, ts)
 
 	client := github.NewClient(tc)
-	graphQLClient := githubv4.NewClient(tc)
+	graphqlClient := githubv4.NewClient(tc)
 
 	g := &GitHub{
 		cfg:           cfg,
 		client:        client,
-		graphQLClient: graphQLClient,
+		graphqlClient: graphqlClient,
 	}
 
 	return g, nil
@@ -199,7 +199,7 @@ func (g *GitHub) GetLatestApprovers(ctx context.Context) (*GetLatestApproversRes
 	logger.DebugContext(ctx, "querying latest approvers")
 
 	var approversQuery latestApproverQuery
-	if err := g.graphQLClient.Query(ctx, &approversQuery, map[string]any{
+	if err := g.graphqlClient.Query(ctx, &approversQuery, map[string]any{
 		"owner":  githubv4.String(g.cfg.GitHubOwner),
 		"repo":   githubv4.String(g.cfg.GitHubRepo),
 		"number": githubv4.Int(g.cfg.GitHubPullRequestNumber),
@@ -222,7 +222,7 @@ func (g *GitHub) GetLatestApprovers(ctx context.Context) (*GetLatestApproversRes
 	}
 
 	var teamQuery organizationTeamsAndMembershipsQuery
-	if err := g.graphQLClient.Query(ctx, &teamQuery, map[string]any{
+	if err := g.graphqlClient.Query(ctx, &teamQuery, map[string]any{
 		"owner": githubv4.String(g.cfg.GitHubOwner),
 	}); err != nil {
 		return nil, fmt.Errorf("failed to query organization teams and memberships: %w", err)
