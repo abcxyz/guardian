@@ -32,6 +32,8 @@ type MockPlatform struct {
 
 	AssignReviewersErr  error
 	ModifierContentResp string
+	TeamApprovers       []string
+	UserApprovers       []string
 }
 
 func (m *MockPlatform) AssignReviewers(ctx context.Context, input *AssignReviewersInput) (*AssignReviewersResult, error) {
@@ -49,6 +51,19 @@ func (m *MockPlatform) AssignReviewers(ctx context.Context, input *AssignReviewe
 	return &AssignReviewersResult{
 		Teams: input.Teams,
 		Users: input.Users,
+	}, nil
+}
+
+func (m *MockPlatform) GetLatestApprovers(ctx context.Context) (*GetLatestApproversResult, error) {
+	m.reqMu.Lock()
+	defer m.reqMu.Unlock()
+	m.Reqs = append(m.Reqs, &Request{
+		Name: "GetLatestApprovers",
+	})
+
+	return &GetLatestApproversResult{
+		Teams: m.TeamApprovers,
+		Users: m.UserApprovers,
 	}, nil
 }
 
