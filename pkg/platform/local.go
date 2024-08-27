@@ -32,6 +32,6 @@ func (l *Local) AssignReviewers(ctx context.Context, inputs *AssignReviewersInpu
 }
 
 // ModifierContent is a no-op.
-func (l *Local) ModifierContent(ctx context.Context) string {
-	return ""
+func (l *Local) ModifierContent(ctx context.Context) (string, error) {
+	return "", nil
 }

@@ -63,7 +63,7 @@ type Platform interface {
 	AssignReviewers(ctx context.Context, inputs *AssignReviewersInput) (*AssignReviewersResult, error)
 
 	// ModifierContent returns the modifier content for parsing modifier flags.
-	ModifierContent(ctx context.Context) string
+	ModifierContent(ctx context.Context) (string, error)
 }
 
 // NewPlatform creates a new platform based on the provided type.
