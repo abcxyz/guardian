@@ -150,6 +150,10 @@ func (g *GitHub) AssignReviewers(ctx context.Context, input *AssignReviewersInpu
 	return &result, nil
 }
 
+func (g *GitHub) GetLatestApprovers(ctx context.Context) (*GetLatestApproversResult, error) {
+	return nil, nil
+}
+
 func (g *GitHub) withRetries(ctx context.Context, retryFunc retry.RetryFunc) error {
 	backoff := retry.NewFibonacci(g.cfg.InitialRetryDelay)
 	backoff = retry.WithMaxRetries(g.cfg.MaxRetries, backoff)

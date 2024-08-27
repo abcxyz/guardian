@@ -57,10 +57,21 @@ type AssignReviewersResult struct {
 	Teams []string
 }
 
+// GetLatestApproversResult contains the reviewers whose latest review is an
+// approval.
+type GetLatestApproversResult struct {
+	Users []string
+	Teams []string
+}
+
 // Platform defines the minimum interface for a code review platform.
 type Platform interface {
 	// AssignReviewers assigns principals to review a change request.
 	AssignReviewers(ctx context.Context, inputs *AssignReviewersInput) (*AssignReviewersResult, error)
+
+	// GetLatestApprovers retrieves the reviewers whose latest review is an
+	// approval.
+	GetLatestApprovers(ctx context.Context) (*GetLatestApproversResult, error)
 
 	// ModifierContent returns the modifier content for parsing modifier flags.
 	ModifierContent(ctx context.Context) string
