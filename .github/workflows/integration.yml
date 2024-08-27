@@ -39,7 +39,6 @@ env:
   GUARDIAN_WIF_SERVICE_ACCOUNT: 'guardian-automation-bot@ghg-guardian-ci-i-6ad437.iam.gserviceaccount.com'
   GUARDIAN_BUCKET_NAME: 'guardian-ci-i-guardian-state-c79e1f4759'
   GUARDIAN_TERRAFORM_VERSION: '1.7.1'
-  TF_IN_AUTOMATION: 'true'
 
 jobs:
   build:

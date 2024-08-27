@@ -211,6 +211,8 @@ func (c *PlanCommand) Run(ctx context.Context, args []string) error {
 	}
 	c.reporterClient = rc
 
+	os.Setenv("TF_IN_AUTOMATION", "true")
+
 	return c.Process(ctx)
 }
 
