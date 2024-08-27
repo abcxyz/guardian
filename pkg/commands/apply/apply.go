@@ -163,7 +163,8 @@ func (c *ApplyCommand) Run(ctx context.Context, args []string) error {
 	}
 	c.childPath = childPath
 
-	c.terraformClient = terraform.NewTerraformClient(c.directory)
+	tfEnvVars := []string{"TF_IN_AUTOMATION=true"}
+	c.terraformClient = terraform.NewTerraformClient(c.directory, tfEnvVars)
 
 	storagePrefix, err := c.platformConfig.StoragePrefix()
 	if err != nil {
@@ -310,10 +311,7 @@ func (c *ApplyCommand) terraformApply(ctx context.Context) (*RunResult, error) {
 
 	stderr.Reset()
 
-	util.Headerf(c.Stdout(), "Formatting output")
-	githubOutput := terraform.FormatOutputForGitHubDiff(stdout.String())
-
-	return &RunResult{commentDetails: githubOutput}, nil
+	return &RunResult{commentDetails: stdout.String()}, nil
 }
 
 // downloadGuardianPlan downloads the Guardian plan binary from the configured Guardian storage bucket
