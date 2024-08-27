@@ -95,9 +95,9 @@ func (c *PolicyCommand) Run(ctx context.Context, args []string) error {
 // evaluation.
 func (c *PolicyCommand) Process(ctx context.Context) error {
 	logger := logging.FromContext(ctx)
+
 	logger.DebugContext(ctx, "parsing results file",
 		"results_file", c.flags.ResultsFile)
-
 	d, err := os.ReadFile(c.flags.ResultsFile)
 	if err != nil {
 		return fmt.Errorf("failed to read results file %q: %w", c.flags.ResultsFile, err)
@@ -111,7 +111,6 @@ func (c *PolicyCommand) Process(ctx context.Context) error {
 	var merr error
 	var teams []string
 	var users []string
-
 	for k, v := range *results {
 		logger.DebugContext(ctx, "processing policy decision",
 			"policy_name", k)
