@@ -34,6 +34,8 @@ type MockTerraformResponse struct {
 
 // MockTerraformClient creates a mock TerraformClient for use with testing.
 type MockTerraformClient struct {
+	// PlanBody is the content written to the test binary file when calling Plan.
+	PlanBody         []byte
 	InitResponse     *MockTerraformResponse
 	ValidateResponse *MockTerraformResponse
 	PlanResponse     *MockTerraformResponse
@@ -67,7 +69,7 @@ func (m *MockTerraformClient) Plan(ctx context.Context, stdout, stderr io.Writer
 		stdout.Write([]byte(m.PlanResponse.Stdout))
 		stderr.Write([]byte(m.PlanResponse.Stderr))
 
-		if err := os.WriteFile(*opts.Out, []byte("this is a plan binary"), ownerReadWritePerms); err != nil {
+		if err := os.WriteFile(*opts.Out, m.PlanBody, ownerReadWritePerms); err != nil {
 			return 1, fmt.Errorf("failed to write plan file: %w", err)
 		}
 

@@ -31,6 +31,7 @@ import (
 )
 
 var terraformNoDiffMock = &terraform.MockTerraformClient{
+	PlanBody: []byte("this is a plan binary"),
 	FormatResponse: &terraform.MockTerraformResponse{
 		Stdout:   "terraform format success",
 		ExitCode: 0,
@@ -58,6 +59,7 @@ var terraformNoDiffMock = &terraform.MockTerraformClient{
 }
 
 var terraformDiffMock = &terraform.MockTerraformClient{
+	PlanBody: []byte("this is a plan binary"),
 	FormatResponse: &terraform.MockTerraformResponse{
 		Stdout:   "terraform format success",
 		ExitCode: 0,
@@ -85,6 +87,7 @@ var terraformDiffMock = &terraform.MockTerraformClient{
 }
 
 var terraformErrorMock = &terraform.MockTerraformClient{
+	PlanBody: []byte("this is a plan binary"),
 	FormatResponse: &terraform.MockTerraformResponse{
 		Stdout:   "terraform format success",
 		ExitCode: 0,
