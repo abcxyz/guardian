@@ -64,11 +64,10 @@ type RunResult struct {
 type PlanCommand struct {
 	cli.BaseCommand
 
-	directory        string
-	childPath        string
-	planFilename     string
-	skipJSONPlanFile bool
-	storagePrefix    string
+	directory     string
+	childPath     string
+	planFilename  string
+	storagePrefix string
 
 	platformConfig platform.Config
 
@@ -325,29 +324,27 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 	stdout.Reset()
 	stderr.Reset()
 
-	if !c.skipJSONPlanFile {
-		var jsonOut strings.Builder
-		util.Headerf(c.Stdout(), "Writing Plan to Local JSON File")
-		if _, err = c.terraformClient.Show(ctx, &jsonOut, multiStderr, &terraform.ShowOptions{
-			File:    pointer.To(c.planFilename),
-			NoColor: pointer.To(true),
-			JSON:    pointer.To(true),
-		}); err != nil {
-			return &RunResult{
-				commentDetails: stderr.String(),
-				hasChanges:     hasChanges,
-			}, fmt.Errorf("failed to terraform show: %w", err)
-		}
-
-		planBasename := strings.TrimSuffix(c.planFilename, path.Ext(c.planFilename))
-		jsonFilepath := path.Join(c.childPath, planBasename+".json")
-
-		if err := os.WriteFile(jsonFilepath, []byte(jsonOut.String()), ownerReadWritePerms); err != nil {
-			return &RunResult{hasChanges: hasChanges}, fmt.Errorf("failed to write plan to json file: %w", err)
-		}
-		c.Outf("Plan JSON file path: %s", jsonFilepath)
-		stderr.Reset()
+	var jsonOut strings.Builder
+	util.Headerf(c.Stdout(), "Writing Plan to Local JSON File")
+	if _, err = c.terraformClient.Show(ctx, &jsonOut, multiStderr, &terraform.ShowOptions{
+		File:    pointer.To(c.planFilename),
+		NoColor: pointer.To(true),
+		JSON:    pointer.To(true),
+	}); err != nil {
+		return &RunResult{
+			commentDetails: stderr.String(),
+			hasChanges:     hasChanges,
+		}, fmt.Errorf("failed to terraform show: %w", err)
 	}
+
+	planBasename := strings.TrimSuffix(c.planFilename, path.Ext(c.planFilename))
+	jsonFilepath := path.Join(c.childPath, planBasename+".json")
+
+	if err := os.WriteFile(jsonFilepath, []byte(jsonOut.String()), ownerReadWritePerms); err != nil {
+		return &RunResult{hasChanges: hasChanges}, fmt.Errorf("failed to write plan to json file: %w", err)
+	}
+	c.Outf("Plan JSON file path: %s", jsonFilepath)
+	stderr.Reset()
 
 	util.Headerf(c.Stdout(), "Formatting output")
 	if _, err := c.terraformClient.Show(ctx, multiStdout, multiStderr, &terraform.ShowOptions{

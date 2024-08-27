@@ -235,7 +235,6 @@ func TestPlan_Process(t *testing.T) {
 				directory:                tc.directory,
 				childPath:                tc.directory,
 				planFilename:             "test-tfplan.binary",
-				skipJSONPlanFile:         true,
 				storagePrefix:            tc.storagePrefix,
 				flagDestroy:              tc.flagDestroy,
 				flagAllowLockfileChanges: tc.flagAllowLockfileChanges,
