@@ -191,7 +191,8 @@ func (c *PlanCommand) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("failed to get absolute path for output directory: %w", err)
 	}
 
-	c.terraformClient = terraform.NewTerraformClient(c.directory)
+	tfEnvVars := []string{"TF_IN_AUTOMATION=true"}
+	c.terraformClient = terraform.NewTerraformClient(c.directory, tfEnvVars)
 
 	storagePrefix, err := c.platformConfig.StoragePrefix()
 	if err != nil {
@@ -210,8 +211,6 @@ func (c *PlanCommand) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("failed to create reporter client: %w", err)
 	}
 	c.reporterClient = rc
-
-	os.Setenv("TF_IN_AUTOMATION", "true")
 
 	return c.Process(ctx)
 }

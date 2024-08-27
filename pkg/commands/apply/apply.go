@@ -163,7 +163,8 @@ func (c *ApplyCommand) Run(ctx context.Context, args []string) error {
 	}
 	c.childPath = childPath
 
-	c.terraformClient = terraform.NewTerraformClient(c.directory)
+	tfEnvVars := []string{"TF_IN_AUTOMATION=true"}
+	c.terraformClient = terraform.NewTerraformClient(c.directory, tfEnvVars)
 
 	storagePrefix, err := c.platformConfig.StoragePrefix()
 	if err != nil {

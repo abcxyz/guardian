@@ -17,9 +17,19 @@ package terraform
 import (
 	"context"
 	"io"
+	"slices"
 
+	"github.com/abcxyz/guardian/internal/version"
 	"github.com/abcxyz/guardian/pkg/child"
 )
+
+// overrideEnvVars are the environment variables to inject into the Terraform
+// child process, no matter what the user configured. These take precedence
+// over all other configurables.
+var overrideEnvVars = []string{
+	"GOOGLE_TERRAFORM_USERAGENT_EXTENSION=" + version.UserAgent,
+	"TF_APPEND_USER_AGENT=" + version.UserAgent,
+}
 
 // Run runs a Terraform command.
 func (t *TerraformClient) Run(ctx context.Context, stdout, stderr io.Writer, subcommand string, args ...string) (int, error) {
@@ -29,11 +39,14 @@ func (t *TerraformClient) Run(ctx context.Context, stdout, stderr io.Writer, sub
 		runArgs = append(runArgs, args...)
 	}
 
+	overrideEnvVars = slices.Concat(nil, t.envVars, overrideEnvVars)
+
 	return child.Run(ctx, &child.RunConfig{ //nolint:wrapcheck
-		Stdout:     stdout,
-		Stderr:     stderr,
-		WorkingDir: t.workingDir,
-		Command:    "terraform",
-		Args:       runArgs,
+		Stdout:          stdout,
+		Stderr:          stderr,
+		WorkingDir:      t.workingDir,
+		Command:         "terraform",
+		Args:            runArgs,
+		OverrideEnvVars: overrideEnvVars,
 	})
 }
