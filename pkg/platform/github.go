@@ -188,6 +188,11 @@ type organizationTeamsAndMembershipsQuery struct {
 	} `graphql:"organization(login: $owner)"`
 }
 
+// GetLatestApprovers retrieves the users whose latest review for a pull request
+// is an approval. It also returns the teams and subteams that the user
+// approvers are members of to indicate approval on behalf of those teams. Note,
+// if a reviewer leaves a comment OR requests changes after a previous approval,
+// then the reviewer will not be included in the "latest" approvers list.
 func (g *GitHub) GetLatestApprovers(ctx context.Context) (*GetLatestApproversResult, error) {
 	logger := logging.FromContext(ctx)
 	logger.DebugContext(ctx, "querying latest approvers")
