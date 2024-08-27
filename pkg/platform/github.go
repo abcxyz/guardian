@@ -168,33 +168,70 @@ type latestApproverQuery struct {
 				Nodes []pullRequestReview
 			} `graphql:"latestReviews(first: 100)"`
 		} `graphql:"pullRequest(number: $number)"`
-	} `graphql:"repository(owner: $owner, name: $name)"`
+	} `graphql:"repository(owner: $owner, name: $repo)"`
+}
+
+type member struct {
+	Login string
+}
+type team struct {
+	Name    string
+	Members struct {
+		Nodes []member
+	} `graphql:"members(first: 100)"`
+}
+type organizationTeamsAndMembershipsQuery struct {
+	Organization struct {
+		Teams struct {
+			Nodes []team
+		} `graphql:"teams(first: 100)"`
+	} `graphql:"organization(login: $owner)"`
 }
 
 func (g *GitHub) GetLatestApprovers(ctx context.Context) (*GetLatestApproversResult, error) {
 	logger := logging.FromContext(ctx)
 	logger.DebugContext(ctx, "querying latest approvers")
 
-	var q latestApproverQuery
-	variables := map[string]any{
+	var approversQuery latestApproverQuery
+	if err := g.graphQLClient.Query(ctx, &approversQuery, map[string]any{
 		"owner":  githubv4.String(g.cfg.GitHubOwner),
-		"name":   githubv4.String(g.cfg.GitHubRepo),
+		"repo":   githubv4.String(g.cfg.GitHubRepo),
 		"number": githubv4.Int(g.cfg.GitHubPullRequestNumber),
-	}
-	if err := g.graphQLClient.Query(ctx, &q, variables); err != nil {
+	}); err != nil {
 		return nil, fmt.Errorf("failed to query latest approvers: %w", err)
 	}
 
 	var result GetLatestApproversResult
-	for _, review := range q.Repository.PullRequest.LatestReviews.Nodes {
+	hasApproved := make(map[string]struct{}, len(approversQuery.Repository.PullRequest.LatestReviews.Nodes))
+	for _, review := range approversQuery.Repository.PullRequest.LatestReviews.Nodes {
 		if review.State == "APPROVED" {
 			result.Users = append(result.Users, review.Author.Login)
+			hasApproved[review.Author.Login] = struct{}{}
 		}
 	}
-	logger.DebugContext(ctx, "found latest approvers",
+
+	var teamQuery organizationTeamsAndMembershipsQuery
+	if err := g.graphQLClient.Query(ctx, &teamQuery, map[string]any{
+		"owner": githubv4.String(g.cfg.GitHubOwner),
+	}); err != nil {
+		return nil, fmt.Errorf("failed to query organization teams and memberships: %w", err)
+	}
+
+	for _, team := range teamQuery.Organization.Teams.Nodes {
+		for _, member := range team.Members.Nodes {
+			if _, ok := hasApproved[member.Login]; ok {
+				result.Teams = append(result.Teams, team.Name)
+				break
+			}
+		}
+	}
+
+	logger.DebugContext(ctx, "found latest approvers from",
 		"users", result.Users,
+		"teams", result.Teams,
 	)
-	return nil, nil
+
+	return &result, nil
 }
 
 func (g *GitHub) withRetries(ctx context.Context, retryFunc retry.RetryFunc) error {
