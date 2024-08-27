@@ -206,7 +206,12 @@ func (g *GitHub) GetLatestApprovers(ctx context.Context) (*GetLatestApproversRes
 		return nil, fmt.Errorf("failed to query latest approvers: %w", err)
 	}
 
-	var result GetLatestApproversResult
+	// Explicitly sets the default Users and Teams to empty slices. If these are
+	// not explicitly provided to OPA, then the policy result may be incorrect.
+	result := GetLatestApproversResult{
+		Teams: []string{},
+		Users: []string{},
+	}
 	hasApproved := make(map[string]struct{}, len(approversQuery.Repository.PullRequest.LatestReviews.Nodes))
 	for _, review := range approversQuery.Repository.PullRequest.LatestReviews.Nodes {
 		if review.State == "APPROVED" {
