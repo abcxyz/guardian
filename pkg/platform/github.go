@@ -191,8 +191,9 @@ type organizationTeamsAndMembershipsQuery struct {
 // GetLatestApprovers retrieves the users whose latest review for a pull request
 // is an approval. It also returns the teams and subteams that the user
 // approvers are members of to indicate approval on behalf of those teams. Note,
-// if a reviewer leaves a comment OR requests changes after a previous approval,
-// then the reviewer will not be included in the "latest" approvers list.
+// a comment following a previous approval by the same user will still keep the
+// APPROVED state. However, if a reviewer previously approved the PR and
+// requests changes/dismisses the review, then the approval is not counted.
 func (g *GitHub) GetLatestApprovers(ctx context.Context) (*GetLatestApproversResult, error) {
 	logger := logging.FromContext(ctx)
 	logger.DebugContext(ctx, "querying latest approvers")
