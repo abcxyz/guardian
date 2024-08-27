@@ -52,6 +52,9 @@ const (
 	OperationDestroy = "destroy"
 
 	ownerReadWritePerms = 0o600
+
+	planFilename     = "tfplan.binary"
+	planJSONFilename = "tfplan.json"
 )
 
 var _ cli.Command = (*PlanCommand)(nil)
@@ -65,11 +68,9 @@ type RunResult struct {
 type PlanCommand struct {
 	cli.BaseCommand
 
-	directory        string
-	childPath        string
-	planFilename     string
-	planJSONFilename string
-	storagePrefix    string
+	directory     string
+	childPath     string
+	storagePrefix string
 
 	platformConfig platform.Config
 
@@ -190,7 +191,8 @@ func (c *PlanCommand) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("failed to get absolute path for output directory: %w", err)
 	}
 
-	c.terraformClient = terraform.NewTerraformClient(c.directory)
+	tfEnvVars := []string{"TF_IN_AUTOMATION=true"}
+	c.terraformClient = terraform.NewTerraformClient(c.directory, tfEnvVars)
 
 	storagePrefix, err := c.platformConfig.StoragePrefix()
 	if err != nil {
@@ -218,13 +220,6 @@ func (c *PlanCommand) Process(ctx context.Context) error {
 	var merr error
 
 	util.Headerf(c.Stdout(), ("Starting Guardian Plan"))
-
-	if c.planFilename == "" {
-		c.planFilename = "tfplan.binary"
-	}
-	if c.planJSONFilename == "" {
-		c.planJSONFilename = "tfplan.json"
-	}
 
 	operation := "plan"
 	if c.flagDestroy {
@@ -322,8 +317,14 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 	var planExitCode int
 
 	util.Headerf(c.Stdout(), "Planning Terraform")
-	planAbsFilepath := path.Join(c.flagOutputDir, c.planFilename)
-	exitCode, err := c.terraformClient.Plan(ctx, multiStdout, multiStderr, &terraform.PlanOptions{
+
+	// create a separate writer for plan output
+	// this output will be sent back for reporting status
+	var planOut strings.Builder
+	multiPlanOut := io.MultiWriter(c.Stdout(), &planOut)
+
+	planAbsFilepath := path.Join(c.flagOutputDir, planFilename)
+	exitCode, err := c.terraformClient.Plan(ctx, multiPlanOut, multiStderr, &terraform.PlanOptions{
 		Out:              pointer.To(planAbsFilepath),
 		Input:            pointer.To(false),
 		NoColor:          pointer.To(true),
@@ -340,16 +341,18 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 	if err != nil && !hasChanges {
 		commentDetails := stderr.String()
 		if commentDetails == "" {
-			commentDetails = stdout.String()
+			commentDetails = planOut.String()
 		}
 		return &RunResult{commentDetails: commentDetails}, fmt.Errorf("failed to plan: %w", err)
 	}
 
-	stdout.Reset()
 	stderr.Reset()
 
-	var jsonOut strings.Builder
 	util.Headerf(c.Stdout(), "Writing Plan to Local JSON File")
+
+	// we dont need to write the contents of the plan json to stdout,
+	// instead capture the output in memory for writing to file in output-dir
+	var jsonOut strings.Builder
 	if _, err = c.terraformClient.Show(ctx, &jsonOut, multiStderr, &terraform.ShowOptions{
 		File:    pointer.To(planAbsFilepath),
 		NoColor: pointer.To(true),
@@ -361,23 +364,11 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 		}, fmt.Errorf("failed to terraform show: %w", err)
 	}
 
-	planJSONAbsFilepath := path.Join(c.flagOutputDir, c.planJSONFilename)
+	planJSONAbsFilepath := path.Join(c.flagOutputDir, planJSONFilename)
 	if err := os.WriteFile(planJSONAbsFilepath, []byte(jsonOut.String()), ownerReadWritePerms); err != nil {
 		return &RunResult{hasChanges: hasChanges}, fmt.Errorf("failed to write plan to json file: %w", err)
 	}
 	c.Outf("Plan JSON file path: %s", planJSONAbsFilepath)
-	stderr.Reset()
-
-	util.Headerf(c.Stdout(), "Formatting output")
-	if _, err := c.terraformClient.Show(ctx, multiStdout, multiStderr, &terraform.ShowOptions{
-		File:    pointer.To(planAbsFilepath),
-		NoColor: pointer.To(true),
-	}); err != nil {
-		return &RunResult{
-			commentDetails: stderr.String(),
-			hasChanges:     hasChanges,
-		}, fmt.Errorf("failed to terraform show: %w", err)
-	}
 
 	stderr.Reset()
 
@@ -388,7 +379,7 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 
 	util.Headerf(c.Stdout(), "Saving Plan File")
 
-	planFileLocalPath := path.Join(c.childPath, c.planFilename)
+	planFileLocalPath := path.Join(c.childPath, planFilename)
 	if err := c.saveGuardianPlan(ctx, planFileLocalPath, planData, planExitCode); err != nil {
 		return &RunResult{hasChanges: hasChanges}, fmt.Errorf("failed to upload plan data: %w", err)
 	}
@@ -396,7 +387,7 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 	stderr.Reset()
 
 	return &RunResult{
-		commentDetails: stdout.String(),
+		commentDetails: planOut.String(),
 		hasChanges:     hasChanges,
 	}, nil
 }
