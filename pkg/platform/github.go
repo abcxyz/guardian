@@ -21,6 +21,7 @@ import (
 
 	"github.com/google/go-github/v53/github"
 	"github.com/sethvargo/go-retry"
+	"github.com/shurcooL/githubv4"
 	"golang.org/x/oauth2"
 
 	gh "github.com/abcxyz/guardian/pkg/github"
@@ -41,8 +42,9 @@ var (
 
 // GitHub implements the Platform interface.
 type GitHub struct {
-	cfg    *gh.Config
-	client *github.Client
+	cfg           *gh.Config
+	client        *github.Client
+	graphQLClient *githubv4.Client
 }
 
 // NewGitHub creates a new GitHub client.
@@ -84,10 +86,12 @@ func NewGitHub(ctx context.Context, cfg *gh.Config) (*GitHub, error) {
 	tc := oauth2.NewClient(ctx, ts)
 
 	client := github.NewClient(tc)
+	graphQLClient := githubv4.NewClient(tc)
 
 	g := &GitHub{
-		cfg:    cfg,
-		client: client,
+		cfg:           cfg,
+		client:        client,
+		graphQLClient: graphQLClient,
 	}
 
 	return g, nil
@@ -150,7 +154,46 @@ func (g *GitHub) AssignReviewers(ctx context.Context, input *AssignReviewersInpu
 	return &result, nil
 }
 
+type pullRequestReview struct {
+	Author struct {
+		Login string
+	}
+	State string
+}
+
+type latestApproverQuery struct {
+	Repository struct {
+		PullRequest struct {
+			LatestReviews struct {
+				Nodes []pullRequestReview
+			} `graphql:"latestReviews(first: 100)"`
+		} `graphql:"pullRequest(number: $number)"`
+	} `graphql:"repository(owner: $owner, name: $name)"`
+}
+
 func (g *GitHub) GetLatestApprovers(ctx context.Context) (*GetLatestApproversResult, error) {
+	logger := logging.FromContext(ctx)
+	logger.DebugContext(ctx, "querying latest approvers")
+
+	var q latestApproverQuery
+	variables := map[string]any{
+		"owner":  githubv4.String(g.cfg.GitHubOwner),
+		"name":   githubv4.String(g.cfg.GitHubRepo),
+		"number": githubv4.Int(g.cfg.GitHubPullRequestNumber),
+	}
+	if err := g.graphQLClient.Query(ctx, &q, variables); err != nil {
+		return nil, fmt.Errorf("failed to query latest approvers: %w", err)
+	}
+
+	var result GetLatestApproversResult
+	for _, review := range q.Repository.PullRequest.LatestReviews.Nodes {
+		if review.State == "APPROVED" {
+			result.Users = append(result.Users, review.Author.Login)
+		}
+	}
+	logger.DebugContext(ctx, "found latest approvers",
+		"users", result.Users,
+	)
 	return nil, nil
 }
 

@@ -18,7 +18,6 @@ package policy
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 
@@ -96,6 +95,10 @@ func (c *PolicyCommand) Run(ctx context.Context, args []string) error {
 func (c *PolicyCommand) Process(ctx context.Context) error {
 	logger := logging.FromContext(ctx)
 
+	if _, err := c.platform.GetLatestApprovers(ctx); err != nil {
+		return fmt.Errorf("failed to get latest approvers: %w", err)
+	}
+
 	logger.DebugContext(ctx, "parsing results file",
 		"results_file", c.flags.ResultsFile)
 	d, err := os.ReadFile(c.flags.ResultsFile)
@@ -108,44 +111,45 @@ func (c *PolicyCommand) Process(ctx context.Context) error {
 		return fmt.Errorf("failed to unmarshal json: %w", err)
 	}
 
-	var merr error
-	var teams []string
-	var users []string
-	for k, v := range *results {
-		logger.DebugContext(ctx, "processing policy decision",
-			"policy_name", k)
+	var merr error /*
+		var teams []string
+		var users []string
 
-		if len(v.MissingApprovals) == 0 {
-			logger.DebugContext(ctx, "no missing approvals for policy",
+		for k, v := range *results {
+			logger.DebugContext(ctx, "processing policy decision",
 				"policy_name", k)
-			continue
+
+			if len(v.MissingApprovals) == 0 {
+				logger.DebugContext(ctx, "no missing approvals for policy",
+					"policy_name", k)
+				continue
+			}
+
+			for _, m := range v.MissingApprovals {
+				teams = append(teams, m.AssignTeams...)
+				users = append(users, m.AssignUsers...)
+
+				merr = errors.Join(merr, fmt.Errorf("failed: \"%s\" - %s", k, m.Message))
+			}
 		}
 
-		for _, m := range v.MissingApprovals {
-			teams = append(teams, m.AssignTeams...)
-			users = append(users, m.AssignUsers...)
-
-			merr = errors.Join(merr, fmt.Errorf("failed: \"%s\" - %s", k, m.Message))
+		// Skips assigning reviewers but returns any errors found. This is possible if
+		// the rego policy is misconfigured/contains a bug to return an error message
+		// without any reviewers to assign.
+		if len(teams) == 0 && len(users) == 0 {
+			return merr
 		}
-	}
 
-	// Skips assigning reviewers but returns any errors found. This is possible if
-	// the rego policy is misconfigured/contains a bug to return an error message
-	// without any reviewers to assign.
-	if len(teams) == 0 && len(users) == 0 {
-		return merr
-	}
-
-	logger.DebugContext(ctx, "found missing approvals",
-		"teams", teams,
-		"users", users,
-	)
-	if _, err := c.platform.AssignReviewers(ctx, &platform.AssignReviewersInput{
-		Teams: teams,
-		Users: users,
-	}); err != nil {
-		return fmt.Errorf("failed to assign reviewers: %w", err)
-	}
-
+		logger.DebugContext(ctx, "found missing approvals",
+			"teams", teams,
+			"users", users,
+		)
+		if _, err := c.platform.AssignReviewers(ctx, &platform.AssignReviewersInput{
+			Teams: teams,
+			Users: users,
+		}); err != nil {
+			return fmt.Errorf("failed to assign reviewers: %w", err)
+		}
+	*/
 	return merr
 }
