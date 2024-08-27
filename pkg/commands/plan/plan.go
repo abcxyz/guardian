@@ -44,13 +44,6 @@ const (
 	// plan file metadata key representing the exit code.
 	MetaKeyExitCode = "plan_exit_code"
 
-	// plan file metadata key representing the operation (plan, destroy).
-	MetaKeyOperation = "operation"
-
-	// plan files metadata operation values.
-	OperationPlan    = "plan"
-	OperationDestroy = "destroy"
-
 	ownerReadWritePerms = 0o600
 
 	planFilename     = "tfplan.binary"
@@ -396,11 +389,6 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 func (c *PlanCommand) saveGuardianPlan(ctx context.Context, p string, data []byte, exitCode int) error {
 	metadata := make(map[string]string)
 	metadata[MetaKeyExitCode] = strconv.Itoa(exitCode)
-
-	metadata[MetaKeyOperation] = OperationPlan
-	if c.flagDestroy {
-		metadata[MetaKeyOperation] = OperationDestroy
-	}
 
 	objectPath := path.Join(c.storagePrefix, p)
 

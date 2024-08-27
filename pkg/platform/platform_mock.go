@@ -32,6 +32,7 @@ type MockPlatform struct {
 
 	AssignReviewersErr  error
 	ModifierContentResp string
+	ModifierContentErr  error
 }
 
 func (m *MockPlatform) AssignReviewers(ctx context.Context, input *AssignReviewersInput) (*AssignReviewersResult, error) {
@@ -52,12 +53,12 @@ func (m *MockPlatform) AssignReviewers(ctx context.Context, input *AssignReviewe
 	}, nil
 }
 
-func (m *MockPlatform) ModifierContent(ctx context.Context) string {
+func (m *MockPlatform) ModifierContent(ctx context.Context) (string, error) {
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
 	m.Reqs = append(m.Reqs, &Request{
 		Name: "ModifierContent",
 	})
 
-	return m.ModifierContentResp
+	return m.ModifierContentResp, m.ModifierContentErr
 }
