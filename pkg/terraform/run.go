@@ -26,7 +26,7 @@ import (
 // overrideEnvVars are the environment variables to inject into the Terraform
 // child process, no matter what the user configured. These take precedence
 // over all other configurables.
-var overrideEnvVars = []string{
+var defaultOverrideEnvVars = []string{
 	"GOOGLE_TERRAFORM_USERAGENT_EXTENSION=" + version.UserAgent,
 	"TF_APPEND_USER_AGENT=" + version.UserAgent,
 }
@@ -39,7 +39,7 @@ func (t *TerraformClient) Run(ctx context.Context, stdout, stderr io.Writer, sub
 		runArgs = append(runArgs, args...)
 	}
 
-	overrideEnvVars = slices.Concat(nil, t.envVars, overrideEnvVars)
+	overrideEnvVars := slices.Concat(nil, t.envVars, defaultOverrideEnvVars)
 
 	return child.Run(ctx, &child.RunConfig{ //nolint:wrapcheck
 		Stdout:          stdout,
