@@ -17,6 +17,7 @@ package platform
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/go-github/v53/github"
@@ -258,6 +259,35 @@ func (g *GitHub) withRetries(ctx context.Context, retryFunc retry.RetryFunc) err
 
 // ModifierContent returns the pull request body as the content to parse modifiers
 // from.
-func (g *GitHub) ModifierContent(ctx context.Context) string {
-	return g.cfg.GitHubPullRequestBody
+func (g *GitHub) ModifierContent(ctx context.Context) (string, error) {
+	if g.cfg.GitHubPullRequestNumber > 0 {
+		return g.cfg.GitHubPullRequestBody, nil
+	}
+
+	var body strings.Builder
+	if err := g.withRetries(ctx, func(ctx context.Context) error {
+		ghPullRequests, resp, err := g.client.PullRequests.ListPullRequestsWithCommit(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, g.cfg.GitHubSHA, &github.PullRequestListOptions{
+			ListOptions: github.ListOptions{
+				PerPage: 100,
+			},
+		})
+		if err != nil {
+			if resp != nil {
+				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
+					return retry.RetryableError(err)
+				}
+			}
+			return fmt.Errorf("failed to list pull request comments: %w", err)
+		}
+
+		for _, v := range ghPullRequests {
+			body.WriteString(v.GetBody())
+		}
+
+		return nil
+	}); err != nil {
+		return "", fmt.Errorf("failed to list pull request comments: %w", err)
+	}
+
+	return body.String(), nil
 }

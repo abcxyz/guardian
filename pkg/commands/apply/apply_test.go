@@ -72,7 +72,7 @@ func TestApply_Process(t *testing.T) {
 		directory                string
 		flagAllowLockfileChanges bool
 		flagLockTimeout          time.Duration
-		isDestroy                bool
+		flagDestroy              bool
 		planExitCode             string
 		storageParent            string
 		storagePrefix            string
@@ -121,7 +121,7 @@ func TestApply_Process(t *testing.T) {
 			storagePrefix:            "",
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
-			isDestroy:                true,
+			flagDestroy:              true,
 			planExitCode:             "2",
 			terraformClient:          terraformMock,
 			expReporterClientReqs: []*reporter.Request{
@@ -210,7 +210,7 @@ func TestApply_Process(t *testing.T) {
 			storagePrefix:            "",
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
-			isDestroy:                true,
+			flagDestroy:              true,
 			planExitCode:             "2",
 			terraformClient:          terraformErrorMock,
 			expStdout:                "terraform apply output",
@@ -257,9 +257,9 @@ func TestApply_Process(t *testing.T) {
 				childPath:                tc.directory,
 				planFilename:             "test-tfplan.binary",
 				storagePrefix:            tc.storagePrefix,
+				flagDestroy:              tc.flagDestroy,
 				flagAllowLockfileChanges: tc.flagAllowLockfileChanges,
 				flagLockTimeout:          tc.flagLockTimeout,
-				isDestroy:                tc.isDestroy,
 				storageClient:            mockStorageClient,
 				terraformClient:          tc.terraformClient,
 				reporterClient:           mockReporterClient,

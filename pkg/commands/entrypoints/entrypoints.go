@@ -224,7 +224,12 @@ func (c *EntrypointsCommand) Process(ctx context.Context) error {
 
 	allEntrypointDirs := slices.Concat(nil, modifiedEntrypoints, removedEntrypoints)
 
-	metaValues := modifiers.ParseBodyMetaValues(ctx, c.platformClient.ModifierContent(ctx))
+	modifierContent, err := c.platformClient.ModifierContent(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to find modifier content: %w", err)
+	}
+
+	metaValues := modifiers.ParseBodyMetaValues(ctx, modifierContent)
 	logger.DebugContext(ctx, "parsed body meta values", "values", metaValues)
 
 	destroyEntrypoints, err := c.processDestroyMetaValues(cwd, allEntrypointDirs, metaValues)

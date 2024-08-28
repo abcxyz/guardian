@@ -33,6 +33,7 @@ type MockPlatform struct {
 	AssignReviewersErr    error
 	GetLatestApproversErr error
 	ModifierContentResp   string
+	ModifierContentErr  error
 	TeamApprovers         []string
 	UserApprovers         []string
 }
@@ -72,12 +73,12 @@ func (m *MockPlatform) GetLatestApprovers(ctx context.Context) (*GetLatestApprov
 	}, nil
 }
 
-func (m *MockPlatform) ModifierContent(ctx context.Context) string {
+func (m *MockPlatform) ModifierContent(ctx context.Context) (string, error) {
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
 	m.Reqs = append(m.Reqs, &Request{
 		Name: "ModifierContent",
 	})
 
-	return m.ModifierContentResp
+	return m.ModifierContentResp, m.ModifierContentErr
 }
