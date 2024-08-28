@@ -32,11 +32,8 @@ func (l *Local) AssignReviewers(ctx context.Context, inputs *AssignReviewersInpu
 }
 
 // GetLatestApprovers returns an empty result.
-func (l *Local) GetLatestApprovers(ctx context.Context) (*GetLatestApproversResult, error) {
-	return &GetLatestApproversResult{
-		Users: []string{},
-		Teams: []string{},
-	}, nil
+func (l *Local) GetPolicyData(ctx context.Context) (*GetPolicyDataResult, error) {
+	return &GetPolicyDataResult{}, nil
 }
 
 // ModifierContent is a no-op.

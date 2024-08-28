@@ -25,6 +25,8 @@ import (
 
 var _ cli.Command = (*FetchDataCommand)(nil)
 
+// FetchDataCommand implements cli.Command. It fetches and aggregates data for
+// a target platform to be used for policy evaluation.
 type FetchDataCommand struct {
 	cli.BaseCommand
 
@@ -73,12 +75,12 @@ func (c *FetchDataCommand) Run(ctx context.Context, args []string) error {
 
 // Process handles the main logic for aggregating data for the target platform.
 func (c *FetchDataCommand) Process(ctx context.Context) error {
-	approvers, err := c.platform.GetLatestApprovers(ctx)
+	data, err := c.platform.GetPolicyData(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get latest approvers: %w", err)
+		return fmt.Errorf("failed to get policy data: %w", err)
 	}
 
-	if err = json.NewEncoder(c.Stdout()).Encode(approvers); err != nil {
+	if err = json.NewEncoder(c.Stdout()).Encode(data); err != nil {
 		return fmt.Errorf("failed to write json to output: %w", err)
 	}
 	return nil

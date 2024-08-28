@@ -189,13 +189,15 @@ type organizationTeamsAndMembershipsQuery struct {
 	} `graphql:"organization(login: $owner)"`
 }
 
-// GetLatestApprovers retrieves the users whose latest review for a pull request
-// is an approval. It also returns the teams and subteams that the user
-// approvers are members of to indicate approval on behalf of those teams. Note,
-// a comment following a previous approval by the same user will still keep the
-// APPROVED state. However, if a reviewer previously approved the PR and
-// requests changes/dismisses the review, then the approval is not counted.
-func (g *GitHub) GetLatestApprovers(ctx context.Context) (*GetLatestApproversResult, error) {
+// GitHubPolicyData defines the payload of GitHub contextual data used for
+// policy evaluation.
+type GitHubPolicyData struct {
+	PullRequestApprovers *ApproversData `json:"pull_request_approvers"`
+}
+
+// GetPolicyData aggregates data from GitHub into a payload used for policy
+// evaluation.
+func (g *GitHub) GetPolicyData(ctx context.Context) (*GetPolicyDataResult, error) {
 	logger := logging.FromContext(ctx)
 	logger.DebugContext(ctx, "querying latest approvers")
 
@@ -210,7 +212,7 @@ func (g *GitHub) GetLatestApprovers(ctx context.Context) (*GetLatestApproversRes
 
 	// Explicitly sets the default Users and Teams to empty slices. If these are
 	// not explicitly provided to OPA, then the policy result may be incorrect.
-	result := &GetLatestApproversResult{
+	result := &ApproversData{
 		Teams: []string{},
 		Users: []string{},
 	}
@@ -243,7 +245,11 @@ func (g *GitHub) GetLatestApprovers(ctx context.Context) (*GetLatestApproversRes
 		"teams", result.Teams,
 	)
 
-	return result, nil
+	return &GetPolicyDataResult{
+		GitHub: &GitHubPolicyData{
+			PullRequestApprovers: result,
+		},
+	}, nil
 }
 
 func (g *GitHub) withRetries(ctx context.Context, retryFunc retry.RetryFunc) error {

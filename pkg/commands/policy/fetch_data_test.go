@@ -42,13 +42,13 @@ func TestFetchData_Process(t *testing.T) {
 			name:    "prints_teams_and_users",
 			teams:   []string{"team1", "team2"},
 			users:   []string{"user1", "user2"},
-			wantOut: `{"users":["user1","user2"],"teams":["team1","team2"]}`,
+			wantOut: `{"mock":{"approvers":{"users":["user1","user2"],"teams":["team1","team2"]}}}`,
 		},
 		{
 			name:    "prints_no_approvers",
 			teams:   []string{},
 			users:   []string{},
-			wantOut: `{"users":[],"teams":[]}`,
+			wantOut: `{"mock":{"approvers":{"users":[],"teams":[]}}}`,
 		},
 		{
 			name:                 "fails_with_error",

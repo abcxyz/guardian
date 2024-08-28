@@ -56,7 +56,11 @@ func (m *MockPlatform) AssignReviewers(ctx context.Context, input *AssignReviewe
 	}, nil
 }
 
-func (m *MockPlatform) GetLatestApprovers(ctx context.Context) (*GetLatestApproversResult, error) {
+type MockPolicyData struct {
+	Approvers *ApproversData `json:"approvers"`
+}
+
+func (m *MockPlatform) GetPolicyData(ctx context.Context) (*GetPolicyDataResult, error) {
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
 	m.Reqs = append(m.Reqs, &Request{
@@ -67,9 +71,13 @@ func (m *MockPlatform) GetLatestApprovers(ctx context.Context) (*GetLatestApprov
 		return nil, m.GetLatestApproversErr
 	}
 
-	return &GetLatestApproversResult{
-		Teams: m.TeamApprovers,
-		Users: m.UserApprovers,
+	return &GetPolicyDataResult{
+		Mock: &MockPolicyData{
+			Approvers: &ApproversData{
+				Teams: m.TeamApprovers,
+				Users: m.UserApprovers,
+			},
+		},
 	}, nil
 }
 
