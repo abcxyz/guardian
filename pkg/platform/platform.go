@@ -60,8 +60,8 @@ type AssignReviewersResult struct {
 // GetLatestApproversResult contains the reviewers whose latest review is an
 // approval.
 type GetLatestApproversResult struct {
-	Users []string
-	Teams []string
+	Users []string `json:"users"`
+	Teams []string `json:"teams"`
 }
 
 // Platform defines the minimum interface for a code review platform.
