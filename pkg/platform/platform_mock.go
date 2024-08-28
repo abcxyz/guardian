@@ -33,7 +33,7 @@ type MockPlatform struct {
 	AssignReviewersErr    error
 	GetLatestApproversErr error
 	ModifierContentResp   string
-	ModifierContentErr  error
+	ModifierContentErr    error
 	TeamApprovers         []string
 	UserApprovers         []string
 }
