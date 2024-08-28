@@ -249,7 +249,7 @@ jobs:
           # used to create comments on pull requests (access to only this repo)
           GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
         run: |-
-          guardian apply -dir="${DIRECTORY}" -storage="gcs://${GUARDIAN_BUCKET_NAME}"
+          guardian apply -dir="${DIRECTORY}" -storage="gcs://${GUARDIAN_BUCKET_NAME}" -destroy
 
   plan_success:
     if: '${{ always() }}'

@@ -37,6 +37,6 @@ func (l *Local) GetLatestApprovers(ctx context.Context) (*GetLatestApproversResu
 }
 
 // ModifierContent is a no-op.
-func (l *Local) ModifierContent(ctx context.Context) string {
-	return ""
+func (l *Local) ModifierContent(ctx context.Context) (string, error) {
+	return "", nil
 }

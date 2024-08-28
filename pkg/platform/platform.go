@@ -74,7 +74,7 @@ type Platform interface {
 	GetLatestApprovers(ctx context.Context) (*GetLatestApproversResult, error)
 
 	// ModifierContent returns the modifier content for parsing modifier flags.
-	ModifierContent(ctx context.Context) string
+	ModifierContent(ctx context.Context) (string, error)
 }
 
 // NewPlatform creates a new platform based on the provided type.
