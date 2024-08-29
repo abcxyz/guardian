@@ -98,6 +98,7 @@ type Terraform interface {
 // TerraformClient implements the Terraform interface.
 type TerraformClient struct {
 	workingDir string
+	envVars    []string
 }
 
 // TerraformResponse is the response from running a terraform command.
@@ -132,9 +133,10 @@ type ModuleUsageGraph struct {
 }
 
 // NewTerraformClient creates a new Terraform client.
-func NewTerraformClient(workingDir string) *TerraformClient {
+func NewTerraformClient(workingDir string, envVars []string) *TerraformClient {
 	return &TerraformClient{
 		workingDir: workingDir,
+		envVars:    envVars,
 	}
 }
 

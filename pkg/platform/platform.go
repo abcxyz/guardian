@@ -57,13 +57,34 @@ type AssignReviewersResult struct {
 	Teams []string
 }
 
+// GetLatestApproversResult contains the reviewers whose latest review is an
+// approval.
+type GetLatestApproversResult struct {
+	Users []string `json:"users"`
+	Teams []string `json:"teams"`
+}
+
+// GetPolicyDataResult contains the required data for policy evaluation, by
+// platform.
+type GetPolicyDataResult struct {
+	GitHub *GitHubPolicyData `json:"github,omitempty"`
+	Mock   *MockPolicyData   `json:"mock,omitempty"`
+}
+
 // Platform defines the minimum interface for a code review platform.
 type Platform interface {
 	// AssignReviewers assigns principals to review a change request.
 	AssignReviewers(ctx context.Context, inputs *AssignReviewersInput) (*AssignReviewersResult, error)
 
+	// GetLatestApprovers retrieves the reviewers whose latest review is an
+	// approval.
+	GetLatestApprovers(ctx context.Context) (*GetLatestApproversResult, error)
+
+	// GetPolicyData retrieves the required data for policy evaluation.
+	GetPolicyData(ctx context.Context) (*GetPolicyDataResult, error)
+
 	// ModifierContent returns the modifier content for parsing modifier flags.
-	ModifierContent(ctx context.Context) string
+	ModifierContent(ctx context.Context) (string, error)
 }
 
 // NewPlatform creates a new platform based on the provided type.

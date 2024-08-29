@@ -30,10 +30,9 @@ import (
 var _ Reporter = (*GitHubReporter)(nil)
 
 const (
-	githubCommentPrefix        = "#### 🔱 Guardian 🔱"
-	githubMaxCommentLength     = 65536
-	githubDestroyIndicatorText = "💥 DESTROY"
-	githubTruncatedMessage     = "\n\n> Message has been truncated. See workflow logs to view the full message."
+	githubCommentPrefix    = "#### 🔱 Guardian 🔱"
+	githubMaxCommentLength = 65536
+	githubTruncatedMessage = "\n\n> Message has been truncated. See workflow logs to view the full message."
 )
 
 var githubStatusText = map[Status]string{
@@ -228,10 +227,6 @@ func (g *GitHubReporter) statusMessage(st Status, p *StatusParams) (strings.Buil
 		fmt.Fprintf(&msg, " %s", g.markdownPill(operationText))
 	}
 
-	if p.IsDestroy {
-		fmt.Fprintf(&msg, " %s", g.markdownPill(githubDestroyIndicatorText))
-	}
-
 	statusText, ok := githubStatusText[st]
 	if !ok {
 		statusText = githubStatusText[StatusUnknown]
@@ -285,8 +280,8 @@ func (g *GitHubReporter) entrypointsSummaryMessage(p *EntrypointsSummaryParams) 
 		fmt.Fprintf(&msg, "\n\n%s", p.Message)
 	}
 
-	if len(p.ModifiedDirs) > 0 {
-		fmt.Fprintf(&msg, "\n\n**%s**\n%s", "Plan", strings.Join(p.ModifiedDirs, "\n"))
+	if len(p.UpdateDirs) > 0 {
+		fmt.Fprintf(&msg, "\n\n**%s**\n%s", "Update", strings.Join(p.UpdateDirs, "\n"))
 	}
 
 	if len(p.DestroyDirs) > 0 {
@@ -295,12 +290,27 @@ func (g *GitHubReporter) entrypointsSummaryMessage(p *EntrypointsSummaryParams) 
 
 	if len(p.AbandonedDirs) > 0 {
 		fmt.Fprintf(&msg, "\n\n**%s**\n%s", "Abandon", strings.Join(p.AbandonedDirs, "\n"))
+		abandonedDirsNote := "Abandoned directories are removed from source control without modification.\n" +
+			"\n" +
+			"To delete the resources, add one or more modifier comments to the pull request body instructing Guardian to destroy the directory.\n" +
+			"\n" +
+			"```\n" +
+			"GUARDIAN_DESTROY=path/to/directory\n" +
+			"```\n" +
+			"\n" +
+			"To delete all detected directories, use the special keyword `all`:\n" +
+			"\n" +
+			"```\n" +
+			"GUARDIAN_DESTROY=all\n" +
+			"```"
+
+		fmt.Fprintf(&msg, "\n\n%s", g.markdownZippy("Help", abandonedDirsNote))
 	}
 
 	return msg, nil
 }
 
-// markdownPill returns a markdown element that is bolded and wraped in a code block.
+// markdownPill returns a markdown element that is bolded and wraped in a inline code block.
 func (g *GitHubReporter) markdownPill(text string) string {
 	return fmt.Sprintf("**`%s`**", text)
 }
@@ -312,7 +322,7 @@ func (g *GitHubReporter) markdownURL(text, URL string) string {
 
 // markdonZippy returns a collapsible section with a given title and body.
 func (g *GitHubReporter) markdownZippy(title, body string) string {
-	return fmt.Sprintf("<details>\n<summary>%s</summary>\n\n```\n\n%s\n```\n</details>", title, body)
+	return fmt.Sprintf("<details>\n<summary>%s</summary>\n\n%s\n</details>", title, body)
 }
 
 // markdonDiffZippy returns a collapsible section with a given title and body.

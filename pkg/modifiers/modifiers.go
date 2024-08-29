@@ -22,6 +22,7 @@ import (
 
 const (
 	MetaKeyGuardianDestroy = "GUARDIAN_DESTROY"
+	MetaValueAll           = "all"
 )
 
 var (
@@ -32,8 +33,10 @@ var (
 	metaValuesKVRegex = regexp.MustCompile(`^(GUARDIAN_[A-Z0-9_]+)=(.*)$`)
 )
 
+// MetaValues is a map of key value pairs to store meta values.
 type MetaValues map[string][]string
 
+// ParseBodyMetaValues parses the modifiders from a contents string.
 func ParseBodyMetaValues(ctx context.Context, contents string) MetaValues {
 	metaValues := make(MetaValues, 0)
 

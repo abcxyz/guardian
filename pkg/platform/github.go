@@ -17,10 +17,12 @@ package platform
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/go-github/v53/github"
 	"github.com/sethvargo/go-retry"
+	"github.com/shurcooL/githubv4"
 	"golang.org/x/oauth2"
 
 	gh "github.com/abcxyz/guardian/pkg/github"
@@ -41,8 +43,9 @@ var (
 
 // GitHub implements the Platform interface.
 type GitHub struct {
-	cfg    *gh.Config
-	client *github.Client
+	cfg           *gh.Config
+	client        *github.Client
+	graphqlClient *githubv4.Client
 }
 
 // NewGitHub creates a new GitHub client.
@@ -84,10 +87,12 @@ func NewGitHub(ctx context.Context, cfg *gh.Config) (*GitHub, error) {
 	tc := oauth2.NewClient(ctx, ts)
 
 	client := github.NewClient(tc)
+	graphqlClient := githubv4.NewClient(tc)
 
 	g := &GitHub{
-		cfg:    cfg,
-		client: client,
+		cfg:           cfg,
+		client:        client,
+		graphqlClient: graphqlClient,
 	}
 
 	return g, nil
@@ -150,6 +155,115 @@ func (g *GitHub) AssignReviewers(ctx context.Context, input *AssignReviewersInpu
 	return &result, nil
 }
 
+type pullRequestReview struct {
+	Author struct {
+		Login string
+	}
+	State string
+}
+
+type latestApproverQuery struct {
+	Repository struct {
+		PullRequest struct {
+			LatestReviews struct {
+				Nodes []pullRequestReview
+			} `graphql:"latestReviews(first: 100)"`
+		} `graphql:"pullRequest(number: $number)"`
+	} `graphql:"repository(owner: $owner, name: $repo)"`
+}
+
+type member struct {
+	Login string
+}
+type team struct {
+	Name    string
+	Members struct {
+		Nodes []member
+	} `graphql:"members(first: 100)"`
+}
+type organizationTeamsAndMembershipsQuery struct {
+	Organization struct {
+		Teams struct {
+			Nodes []team
+		} `graphql:"teams(first: 100)"`
+	} `graphql:"organization(login: $owner)"`
+}
+
+// GetLatestApprovers retrieves the users whose latest review for a pull request
+// is an approval. It also returns the teams and subteams that the user
+// approvers are members of to indicate approval on behalf of those teams. Note,
+// a comment following a previous approval by the same user will still keep the
+// APPROVED state. However, if a reviewer previously approved the PR and
+// requests changes/dismisses the review, then the approval is not counted.
+func (g *GitHub) GetLatestApprovers(ctx context.Context) (*GetLatestApproversResult, error) {
+	logger := logging.FromContext(ctx)
+	logger.DebugContext(ctx, "querying latest approvers")
+
+	var approversQuery latestApproverQuery
+	if err := g.graphqlClient.Query(ctx, &approversQuery, map[string]any{
+		"owner":  githubv4.String(g.cfg.GitHubOwner),
+		"repo":   githubv4.String(g.cfg.GitHubRepo),
+		"number": githubv4.Int(g.cfg.GitHubPullRequestNumber),
+	}); err != nil {
+		return nil, fmt.Errorf("failed to query latest approvers: %w", err)
+	}
+
+	// Explicitly sets the default Users and Teams to empty slices. If these are
+	// not explicitly provided to OPA, then the policy result may be incorrect.
+	result := &GetLatestApproversResult{
+		Teams: []string{},
+		Users: []string{},
+	}
+	hasApproved := make(map[string]struct{}, len(approversQuery.Repository.PullRequest.LatestReviews.Nodes))
+	for _, review := range approversQuery.Repository.PullRequest.LatestReviews.Nodes {
+		if review.State == "APPROVED" {
+			result.Users = append(result.Users, review.Author.Login)
+			hasApproved[review.Author.Login] = struct{}{}
+		}
+	}
+	var teamQuery organizationTeamsAndMembershipsQuery
+	if err := g.graphqlClient.Query(ctx, &teamQuery, map[string]any{
+		"owner": githubv4.String(g.cfg.GitHubOwner),
+	}); err != nil {
+		return nil, fmt.Errorf("failed to query organization teams and memberships: %w", err)
+	}
+	for _, team := range teamQuery.Organization.Teams.Nodes {
+		for _, member := range team.Members.Nodes {
+			if _, ok := hasApproved[member.Login]; ok {
+				result.Teams = append(result.Teams, team.Name)
+				break
+			}
+		}
+	}
+	logger.DebugContext(ctx, "found latest approvers from",
+		"users", result.Users,
+		"teams", result.Teams,
+	)
+
+	return result, nil
+}
+
+// GitHubPolicyData defines the payload of GitHub contextual data used for
+// policy evaluation.
+type GitHubPolicyData struct {
+	PullRequestApprovers *GetLatestApproversResult `json:"pull_request_approvers"`
+}
+
+// GetPolicyData aggregates data from GitHub into a payload used for policy
+// evaluation.
+func (g *GitHub) GetPolicyData(ctx context.Context) (*GetPolicyDataResult, error) {
+	approvers, err := g.GetLatestApprovers(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get latest approvers: %w", err)
+	}
+
+	return &GetPolicyDataResult{
+		GitHub: &GitHubPolicyData{
+			PullRequestApprovers: approvers,
+		},
+	}, nil
+}
+
 func (g *GitHub) withRetries(ctx context.Context, retryFunc retry.RetryFunc) error {
 	backoff := retry.NewFibonacci(g.cfg.InitialRetryDelay)
 	backoff = retry.WithMaxRetries(g.cfg.MaxRetries, backoff)
@@ -163,6 +277,35 @@ func (g *GitHub) withRetries(ctx context.Context, retryFunc retry.RetryFunc) err
 
 // ModifierContent returns the pull request body as the content to parse modifiers
 // from.
-func (g *GitHub) ModifierContent(ctx context.Context) string {
-	return g.cfg.GitHubPullRequestBody
+func (g *GitHub) ModifierContent(ctx context.Context) (string, error) {
+	if g.cfg.GitHubPullRequestNumber > 0 {
+		return g.cfg.GitHubPullRequestBody, nil
+	}
+
+	var body strings.Builder
+	if err := g.withRetries(ctx, func(ctx context.Context) error {
+		ghPullRequests, resp, err := g.client.PullRequests.ListPullRequestsWithCommit(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, g.cfg.GitHubSHA, &github.PullRequestListOptions{
+			ListOptions: github.ListOptions{
+				PerPage: 100,
+			},
+		})
+		if err != nil {
+			if resp != nil {
+				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
+					return retry.RetryableError(err)
+				}
+			}
+			return fmt.Errorf("failed to list pull request comments: %w", err)
+		}
+
+		for _, v := range ghPullRequests {
+			body.WriteString(v.GetBody())
+		}
+
+		return nil
+	}); err != nil {
+		return "", fmt.Errorf("failed to list pull request comments: %w", err)
+	}
+
+	return body.String(), nil
 }

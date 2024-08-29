@@ -72,7 +72,7 @@ func TestApply_Process(t *testing.T) {
 		directory                string
 		flagAllowLockfileChanges bool
 		flagLockTimeout          time.Duration
-		isDestroy                bool
+		flagDestroy              bool
 		planExitCode             string
 		storageParent            string
 		storagePrefix            string
@@ -121,13 +121,13 @@ func TestApply_Process(t *testing.T) {
 			storagePrefix:            "",
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
-			isDestroy:                true,
+			flagDestroy:              true,
 			planExitCode:             "2",
 			terraformClient:          terraformMock,
 			expReporterClientReqs: []*reporter.Request{
 				{
 					Name:   "Status",
-					Params: []any{reporter.StatusSuccess, &reporter.StatusParams{HasDiff: true, IsDestroy: true, Details: "terraform apply success", Dir: "testdir", Operation: "apply"}},
+					Params: []any{reporter.StatusSuccess, &reporter.StatusParams{HasDiff: true, Details: "terraform apply success", Dir: "testdir", Operation: "apply (destroy)"}},
 				},
 			},
 			expStorageClientReqs: []*storage.Request{
@@ -210,7 +210,7 @@ func TestApply_Process(t *testing.T) {
 			storagePrefix:            "",
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
-			isDestroy:                true,
+			flagDestroy:              true,
 			planExitCode:             "2",
 			terraformClient:          terraformErrorMock,
 			expStdout:                "terraform apply output",
@@ -219,7 +219,7 @@ func TestApply_Process(t *testing.T) {
 			expReporterClientReqs: []*reporter.Request{
 				{
 					Name:   "Status",
-					Params: []any{reporter.StatusFailure, &reporter.StatusParams{HasDiff: true, IsDestroy: true, Details: "terraform apply failed", Dir: "testdir", Operation: "apply"}},
+					Params: []any{reporter.StatusFailure, &reporter.StatusParams{HasDiff: true, Details: "terraform apply failed", Dir: "testdir", Operation: "apply (destroy)"}},
 				},
 			},
 			expStorageClientReqs: []*storage.Request{
@@ -257,9 +257,9 @@ func TestApply_Process(t *testing.T) {
 				childPath:                tc.directory,
 				planFilename:             "test-tfplan.binary",
 				storagePrefix:            tc.storagePrefix,
+				flagDestroy:              tc.flagDestroy,
 				flagAllowLockfileChanges: tc.flagAllowLockfileChanges,
 				flagLockTimeout:          tc.flagLockTimeout,
-				isDestroy:                tc.isDestroy,
 				storageClient:            mockStorageClient,
 				terraformClient:          tc.terraformClient,
 				reporterClient:           mockReporterClient,

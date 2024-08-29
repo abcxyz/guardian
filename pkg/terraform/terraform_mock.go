@@ -16,10 +16,14 @@ package terraform
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"os"
 )
 
 var _ Terraform = (*MockTerraformClient)(nil)
+
+const ownerReadWritePerms = 0o600
 
 type MockTerraformResponse struct {
 	Stdout   string
@@ -30,11 +34,14 @@ type MockTerraformResponse struct {
 
 // MockTerraformClient creates a mock TerraformClient for use with testing.
 type MockTerraformClient struct {
+	// PlanBody is the content written to the test binary file when calling Plan.
+	PlanBody         []byte
 	InitResponse     *MockTerraformResponse
 	ValidateResponse *MockTerraformResponse
 	PlanResponse     *MockTerraformResponse
 	ApplyResponse    *MockTerraformResponse
 	ShowResponse     *MockTerraformResponse
+	ShowJSONResponse *MockTerraformResponse
 	FormatResponse   *MockTerraformResponse
 	RunResponse      *MockTerraformResponse
 }
@@ -61,6 +68,11 @@ func (m *MockTerraformClient) Plan(ctx context.Context, stdout, stderr io.Writer
 	if m.PlanResponse != nil {
 		stdout.Write([]byte(m.PlanResponse.Stdout))
 		stderr.Write([]byte(m.PlanResponse.Stderr))
+
+		if err := os.WriteFile(*opts.Out, m.PlanBody, ownerReadWritePerms); err != nil {
+			return 1, fmt.Errorf("failed to write plan file: %w", err)
+		}
+
 		return m.PlanResponse.ExitCode, m.PlanResponse.Err
 	}
 	return 0, nil
@@ -76,6 +88,12 @@ func (m *MockTerraformClient) Apply(ctx context.Context, stdout, stderr io.Write
 }
 
 func (m *MockTerraformClient) Show(ctx context.Context, stdout, stderr io.Writer, opts *ShowOptions) (int, error) {
+	if opts.JSON != nil && *opts.JSON && m.ShowJSONResponse != nil {
+		stdout.Write([]byte(m.ShowJSONResponse.Stdout))
+		stderr.Write([]byte(m.ShowJSONResponse.Stderr))
+		return m.ShowJSONResponse.ExitCode, m.ShowJSONResponse.Err
+	}
+
 	if m.ShowResponse != nil {
 		stdout.Write([]byte(m.ShowResponse.Stdout))
 		stderr.Write([]byte(m.ShowResponse.Stderr))

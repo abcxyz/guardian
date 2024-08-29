@@ -61,13 +61,13 @@ type ApplyCommand struct {
 	planFilename      string
 	planFileLocalPath string
 	storagePrefix     string
-	isDestroy         bool
 
 	platformConfig platform.Config
 
 	flags.CommonFlags
 
 	flagStorage              string
+	flagDestroy              bool
 	flagAllowLockfileChanges bool
 	flagLockTimeout          time.Duration
 
@@ -107,6 +107,13 @@ func (c *ApplyCommand) Flags() *cli.FlagSet {
 		Predict: complete.PredictFunc(func(prefix string) []string {
 			return storage.SortedStorageTypes
 		}),
+	})
+
+	f.BoolVar(&cli.BoolVar{
+		Name:    "destroy",
+		Target:  &c.flagDestroy,
+		Example: "true",
+		Usage:   "Use the destroy flag to apply changes to destroy all infrastructure.",
 	})
 
 	f.BoolVar(&cli.BoolVar{
@@ -163,7 +170,8 @@ func (c *ApplyCommand) Run(ctx context.Context, args []string) error {
 	}
 	c.childPath = childPath
 
-	c.terraformClient = terraform.NewTerraformClient(c.directory)
+	tfEnvVars := []string{"TF_IN_AUTOMATION=true"}
+	c.terraformClient = terraform.NewTerraformClient(c.directory, tfEnvVars)
 
 	storagePrefix, err := c.platformConfig.StoragePrefix()
 	if err != nil {
@@ -236,9 +244,13 @@ func (c *ApplyCommand) Process(ctx context.Context) (merr error) {
 	}
 	c.planFileLocalPath = planFileLocalPath
 
+	operation := "apply"
+	if c.flagDestroy {
+		operation = "apply (destroy)"
+	}
+
 	rp := &reporter.StatusParams{
-		Operation: "apply",
-		IsDestroy: c.isDestroy,
+		Operation: operation,
 		Dir:       c.childPath,
 		HasDiff:   true,
 	}
@@ -306,10 +318,7 @@ func (c *ApplyCommand) terraformApply(ctx context.Context) (*RunResult, error) {
 
 	stderr.Reset()
 
-	util.Headerf(c.Stdout(), "Formatting output")
-	githubOutput := terraform.FormatOutputForGitHubDiff(stdout.String())
-
-	return &RunResult{commentDetails: githubOutput}, nil
+	return &RunResult{commentDetails: stdout.String()}, nil
 }
 
 // downloadGuardianPlan downloads the Guardian plan binary from the configured Guardian storage bucket
@@ -328,11 +337,6 @@ func (c *ApplyCommand) downloadGuardianPlan(ctx context.Context, path string) (p
 			return nil, "", fmt.Errorf("failed to determine plan exit code: %w", err)
 		}
 		planExitCode = exitCode
-
-		planOperation, ok := metadata[plan.MetaKeyOperation]
-		if ok && strings.EqualFold(planOperation, plan.OperationDestroy) {
-			c.isDestroy = true
-		}
 	}
 
 	defer func() {

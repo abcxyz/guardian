@@ -52,7 +52,6 @@ type StatusParams struct {
 	HasDiff   bool
 	Details   string
 	Dir       string
-	IsDestroy bool
 	Message   string
 	Operation string
 }
@@ -60,7 +59,7 @@ type StatusParams struct {
 // EntrypointsSummaryParams are the parameters for writing entrypoints summary reports.
 type EntrypointsSummaryParams struct {
 	Message       string
-	ModifiedDirs  []string
+	UpdateDirs    []string
 	DestroyDirs   []string
 	AbandonedDirs []string
 }

@@ -21,12 +21,12 @@ import (
 	"github.com/abcxyz/pkg/cli"
 )
 
-type PolicyFlags struct {
+type EnforceFlags struct {
 	ResultsFile string
 }
 
-func (e *PolicyFlags) Register(set *cli.FlagSet) {
-	f := set.NewSection("POLICY OPTIONS")
+func (e *EnforceFlags) Register(set *cli.FlagSet) {
+	f := set.NewSection("ENFORCE OPTIONS")
 
 	f.StringVar(&cli.StringVar{
 		Name:    "results-file",
@@ -40,5 +40,20 @@ func (e *PolicyFlags) Register(set *cli.FlagSet) {
 			merr = errors.Join(merr, fmt.Errorf("missing flag: results-file is required"))
 		}
 		return merr
+	})
+}
+
+type FetchDataFlags struct {
+	flagOutputDir string
+}
+
+func (fd *FetchDataFlags) Register(set *cli.FlagSet) {
+	f := set.NewSection("FETCH-DATA OPTIONS")
+
+	f.StringVar(&cli.StringVar{
+		Name:    "output-dir",
+		Example: "example/dir",
+		Target:  &fd.flagOutputDir,
+		Usage:   "Write the policy data JSON file to a target local directory.",
 	})
 }

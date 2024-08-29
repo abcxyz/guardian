@@ -43,23 +43,23 @@ type MissingApproval struct {
 // Results is a map of the policy package name to the policy evaluation result.
 type Results map[string]*Result
 
-var _ cli.Command = (*PolicyCommand)(nil)
+var _ cli.Command = (*EnforceCommand)(nil)
 
-type PolicyCommand struct {
+type EnforceCommand struct {
 	cli.BaseCommand
 
 	platformConfig platform.Config
-	flags          PolicyFlags
+	flags          EnforceFlags
 	platform       platform.Platform
 }
 
 // Desc implements cli.Command.
-func (c *PolicyCommand) Desc() string {
+func (c *EnforceCommand) Desc() string {
 	return "Enforce a set of Guardian policies"
 }
 
 // Help implements cli.Command.
-func (c *PolicyCommand) Help() string {
+func (c *EnforceCommand) Help() string {
 	return `
 Usage: {{ COMMAND }} [options]
 
@@ -68,7 +68,7 @@ Usage: {{ COMMAND }} [options]
 }
 
 // Flags returns the list of flags that are defined on the command.
-func (c *PolicyCommand) Flags() *cli.FlagSet {
+func (c *EnforceCommand) Flags() *cli.FlagSet {
 	set := cli.NewFlagSet()
 	c.platformConfig.RegisterFlags(set)
 	c.flags.Register(set)
@@ -76,7 +76,7 @@ func (c *PolicyCommand) Flags() *cli.FlagSet {
 }
 
 // Run implements cli.Command.
-func (c *PolicyCommand) Run(ctx context.Context, args []string) error {
+func (c *EnforceCommand) Run(ctx context.Context, args []string) error {
 	f := c.Flags()
 	if err := f.Parse(args); err != nil {
 		return fmt.Errorf("failed to parse flags: %w", err)
@@ -93,7 +93,7 @@ func (c *PolicyCommand) Run(ctx context.Context, args []string) error {
 
 // Process handles the main logic for handling the results of the policy
 // evaluation.
-func (c *PolicyCommand) Process(ctx context.Context) error {
+func (c *EnforceCommand) Process(ctx context.Context) error {
 	logger := logging.FromContext(ctx)
 
 	logger.DebugContext(ctx, "parsing results file",
@@ -129,17 +129,22 @@ func (c *PolicyCommand) Process(ctx context.Context) error {
 		}
 	}
 
-	if len(teams) > 0 || len(users) > 0 {
-		logger.DebugContext(ctx, "found missing approvals",
-			"teams", teams,
-			"users", users,
-		)
-		if _, err := c.platform.AssignReviewers(ctx, &platform.AssignReviewersInput{
-			Teams: teams,
-			Users: users,
-		}); err != nil {
-			return fmt.Errorf("failed to assign reviewers: %w", err)
-		}
+	// Skips assigning reviewers but returns any errors found. This is possible if
+	// the rego policy is misconfigured/contains a bug to return an error message
+	// without any reviewers to assign.
+	if len(teams) == 0 && len(users) == 0 {
+		return merr
+	}
+
+	logger.DebugContext(ctx, "found missing approvals",
+		"teams", teams,
+		"users", users,
+	)
+	if _, err := c.platform.AssignReviewers(ctx, &platform.AssignReviewersInput{
+		Teams: teams,
+		Users: users,
+	}); err != nil {
+		return fmt.Errorf("failed to assign reviewers: %w", err)
 	}
 
 	return merr

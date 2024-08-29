@@ -83,7 +83,6 @@ func TestGitHubReporterStatus(t *testing.T) {
 			status: StatusSuccess,
 			params: &StatusParams{
 				Operation: "plan",
-				IsDestroy: false,
 				Dir:       "terraform/project1",
 			},
 			logURL: "https://github.com",
@@ -95,27 +94,10 @@ func TestGitHubReporterStatus(t *testing.T) {
 			},
 		},
 		{
-			name:   "success_destroy",
-			status: StatusSuccess,
-			params: &StatusParams{
-				Operation: "plan",
-				IsDestroy: true,
-				Dir:       "terraform/project1",
-			},
-			logURL: "https://github.com",
-			expGitHubClientReqs: []*github.Request{
-				{
-					Name:   "CreateIssueComment",
-					Params: []any{"owner", "repo", int(1), "#### 🔱 Guardian 🔱 **`PLAN`** **`💥 DESTROY`** **`🟩 SUCCESS`** [[logs](https://github.com)]\n\n**Entrypoint:** terraform/project1"},
-				},
-			},
-		},
-		{
 			name:   "error",
 			status: StatusSuccess,
 			params: &StatusParams{
 				Operation: "plan",
-				IsDestroy: false,
 				Dir:       "terraform/project1",
 			},
 			logURL:                 "https://github.com",
@@ -165,7 +147,7 @@ func TestGitHubReporterStatus(t *testing.T) {
 	}
 }
 
-func TestGitHubReporterCreateStatus(t *testing.T) {
+func TestGitHubReporterEntrypointsSummary(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
 		name                   string
@@ -181,7 +163,7 @@ func TestGitHubReporterCreateStatus(t *testing.T) {
 			status: StatusSuccess,
 			params: &EntrypointsSummaryParams{
 				Message:       "summary message",
-				ModifiedDirs:  []string{"modified"},
+				UpdateDirs:    []string{"update"},
 				DestroyDirs:   []string{"destroy"},
 				AbandonedDirs: []string{"abandoned"},
 			},
@@ -194,14 +176,32 @@ func TestGitHubReporterCreateStatus(t *testing.T) {
 							"\n" +
 							"summary message\n" +
 							"\n" +
-							"**Plan**\n" +
-							"modified\n" +
+							"**Update**\n" +
+							"update\n" +
 							"\n" +
 							"**Destroy**\n" +
 							"destroy\n" +
 							"\n" +
 							"**Abandon**\n" +
-							"abandoned",
+							"abandoned" +
+							"\n\n" +
+							"<details>\n" +
+							"<summary>Help</summary>\n" +
+							"\n" +
+							"Abandoned directories are removed from source control without modification.\n" +
+							"\n" +
+							"To delete the resources, add one or more modifier comments to the pull request body instructing Guardian to destroy the directory.\n" +
+							"\n" +
+							"```\n" +
+							"GUARDIAN_DESTROY=path/to/directory\n" +
+							"```\n" +
+							"\n" +
+							"To delete all detected directories, use the special keyword `all`:\n" +
+							"\n" +
+							"```\n" +
+							"GUARDIAN_DESTROY=all\n" +
+							"```\n" +
+							"</details>",
 					},
 				},
 			},
@@ -211,7 +211,7 @@ func TestGitHubReporterCreateStatus(t *testing.T) {
 			status: StatusSuccess,
 			params: &EntrypointsSummaryParams{
 				Message:       "summary message",
-				ModifiedDirs:  []string{"modified"},
+				UpdateDirs:    []string{"update"},
 				DestroyDirs:   []string{"destroy"},
 				AbandonedDirs: []string{"abandoned"},
 			},
@@ -226,14 +226,32 @@ func TestGitHubReporterCreateStatus(t *testing.T) {
 							"\n" +
 							"summary message\n" +
 							"\n" +
-							"**Plan**\n" +
-							"modified\n" +
+							"**Update**\n" +
+							"update\n" +
 							"\n" +
 							"**Destroy**\n" +
 							"destroy\n" +
 							"\n" +
 							"**Abandon**\n" +
-							"abandoned",
+							"abandoned" +
+							"\n\n" +
+							"<details>\n" +
+							"<summary>Help</summary>\n" +
+							"\n" +
+							"Abandoned directories are removed from source control without modification.\n" +
+							"\n" +
+							"To delete the resources, add one or more modifier comments to the pull request body instructing Guardian to destroy the directory.\n" +
+							"\n" +
+							"```\n" +
+							"GUARDIAN_DESTROY=path/to/directory\n" +
+							"```\n" +
+							"\n" +
+							"To delete all detected directories, use the special keyword `all`:\n" +
+							"\n" +
+							"```\n" +
+							"GUARDIAN_DESTROY=all\n" +
+							"```\n" +
+							"</details>",
 					},
 				},
 			},

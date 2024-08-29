@@ -76,8 +76,8 @@ jobs:
       contents: 'read'
       pull-requests: 'write'
     outputs:
-      modified: '${{ steps.entrypoints.outputs.modified }}'
-      destroy: '${{ steps.entrypoints.outputs.destroy }}'
+      update-dirs: '${{ steps.entrypoints.outputs.update-dirs }}'
+      destroy-dirs: '${{ steps.entrypoints.outputs.destroy-dirs }}'
     steps:
       - name: 'Checkout'
         uses: 'actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332' # ratchet:actions/checkout@v4
@@ -112,16 +112,16 @@ jobs:
           GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
           GITHUB_PULL_REQUEST_BODY: 'GUARDIAN_DESTROY=terraform/project2'
         run: |-
-          ENTRYPOINTS=$(guardian entrypoints -dir=./terraform)
+          ENTRYPOINTS=$(guardian entrypoints -dir=./terraform/project1 -dir=./terraform/project2)
           echo "entrypoints -> ${ENTRYPOINTS}"
 
           # parse the json response and create outputs for each type of directory
-          echo "modified=$(echo $ENTRYPOINTS | jq -j -c '.modified')" >> $GITHUB_OUTPUT
-          echo "destroy=$(echo $ENTRYPOINTS | jq -j -c '.destroy')" >> $GITHUB_OUTPUT
+          echo "update-dirs=$(echo $ENTRYPOINTS | jq -j -c '.update')" >> $GITHUB_OUTPUT
+          echo "destroy-dirs=$(echo $ENTRYPOINTS | jq -j -c '.destroy')" >> $GITHUB_OUTPUT
 
   plan:
     if: |
-      needs.init.outputs.modified != '[]'
+      needs.init.outputs.update-dirs != '[]'
     needs:
       - 'init'
     runs-on: 'ubuntu-latest'
@@ -133,7 +133,7 @@ jobs:
       fail-fast: false
       max-parallel: 100
       matrix:
-        working_directory: '${{ fromJSON(needs.init.outputs.modified) }}'
+        working_directory: '${{ fromJSON(needs.init.outputs.update-dirs) }}'
     env:
       DIRECTORY: '${{ matrix.working_directory }}'
       GITHUB_JOB_NAME: '${{ github.job }} (${{ matrix.working_directory }})'
@@ -284,7 +284,7 @@ jobs:
 
   plan_destroy:
     if: |
-      needs.init.outputs.destroy != '[]'
+      needs.init.outputs.destroy-dirs != '[]'
     needs:
       - 'init'
     runs-on: 'ubuntu-latest'
@@ -296,7 +296,7 @@ jobs:
       fail-fast: false
       max-parallel: 100
       matrix:
-        working_directory: '${{ fromJSON(needs.init.outputs.destroy) }}'
+        working_directory: '${{ fromJSON(needs.init.outputs.destroy-dirs) }}'
     env:
       DIRECTORY: '${{ matrix.working_directory }}'
       GITHUB_JOB_NAME: '${{ github.job }} (${{ matrix.working_directory }})'
@@ -354,7 +354,7 @@ jobs:
           # used to create comments on pull requests (access to only this repo)
           GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
         run: |-
-          guardian apply -dir="${DIRECTORY}" -storage="gcs://${GUARDIAN_BUCKET_NAME}"
+          guardian apply -dir="${DIRECTORY}" -storage="gcs://${GUARDIAN_BUCKET_NAME}" -destroy
 
   plan_success:
     if: '${{ always() }}'
@@ -396,7 +396,7 @@ jobs:
 
   apply:
     if: |
-      needs.init.outputs.modified != '[]'
+      needs.init.outputs.update-dirs != '[]'
     needs:
       - 'init'
       - 'plan'
@@ -410,7 +410,7 @@ jobs:
       fail-fast: false
       max-parallel: 100
       matrix:
-        working_directory: '${{ fromJSON(needs.init.outputs.modified) }}'
+        working_directory: '${{ fromJSON(needs.init.outputs.update-dirs) }}'
     env:
       DIRECTORY: '${{ matrix.working_directory }}'
       GITHUB_JOB_NAME: '${{ github.job }} (${{ matrix.working_directory }})'

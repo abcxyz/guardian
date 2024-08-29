@@ -31,6 +31,7 @@ import (
 )
 
 var terraformNoDiffMock = &terraform.MockTerraformClient{
+	PlanBody: []byte("this is a plan binary"),
 	FormatResponse: &terraform.MockTerraformResponse{
 		Stdout:   "terraform format success",
 		ExitCode: 0,
@@ -51,9 +52,14 @@ var terraformNoDiffMock = &terraform.MockTerraformClient{
 		Stdout:   "terraform show success - no diff",
 		ExitCode: 0,
 	},
+	ShowJSONResponse: &terraform.MockTerraformResponse{
+		Stdout:   `{"result": "terraform show success - no diff"}`,
+		ExitCode: 0,
+	},
 }
 
 var terraformDiffMock = &terraform.MockTerraformClient{
+	PlanBody: []byte("this is a plan binary"),
 	FormatResponse: &terraform.MockTerraformResponse{
 		Stdout:   "terraform format success",
 		ExitCode: 0,
@@ -74,9 +80,14 @@ var terraformDiffMock = &terraform.MockTerraformClient{
 		Stdout:   "terraform show success with diff",
 		ExitCode: 0,
 	},
+	ShowJSONResponse: &terraform.MockTerraformResponse{
+		Stdout:   `{"result": "terraform show success with diff"}`,
+		ExitCode: 0,
+	},
 }
 
 var terraformErrorMock = &terraform.MockTerraformClient{
+	PlanBody: []byte("this is a plan binary"),
 	FormatResponse: &terraform.MockTerraformResponse{
 		Stdout:   "terraform format success",
 		ExitCode: 0,
@@ -97,6 +108,10 @@ var terraformErrorMock = &terraform.MockTerraformClient{
 	},
 	ShowResponse: &terraform.MockTerraformResponse{
 		Stdout:   "terraform show success - no diff",
+		ExitCode: 0,
+	},
+	ShowJSONResponse: &terraform.MockTerraformResponse{
+		Stdout:   `{"result": "terraform show success - no diff"}`,
 		ExitCode: 0,
 	},
 }
@@ -131,14 +146,14 @@ func TestPlan_Process(t *testing.T) {
 			expReporterClientReqs: []*reporter.Request{
 				{
 					Name:   "Status",
-					Params: []any{reporter.StatusSuccess, &reporter.StatusParams{HasDiff: true, Details: "terraform show success with diff", Dir: "testdata", Operation: "plan"}},
+					Params: []any{reporter.StatusSuccess, &reporter.StatusParams{HasDiff: true, Details: "terraform plan success with diff", Dir: "testdata", Operation: "plan"}},
 				},
 			},
 			expStorageClientReqs: []*storage.Request{
 				{
 					Name: "CreateObject",
 					Params: []any{
-						"testdata/test-tfplan.binary",
+						"testdata/tfplan.binary",
 						"this is a plan binary",
 					},
 				},
@@ -155,14 +170,14 @@ func TestPlan_Process(t *testing.T) {
 			expReporterClientReqs: []*reporter.Request{
 				{
 					Name:   "Status",
-					Params: []any{reporter.StatusSuccess, &reporter.StatusParams{HasDiff: true, IsDestroy: true, Details: "terraform show success with diff", Dir: "testdata", Operation: "plan"}},
+					Params: []any{reporter.StatusSuccess, &reporter.StatusParams{HasDiff: true, Details: "terraform plan success with diff", Dir: "testdata", Operation: "plan (destroy)"}},
 				},
 			},
 			expStorageClientReqs: []*storage.Request{
 				{
 					Name: "CreateObject",
 					Params: []any{
-						"testdata/test-tfplan.binary",
+						"testdata/tfplan.binary",
 						"this is a plan binary",
 					},
 				},
@@ -185,7 +200,7 @@ func TestPlan_Process(t *testing.T) {
 				{
 					Name: "CreateObject",
 					Params: []any{
-						"testdata/test-tfplan.binary",
+						"testdata/tfplan.binary",
 						"this is a plan binary",
 					},
 				},
@@ -222,8 +237,8 @@ func TestPlan_Process(t *testing.T) {
 			c := &PlanCommand{
 				directory:                tc.directory,
 				childPath:                tc.directory,
-				planFilename:             "test-tfplan.binary",
 				storagePrefix:            tc.storagePrefix,
+				flagOutputDir:            t.TempDir(),
 				flagDestroy:              tc.flagDestroy,
 				flagAllowLockfileChanges: tc.flagAllowLockfileChanges,
 				flagLockTimeout:          tc.flagLockTimeout,

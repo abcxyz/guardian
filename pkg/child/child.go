@@ -25,17 +25,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/abcxyz/guardian/internal/version"
 	"github.com/abcxyz/pkg/logging"
 )
-
-// overrideEnvVars are the environment variables to inject into the child
-// process, no matter what the user configured. These take precedence over all
-// other configurables.
-var overrideEnvVars = []string{
-	"GOOGLE_TERRAFORM_USERAGENT_EXTENSION=" + version.UserAgent,
-	"TF_APPEND_USER_AGENT=" + version.UserAgent,
-}
 
 // RunConfig are the inputs for a run operation.
 type RunConfig struct {
@@ -50,6 +41,11 @@ type RunConfig struct {
 	// [filepath.Match].
 	AllowedEnvKeys []string
 	DeniedEnvKeys  []string
+
+	// OverrideEnvVars are the environment variables to inject into the child
+	// process, no matter what the user configured. These take precedence over all
+	// other configurables.
+	OverrideEnvVars []string
 }
 
 // Run executes a child process with the provided arguments.
@@ -87,7 +83,7 @@ func Run(ctx context.Context, cfg *RunConfig) (int, error) {
 	cmd.Args = append(cmd.Args, cfg.Args...)
 
 	// Compute and set a custom environment for the child process.
-	env := environ(os.Environ(), cfg.AllowedEnvKeys, cfg.DeniedEnvKeys, overrideEnvVars)
+	env := environ(os.Environ(), cfg.AllowedEnvKeys, cfg.DeniedEnvKeys, cfg.OverrideEnvVars)
 	logger.DebugContext(ctx, "computed environment", "env", env)
 	cmd.Env = env
 
