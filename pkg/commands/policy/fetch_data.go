@@ -18,12 +18,20 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path"
 
 	"github.com/abcxyz/guardian/pkg/platform"
+	"github.com/abcxyz/guardian/pkg/util"
 	"github.com/abcxyz/pkg/cli"
 )
 
 var _ cli.Command = (*FetchDataCommand)(nil)
+
+const (
+	ownerReadWritePerms = 0o600
+	policyDataFilename  = "guardian_policy_context.json"
+)
 
 // FetchDataCommand implements cli.Command. It fetches and aggregates data for
 // a target platform to be used for policy evaluation.
@@ -32,6 +40,7 @@ type FetchDataCommand struct {
 
 	platformConfig platform.Config
 	platform       platform.Platform
+	flags          FetchDataFlags
 }
 
 // Desc implements cli.Command.
@@ -53,6 +62,7 @@ Usage: {{ COMMAND }} [options]
 func (c *FetchDataCommand) Flags() *cli.FlagSet {
 	set := cli.NewFlagSet()
 	c.platformConfig.RegisterFlags(set)
+	c.flags.Register(set)
 
 	return set
 }
@@ -80,8 +90,20 @@ func (c *FetchDataCommand) Process(ctx context.Context) error {
 		return fmt.Errorf("failed to get policy data: %w", err)
 	}
 
-	if err = json.NewEncoder(c.Stdout()).Encode(data); err != nil {
-		return fmt.Errorf("failed to write json to output: %w", err)
+	d, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("failed to marshal policy data: %w", err)
 	}
+
+	fp := path.Join(c.flags.flagOutputDir, policyDataFilename)
+	if err := os.WriteFile(fp, d, ownerReadWritePerms); err != nil {
+		return fmt.Errorf("failed to write policy data to json file: %w", err)
+	}
+
+	absFilepath, err := util.PathEvalAbs(fp)
+	if err != nil {
+		return fmt.Errorf("failed to evaluate absolute filepath: %w", err)
+	}
+	c.Outf("Saved policy data to local file: %s", absFilepath)
 	return nil
 }

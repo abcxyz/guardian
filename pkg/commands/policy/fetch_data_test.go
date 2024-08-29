@@ -16,13 +16,16 @@ package policy
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"strings"
+	"os"
+	"path"
 	"testing"
 
 	"github.com/abcxyz/guardian/pkg/platform"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/testutil"
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestFetchData_Process(t *testing.T) {
@@ -31,29 +34,44 @@ func TestFetchData_Process(t *testing.T) {
 	ctx := logging.WithLogger(context.Background(), logging.TestLogger(t))
 
 	cases := []struct {
-		name                 string
-		getLatestApproverErr error
-		wantErr              string
-		teams                []string
-		users                []string
-		wantOut              string
+		name             string
+		getPolicyDataErr error
+		wantErr          string
+		teams            []string
+		users            []string
+		want             platform.GetPolicyDataResult
 	}{
 		{
-			name:    "prints_teams_and_users",
-			teams:   []string{"team1", "team2"},
-			users:   []string{"user1", "user2"},
-			wantOut: `{"mock":{"approvers":{"users":["user1","user2"],"teams":["team1","team2"]}}}`,
+			name: "prints_teams_and_users",
+
+			teams: []string{"team1", "team2"},
+			users: []string{"user1", "user2"},
+			want: platform.GetPolicyDataResult{
+				Mock: &platform.MockPolicyData{
+					Approvers: &platform.GetLatestApproversResult{
+						Teams: []string{"team1", "team2"},
+						Users: []string{"user1", "user2"},
+					},
+				},
+			},
 		},
 		{
-			name:    "prints_no_approvers",
-			teams:   []string{},
-			users:   []string{},
-			wantOut: `{"mock":{"approvers":{"users":[],"teams":[]}}}`,
+			name:  "prints_no_approvers",
+			teams: []string{},
+			users: []string{},
+			want: platform.GetPolicyDataResult{
+				Mock: &platform.MockPolicyData{
+					Approvers: &platform.GetLatestApproversResult{
+						Teams: []string{},
+						Users: []string{},
+					},
+				},
+			},
 		},
 		{
-			name:                 "fails_with_error",
-			getLatestApproverErr: fmt.Errorf("failed to get latest approvers"),
-			wantErr:              "failed to get latest approvers",
+			name:             "fails_with_error",
+			getPolicyDataErr: fmt.Errorf("failed to get latest approvers"),
+			wantErr:          "failed to get latest approvers",
 		},
 	}
 
@@ -63,22 +81,40 @@ func TestFetchData_Process(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
+			outDir := t.TempDir()
 			c := &FetchDataCommand{
+				flags: FetchDataFlags{
+					flagOutputDir: outDir,
+				},
 				platform: &platform.MockPlatform{
-					GetLatestApproversErr: tc.getLatestApproverErr,
-					TeamApprovers:         tc.teams,
-					UserApprovers:         tc.users,
+					GetPolicyDataErr: tc.getPolicyDataErr,
+					TeamApprovers:    tc.teams,
+					UserApprovers:    tc.users,
 				},
 			}
-			_, stdout, _ := c.Pipe()
+			outFilepath := path.Join(outDir, policyDataFilename)
 
 			err := c.Process(ctx)
 			if diff := testutil.DiffErrString(err, tc.wantErr); diff != "" {
 				t.Errorf("unexpected result; (-got,+want): %s", diff)
 			}
+			if err != nil {
+				// Skip rest of checks because the file won't exist.
+				return
+			}
 
-			if got, want := strings.TrimSpace(stdout.String()), strings.TrimSpace(tc.wantOut); !strings.Contains(got, want) {
-				t.Errorf("expected stdout\n\n%s\n\nto contain\n\n%s\n\n", got, want)
+			fileData, err := os.ReadFile(outFilepath)
+			if err != nil {
+				t.Fatalf("failed to read policy data file: %v", err)
+			}
+
+			var got platform.GetPolicyDataResult
+			if err := json.Unmarshal(fileData, &got); err != nil {
+				t.Fatalf("failed to unmarshal policy data json: %v", err)
+			}
+
+			if diff := cmp.Diff(got, tc.want); diff != "" {
+				t.Errorf("unexpected result (-got, +want):\n%s", diff)
 			}
 		})
 	}

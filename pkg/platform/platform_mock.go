@@ -30,12 +30,12 @@ type MockPlatform struct {
 	reqMu sync.Mutex
 	Reqs  []*Request
 
-	AssignReviewersErr    error
-	GetLatestApproversErr error
-	ModifierContentResp   string
-	ModifierContentErr    error
-	TeamApprovers         []string
-	UserApprovers         []string
+	AssignReviewersErr  error
+	GetPolicyDataErr    error
+	ModifierContentResp string
+	ModifierContentErr  error
+	TeamApprovers       []string
+	UserApprovers       []string
 }
 
 func (m *MockPlatform) AssignReviewers(ctx context.Context, input *AssignReviewersInput) (*AssignReviewersResult, error) {
@@ -80,8 +80,8 @@ func (m *MockPlatform) GetPolicyData(ctx context.Context) (*GetPolicyDataResult,
 		Name: "GetLatestApprovers",
 	})
 
-	if m.GetLatestApproversErr != nil {
-		return nil, m.GetLatestApproversErr
+	if m.GetPolicyDataErr != nil {
+		return nil, m.GetPolicyDataErr
 	}
 
 	return &GetPolicyDataResult{
