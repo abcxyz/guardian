@@ -221,14 +221,12 @@ func (g *GitHub) GetLatestApprovers(ctx context.Context) (*GetLatestApproversRes
 			hasApproved[review.Author.Login] = struct{}{}
 		}
 	}
-
 	var teamQuery organizationTeamsAndMembershipsQuery
 	if err := g.graphqlClient.Query(ctx, &teamQuery, map[string]any{
 		"owner": githubv4.String(g.cfg.GitHubOwner),
 	}); err != nil {
 		return nil, fmt.Errorf("failed to query organization teams and memberships: %w", err)
 	}
-
 	for _, team := range teamQuery.Organization.Teams.Nodes {
 		for _, member := range team.Members.Nodes {
 			if _, ok := hasApproved[member.Login]; ok {
@@ -237,13 +235,33 @@ func (g *GitHub) GetLatestApprovers(ctx context.Context) (*GetLatestApproversRes
 			}
 		}
 	}
-
 	logger.DebugContext(ctx, "found latest approvers from",
 		"users", result.Users,
 		"teams", result.Teams,
 	)
 
 	return result, nil
+}
+
+// GitHubPolicyData defines the payload of GitHub contextual data used for
+// policy evaluation.
+type GitHubPolicyData struct {
+	PullRequestApprovers *GetLatestApproversResult `json:"pull_request_approvers"`
+}
+
+// GetPolicyData aggregates data from GitHub into a payload used for policy
+// evaluation.
+func (g *GitHub) GetPolicyData(ctx context.Context) (*GetPolicyDataResult, error) {
+	approvers, err := g.GetLatestApprovers(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get latest approvers: %w", err)
+	}
+
+	return &GetPolicyDataResult{
+		GitHub: &GitHubPolicyData{
+			PullRequestApprovers: approvers,
+		},
+	}, nil
 }
 
 func (g *GitHub) withRetries(ctx context.Context, retryFunc retry.RetryFunc) error {

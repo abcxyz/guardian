@@ -42,3 +42,18 @@ func (e *EnforceFlags) Register(set *cli.FlagSet) {
 		return merr
 	})
 }
+
+type FetchDataFlags struct {
+	flagOutputDir string
+}
+
+func (fd *FetchDataFlags) Register(set *cli.FlagSet) {
+	f := set.NewSection("FETCH-DATA OPTIONS")
+
+	f.StringVar(&cli.StringVar{
+		Name:    "output-dir",
+		Example: "example/dir",
+		Target:  &fd.flagOutputDir,
+		Usage:   "Write the policy data JSON file to a target local directory.",
+	})
+}

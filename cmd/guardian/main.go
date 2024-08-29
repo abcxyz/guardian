@@ -111,6 +111,9 @@ var rootCmd = func() cli.Command {
 						"enforce": func() cli.Command {
 							return &policy.EnforceCommand{}
 						},
+						"fetch-data": func() cli.Command {
+							return &policy.FetchDataCommand{}
+						},
 					},
 				}
 			},

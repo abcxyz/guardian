@@ -36,6 +36,11 @@ func (l *Local) GetLatestApprovers(ctx context.Context) (*GetLatestApproversResu
 	return &GetLatestApproversResult{}, nil
 }
 
+// GetPolicyData returns an empty result.
+func (l *Local) GetPolicyData(ctx context.Context) (*GetPolicyDataResult, error) {
+	return &GetPolicyDataResult{}, nil
+}
+
 // ModifierContent is a no-op.
 func (l *Local) ModifierContent(ctx context.Context) (string, error) {
 	return "", nil

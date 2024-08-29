@@ -31,6 +31,7 @@ type MockPlatform struct {
 	Reqs  []*Request
 
 	AssignReviewersErr  error
+	GetPolicyDataErr    error
 	ModifierContentResp string
 	ModifierContentErr  error
 	TeamApprovers       []string
@@ -55,6 +56,10 @@ func (m *MockPlatform) AssignReviewers(ctx context.Context, input *AssignReviewe
 	}, nil
 }
 
+type MockPolicyData struct {
+	Approvers *GetLatestApproversResult `json:"approvers"`
+}
+
 func (m *MockPlatform) GetLatestApprovers(ctx context.Context) (*GetLatestApproversResult, error) {
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
@@ -65,6 +70,27 @@ func (m *MockPlatform) GetLatestApprovers(ctx context.Context) (*GetLatestApprov
 	return &GetLatestApproversResult{
 		Teams: m.TeamApprovers,
 		Users: m.UserApprovers,
+	}, nil
+}
+
+func (m *MockPlatform) GetPolicyData(ctx context.Context) (*GetPolicyDataResult, error) {
+	m.reqMu.Lock()
+	defer m.reqMu.Unlock()
+	m.Reqs = append(m.Reqs, &Request{
+		Name: "GetLatestApprovers",
+	})
+
+	if m.GetPolicyDataErr != nil {
+		return nil, m.GetPolicyDataErr
+	}
+
+	return &GetPolicyDataResult{
+		Mock: &MockPolicyData{
+			Approvers: &GetLatestApproversResult{
+				Teams: m.TeamApprovers,
+				Users: m.UserApprovers,
+			},
+		},
 	}, nil
 }
 
