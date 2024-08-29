@@ -57,9 +57,9 @@ type AssignReviewersResult struct {
 	Teams []string
 }
 
-// ApproversData contains the reviewers whose latest review is an
+// GetLatestApproversResult contains the reviewers whose latest review is an
 // approval.
-type ApproversData struct {
+type GetLatestApproversResult struct {
 	Users []string `json:"users"`
 	Teams []string `json:"teams"`
 }
@@ -75,6 +75,10 @@ type GetPolicyDataResult struct {
 type Platform interface {
 	// AssignReviewers assigns principals to review a change request.
 	AssignReviewers(ctx context.Context, inputs *AssignReviewersInput) (*AssignReviewersResult, error)
+
+	// GetLatestApprovers retrieves the reviewers whose latest review is an
+	// approval.
+	GetLatestApprovers(ctx context.Context) (*GetLatestApproversResult, error)
 
 	// GetPolicyData retrieves the required data for policy evaluation.
 	GetPolicyData(ctx context.Context) (*GetPolicyDataResult, error)

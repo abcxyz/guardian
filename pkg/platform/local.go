@@ -31,6 +31,11 @@ func (l *Local) AssignReviewers(ctx context.Context, inputs *AssignReviewersInpu
 	return &AssignReviewersResult{}, nil
 }
 
+// GetLatestApprovers returns an empty result.
+func (l *Local) GetLatestApprovers(ctx context.Context) (*GetLatestApproversResult, error) {
+	return &GetLatestApproversResult{}, nil
+}
+
 // GetPolicyData returns an empty result.
 func (l *Local) GetPolicyData(ctx context.Context) (*GetPolicyDataResult, error) {
 	return &GetPolicyDataResult{}, nil
