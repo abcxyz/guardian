@@ -76,6 +76,13 @@ func (c *Config) RegisterFlags(set *cli.FlagSet) {
 			d.PullRequestBody = event.GetPullRequest().GetBody()
 		}
 	}
+	if githubContext.EventName == "pull_request_target" {
+		var event github.PullRequestTargetEvent
+		if err := json.Unmarshal(data, &event); err == nil {
+			d.PullRequestNumber = event.GetNumber()
+			d.PullRequestBody = event.GetPullRequest().GetBody()
+		}
+	}
 
 	f := set.NewSection("GITHUB OPTIONS")
 
@@ -83,10 +90,10 @@ func (c *Config) RegisterFlags(set *cli.FlagSet) {
 		Name:   "guardian-github-token",
 		EnvVar: "GUARDIAN_GITHUB_TOKEN",
 		Target: &c.GuardianGitHubToken,
-		Usage: `The GitHub access token for Guardian to make GitHub API calls. 
+		Usage: `The GitHub access token for Guardian to make GitHub API calls.
 This is separate from GITHUB_TOKEN becuse Terraform uses GITHUB_TOKEN to authenticate
 to the GitHub APIs also. Splitting this up allows use to follow least privilege
-for the caller (e.g. Guardian vs Terraform). If not supplied this will default to 
+for the caller (e.g. Guardian vs Terraform). If not supplied this will default to
 GITHUB_TOKEN.`,
 	})
 
