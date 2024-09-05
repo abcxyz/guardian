@@ -74,6 +74,7 @@ type ApplyCommand struct {
 	storageClient   storage.Storage
 	terraformClient terraform.Terraform
 	reporterClient  reporter.Reporter
+	platformClient  platform.Platform
 }
 
 // Desc provides a short, one-line description of the command.
@@ -173,7 +174,13 @@ func (c *ApplyCommand) Run(ctx context.Context, args []string) error {
 	tfEnvVars := []string{"TF_IN_AUTOMATION=true"}
 	c.terraformClient = terraform.NewTerraformClient(c.directory, tfEnvVars)
 
-	storagePrefix, err := c.platformConfig.StoragePrefix()
+	platform, err := platform.NewPlatform(ctx, &c.platformConfig)
+	if err != nil {
+		return fmt.Errorf("failed to create platform: %w", err)
+	}
+	c.platformClient = platform
+
+	storagePrefix, err := c.platformClient.StoragePrefix(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to parse storage flag: %w", err)
 	}
@@ -197,6 +204,9 @@ func (c *ApplyCommand) Run(ctx context.Context, args []string) error {
 // Process handles the main logic for the Guardian apply run process.
 func (c *ApplyCommand) Process(ctx context.Context) (merr error) {
 	logger := logging.FromContext(ctx)
+	logger.DebugContext(ctx, "starting guardian apply",
+		"platform", c.platformConfig.Type,
+		"reporter", c.platformConfig.Reporter)
 
 	util.Headerf(c.Stdout(), "Starting Guardian Apply")
 

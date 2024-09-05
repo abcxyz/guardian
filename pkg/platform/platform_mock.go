@@ -34,6 +34,8 @@ type MockPlatform struct {
 	GetPolicyDataErr    error
 	ModifierContentResp string
 	ModifierContentErr  error
+	StoragePrefixResp   string
+	StoragePrefixErr    error
 	TeamApprovers       []string
 	UserApprovers       []string
 }
@@ -102,4 +104,14 @@ func (m *MockPlatform) ModifierContent(ctx context.Context) (string, error) {
 	})
 
 	return m.ModifierContentResp, m.ModifierContentErr
+}
+
+func (m *MockPlatform) StoragePrefix(ctx context.Context) (string, error) {
+	m.reqMu.Lock()
+	defer m.reqMu.Unlock()
+	m.Reqs = append(m.Reqs, &Request{
+		Name: "StoragePrefix",
+	})
+
+	return m.StoragePrefixResp, m.StoragePrefixErr
 }

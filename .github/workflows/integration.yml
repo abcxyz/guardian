@@ -68,7 +68,7 @@ jobs:
           path: 'dist/guardian'
           retention-days: 1
 
-  init:
+  init-plan:
     needs:
       - 'build'
     runs-on: 'ubuntu-latest'
@@ -121,9 +121,9 @@ jobs:
 
   plan:
     if: |
-      needs.init.outputs.update-dirs != '[]'
+      needs.init-plan.outputs.update-dirs != '[]'
     needs:
-      - 'init'
+      - 'init-plan'
     runs-on: 'ubuntu-latest'
     permissions:
       contents: 'read'
@@ -133,7 +133,7 @@ jobs:
       fail-fast: false
       max-parallel: 100
       matrix:
-        working_directory: '${{ fromJSON(needs.init.outputs.update-dirs) }}'
+        working_directory: '${{ fromJSON(needs.init-plan.outputs.update-dirs) }}'
     env:
       DIRECTORY: '${{ matrix.working_directory }}'
       GITHUB_JOB_NAME: '${{ github.job }} (${{ matrix.working_directory }})'
@@ -179,9 +179,9 @@ jobs:
 
   plan_destroy:
     if: |
-      needs.init.outputs.destroy-dirs != '[]'
+      needs.init-plan.outputs.destroy-dirs != '[]'
     needs:
-      - 'init'
+      - 'init-plan'
     runs-on: 'ubuntu-latest'
     permissions:
       contents: 'read'
@@ -191,7 +191,7 @@ jobs:
       fail-fast: false
       max-parallel: 100
       matrix:
-        working_directory: '${{ fromJSON(needs.init.outputs.destroy-dirs) }}'
+        working_directory: '${{ fromJSON(needs.init-plan.outputs.destroy-dirs) }}'
     env:
       DIRECTORY: '${{ matrix.working_directory }}'
       GITHUB_JOB_NAME: '${{ github.job }} (${{ matrix.working_directory }})'
@@ -254,7 +254,7 @@ jobs:
   plan_success:
     if: '${{ always() }}'
     needs:
-      - 'init'
+      - 'init-plan'
       - 'plan'
       - 'plan_destroy'
     runs-on: 'ubuntu-latest'
@@ -285,15 +285,61 @@ jobs:
           GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
         run: |-
           guardian workflows plan-status-comment \
-            -init-result="${{ needs.init.result }}" \
+            -init-result="${{ needs.init-plan.result }}" \
             -plan-result="${{ needs.plan.result }}" \
             -plan-result="${{ needs.plan_destroy.result }}"
 
+  init-apply:
+    needs:
+      - 'build'
+      - 'init-plan'
+      - 'plan'
+      - 'plan_destroy'
+    runs-on: 'ubuntu-latest'
+    permissions:
+      contents: 'read'
+      pull-requests: 'write'
+    outputs:
+      update-dirs: '${{ steps.entrypoints.outputs.update-dirs }}'
+      destroy-dirs: '${{ steps.entrypoints.outputs.destroy-dirs }}'
+    steps:
+      - name: 'Checkout'
+        uses: 'actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332' # ratchet:actions/checkout@v4
+        with:
+          fetch-depth: 0 # get everything so we can use git diff
+
+      - name: 'Download Guardian'
+        uses: 'actions/download-artifact@65a9edc5881444af0b9093a5e628f2fe47ea3b2e' # ratchet:actions/download-artifact@v4
+        with:
+          name: 'guardian'
+          path: '${{ runner.temp }}/.guardian'
+
+      - name: 'Setup Guardian'
+        env:
+          INSTALL_PATH: '${{ runner.temp }}/.guardian'
+        run: |-
+          chmod +x "${INSTALL_PATH}/guardian"
+          echo "${INSTALL_PATH}" >> $GITHUB_PATH
+
+      - name: 'Guardian Directories'
+        id: 'entrypoints'
+        shell: 'bash'
+        env:
+          GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
+          GITHUB_PULL_REQUEST_BODY: 'GUARDIAN_DESTROY=terraform/project2'
+        run: |-
+          ENTRYPOINTS=$(guardian entrypoints -dir=./terraform/project1 -dir=./terraform/project2 -reporter="none")
+          echo "entrypoints -> ${ENTRYPOINTS}"
+
+          # parse the json response and create outputs for each type of directory
+          echo "update-dirs=$(echo $ENTRYPOINTS | jq -j -c '.update')" >> $GITHUB_OUTPUT
+          echo "destroy-dirs=$(echo $ENTRYPOINTS | jq -j -c '.destroy')" >> $GITHUB_OUTPUT
+
   apply:
     if: |
-      needs.init.outputs.update-dirs != '[]'
+      needs.init-apply.outputs.update-dirs != '[]'
     needs:
-      - 'init'
+      - 'init-apply'
       - 'plan'
       - 'plan_success'
     runs-on: 'ubuntu-latest'
@@ -305,7 +351,7 @@ jobs:
       fail-fast: false
       max-parallel: 100
       matrix:
-        working_directory: '${{ fromJSON(needs.init.outputs.update-dirs) }}'
+        working_directory: '${{ fromJSON(needs.init-apply.outputs.update-dirs) }}'
     env:
       DIRECTORY: '${{ matrix.working_directory }}'
       GITHUB_JOB_NAME: '${{ github.job }} (${{ matrix.working_directory }})'

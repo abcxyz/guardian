@@ -41,6 +41,7 @@ type Config struct {
 	GitHubAppPrivateKeyPEM  string
 	Permissions             map[string]string
 
+	GitHubEventName         string
 	GitHubServerURL         string
 	GitHubRunID             int64
 	GitHubRunAttempt        int64
@@ -168,6 +169,14 @@ GITHUB_TOKEN.`,
 		EnvVar: "GITHUB_RUN_ATTEMPT",
 		Target: &c.GitHubRunAttempt,
 		Usage:  "The GitHub workflow run attempt.",
+		Hidden: true,
+	})
+
+	f.StringVar(&cli.StringVar{
+		Name:   "github-event-name",
+		EnvVar: "GITHUB_EVENT_NAME",
+		Target: &c.GitHubEventName,
+		Usage:  "The GitHub event name.",
 		Hidden: true,
 	})
 

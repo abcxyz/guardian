@@ -188,6 +188,9 @@ func (c *EntrypointsCommand) Run(ctx context.Context, args []string) error {
 // Process handles the main logic for the Guardian init process.
 func (c *EntrypointsCommand) Process(ctx context.Context) error {
 	logger := logging.FromContext(ctx)
+	logger.DebugContext(ctx, "starting entrypoints",
+		"platform", c.platformConfig.Type,
+		"reporter", c.platformConfig.Reporter)
 
 	cwd, err := c.WorkingDir()
 	if err != nil {

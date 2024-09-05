@@ -16,7 +16,10 @@ package platform
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -278,34 +281,140 @@ func (g *GitHub) withRetries(ctx context.Context, retryFunc retry.RetryFunc) err
 // ModifierContent returns the pull request body as the content to parse modifiers
 // from.
 func (g *GitHub) ModifierContent(ctx context.Context) (string, error) {
-	if g.cfg.GitHubPullRequestNumber > 0 {
+	logger := logging.FromContext(ctx)
+
+	pullRequestEvents := []string{"pull_request", "pull_request_target"}
+	if slices.Contains(pullRequestEvents, g.cfg.GitHubEventName) {
+		logger.DebugContext(ctx, "modifier content from pull request",
+			"github_pull_request_number", g.cfg.GitHubPullRequestNumber,
+			"github_pull_request_body", g.cfg.GitHubPullRequestBody)
 		return g.cfg.GitHubPullRequestBody, nil
 	}
 
-	var body strings.Builder
-	if err := g.withRetries(ctx, func(ctx context.Context) error {
-		ghPullRequests, resp, err := g.client.PullRequests.ListPullRequestsWithCommit(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, g.cfg.GitHubSHA, &github.PullRequestListOptions{
-			ListOptions: github.ListOptions{
-				PerPage: 100,
-			},
-		})
-		if err != nil {
-			if resp != nil {
-				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
-					return retry.RetryableError(err)
+	pullRequestFromCommitEvents := []string{"push"}
+	if slices.Contains(pullRequestFromCommitEvents, g.cfg.GitHubEventName) {
+		logger.DebugContext(ctx, "looking up pull request from commit sha",
+			"owner", g.cfg.GitHubOwner,
+			"repo", g.cfg.GitHubRepo,
+			"commit_sha", g.cfg.GitHubSHA)
+
+		var body strings.Builder
+		if err := g.withRetries(ctx, func(ctx context.Context) error {
+			ghPullRequests, resp, err := g.client.PullRequests.ListPullRequestsWithCommit(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, g.cfg.GitHubSHA, &github.PullRequestListOptions{
+				ListOptions: github.ListOptions{
+					PerPage: 100,
+				},
+			})
+			if err != nil {
+				if resp != nil {
+					if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
+						return retry.RetryableError(err)
+					}
 				}
+				if resp.StatusCode == http.StatusNotFound {
+					return nil
+				}
+				return fmt.Errorf("failed to list pull request comments: %w", err)
 			}
-			return fmt.Errorf("failed to list pull request comments: %w", err)
+
+			for _, v := range ghPullRequests {
+				logger.DebugContext(ctx, "found pull request for sha",
+					"pull_request_number", v.GetNumber(),
+					"pull_request_body", v.GetBody())
+
+				body.WriteString(v.GetBody())
+			}
+
+			return nil
+		}); err != nil {
+			return "", fmt.Errorf("failed to list pull request comments: %w", err)
 		}
 
-		for _, v := range ghPullRequests {
-			body.WriteString(v.GetBody())
-		}
+		logger.DebugContext(ctx, "modifier content from commit pull requests",
+			"modifier_content", body.String())
 
-		return nil
-	}); err != nil {
-		return "", fmt.Errorf("failed to list pull request comments: %w", err)
+		return body.String(), nil
 	}
 
-	return body.String(), nil
+	logger.DebugContext(ctx, "returning no modifier content")
+	return "", nil
+}
+
+// StoragePrefix generates the unique storage prefix for the github platform type.
+func (g *GitHub) StoragePrefix(ctx context.Context) (string, error) {
+	logger := logging.FromContext(ctx)
+
+	pullRequestEvents := []string{"pull_request", "pull_request_target"}
+	if slices.Contains(pullRequestEvents, g.cfg.GitHubEventName) {
+		var merr error
+		if g.cfg.GitHubOwner == "" {
+			merr = errors.Join(merr, fmt.Errorf("github owner is required for storage"))
+		}
+		if g.cfg.GitHubRepo == "" {
+			merr = errors.Join(merr, fmt.Errorf("github repo is required for storage"))
+		}
+		if g.cfg.GitHubPullRequestNumber <= 0 {
+			merr = errors.Join(merr, fmt.Errorf("github pull request number is required for storage"))
+		}
+
+		if merr != nil {
+			return "", merr
+		}
+
+		logger.DebugContext(ctx, "storage prefix from pull request event data",
+			"github_pull_request_number", g.cfg.GitHubPullRequestNumber,
+			"github_pull_request_body", g.cfg.GitHubPullRequestBody)
+
+		return fmt.Sprintf("guardian-plans/%s/%s/%d", g.cfg.GitHubOwner, g.cfg.GitHubRepo, g.cfg.GitHubPullRequestNumber), nil
+	}
+
+	pullRequestFromCommitEvents := []string{"push"}
+	if slices.Contains(pullRequestFromCommitEvents, g.cfg.GitHubEventName) {
+		logger.DebugContext(ctx, "looking up pull request from commit sha",
+			"owner", g.cfg.GitHubOwner,
+			"repo", g.cfg.GitHubRepo,
+			"commit_sha", g.cfg.GitHubSHA)
+
+		var prData *github.PullRequest
+		if err := g.withRetries(ctx, func(ctx context.Context) error {
+			ghPullRequests, resp, err := g.client.PullRequests.ListPullRequestsWithCommit(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, g.cfg.GitHubSHA, &github.PullRequestListOptions{
+				ListOptions: github.ListOptions{
+					PerPage: 100,
+				},
+			})
+			if err != nil {
+				if resp != nil {
+					if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
+						return retry.RetryableError(err)
+					}
+				}
+				if resp.StatusCode == http.StatusNotFound {
+					return nil
+				}
+				return fmt.Errorf("failed to list pull requests for commit sha [%s]: %w", g.cfg.GitHubSHA, err)
+			}
+
+			if len(ghPullRequests) == 0 {
+				return fmt.Errorf("no pull requests found for commit sha: %s", g.cfg.GitHubSHA)
+			}
+
+			prData = ghPullRequests[0]
+
+			return nil
+		}); err != nil {
+			return "", fmt.Errorf("failed to list pull request : %w", err)
+		}
+
+		if prData == nil {
+			return "", fmt.Errorf("no pull requests found for commit sha: %s", g.cfg.GitHubSHA)
+		}
+
+		logger.DebugContext(ctx, "computed pull request number from commit sha",
+			"github_pull_request_number", prData.GetNumber())
+
+		return fmt.Sprintf("guardian-plans/%s/%s/%d", g.cfg.GitHubOwner, g.cfg.GitHubRepo, prData.GetNumber()), nil
+	}
+
+	logger.DebugContext(ctx, "returning no storage prefix")
+	return "", nil
 }
