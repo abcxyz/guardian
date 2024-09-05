@@ -45,3 +45,8 @@ func (l *Local) GetPolicyData(ctx context.Context) (*GetPolicyDataResult, error)
 func (l *Local) ModifierContent(ctx context.Context) (string, error) {
 	return "", nil
 }
+
+// StoragePrefix returns an empty string for the local platform type.
+func (l *Local) StoragePrefix(ctx context.Context) (string, error) {
+	return "", nil
+}

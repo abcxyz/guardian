@@ -37,6 +37,7 @@ import (
 	"github.com/abcxyz/guardian/pkg/terraform"
 	"github.com/abcxyz/guardian/pkg/util"
 	"github.com/abcxyz/pkg/cli"
+	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/pointer"
 )
 
@@ -78,6 +79,7 @@ type PlanCommand struct {
 	storageClient   storage.Storage
 	terraformClient terraform.Terraform
 	reporterClient  reporter.Reporter
+	platformClient  platform.Platform
 }
 
 func (c *PlanCommand) Desc() string {
@@ -187,7 +189,13 @@ func (c *PlanCommand) Run(ctx context.Context, args []string) error {
 	tfEnvVars := []string{"TF_IN_AUTOMATION=true"}
 	c.terraformClient = terraform.NewTerraformClient(c.directory, tfEnvVars)
 
-	storagePrefix, err := c.platformConfig.StoragePrefix()
+	platform, err := platform.NewPlatform(ctx, &c.platformConfig)
+	if err != nil {
+		return fmt.Errorf("failed to create platform: %w", err)
+	}
+	c.platformClient = platform
+
+	storagePrefix, err := c.platformClient.StoragePrefix(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to parse storage flag: %w", err)
 	}
@@ -210,6 +218,11 @@ func (c *PlanCommand) Run(ctx context.Context, args []string) error {
 
 // Process handles the main logic for the Guardian plan run process.
 func (c *PlanCommand) Process(ctx context.Context) error {
+	logger := logging.FromContext(ctx)
+	logger.DebugContext(ctx, "starting guardian plan",
+		"platform", c.platformConfig.Type,
+		"reporter", c.platformConfig.Reporter)
+
 	var merr error
 
 	util.Headerf(c.Stdout(), ("Starting Guardian Plan"))

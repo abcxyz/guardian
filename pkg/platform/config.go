@@ -67,7 +67,6 @@ func (c *Config) RegisterFlags(set *cli.FlagSet) {
 
 	set.AfterParse(func(merr error) error {
 		c.Type = strings.ToLower(strings.TrimSpace(c.Type))
-		c.Reporter = reporter.TypeNone
 
 		if _, ok := allowedTypes[c.Type]; !ok && c.Type != TypeUnspecified {
 			merr = errors.Join(merr, fmt.Errorf("unsupported value for platform flag: %s", c.Type))
@@ -77,10 +76,23 @@ func (c *Config) RegisterFlags(set *cli.FlagSet) {
 			c.Type = TypeLocal
 			if v, _ := strconv.ParseBool(set.GetEnv("GITHUB_ACTIONS")); v {
 				c.Type = TypeGitHub
-				c.Reporter = reporter.TypeGitHub
 			}
+		}
+
+		if c.Reporter == "" {
+			c.Reporter = defaultReporter(c.Type)
 		}
 
 		return merr
 	})
+}
+
+// default reporter returns the default reporter based on platform type.
+func defaultReporter(t string) string {
+	switch t {
+	case TypeGitHub:
+		return reporter.TypeGitHub
+	default:
+		return reporter.TypeNone
+	}
 }

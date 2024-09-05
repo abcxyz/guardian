@@ -85,6 +85,9 @@ type Platform interface {
 
 	// ModifierContent returns the modifier content for parsing modifier flags.
 	ModifierContent(ctx context.Context) (string, error)
+
+	// StoragePrefix generates the unique storage prefix for the platform type.
+	StoragePrefix(ctx context.Context) (string, error)
 }
 
 // NewPlatform creates a new platform based on the provided type.
