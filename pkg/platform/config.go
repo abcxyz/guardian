@@ -33,6 +33,7 @@ type Config struct {
 	Reporter string
 
 	GitHub gh.Config
+	Local  localConfig
 }
 
 func (c *Config) RegisterFlags(set *cli.FlagSet) {
@@ -64,6 +65,7 @@ func (c *Config) RegisterFlags(set *cli.FlagSet) {
 
 	// leave last to put help under platform options
 	c.GitHub.RegisterFlags(set)
+	c.Local.RegisterFlags(set)
 
 	set.AfterParse(func(merr error) error {
 		c.Type = strings.ToLower(strings.TrimSpace(c.Type))

@@ -22,10 +22,8 @@ import (
 	"flag"
 	"fmt"
 	"io/fs"
-	"os"
 	"path"
 	"slices"
-	"strings"
 
 	"golang.org/x/exp/maps"
 
@@ -198,44 +196,45 @@ func (c *EntrypointsCommand) Process(ctx context.Context) error {
 	}
 
 	var modifiedEntrypoints []string
-	var removedEntrypoints []string
 
 	for _, dir := range c.flagDir {
 		dirAbs, err := util.PathEvalAbs(dir)
 		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				// ignore mising directories, we will just return nothing
+				// resulting in a no-op for future stages
+				continue
+			}
 			return fmt.Errorf("failed to find absolute path for directory: %w", err)
 		}
 
 		if c.flagDetectChanges {
-			modifiedDirs, removedDirs, err := c.detectEntrypointChanges(ctx, dirAbs)
+			modifiedDirs, err := c.detectEntrypointChanges(ctx, dirAbs)
 			if err != nil {
 				return fmt.Errorf("failed to detect entrypoint changes: %w", err)
 			}
 			modifiedEntrypoints = append(modifiedEntrypoints, modifiedDirs...)
-			removedEntrypoints = append(removedEntrypoints, removedDirs...)
 
 			continue
 		}
 
-		modifiedDirs, removedDirs, err := c.findEntrypointDirs(ctx, dirAbs)
+		modifiedDirs, err := c.findEntrypointDirs(ctx, dirAbs)
 		if err != nil {
 			return fmt.Errorf("failed to find entrypoint directories: %w", err)
 		}
 		modifiedEntrypoints = append(modifiedEntrypoints, modifiedDirs...)
-		removedEntrypoints = append(removedEntrypoints, removedDirs...)
 	}
-
-	allEntrypointDirs := slices.Concat(nil, modifiedEntrypoints, removedEntrypoints)
 
 	modifierContent, err := c.platformClient.ModifierContent(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to find modifier content: %w", err)
 	}
+	logger.DebugContext(ctx, "modifier content", "value", modifierContent)
 
 	metaValues := modifiers.ParseBodyMetaValues(ctx, modifierContent)
 	logger.DebugContext(ctx, "parsed body meta values", "values", metaValues)
 
-	destroyEntrypoints, err := c.processDestroyMetaValues(cwd, allEntrypointDirs, metaValues)
+	destroyEntrypoints, err := c.processDestroyMetaValues(cwd, metaValues)
 	if err != nil {
 		return fmt.Errorf("failed to process destroy entrypoints: %w", err)
 	}
@@ -244,13 +243,9 @@ func (c *EntrypointsCommand) Process(ctx context.Context) error {
 	// update dirs are all entrypoints that aren't being destroyed
 	updatedEntrypoints := sets.Subtract(modifiedEntrypoints, destroyEntrypoints)
 
-	abandonedEntrypoints := sets.Subtract(removedEntrypoints, destroyEntrypoints)
-	logger.DebugContext(ctx, "found abandonded entrypoints", "dirs", abandonedEntrypoints)
-
 	// sort them for consistent results
 	slices.Sort(updatedEntrypoints)
 	slices.Sort(destroyEntrypoints)
-	slices.Sort(abandonedEntrypoints)
 
 	results := &EntrypointsResult{
 		Update:  updatedEntrypoints,
@@ -262,10 +257,9 @@ func (c *EntrypointsCommand) Process(ctx context.Context) error {
 	}
 
 	if err := c.reporterClient.EntrypointsSummary(ctx, &reporter.EntrypointsSummaryParams{
-		Message:       "Guardian will run for the following directories",
-		UpdateDirs:    updatedEntrypoints,
-		DestroyDirs:   destroyEntrypoints,
-		AbandonedDirs: abandonedEntrypoints,
+		Message:     "Guardian will run for the following directories",
+		UpdateDirs:  updatedEntrypoints,
+		DestroyDirs: destroyEntrypoints,
 	}); err != nil {
 		return fmt.Errorf("failed to create report: %w", err)
 	}
@@ -274,15 +268,13 @@ func (c *EntrypointsCommand) Process(ctx context.Context) error {
 }
 
 // findEntrypointDirs finds all the entrypoint directories that have a terraform module.
-func (c *EntrypointsCommand) findEntrypointDirs(ctx context.Context, dir string) ([]string, []string, error) {
+func (c *EntrypointsCommand) findEntrypointDirs(ctx context.Context, dir string) ([]string, error) {
 	logger := logging.FromContext(ctx)
 	logger.DebugContext(ctx, "finding entrypoint directories")
 
-	var removedDirs []string
-
 	entrypoints, err := terraform.GetEntrypointDirectories(dir, c.parsedFlagMaxDepth)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to find terraform directories: %w", err)
+		return nil, fmt.Errorf("failed to find terraform directories: %w", err)
 	}
 
 	entrypointDirs := make([]string, 0, len(entrypoints))
@@ -292,11 +284,11 @@ func (c *EntrypointsCommand) findEntrypointDirs(ctx context.Context, dir string)
 
 	logger.DebugContext(ctx, "calculated entrypoints and removed dirs", "entrypoints", entrypointDirs)
 
-	return entrypointDirs, removedDirs, nil
+	return entrypointDirs, nil
 }
 
 // detectChanges detects changed and removed entrypoints using git diff.
-func (c *EntrypointsCommand) detectEntrypointChanges(ctx context.Context, dir string) ([]string, []string, error) {
+func (c *EntrypointsCommand) detectEntrypointChanges(ctx context.Context, dir string) ([]string, error) {
 	logger := logging.FromContext(ctx)
 	logger.DebugContext(ctx, "detecting changed entrypoints")
 
@@ -304,18 +296,13 @@ func (c *EntrypointsCommand) detectEntrypointChanges(ctx context.Context, dir st
 
 	diffDirs, err := gitClient.DiffDirsAbs(ctx, c.flagSourceRef, c.flagDestRef)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to find git diff directories: %w", err)
+		return nil, fmt.Errorf("failed to find git diff directories: %w", err)
 	}
 	logger.DebugContext(ctx, "git diff directories", "directories", diffDirs)
 
-	removedDirs, err := c.findRemovedDirs(diffDirs)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to find removed dirs: %w", err)
-	}
-
 	moduleUsageGraph, err := terraform.ModuleUsage(ctx, dir, c.parsedFlagMaxDepth, !c.flagFailUnresolvableModules)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get module usage for %s: %w", dir, err)
+		return nil, fmt.Errorf("failed to get module usage for %s: %w", dir, err)
 	}
 
 	modifiedEntrypoints := make(map[string]struct{})
@@ -333,48 +320,21 @@ func (c *EntrypointsCommand) detectEntrypointChanges(ctx context.Context, dir st
 
 	modifiedDirs := maps.Keys(modifiedEntrypoints)
 
-	return modifiedDirs, removedDirs, nil
-}
-
-// findRemovedDirs tests if any directories were removed from the filesystem and returns the list of removed dirs.
-func (c *EntrypointsCommand) findRemovedDirs(dirs []string) ([]string, error) {
-	removed := make([]string, 0)
-
-	for _, dir := range dirs {
-		_, err := os.Stat(dir)
-		// there was an error testing if dir exists
-		if err != nil && !errors.Is(err, fs.ErrNotExist) {
-			return nil, fmt.Errorf("failed to check if dir exists: %w", err)
-		}
-
-		if errors.Is(err, fs.ErrNotExist) {
-			removed = append(removed, dir)
-		}
-	}
-
-	return removed, nil
+	return modifiedDirs, nil
 }
 
 // processDestroyMetaValues processes the user supplied meta values for directories to destroy.
-func (c *EntrypointsCommand) processDestroyMetaValues(cwd string, dirs []string, metaValues modifiers.MetaValues) ([]string, error) {
+func (c *EntrypointsCommand) processDestroyMetaValues(cwd string, metaValues modifiers.MetaValues) ([]string, error) {
 	metaDestroyDirs, ok := metaValues[modifiers.MetaKeyGuardianDestroy]
 	if !ok {
 		return []string{}, nil
-	}
-
-	// if the special modifier "all" is given, we should return all the dirs for destroy
-	if destroyAll := slices.ContainsFunc(metaDestroyDirs, func(v string) bool {
-		return strings.EqualFold(v, modifiers.MetaValueAll)
-	}); destroyAll {
-		return dirs, nil
 	}
 
 	for i, dir := range metaDestroyDirs {
 		metaDestroyDirs[i] = path.Join(cwd, dir)
 	}
 
-	destroyDirs := sets.Intersect(dirs, metaDestroyDirs)
-	return destroyDirs, nil
+	return metaDestroyDirs, nil
 }
 
 // writeOutput writes the command output.

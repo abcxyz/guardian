@@ -14,16 +14,37 @@
 
 package platform
 
-import "context"
+import (
+	"context"
+
+	"github.com/abcxyz/pkg/cli"
+)
 
 var _ Platform = (*Local)(nil)
 
 // Local implements the Platform interface for running Guardian locally.
-type Local struct{}
+type Local struct {
+	cfg *localConfig
+}
+
+type localConfig struct {
+	LocalModifierContent string
+}
+
+func (l *localConfig) RegisterFlags(set *cli.FlagSet) {
+	f := set.NewSection("LOCAL OPTIONS")
+
+	f.StringVar(&cli.StringVar{
+		Name:    "local-modifier-content",
+		Target:  &l.LocalModifierContent,
+		Example: "GUARDIAN_DESTROY=terraform/target/directory",
+		Usage:   "The modifier content to parse Guardian modifiers from.",
+	})
+}
 
 // NewLocal creates a new Local instance.
-func NewLocal(ctx context.Context) *Local {
-	return &Local{}
+func NewLocal(ctx context.Context, cfg *localConfig) *Local {
+	return &Local{cfg: cfg}
 }
 
 // AssignReviewers is a no-op.
@@ -43,7 +64,7 @@ func (l *Local) GetPolicyData(ctx context.Context) (*GetPolicyDataResult, error)
 
 // ModifierContent is a no-op.
 func (l *Local) ModifierContent(ctx context.Context) (string, error) {
-	return "", nil
+	return l.cfg.LocalModifierContent, nil
 }
 
 // StoragePrefix returns an empty string for the local platform type.

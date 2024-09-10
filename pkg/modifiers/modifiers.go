@@ -22,7 +22,6 @@ import (
 
 const (
 	MetaKeyGuardianDestroy = "GUARDIAN_DESTROY"
-	MetaValueAll           = "all"
 )
 
 var (
