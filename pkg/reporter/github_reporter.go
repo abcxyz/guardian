@@ -288,24 +288,15 @@ func (g *GitHubReporter) entrypointsSummaryMessage(p *EntrypointsSummaryParams) 
 		fmt.Fprintf(&msg, "\n\n**%s**\n%s", "Destroy", strings.Join(p.DestroyDirs, "\n"))
 	}
 
-	if len(p.AbandonedDirs) > 0 {
-		fmt.Fprintf(&msg, "\n\n**%s**\n%s", "Abandon", strings.Join(p.AbandonedDirs, "\n"))
-		abandonedDirsNote := "Abandoned directories are removed from source control without modification.\n" +
-			"\n" +
-			"To delete the resources, add one or more modifier comments to the pull request body instructing Guardian to destroy the directory.\n" +
-			"\n" +
-			"```\n" +
-			"GUARDIAN_DESTROY=path/to/directory\n" +
-			"```\n" +
-			"\n" +
-			"To delete all detected directories, use the special keyword `all`:\n" +
-			"\n" +
-			"```\n" +
-			"GUARDIAN_DESTROY=all\n" +
-			"```"
+	helpNote := "Deleted directories are removed from source control without modification.\n" +
+		"\n" +
+		"To destroy an entire directory, add one or more modifier comments to the pull request body instructing Guardian to destroy the directory.\n" +
+		"\n" +
+		"```\n" +
+		"GUARDIAN_DESTROY=path/to/directory\n" +
+		"```"
 
-		fmt.Fprintf(&msg, "\n\n%s", g.markdownZippy("Help", abandonedDirsNote))
-	}
+	fmt.Fprintf(&msg, "\n\n%s", g.markdownZippy("Help", helpNote))
 
 	return msg, nil
 }
