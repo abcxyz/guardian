@@ -162,10 +162,9 @@ func TestGitHubReporterEntrypointsSummary(t *testing.T) {
 			name:   "success",
 			status: StatusSuccess,
 			params: &EntrypointsSummaryParams{
-				Message:       "summary message",
-				UpdateDirs:    []string{"update"},
-				DestroyDirs:   []string{"destroy"},
-				AbandonedDirs: []string{"abandoned"},
+				Message:     "summary message",
+				UpdateDirs:  []string{"update"},
+				DestroyDirs: []string{"destroy"},
 			},
 			logURL: "https://github.com",
 			expGitHubClientReqs: []*github.Request{
@@ -185,7 +184,7 @@ func TestGitHubReporterEntrypointsSummary(t *testing.T) {
 							"<details>\n" +
 							"<summary>Help</summary>\n" +
 							"\n" +
-							"Abandoned directories are removed from source control without modification.\n" +
+							"Deleted directories are removed from source control without modification.\n" +
 							"\n" +
 							"To destroy an entire directory, add one or more modifier comments to the pull request body instructing Guardian to destroy the directory.\n" +
 							"\n" +
@@ -201,10 +200,9 @@ func TestGitHubReporterEntrypointsSummary(t *testing.T) {
 			name:   "error",
 			status: StatusSuccess,
 			params: &EntrypointsSummaryParams{
-				Message:       "summary message",
-				UpdateDirs:    []string{"update"},
-				DestroyDirs:   []string{"destroy"},
-				AbandonedDirs: []string{"abandoned"},
+				Message:     "summary message",
+				UpdateDirs:  []string{"update"},
+				DestroyDirs: []string{"destroy"},
 			},
 			logURL:                 "https://github.com",
 			createIssueCommentsErr: fmt.Errorf("FAILED!"),
@@ -226,7 +224,7 @@ func TestGitHubReporterEntrypointsSummary(t *testing.T) {
 							"<details>\n" +
 							"<summary>Help</summary>\n" +
 							"\n" +
-							"Abandoned directories are removed from source control without modification.\n" +
+							"Deleted directories are removed from source control without modification.\n" +
 							"\n" +
 							"To destroy an entire directory, add one or more modifier comments to the pull request body instructing Guardian to destroy the directory.\n" +
 							"\n" +

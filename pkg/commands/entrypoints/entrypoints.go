@@ -201,7 +201,7 @@ func (c *EntrypointsCommand) Process(ctx context.Context) error {
 		dirAbs, err := util.PathEvalAbs(dir)
 		if err != nil {
 			if errors.Is(err, fs.ErrNotExist) {
-				// ignore mising directories, we will just return nothing
+				// ignore missing directories, we will just return nothing
 				// resulting in a no-op for future stages
 				continue
 			}

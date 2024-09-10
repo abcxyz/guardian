@@ -288,7 +288,7 @@ func (g *GitHubReporter) entrypointsSummaryMessage(p *EntrypointsSummaryParams) 
 		fmt.Fprintf(&msg, "\n\n**%s**\n%s", "Destroy", strings.Join(p.DestroyDirs, "\n"))
 	}
 
-	helpNote := "Abandoned directories are removed from source control without modification.\n" +
+	helpNote := "Deleted directories are removed from source control without modification.\n" +
 		"\n" +
 		"To destroy an entire directory, add one or more modifier comments to the pull request body instructing Guardian to destroy the directory.\n" +
 		"\n" +

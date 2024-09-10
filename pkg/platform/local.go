@@ -62,7 +62,7 @@ func (l *Local) GetPolicyData(ctx context.Context) (*GetPolicyDataResult, error)
 	return &GetPolicyDataResult{}, nil
 }
 
-// ModifierContent is a no-op.
+// ModifierContent returns the local modifier content flag or an empty string.
 func (l *Local) ModifierContent(ctx context.Context) (string, error) {
 	return l.cfg.LocalModifierContent, nil
 }
