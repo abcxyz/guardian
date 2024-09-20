@@ -149,12 +149,12 @@ func (c *EnforceCommand) Process(ctx context.Context) error {
 			teams = append(teams, m.AssignTeams...)
 			users = append(users, m.AssignUsers...)
 
-			_, _ = fmt.Fprint(&b, "- **Missing approvals from one of**:\n")
+			fmt.Fprint(&b, "- **Missing approvals from one of**:\n")
 			if len(m.AssignUsers) > 0 {
-				_, _ = fmt.Fprintf(&b, "\t - Users: %s\n", strings.Join(m.AssignUsers, ", "))
+				fmt.Fprintf(&b, "\t - Users: %s\n", strings.Join(m.AssignUsers, ", "))
 			}
 			if len(m.AssignTeams) > 0 {
-				_, _ = fmt.Fprintf(&b, "\t - Teams: %s\n", strings.Join(m.AssignTeams, ", "))
+				fmt.Fprintf(&b, "\t - Teams: %s\n", strings.Join(m.AssignTeams, ", "))
 			}
 
 			merr = errors.Join(merr, fmt.Errorf("failed: \"%s\" - %s", k, m.Message))
