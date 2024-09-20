@@ -41,10 +41,11 @@ type Status string
 
 // the supported statuses for reporters.
 const (
-	StatusSuccess     Status = Status("SUCCESS")    //nolint:errname // Not an error
-	StatusFailure     Status = Status("FAILURE")    //nolint:errname // Not an error
-	StatusNoOperation Status = Status("NO CHANGES") //nolint:errname // Not an error
-	StatusUnknown     Status = Status("UNKNOWN")    //nolint:errname // Not an error
+	StatusSuccess         Status = Status("SUCCESS")          //nolint:errname // Not an error
+	StatusFailure         Status = Status("FAILURE")          //nolint:errname // Not an error
+	StatusNoOperation     Status = Status("NO CHANGES")       //nolint:errname // Not an error
+	StatusPolicyViolation Status = Status("POLICY VIOLATION") //nolint:errname // Not an error
+	StatusUnknown         Status = Status("UNKNOWN")          //nolint:errname // Not an error
 )
 
 // StatusParams are the parameters for writing status reports.

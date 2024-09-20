@@ -36,10 +36,11 @@ const (
 )
 
 var githubStatusText = map[Status]string{
-	StatusSuccess:     "🟩 SUCCESS",
-	StatusNoOperation: "🟦 NO CHANGES",
-	StatusFailure:     "🟥 FAILED",
-	StatusUnknown:     "⛔️ UNKNOWN",
+	StatusSuccess:         "🟩 SUCCESS",
+	StatusNoOperation:     "🟦 NO CHANGES",
+	StatusFailure:         "🟥 FAILED",
+	StatusUnknown:         "⛔️ UNKNOWN",
+	StatusPolicyViolation: "🚨 ATTENTION REQUIRED",
 }
 
 var (

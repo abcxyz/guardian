@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/abcxyz/guardian/pkg/platform"
+	"github.com/abcxyz/guardian/pkg/reporter"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/testutil"
 )
@@ -70,6 +71,7 @@ func TestEnforce_Process(t *testing.T) {
 				platform: &platform.MockPlatform{
 					AssignReviewersErr: tc.assignReviewersErr,
 				},
+				reporter: &reporter.MockReporter{},
 			}
 
 			err := c.Process(ctx)

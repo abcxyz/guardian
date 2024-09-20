@@ -21,8 +21,11 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
+	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/platform"
+	"github.com/abcxyz/guardian/pkg/reporter"
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
 )
@@ -48,9 +51,12 @@ var _ cli.Command = (*EnforceCommand)(nil)
 type EnforceCommand struct {
 	cli.BaseCommand
 
+	directory      string
 	platformConfig platform.Config
 	flags          EnforceFlags
+	commonFlags    flags.CommonFlags
 	platform       platform.Platform
+	reporter       reporter.Reporter
 }
 
 // Desc implements cli.Command.
@@ -70,6 +76,7 @@ Usage: {{ COMMAND }} [options]
 // Flags returns the list of flags that are defined on the command.
 func (c *EnforceCommand) Flags() *cli.FlagSet {
 	set := cli.NewFlagSet()
+	c.commonFlags.Register(set)
 	c.platformConfig.RegisterFlags(set)
 	c.flags.Register(set)
 	return set
@@ -87,6 +94,22 @@ func (c *EnforceCommand) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("failed to create platform: %w", err)
 	}
 	c.platform = platform
+
+	reporter, err := reporter.NewReporter(ctx, c.platformConfig.Reporter, &reporter.Config{GitHub: c.platformConfig.GitHub})
+	if err != nil {
+		return fmt.Errorf("failed to create reporter: %w", err)
+	}
+	c.reporter = reporter
+
+	cwd, err := c.WorkingDir()
+	if err != nil {
+		return fmt.Errorf("failed to get current working directory: %w", err)
+	}
+
+	if c.commonFlags.FlagDir == "" {
+		c.commonFlags.FlagDir = cwd
+	}
+	c.directory = c.commonFlags.FlagDir
 
 	return c.Process(ctx)
 }
@@ -109,8 +132,8 @@ func (c *EnforceCommand) Process(ctx context.Context) error {
 	}
 
 	var merr error
-	var teams []string
-	var users []string
+	var teams, users []string
+	var b strings.Builder
 	for k, v := range *results {
 		logger.DebugContext(ctx, "processing policy decision",
 			"policy_name", k)
@@ -121,9 +144,18 @@ func (c *EnforceCommand) Process(ctx context.Context) error {
 			continue
 		}
 
+		fmt.Fprintf(&b, "#### %s\n", k)
 		for _, m := range v.MissingApprovals {
 			teams = append(teams, m.AssignTeams...)
 			users = append(users, m.AssignUsers...)
+
+			fmt.Fprint(&b, "- **Missing approvals from one of**:\n")
+			if len(m.AssignUsers) > 0 {
+				fmt.Fprintf(&b, "\t - Users: %s\n", strings.Join(m.AssignUsers, ", "))
+			}
+			if len(m.AssignTeams) > 0 {
+				fmt.Fprintf(&b, "\t - Teams: %s\n", strings.Join(m.AssignTeams, ", "))
+			}
 
 			merr = errors.Join(merr, fmt.Errorf("failed: \"%s\" - %s", k, m.Message))
 		}
@@ -147,5 +179,13 @@ func (c *EnforceCommand) Process(ctx context.Context) error {
 		return fmt.Errorf("failed to assign reviewers: %w", err)
 	}
 
+	if err := c.reporter.Status(ctx, reporter.StatusPolicyViolation, &reporter.StatusParams{
+		Operation: "Policy Violation",
+		Dir:       c.directory,
+		Message:   "**NOTE**: After resolving the policy violations below, re-run the `Guardian Plan` workflow to re-evaluate policy enforcement checks.",
+		Details:   b.String(),
+	}); err != nil {
+		return fmt.Errorf("failed to report status: %w", err)
+	}
 	return merr
 }
