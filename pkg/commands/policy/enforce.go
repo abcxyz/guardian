@@ -180,7 +180,7 @@ func (c *EnforceCommand) Process(ctx context.Context) error {
 	}
 
 	if err := c.reporter.Status(ctx, reporter.StatusPolicyViolation, &reporter.StatusParams{
-		Operation: "Policy Enforce",
+		Operation: "Policy Violation",
 		Dir:       c.directory,
 		Message:   "**NOTE**: After resolving the policy violations below, re-run the `Guardian Plan` workflow to re-evaluate policy enforcement checks.",
 		Details:   b.String(),
