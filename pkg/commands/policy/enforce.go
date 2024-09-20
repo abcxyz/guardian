@@ -144,7 +144,7 @@ func (c *EnforceCommand) Process(ctx context.Context) error {
 			continue
 		}
 
-		_, _ = fmt.Fprintf(&b, "#### %s\n", k)
+		fmt.Fprintf(&b, "#### %s\n", k)
 		for _, m := range v.MissingApprovals {
 			teams = append(teams, m.AssignTeams...)
 			users = append(users, m.AssignUsers...)
