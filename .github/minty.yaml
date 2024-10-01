@@ -1,0 +1,20 @@
+version: 'minty.abcxyz.dev/v2'
+
+rule:
+  if: |-
+    assertion.iss == 'https://token.actions.githubusercontent.com' &&
+    assertion.repository_owner_id == '93787867' &&
+    assertion.repository_id == '599811719' &&
+    assertion.ref == 'refs/heads/main'
+
+scope:
+  create-tag:
+    rule:
+      if: |-
+        assertion.job_workflow_ref == "abcxyz/pkg/.github/workflows/create-tag.yml@refs/heads/main" &&
+        assertion.workflow_ref.startsWith("abcxyz/guardian/.github/workflows/create-tag.yml") &&
+        assertion.event_name == 'workflow_dispatch'
+    repositories:
+      - 'guardian'
+    permissions:
+      contents: 'write'
