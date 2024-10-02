@@ -146,6 +146,62 @@ enforces the policies according to expected [enforcement rules](#supported-enfor
     }
   ```
 
+#### Usage
+You can add policy evaluation and enforcement to your Guardian Plan workflow
+with the following steps:
+
+  > [!IMPORTANT]
+  > The `tfplan.json` file is only available within the same job as the
+  `guardian plan` command.
+
+```
+// guardian-plan.yml
+
+  # ...
+  # Within the Guardian Plan Job
+  # ...
+
+  - name: 'Aggregate Policy Data'
+    shell: 'bash'
+    env:
+      # used to call GitHub API's for data aggregation
+      GUARDIAN_GITHUB_TOKEN: '<TOKEN>'
+    run: |-
+      guardian policy fetch-data
+
+  - name: 'Setup OPA'
+    uses: 'open-policy-agent/setup-opa@v2'
+    with:
+      version: 'latest'
+
+  # Use the policy definitions from the main/approved branch
+  - name: 'Checkout'
+    uses: 'actions/checkout@v4'
+    with:
+      ref: '${{ github.event.pull_request.base.sha }}'
+      path: 'guardian-policy/main'
+
+  - name: 'Evaluate Policy'
+    id: 'opa_eval'
+    shell: 'bash'
+    run: |-
+      DECISION=$(opa eval --input "${DIRECTORY}/tfplan.json" \
+        --format raw \
+        --data ./guardian-policy/main/policy \
+        --data ./guardian_policy_context.json \
+        "data.guardian")
+      echo "$DECISION" > policy_results.json
+
+  - name: 'Enforce Policy'
+    shell: 'bash'
+    env:
+      GITHUB_TOKEN: '<TOKEN>'
+    run: |-
+      guardian policy enforce \
+        -dir=${DIRECTORY} \
+        -results-file=policy_results.json
+```
+
 ## Guardian Terraform Best Practices
 
 * Design your Terraform to have many small Terraform entrypoints. This will result
