@@ -31,6 +31,7 @@ details and to understand how to use the cli see [Guardian CLI](./cli.md).
 * [Terraform Actuation](#terraform-actuation) via Plan, Apply, Run, and Admin cli
 * [IAM Drift Detection](#iam-drift-detection) via IAM drift cli
 * [Statefile Drift Detection](#statefile-drift-detection) via statefile drift cli
+* [Policy Enforcement](#policy-enforcement)
 
 ### Terraform Actuation
 
@@ -96,6 +97,54 @@ For more information on using statefile drift detection see the
 
 You can get started with using Guardian for drift detection by
 [Creating the Drift Detection GitHub Workflows](#creating-drift-detection-workflows).
+
+### Policy Enforcement
+`guardian policy` allows you to embed a set of policies within your code review
+process.
+
+#### Subcommands
+`guardian policy fetch-data` - Fetches data from the corresponding code review
+platform to provide additional context for evaluating policies.
+
+* Requires `members: "read"` permission; Not available in default workflow token
+  permissions. See [github-token-minter](https://github.com/abcxyz/github-token-minter).
+
+The result is written to a local file, `guardian_policy_context.json`:
+```
+// Example
+{
+  "github": {
+    "pull_request_approvers:" [...] # github usernames
+  }
+}
+```
+
+`guardian policy enforce` - Accepts a file of OPA evaluation results, and
+enforces the policies according to expected [enforcement rules](#supported-enforcement-rules).
+
+#### Supported Enforcement Rules
+
+* `missing_approvals` - Assigns principals to the change request and fails the
+  status check until the required approvals are met.
+
+  * Requires `pull-requests: "write"` permissions for GitHub workflows. Note:
+    the default workflow token cannot assign teams to pull requests. See
+    [github-token-minter](https://github.com/abcxyz/github-token-minter).
+
+  Policy results must be in the following format:
+  ```
+    {
+      "name_of_policy": {
+        "missing_approvals": [
+          {
+            "assign_team_reviewers": [...] # github team names,
+            "assign_user_reviewers": [...] # github usernames,
+            "msg": "missing approvals for changes related to...",
+          }
+        ],
+      }
+    }
+  ```
 
 ## Guardian Terraform Best Practices
 
