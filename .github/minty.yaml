@@ -2,7 +2,7 @@ version: 'minty.abcxyz.dev/v2'
 
 rule:
   if: |-
-    assertion.iss == 'https://token.actions.githubusercontent.com' &&
+    assertion.iss == issuers.github &&
     assertion.repository_owner_id == '93787867' &&
     assertion.repository_id == '599811719' &&
     assertion.ref == 'refs/heads/main'
