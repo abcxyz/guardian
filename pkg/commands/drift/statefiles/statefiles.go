@@ -20,6 +20,8 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/abcxyz/abc-updater/pkg/metrics"
+	"github.com/abcxyz/guardian/internal/metricswrap"
 	"log/slog"
 	"os"
 	"regexp"
@@ -162,6 +164,10 @@ func (c *DriftStatefilesCommand) Flags() *cli.FlagSet {
 }
 
 func (c *DriftStatefilesCommand) Run(ctx context.Context, args []string) error {
+	mClient := metrics.FromContext(ctx)
+	cleanup := metricswrap.WriteMetric(ctx, mClient, "command_drift_statefiles", 1)
+	defer cleanup()
+
 	f := c.Flags()
 	if err := f.Parse(args); err != nil {
 		return fmt.Errorf("failed to parse flags: %w", err)

@@ -17,6 +17,8 @@ package drift
 import (
 	"context"
 	"fmt"
+	"github.com/abcxyz/abc-updater/pkg/metrics"
+	"github.com/abcxyz/guardian/internal/metricswrap"
 	"strings"
 
 	"github.com/abcxyz/guardian/internal/version"
@@ -117,6 +119,10 @@ func (c *DetectIamDriftCommand) Flags() *cli.FlagSet {
 }
 
 func (c *DetectIamDriftCommand) Run(ctx context.Context, args []string) error {
+	mClient := metrics.FromContext(ctx)
+	cleanup := metricswrap.WriteMetric(ctx, mClient, "command_iam_detect_drift", 1)
+	defer cleanup()
+
 	f := c.Flags()
 
 	if err := f.Parse(args); err != nil {

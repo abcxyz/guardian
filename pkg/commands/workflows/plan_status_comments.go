@@ -19,6 +19,8 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/abcxyz/abc-updater/pkg/metrics"
+	"github.com/abcxyz/guardian/internal/metricswrap"
 	"slices"
 
 	"github.com/abcxyz/guardian/pkg/github"
@@ -90,6 +92,10 @@ func (c *PlanStatusCommentCommand) Flags() *cli.FlagSet {
 }
 
 func (c *PlanStatusCommentCommand) Run(ctx context.Context, args []string) error {
+	mClient := metrics.FromContext(ctx)
+	cleanup := metricswrap.WriteMetric(ctx, mClient, "command_workflows_plan_status_comments", 1)
+	defer cleanup()
+
 	f := c.Flags()
 	if err := f.Parse(args); err != nil {
 		return fmt.Errorf("failed to parse flags: %w", err)

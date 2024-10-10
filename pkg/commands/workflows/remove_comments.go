@@ -18,6 +18,8 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"github.com/abcxyz/abc-updater/pkg/metrics"
+	"github.com/abcxyz/guardian/internal/metricswrap"
 
 	"github.com/abcxyz/guardian/pkg/platform"
 	"github.com/abcxyz/guardian/pkg/reporter"
@@ -55,6 +57,10 @@ func (c *RemoveGuardianCommentsCommand) Flags() *cli.FlagSet {
 }
 
 func (c *RemoveGuardianCommentsCommand) Run(ctx context.Context, args []string) error {
+	mClient := metrics.FromContext(ctx)
+	cleanup := metricswrap.WriteMetric(ctx, mClient, "command_workflows_remove_guardian_comments", 1)
+	defer cleanup()
+
 	f := c.Flags()
 	if err := f.Parse(args); err != nil {
 		return fmt.Errorf("failed to parse flags: %w", err)
