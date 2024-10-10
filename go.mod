@@ -7,6 +7,7 @@ toolchain go1.22.1
 require (
 	cloud.google.com/go/asset v1.19.1
 	cloud.google.com/go/storage v1.42.0
+	github.com/abcxyz/abc-updater v0.4.0
 	github.com/abcxyz/pkg v1.1.3
 	github.com/google/cel-go v0.20.1
 	github.com/google/go-cmp v0.6.0
@@ -46,6 +47,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
+	github.com/google/renameio v1.0.1 // indirect
 	github.com/google/s2a-go v0.1.7 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.2 // indirect
@@ -53,6 +55,7 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
 	github.com/posener/script v1.2.0 // indirect
+	github.com/sethvargo/go-envconfig v1.0.1 // indirect
 	github.com/shurcooL/graphql v0.0.0-20230722043721-ed46e5a46466 // indirect
 	github.com/stoewer/go-strcase v1.3.0 // indirect
 	github.com/zclconf/go-cty v1.14.4 // indirect

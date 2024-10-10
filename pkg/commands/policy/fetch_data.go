@@ -21,6 +21,8 @@ import (
 	"os"
 	"path"
 
+	"github.com/abcxyz/abc-updater/pkg/metrics"
+	"github.com/abcxyz/guardian/internal/metricswrap"
 	"github.com/abcxyz/guardian/pkg/platform"
 	"github.com/abcxyz/guardian/pkg/util"
 	"github.com/abcxyz/pkg/cli"
@@ -69,6 +71,10 @@ func (c *FetchDataCommand) Flags() *cli.FlagSet {
 
 // Run implements cli.Command.
 func (c *FetchDataCommand) Run(ctx context.Context, args []string) error {
+	mClient := metrics.FromContext(ctx)
+	cleanup := metricswrap.WriteMetric(ctx, mClient, "command_policy_fetch_data", 1)
+	defer cleanup()
+
 	f := c.Flags()
 	if err := f.Parse(args); err != nil {
 		return fmt.Errorf("failed to parse flags: %w", err)

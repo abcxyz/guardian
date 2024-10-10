@@ -27,6 +27,8 @@ import (
 
 	"golang.org/x/exp/maps"
 
+	"github.com/abcxyz/abc-updater/pkg/metrics"
+	"github.com/abcxyz/guardian/internal/metricswrap"
 	"github.com/abcxyz/guardian/pkg/git"
 	"github.com/abcxyz/guardian/pkg/modifiers"
 	"github.com/abcxyz/guardian/pkg/platform"
@@ -143,6 +145,10 @@ func (c *EntrypointsCommand) Flags() *cli.FlagSet {
 }
 
 func (c *EntrypointsCommand) Run(ctx context.Context, args []string) error {
+	mClient := metrics.FromContext(ctx)
+	cleanup := metricswrap.WriteMetric(ctx, mClient, "command_entrypoints", 1)
+	defer cleanup()
+
 	f := c.Flags()
 	if err := f.Parse(args); err != nil {
 		return fmt.Errorf("failed to parse flags: %w", err)
