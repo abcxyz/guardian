@@ -17,10 +17,10 @@ package drift
 import (
 	"context"
 	"fmt"
-	"github.com/abcxyz/abc-updater/pkg/metrics"
-	"github.com/abcxyz/guardian/internal/metricswrap"
 	"strings"
 
+	"github.com/abcxyz/abc-updater/pkg/metrics"
+	"github.com/abcxyz/guardian/internal/metricswrap"
 	"github.com/abcxyz/guardian/internal/version"
 	driftflags "github.com/abcxyz/guardian/pkg/commands/drift/flags"
 	"github.com/abcxyz/guardian/pkg/github"

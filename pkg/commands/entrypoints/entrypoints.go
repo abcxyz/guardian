@@ -21,14 +21,14 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/abcxyz/abc-updater/pkg/metrics"
-	"github.com/abcxyz/guardian/internal/metricswrap"
 	"io/fs"
 	"path"
 	"slices"
 
 	"golang.org/x/exp/maps"
 
+	"github.com/abcxyz/abc-updater/pkg/metrics"
+	"github.com/abcxyz/guardian/internal/metricswrap"
 	"github.com/abcxyz/guardian/pkg/git"
 	"github.com/abcxyz/guardian/pkg/modifiers"
 	"github.com/abcxyz/guardian/pkg/platform"

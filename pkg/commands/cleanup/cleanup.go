@@ -19,9 +19,9 @@ import (
 	"context"
 	"flag"
 	"fmt"
+
 	"github.com/abcxyz/abc-updater/pkg/metrics"
 	"github.com/abcxyz/guardian/internal/metricswrap"
-
 	"github.com/abcxyz/guardian/pkg/commands/drift/statefiles"
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/storage"

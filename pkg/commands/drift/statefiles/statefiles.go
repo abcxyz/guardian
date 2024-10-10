@@ -20,8 +20,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/abcxyz/abc-updater/pkg/metrics"
-	"github.com/abcxyz/guardian/internal/metricswrap"
 	"log/slog"
 	"os"
 	"regexp"
@@ -30,6 +28,8 @@ import (
 
 	githubAPI "github.com/google/go-github/v53/github"
 
+	"github.com/abcxyz/abc-updater/pkg/metrics"
+	"github.com/abcxyz/guardian/internal/metricswrap"
 	"github.com/abcxyz/guardian/pkg/assetinventory"
 	"github.com/abcxyz/guardian/pkg/commands/drift"
 	driftflags "github.com/abcxyz/guardian/pkg/commands/drift/flags"
