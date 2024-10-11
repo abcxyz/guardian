@@ -308,8 +308,7 @@ To use Guardian drift detection in your repository, see the
 in the [`abc.templates`](abc.templates) folder.
 
 ## Metrics
-Google collects usage statics. No identifiable data is collected.
-Metrics are collected using [abcxyz/abc-updater](https://github.com/abcxyz/abc-updater).
+We collect non-identifiable usage metrics using [abcxyz/abc-updater](https://github.com/abcxyz/abc-updater). You can opt out of these metrics by setting the environment variable `GUARDIAN_NO_METRICS` to "true" in your shell.
 
 Currently, data is collected on:
 - Count of total invocations
