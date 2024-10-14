@@ -316,7 +316,7 @@ to "true" in your shell.
 Currently, data is collected on:
 - Count of total invocations
 - Count of each sub-command (apply, plan, policy enforce, policy fetch-data, ect)
-- Count of invocations running in panic
+- Count of invocations resulting in panic
 - Runtime in ms of each invocation
 
 Along with each metric, the following metadata is recorded:
