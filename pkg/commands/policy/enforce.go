@@ -23,7 +23,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/abcxyz/abc-updater/pkg/metrics"
 	"github.com/abcxyz/guardian/internal/metricswrap"
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/platform"
@@ -86,9 +85,8 @@ func (c *EnforceCommand) Flags() *cli.FlagSet {
 
 // Run implements cli.Command.
 func (c *EnforceCommand) Run(ctx context.Context, args []string) error {
-	mClient := metrics.FromContext(ctx)
-	cleanup := metricswrap.WriteMetric(ctx, mClient, "command_policy_enforce", 1)
-	defer cleanup()
+
+	metricswrap.WriteMetric(ctx, "command_policy_enforce", 1)
 
 	f := c.Flags()
 	if err := f.Parse(args); err != nil {

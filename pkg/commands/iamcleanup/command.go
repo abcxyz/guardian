@@ -19,7 +19,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/abcxyz/abc-updater/pkg/metrics"
 	"github.com/abcxyz/guardian/internal/metricswrap"
 	"github.com/abcxyz/guardian/internal/version"
 	"github.com/abcxyz/guardian/pkg/assetinventory"
@@ -100,9 +99,8 @@ func (c *IAMCleanupCommand) Flags() *cli.FlagSet {
 }
 
 func (c *IAMCleanupCommand) Run(ctx context.Context, args []string) error {
-	mClient := metrics.FromContext(ctx)
-	cleanup := metricswrap.WriteMetric(ctx, mClient, "command_iam_cleanup", 1)
-	defer cleanup()
+
+	metricswrap.WriteMetric(ctx, "command_iam_cleanup", 1)
 
 	f := c.Flags()
 

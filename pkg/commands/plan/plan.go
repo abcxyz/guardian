@@ -30,7 +30,6 @@ import (
 
 	"github.com/posener/complete/v2"
 
-	"github.com/abcxyz/abc-updater/pkg/metrics"
 	"github.com/abcxyz/guardian/internal/metricswrap"
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/platform"
@@ -146,9 +145,8 @@ func (c *PlanCommand) Flags() *cli.FlagSet {
 }
 
 func (c *PlanCommand) Run(ctx context.Context, args []string) error {
-	mClient := metrics.FromContext(ctx)
-	cleanup := metricswrap.WriteMetric(ctx, mClient, "command_plan", 1)
-	defer cleanup()
+
+	metricswrap.WriteMetric(ctx, "command_plan", 1)
 
 	f := c.Flags()
 	if err := f.Parse(args); err != nil {

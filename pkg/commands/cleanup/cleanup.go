@@ -20,7 +20,6 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/abcxyz/abc-updater/pkg/metrics"
 	"github.com/abcxyz/guardian/internal/metricswrap"
 	"github.com/abcxyz/guardian/pkg/commands/drift/statefiles"
 	"github.com/abcxyz/guardian/pkg/flags"
@@ -69,9 +68,8 @@ func (c *CleanupCommand) Flags() *cli.FlagSet {
 }
 
 func (c *CleanupCommand) Run(ctx context.Context, args []string) error {
-	mClient := metrics.FromContext(ctx)
-	cleanup := metricswrap.WriteMetric(ctx, mClient, "command_cleanup", 1)
-	defer cleanup()
+
+	metricswrap.WriteMetric(ctx, "command_cleanup", 1)
 
 	f := c.Flags()
 	if err := f.Parse(args); err != nil {

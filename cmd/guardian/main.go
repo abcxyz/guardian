@@ -18,6 +18,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/abcxyz/pkg/logging"
 	"os"
 	"os/signal"
 	"syscall"
@@ -37,16 +38,12 @@ import (
 	"github.com/abcxyz/guardian/pkg/commands/run"
 	"github.com/abcxyz/guardian/pkg/commands/workflows"
 	"github.com/abcxyz/pkg/cli"
-	"github.com/abcxyz/pkg/logging"
 )
 
 const (
 	defaultLogLevel  = "warn"
 	defaultLogFormat = "json"
 	defaultLogDebug  = "false"
-	// Shorter since nothing can be done in parallel due to it starting after
-	// program logic finishes.
-	runtimeMetricsTimeout = 200 * time.Millisecond
 )
 
 // rootCmd defines the starting command structure.
@@ -141,34 +138,25 @@ func main() {
 
 func realMain(ctx context.Context) error {
 	setLogEnvVars()
+	ctx = logging.WithLogger(ctx, logging.NewFromEnv("GUARDIAN_"))
 
 	start := time.Now()
 	mClient, err := metrics.New(ctx, version.Name, version.Version)
 	if err != nil {
-		fmt.Printf("metric client creation failed: %v\n", err)
+		logging.FromContext(ctx).DebugContext(ctx, "metric client creation failed", "error", err)
 	}
 
 	ctx = metrics.WithClient(ctx, mClient)
 	defer func() {
 		if r := recover(); r != nil {
-			handler := metricswrap.WriteMetric(ctx, mClient, "panics", 1)
-			defer handler()
+			metricswrap.WriteMetric(ctx, "panics", 1)
 			panic(r)
 		}
 	}()
 
-	cleanup := metricswrap.WriteMetric(ctx, mClient, "runs", 1)
-	defer cleanup()
+	metricswrap.WriteMetric(ctx, "runs", 1)
+	defer metricswrap.WriteMetric(ctx, "runtime_millis", time.Since(start).Milliseconds())
 
-	// This will cause a synchronous metrics call.
-	defer func() {
-		runtimeCtx, closer := context.WithTimeout(ctx, runtimeMetricsTimeout)
-		defer closer()
-		cleanup := metricswrap.WriteMetric(runtimeCtx, mClient, "runtime_millis", time.Since(start).Milliseconds())
-		defer cleanup()
-	}()
-
-	ctx = logging.WithLogger(ctx, logging.NewFromEnv("GUARDIAN_"))
 	return rootCmd().Run(ctx, os.Args[1:]) //nolint:wrapcheck // Want passthrough
 }
 

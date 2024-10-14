@@ -308,11 +308,14 @@ To use Guardian drift detection in your repository, see the
 in the [`abc.templates`](abc.templates) folder.
 
 ## Metrics
-We collect non-identifiable usage metrics using [abcxyz/abc-updater](https://github.com/abcxyz/abc-updater). You can opt out of these metrics by setting the environment variable `GUARDIAN_NO_METRICS` to "true" in your shell.
+We collect non-identifiable usage metrics using
+[abcxyz/abc-updater](https://github.com/abcxyz/abc-updater). You can opt out of
+these metrics by setting the environment variable `GUARDIAN_NO_METRICS`
+to "true" in your shell.
 
 Currently, data is collected on:
 - Count of total invocations
-- Count of each sub-command (render, describe, upgrade, ect)
+- Count of each sub-command (apply, plan, policy enforce, policy fetch-data, ect)
 - Count of invocations running in panic
 - Runtime in ms of each invocation
 
@@ -324,5 +327,5 @@ Metrics data is retained for 24 months.
 
 You can **opt-out** of collection by setting the following environment variable:
 ```shell
-GUARDIAN_NO_METRICS=TRUE
+export GUARDIAN_NO_METRICS=TRUE
 ```

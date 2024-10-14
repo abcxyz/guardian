@@ -28,7 +28,6 @@ import (
 
 	githubAPI "github.com/google/go-github/v53/github"
 
-	"github.com/abcxyz/abc-updater/pkg/metrics"
 	"github.com/abcxyz/guardian/internal/metricswrap"
 	"github.com/abcxyz/guardian/pkg/assetinventory"
 	"github.com/abcxyz/guardian/pkg/commands/drift"
@@ -164,9 +163,8 @@ func (c *DriftStatefilesCommand) Flags() *cli.FlagSet {
 }
 
 func (c *DriftStatefilesCommand) Run(ctx context.Context, args []string) error {
-	mClient := metrics.FromContext(ctx)
-	cleanup := metricswrap.WriteMetric(ctx, mClient, "command_drift_statefiles", 1)
-	defer cleanup()
+
+	metricswrap.WriteMetric(ctx, "command_drift_statefiles", 1)
 
 	f := c.Flags()
 	if err := f.Parse(args); err != nil {

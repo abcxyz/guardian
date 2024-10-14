@@ -23,7 +23,6 @@ import (
 
 	"golang.org/x/exp/slices"
 
-	"github.com/abcxyz/abc-updater/pkg/metrics"
 	"github.com/abcxyz/guardian/internal/metricswrap"
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/terraform"
@@ -96,9 +95,8 @@ func (c *RunCommand) Flags() *cli.FlagSet {
 }
 
 func (c *RunCommand) Run(ctx context.Context, args []string) error {
-	mClient := metrics.FromContext(ctx)
-	cleanup := metricswrap.WriteMetric(ctx, mClient, "command_run", 1)
-	defer cleanup()
+
+	metricswrap.WriteMetric(ctx, "command_run", 1)
 
 	f := c.Flags()
 	if err := f.Parse(args); err != nil {
