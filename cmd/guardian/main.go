@@ -155,7 +155,10 @@ func realMain(ctx context.Context) error {
 	}()
 
 	metricswrap.WriteMetric(ctx, "runs", 1)
-	defer metricswrap.WriteMetric(ctx, "runtime_millis", time.Since(start).Milliseconds())
+	defer func() {
+		// Needs to be wrapped in func() due to time.Since(start).
+		metricswrap.WriteMetric(ctx, "runtime_millis", time.Since(start).Milliseconds())
+	}()
 
 	return rootCmd().Run(ctx, os.Args[1:]) //nolint:wrapcheck // Want passthrough
 }
