@@ -324,8 +324,3 @@ Along with each metric, the following metadata is recorded:
 - Installation time with minute granularity
 
 Metrics data is retained for 24 months.
-
-You can **opt-out** of collection by setting the following environment variable:
-```shell
-export GUARDIAN_NO_METRICS=TRUE
-```
