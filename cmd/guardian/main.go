@@ -18,7 +18,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/abcxyz/pkg/logging"
 	"os"
 	"os/signal"
 	"syscall"
@@ -38,6 +37,7 @@ import (
 	"github.com/abcxyz/guardian/pkg/commands/run"
 	"github.com/abcxyz/guardian/pkg/commands/workflows"
 	"github.com/abcxyz/pkg/cli"
+	"github.com/abcxyz/pkg/logging"
 )
 
 const (

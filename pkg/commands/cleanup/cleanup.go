@@ -68,7 +68,6 @@ func (c *CleanupCommand) Flags() *cli.FlagSet {
 }
 
 func (c *CleanupCommand) Run(ctx context.Context, args []string) error {
-
 	metricswrap.WriteMetric(ctx, "command_cleanup", 1)
 
 	f := c.Flags()

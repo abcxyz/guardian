@@ -137,7 +137,6 @@ func (c *ApplyCommand) Flags() *cli.FlagSet {
 }
 
 func (c *ApplyCommand) Run(ctx context.Context, args []string) error {
-
 	metricswrap.WriteMetric(ctx, "command_apply", 1)
 
 	f := c.Flags()

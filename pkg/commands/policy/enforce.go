@@ -85,7 +85,6 @@ func (c *EnforceCommand) Flags() *cli.FlagSet {
 
 // Run implements cli.Command.
 func (c *EnforceCommand) Run(ctx context.Context, args []string) error {
-
 	metricswrap.WriteMetric(ctx, "command_policy_enforce", 1)
 
 	f := c.Flags()

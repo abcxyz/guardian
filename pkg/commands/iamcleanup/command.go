@@ -99,7 +99,6 @@ func (c *IAMCleanupCommand) Flags() *cli.FlagSet {
 }
 
 func (c *IAMCleanupCommand) Run(ctx context.Context, args []string) error {
-
 	metricswrap.WriteMetric(ctx, "command_iam_cleanup", 1)
 
 	f := c.Flags()

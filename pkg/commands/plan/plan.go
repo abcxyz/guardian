@@ -145,7 +145,6 @@ func (c *PlanCommand) Flags() *cli.FlagSet {
 }
 
 func (c *PlanCommand) Run(ctx context.Context, args []string) error {
-
 	metricswrap.WriteMetric(ctx, "command_plan", 1)
 
 	f := c.Flags()

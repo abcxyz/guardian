@@ -56,7 +56,6 @@ func (c *RemoveGuardianCommentsCommand) Flags() *cli.FlagSet {
 }
 
 func (c *RemoveGuardianCommentsCommand) Run(ctx context.Context, args []string) error {
-
 	metricswrap.WriteMetric(ctx, "command_workflows_remove_guardian_comments", 1)
 
 	f := c.Flags()

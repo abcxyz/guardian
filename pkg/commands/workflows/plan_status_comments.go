@@ -91,7 +91,6 @@ func (c *PlanStatusCommentCommand) Flags() *cli.FlagSet {
 }
 
 func (c *PlanStatusCommentCommand) Run(ctx context.Context, args []string) error {
-
 	metricswrap.WriteMetric(ctx, "command_workflows_plan_status_comments", 1)
 
 	f := c.Flags()

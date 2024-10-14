@@ -163,7 +163,6 @@ func (c *DriftStatefilesCommand) Flags() *cli.FlagSet {
 }
 
 func (c *DriftStatefilesCommand) Run(ctx context.Context, args []string) error {
-
 	metricswrap.WriteMetric(ctx, "command_drift_statefiles", 1)
 
 	f := c.Flags()

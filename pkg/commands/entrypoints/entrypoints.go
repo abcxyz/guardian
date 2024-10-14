@@ -144,7 +144,6 @@ func (c *EntrypointsCommand) Flags() *cli.FlagSet {
 }
 
 func (c *EntrypointsCommand) Run(ctx context.Context, args []string) error {
-
 	metricswrap.WriteMetric(ctx, "command_entrypoints", 1)
 
 	f := c.Flags()

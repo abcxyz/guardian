@@ -95,7 +95,6 @@ func (c *RunCommand) Flags() *cli.FlagSet {
 }
 
 func (c *RunCommand) Run(ctx context.Context, args []string) error {
-
 	metricswrap.WriteMetric(ctx, "command_run", 1)
 
 	f := c.Flags()

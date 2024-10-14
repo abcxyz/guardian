@@ -16,10 +16,10 @@ package metricswrap
 
 import (
 	"context"
-	"github.com/abcxyz/pkg/logging"
 	"time"
 
 	"github.com/abcxyz/abc-updater/pkg/metrics"
+	"github.com/abcxyz/pkg/logging"
 )
 
 const defaultMetricsTimeout = 500 * time.Millisecond

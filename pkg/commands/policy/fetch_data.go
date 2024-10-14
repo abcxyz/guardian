@@ -70,7 +70,6 @@ func (c *FetchDataCommand) Flags() *cli.FlagSet {
 
 // Run implements cli.Command.
 func (c *FetchDataCommand) Run(ctx context.Context, args []string) error {
-
 	metricswrap.WriteMetric(ctx, "command_policy_fetch_data", 1)
 
 	f := c.Flags()
