@@ -18,12 +18,12 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/abcxyz/abc-updater/pkg/metrics"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/abcxyz/abc-updater/pkg/metrics"
 	"github.com/abcxyz/guardian/internal/metricswrap"
 	"github.com/abcxyz/guardian/internal/version"
 	"github.com/abcxyz/guardian/pkg/commands/apply"
