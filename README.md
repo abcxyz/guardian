@@ -306,3 +306,21 @@ in the [`abc.templates`](abc.templates) folder.
 To use Guardian drift detection in your repository, see the
 [template installation instructions](abc.templates/README.md#install-drift-detection-workflows)
 in the [`abc.templates`](abc.templates) folder.
+
+## Metrics
+We collect non-identifiable usage metrics using
+[abcxyz/abc-updater](https://github.com/abcxyz/abc-updater). You can opt out of
+these metrics by setting the environment variable `GUARDIAN_NO_METRICS`
+to "true" in your shell.
+
+Currently, data is collected on:
+- Count of total invocations
+- Count of each sub-command (apply, plan, policy enforce, policy fetch-data, ect)
+- Count of invocations resulting in panic
+- Runtime in ms of each invocation
+
+Along with each metric, the following metadata is recorded:
+- Application version
+- Installation time with minute granularity
+
+Metrics data is retained for 24 months.

@@ -23,6 +23,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/abcxyz/guardian/internal/metricswrap"
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/platform"
 	"github.com/abcxyz/guardian/pkg/reporter"
@@ -84,6 +85,8 @@ func (c *EnforceCommand) Flags() *cli.FlagSet {
 
 // Run implements cli.Command.
 func (c *EnforceCommand) Run(ctx context.Context, args []string) error {
+	metricswrap.WriteMetric(ctx, "command_policy_enforce", 1)
+
 	f := c.Flags()
 	if err := f.Parse(args); err != nil {
 		return fmt.Errorf("failed to parse flags: %w", err)

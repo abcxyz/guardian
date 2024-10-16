@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/abcxyz/guardian/internal/metricswrap"
 	"github.com/abcxyz/guardian/internal/version"
 	"github.com/abcxyz/guardian/pkg/assetinventory"
 	"github.com/abcxyz/guardian/pkg/flags"
@@ -98,6 +99,8 @@ func (c *IAMCleanupCommand) Flags() *cli.FlagSet {
 }
 
 func (c *IAMCleanupCommand) Run(ctx context.Context, args []string) error {
+	metricswrap.WriteMetric(ctx, "command_iam_cleanup", 1)
+
 	f := c.Flags()
 
 	if err := f.Parse(args); err != nil {

@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/abcxyz/guardian/internal/metricswrap"
 	"github.com/abcxyz/guardian/internal/version"
 	driftflags "github.com/abcxyz/guardian/pkg/commands/drift/flags"
 	"github.com/abcxyz/guardian/pkg/github"
@@ -117,6 +118,8 @@ func (c *DetectIamDriftCommand) Flags() *cli.FlagSet {
 }
 
 func (c *DetectIamDriftCommand) Run(ctx context.Context, args []string) error {
+	metricswrap.WriteMetric(ctx, "command_iam_detect_drift", 1)
+
 	f := c.Flags()
 
 	if err := f.Parse(args); err != nil {

@@ -21,7 +21,10 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
+	"github.com/abcxyz/abc-updater/pkg/metrics"
+	"github.com/abcxyz/guardian/internal/metricswrap"
 	"github.com/abcxyz/guardian/internal/version"
 	"github.com/abcxyz/guardian/pkg/commands/apply"
 	"github.com/abcxyz/guardian/pkg/commands/cleanup"
@@ -133,9 +136,35 @@ func main() {
 	}
 }
 
+func setupMetricsClient(ctx context.Context) context.Context {
+	mClient, err := metrics.New(ctx, version.Name, version.Version)
+	if err != nil {
+		logging.FromContext(ctx).DebugContext(ctx, "metric client creation failed", "error", err)
+	}
+
+	ctx = metrics.WithClient(ctx, mClient)
+	return ctx
+}
+
 func realMain(ctx context.Context) error {
+	start := time.Now()
 	setLogEnvVars()
 	ctx = logging.WithLogger(ctx, logging.NewFromEnv("GUARDIAN_"))
+
+	ctx = setupMetricsClient(ctx)
+	defer func() {
+		if r := recover(); r != nil {
+			metricswrap.WriteMetric(ctx, "panics", 1)
+			panic(r)
+		}
+	}()
+
+	metricswrap.WriteMetric(ctx, "runs", 1)
+	defer func() {
+		// Needs to be wrapped in func() due to time.Since(start).
+		metricswrap.WriteMetric(ctx, "runtime_millis", time.Since(start).Milliseconds())
+	}()
+
 	return rootCmd().Run(ctx, os.Args[1:]) //nolint:wrapcheck // Want passthrough
 }
 

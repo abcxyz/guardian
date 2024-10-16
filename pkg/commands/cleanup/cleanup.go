@@ -20,6 +20,7 @@ import (
 	"flag"
 	"fmt"
 
+	"github.com/abcxyz/guardian/internal/metricswrap"
 	"github.com/abcxyz/guardian/pkg/commands/drift/statefiles"
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/storage"
@@ -67,6 +68,8 @@ func (c *CleanupCommand) Flags() *cli.FlagSet {
 }
 
 func (c *CleanupCommand) Run(ctx context.Context, args []string) error {
+	metricswrap.WriteMetric(ctx, "command_cleanup", 1)
+
 	f := c.Flags()
 	if err := f.Parse(args); err != nil {
 		return fmt.Errorf("failed to parse flags: %w", err)

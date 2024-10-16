@@ -23,6 +23,7 @@ import (
 
 	"golang.org/x/exp/slices"
 
+	"github.com/abcxyz/guardian/internal/metricswrap"
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/terraform"
 	"github.com/abcxyz/guardian/pkg/util"
@@ -94,6 +95,8 @@ func (c *RunCommand) Flags() *cli.FlagSet {
 }
 
 func (c *RunCommand) Run(ctx context.Context, args []string) error {
+	metricswrap.WriteMetric(ctx, "command_run", 1)
+
 	f := c.Flags()
 	if err := f.Parse(args); err != nil {
 		return fmt.Errorf("failed to parse flags: %w", err)

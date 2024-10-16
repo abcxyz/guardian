@@ -28,6 +28,7 @@ import (
 
 	githubAPI "github.com/google/go-github/v53/github"
 
+	"github.com/abcxyz/guardian/internal/metricswrap"
 	"github.com/abcxyz/guardian/pkg/assetinventory"
 	"github.com/abcxyz/guardian/pkg/commands/drift"
 	driftflags "github.com/abcxyz/guardian/pkg/commands/drift/flags"
@@ -162,6 +163,8 @@ func (c *DriftStatefilesCommand) Flags() *cli.FlagSet {
 }
 
 func (c *DriftStatefilesCommand) Run(ctx context.Context, args []string) error {
+	metricswrap.WriteMetric(ctx, "command_drift_statefiles", 1)
+
 	f := c.Flags()
 	if err := f.Parse(args); err != nil {
 		return fmt.Errorf("failed to parse flags: %w", err)

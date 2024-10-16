@@ -29,6 +29,7 @@ import (
 
 	"github.com/posener/complete/v2"
 
+	"github.com/abcxyz/guardian/internal/metricswrap"
 	"github.com/abcxyz/guardian/pkg/commands/plan"
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/platform"
@@ -136,6 +137,8 @@ func (c *ApplyCommand) Flags() *cli.FlagSet {
 }
 
 func (c *ApplyCommand) Run(ctx context.Context, args []string) error {
+	metricswrap.WriteMetric(ctx, "command_apply", 1)
+
 	f := c.Flags()
 	if err := f.Parse(args); err != nil {
 		return fmt.Errorf("failed to parse flags: %w", err)
