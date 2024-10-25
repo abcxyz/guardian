@@ -51,7 +51,7 @@ func (f *FileReporter) Status(ctx context.Context, st Status, p *StatusParams) e
 		return fmt.Errorf("failed to write file")
 	}
 
-	logger.DebugContext(ctx, "wrote status comment to file", "statusFilename", statusFilename)
+	logger.DebugContext(ctx, "wrote status comment to file", "status_filename", statusFilename)
 	return nil
 }
 
@@ -68,7 +68,8 @@ func (f *FileReporter) EntrypointsSummary(ctx context.Context, params *Entrypoin
 		return fmt.Errorf("failed to write file")
 	}
 
-	logger.DebugContext(ctx, "wrote entrypoints summary to file", "entrypointsSummaryFilename", entrypointsSummaryFilename)
+	logger.DebugContext(ctx, "wrote entrypoints summary to file",
+		"entrypoints_summary_filename", entrypointsSummaryFilename)
 	return nil
 }
 
