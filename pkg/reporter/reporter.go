@@ -28,6 +28,7 @@ import (
 const (
 	TypeNone   string = "none"
 	TypeGitHub string = "github"
+	TypeFile   string = "file"
 )
 
 // SortedReporterTypes are the sorted Reporter types for printing messages and prediction.
@@ -94,6 +95,10 @@ type Config struct {
 func NewReporter(ctx context.Context, t string, c *Config) (Reporter, error) {
 	if strings.EqualFold(t, TypeNone) {
 		return NewNoopReporter(ctx)
+	}
+
+	if strings.EqualFold(t, TypeFile) {
+		return NewFileReporter()
 	}
 
 	if strings.EqualFold(t, TypeGitHub) {

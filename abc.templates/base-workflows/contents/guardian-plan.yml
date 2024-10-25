@@ -31,9 +31,6 @@ concurrency:
   group: '${{ github.workflow }}-${{ github.event.pull_request.number }}-${{ github.head_ref || github.ref }}'
 
 env:
-  GITHUB_OWNER_NAME: '${{ github.event.repository.owner.login }}'
-  GITHUB_REPO_NAME: '${{ github.event.repository.name }}'
-  PULL_REQUEST_NUMBER: '${{ github.event.pull_request.number }}'
   GUARDIAN_VERSION: 'REPLACE_GUARDIAN_VERSION_TAG'
   GUARDIAN_WIF_PROVIDER: 'REPLACE_GUARDIAN_WIF_PROVIDER'
   GUARDIAN_WIF_SERVICE_ACCOUNT: 'REPLACE_GUARDIAN_WIF_SERVICE_ACCOUNT'
@@ -66,29 +63,27 @@ jobs:
           cache_key: '${{ runner.os }}_${{ runner.arch }}_guardian_${{ env.GUARDIAN_VERSION }}'
           add_to_path: true
 
-      - name: 'Guardian Directories'
-        id: 'dirs'
-        shell: 'bash'
-        env:
-          SOURCE_REF: '${{ github.event.pull_request.base.sha }}'
-          DEST_REF: '${{ github.event.pull_request.head.sha }}'
-        run: |-
-          DIRECTORIES=$(guardian entrypoints -dir="REPLACE_TERRAFORM_DIRECTORY" -detect-changes -source-ref="${SOURCE_REF}" -dest-ref="${DEST_REF}" -format=json)
-          echo "entrypoints -> ${DIRECTORIES}"
-          echo "directories=${DIRECTORIES}" >> $GITHUB_OUTPUT
-
       - name: 'Guardian Remove Previous Plan Comments'
         shell: 'bash'
         env:
           # used to delete old comments on pull requests (access to only this repo)
-          REPO_TOKEN: '${{ github.token }}'
+          GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
         run: |-
-          guardian workflows remove-guardian-comments \
-            -github-owner="${GITHUB_OWNER_NAME}" \
-            -github-repo="${GITHUB_REPO_NAME}" \
-            -github-token="${REPO_TOKEN}" \
-            -pull-request-number="${PULL_REQUEST_NUMBER}" \
-            -for-command="plan"
+          guardian workflows remove-guardian-comments
+
+      - name: 'Guardian Directories'
+        id: 'dirs'
+        shell: 'bash'
+        env:
+          # used to create comments on pull requests (access to only this repo)
+          GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
+          SOURCE_REF: '${{ github.event.pull_request.base.sha }}'
+          DEST_REF: '${{ github.event.pull_request.head.sha }}'
+        run: |-
+          DIRECTORIES=$(guardian entrypoints -dir="REPLACE_TERRAFORM_DIRECTORY" -detect-changes -source-ref="${SOURCE_REF}" -dest-ref="${DEST_REF}")
+          echo "entrypoints -> ${DIRECTORIES}"
+          echo "directories=${DIRECTORIES}" >> $GITHUB_OUTPUT
+
 
   plan:
     name: 'plan (${{ matrix.working_directory }})'
@@ -141,19 +136,11 @@ jobs:
       - name: 'Guardian Plan'
         shell: 'bash'
         env:
-          DIRECTORY: '${{ matrix.working_directory }}'
           # used to create comments on pull requests (access to only this repo)
-          REPO_TOKEN: '${{ github.token }}'
-          JOB_NAME: '${{ github.job }} (${{ matrix.working_directory }})'
+          GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
+          DIRECTORY: '${{ matrix.working_directory }}'
         run: |-
-          guardian plan \
-          -dir="${DIRECTORY}" \
-          -github-owner="${GITHUB_OWNER_NAME}" \
-          -github-repo="${GITHUB_REPO_NAME}" \
-          -github-token="${REPO_TOKEN}" \
-          -pull-request-number="${PULL_REQUEST_NUMBER}" \
-          -bucket-name="${GUARDIAN_BUCKET_NAME}" \
-          -job-name="${JOB_NAME}"
+          guardian plan -dir="${DIRECTORY}" -storage="gcs://${GUARDIAN_BUCKET_NAME}"
 
   plan_success:
     if: '${{ always() }}'
@@ -179,12 +166,8 @@ jobs:
         shell: 'bash'
         env:
           # used to create comments on pull requests (access to only this repo)
-          REPO_TOKEN: '${{ github.token }}'
+          GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
         run: |-
           guardian workflows plan-status-comment \
-          -github-owner="${GITHUB_OWNER_NAME}" \
-          -github-repo="${GITHUB_REPO_NAME}" \
-          -github-token="${REPO_TOKEN}" \
-          -pull-request-number="${PULL_REQUEST_NUMBER}" \
           -init-result="${{ needs.init.result }}" \
           -plan-result="${{ needs.plan.result }}"

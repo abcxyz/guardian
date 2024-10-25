@@ -94,7 +94,7 @@ jobs:
         env:
           ENTRYPOINT: '${{ inputs.entrypoint }}'
         run: |-
-          DIRECTORIES=$(guardian entrypoints -dir="${ENTRYPOINT}" -format=json)
+          DIRECTORIES=$(guardian entrypoints -dir="${ENTRYPOINT}")
           echo "entrypoints -> ${DIRECTORIES}"
           echo "directories=${DIRECTORIES}" >> $GITHUB_OUTPUT
 
