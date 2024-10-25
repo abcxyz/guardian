@@ -218,3 +218,38 @@ func statusMessage(st Status, p *StatusParams, logURL string, maxCommentLength i
 
 	return msg, nil
 }
+
+// entrypointsSummaryMessage generates the entrypoints summary message based on the provided reporter values.
+func entrypointsSummaryMessage(p *EntrypointsSummaryParams, logURL string) (strings.Builder, error) {
+	var msg strings.Builder
+
+	fmt.Fprintf(&msg, "%s", commentPrefix)
+
+	if logURL != "" {
+		fmt.Fprintf(&msg, " [%s]", markdownURL("logs", logURL))
+	}
+
+	if p.Message != "" {
+		fmt.Fprintf(&msg, "\n\n%s", p.Message)
+	}
+
+	if len(p.UpdateDirs) > 0 {
+		fmt.Fprintf(&msg, "\n\n**%s**\n%s", "Update", strings.Join(p.UpdateDirs, "\n"))
+	}
+
+	if len(p.DestroyDirs) > 0 {
+		fmt.Fprintf(&msg, "\n\n**%s**\n%s", "Destroy", strings.Join(p.DestroyDirs, "\n"))
+	}
+
+	helpNote := "Deleted directories are removed from source control without modification.\n" +
+		"\n" +
+		"To destroy an entire directory, add one or more modifier comments to the pull request body instructing Guardian to destroy the directory.\n" +
+		"\n" +
+		"```\n" +
+		"GUARDIAN_DESTROY=path/to/directory\n" +
+		"```"
+
+	fmt.Fprintf(&msg, "\n\n%s", markdownZippy("Help", helpNote))
+
+	return msg, nil
+}
