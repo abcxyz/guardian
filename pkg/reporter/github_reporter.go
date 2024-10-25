@@ -30,18 +30,8 @@ import (
 var _ Reporter = (*GitHubReporter)(nil)
 
 const (
-	githubCommentPrefix    = "#### 🔱 Guardian 🔱"
 	githubMaxCommentLength = 65536
-	githubTruncatedMessage = "\n\n> Message has been truncated. See workflow logs to view the full message."
 )
-
-var githubStatusText = map[Status]string{
-	StatusSuccess:         "🟩 SUCCESS",
-	StatusNoOperation:     "🟦 NO CHANGES",
-	StatusFailure:         "🟥 FAILED",
-	StatusUnknown:         "⛔️ UNKNOWN",
-	StatusPolicyViolation: "🚨 ATTENTION REQUIRED",
-}
 
 var (
 	tildeChanged = regexp.MustCompile(
@@ -143,7 +133,7 @@ func NewGitHubReporter(ctx context.Context, gc github.GitHub, i *GitHubReporterI
 
 // Status implements the reporter Status function by writing a GitHub comment.
 func (g *GitHubReporter) Status(ctx context.Context, st Status, p *StatusParams) error {
-	msg, err := g.statusMessage(st, p)
+	msg, err := statusMessage(st, p, g.logURL, githubMaxCommentLength)
 	if err != nil {
 		return fmt.Errorf("failed to generate status message: %w", err)
 	}
@@ -200,7 +190,7 @@ func (g *GitHubReporter) Clear(ctx context.Context) error {
 
 		for _, comment := range response.Comments {
 			// prefix is not found, skip
-			if !strings.HasPrefix(comment.Body, githubCommentPrefix) {
+			if !strings.HasPrefix(comment.Body, commentPrefix) {
 				continue
 			}
 
@@ -217,64 +207,14 @@ func (g *GitHubReporter) Clear(ctx context.Context) error {
 	}
 }
 
-// statusMessage generates the status message based on the provided reporter values.
-func (g *GitHubReporter) statusMessage(st Status, p *StatusParams) (strings.Builder, error) {
-	var msg strings.Builder
-
-	fmt.Fprintf(&msg, "%s", githubCommentPrefix)
-
-	operationText := strings.ToUpper(strings.TrimSpace(p.Operation))
-	if operationText != "" {
-		fmt.Fprintf(&msg, " %s", g.markdownPill(operationText))
-	}
-
-	statusText, ok := githubStatusText[st]
-	if !ok {
-		statusText = githubStatusText[StatusUnknown]
-	}
-
-	fmt.Fprintf(&msg, " %s", g.markdownPill(statusText))
-
-	if g.logURL != "" {
-		fmt.Fprintf(&msg, " [%s]", g.markdownURL("logs", g.logURL))
-	}
-
-	if p.Dir != "" {
-		fmt.Fprintf(&msg, "\n\n**Entrypoint:** %s", p.Dir)
-	}
-
-	if p.Message != "" {
-		fmt.Fprintf(&msg, "\n\n %s", p.Message)
-	}
-
-	if p.Details != "" {
-		detailsText := fmt.Sprintf("\n\n%s", g.markdownZippy("Details", p.Details))
-
-		if p.HasDiff {
-			detailsText = fmt.Sprintf("\n\n%s", g.markdownDiffZippy("Details", formatOutputForGitHubDiff(p.Details)))
-		}
-
-		// if the length of the entire message would exceed the max length
-		// append a truncated message instead of the details text.
-		totalLength := len([]rune(msg.String())) + len([]rune(detailsText))
-		if totalLength > githubMaxCommentLength {
-			detailsText = githubTruncatedMessage
-		}
-
-		fmt.Fprintf(&msg, "%s", detailsText)
-	}
-
-	return msg, nil
-}
-
 // entrypointsSummaryMessage generates the entrypoints summary message based on the provided reporter values.
 func (g *GitHubReporter) entrypointsSummaryMessage(p *EntrypointsSummaryParams) (strings.Builder, error) {
 	var msg strings.Builder
 
-	fmt.Fprintf(&msg, "%s", githubCommentPrefix)
+	fmt.Fprintf(&msg, "%s", commentPrefix)
 
 	if g.logURL != "" {
-		fmt.Fprintf(&msg, " [%s]", g.markdownURL("logs", g.logURL))
+		fmt.Fprintf(&msg, " [%s]", markdownURL("logs", g.logURL))
 	}
 
 	if p.Message != "" {
@@ -297,36 +237,7 @@ func (g *GitHubReporter) entrypointsSummaryMessage(p *EntrypointsSummaryParams) 
 		"GUARDIAN_DESTROY=path/to/directory\n" +
 		"```"
 
-	fmt.Fprintf(&msg, "\n\n%s", g.markdownZippy("Help", helpNote))
+	fmt.Fprintf(&msg, "\n\n%s", markdownZippy("Help", helpNote))
 
 	return msg, nil
-}
-
-// markdownPill returns a markdown element that is bolded and wraped in a inline code block.
-func (g *GitHubReporter) markdownPill(text string) string {
-	return fmt.Sprintf("**`%s`**", text)
-}
-
-// markdownURL returns a markdown URL string given a title and a URL.
-func (g *GitHubReporter) markdownURL(text, URL string) string {
-	return fmt.Sprintf("[%s](%s)", text, URL)
-}
-
-// markdonZippy returns a collapsible section with a given title and body.
-func (g *GitHubReporter) markdownZippy(title, body string) string {
-	return fmt.Sprintf("<details>\n<summary>%s</summary>\n\n%s\n</details>", title, body)
-}
-
-// markdonDiffZippy returns a collapsible section with a given title and body.
-func (g *GitHubReporter) markdownDiffZippy(title, body string) string {
-	return fmt.Sprintf("<details>\n<summary>%s</summary>\n\n```diff\n\n%s\n```\n</details>", title, body)
-}
-
-// formatOutputForGitHubDiff formats the Terraform diff output for use with
-// GitHub diff markdown formatting.
-func formatOutputForGitHubDiff(content string) string {
-	content = tildeChanged.ReplaceAllString(content, `$1!`)
-	content = swapLeadingWhitespace.ReplaceAllString(content, "$2$1")
-
-	return content
 }
