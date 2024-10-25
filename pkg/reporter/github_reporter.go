@@ -18,7 +18,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"regexp"
 	"strings"
 
 	gh "github.com/google/go-github/v53/github"
@@ -31,18 +30,6 @@ var _ Reporter = (*GitHubReporter)(nil)
 
 const (
 	githubMaxCommentLength = 65536
-)
-
-var (
-	tildeChanged = regexp.MustCompile(
-		"(?m)" + // enable multi-line mode
-			"^([\t ]*)" + // only match tilde at start of line, can lead with tabs or spaces
-			"([~])") // tilde represents changes and needs switched to exclamation for git diff
-
-	swapLeadingWhitespace = regexp.MustCompile(
-		"(?m)" + // enable multi-line mode
-			"^([\t ]*)" + // only match tilde at start of line, can lead with tabs or spaces
-			`((\-(\/\+)*)|(\+(\/\-)*)|(!))`) // match characters to swap whitespace for git diff (+, +/-, -, -/+, !)
 )
 
 // GitHubReporter implements the reporter interface for writing GitHub comments.

@@ -18,6 +18,7 @@ package reporter
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -141,6 +142,18 @@ func markdownZippy(title, body string) string {
 func markdownDiffZippy(title, body string) string {
 	return fmt.Sprintf("<details>\n<summary>%s</summary>\n\n```diff\n\n%s\n```\n</details>", title, body)
 }
+
+var (
+	tildeChanged = regexp.MustCompile(
+		"(?m)" + // enable multi-line mode
+			"^([\t ]*)" + // only match tilde at start of line, can lead with tabs or spaces
+			"([~])") // tilde represents changes and needs switched to exclamation for git diff
+
+	swapLeadingWhitespace = regexp.MustCompile(
+		"(?m)" + // enable multi-line mode
+			"^([\t ]*)" + // only match tilde at start of line, can lead with tabs or spaces
+			`((\-(\/\+)*)|(\+(\/\-)*)|(!))`) // match characters to swap whitespace for git diff (+, +/-, -, -/+, !)
+)
 
 // formatOutputForDiff formats the Terraform diff output for use with
 // diff markdown formatting.
