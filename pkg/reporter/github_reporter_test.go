@@ -319,9 +319,9 @@ func TestGitHubReporterClearStatus(t *testing.T) {
 			gitHubClient := &github.MockGitHubClient{
 				ListIssueCommentResponse: &github.IssueCommentResponse{
 					Comments: []*github.IssueComment{
-						{ID: 1, Body: githubCommentPrefix + " guardian comment"},
+						{ID: 1, Body: commentPrefix + " guardian comment"},
 						{ID: 2, Body: "Not a guardian comment"},
-						{ID: 3, Body: githubCommentPrefix + " guardian comment"},
+						{ID: 3, Body: commentPrefix + " guardian comment"},
 					},
 				},
 				ListIssueCommentsErr: tc.listIssueCommentsErr,
@@ -416,12 +416,12 @@ first section !
     second section +
     second section ~
     second section !
-	
+
 - third section
 + third section
 ~ third section
 ! third section
-	
+
     - fourth section
     + fourth section
     -/+ fourth section
@@ -438,12 +438,12 @@ first section !
     second section +
     second section ~
     second section !
-	
+
 - third section
 + third section
 ! third section
 ! third section
-	
+
 -     fourth section
 +     fourth section
 -/+     fourth section
@@ -459,7 +459,7 @@ first section !
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			output := formatOutputForGitHubDiff(tc.content)
+			output := formatOutputForDiff(tc.content)
 			if got, want := strings.TrimSpace(output), strings.TrimSpace(tc.exp); got != want {
 				t.Errorf("expected\n\n%s\n\nto be\n\n%s\n\n", got, want)
 			}
