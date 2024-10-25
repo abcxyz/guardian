@@ -48,7 +48,7 @@ func (f *FileReporter) Status(ctx context.Context, st Status, p *StatusParams) e
 	}
 
 	if err := os.WriteFile(statusFilename, []byte(msg.String()), ownerReadWritePerms); err != nil {
-		return fmt.Errorf("failed to write file")
+		return fmt.Errorf("failed to write status comment file: %w", err)
 	}
 
 	logger.DebugContext(ctx, "wrote status comment to file", "status_filename", statusFilename)
@@ -65,7 +65,7 @@ func (f *FileReporter) EntrypointsSummary(ctx context.Context, params *Entrypoin
 	}
 
 	if err := os.WriteFile(entrypointsSummaryFilename, []byte(msg.String()), ownerReadWritePerms); err != nil {
-		return fmt.Errorf("failed to write file")
+		return fmt.Errorf("failed to write entrypoints summary file: %w", err)
 	}
 
 	logger.DebugContext(ctx, "wrote entrypoints summary to file",
