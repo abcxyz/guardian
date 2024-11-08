@@ -34,8 +34,6 @@ concurrency:
   group: '${{ github.workflow }}'
 
 env:
-  GITHUB_OWNER_NAME: '${{ github.event.repository.owner.login }}'
-  GITHUB_REPO_NAME: '${{ github.event.repository.name }}'
   GUARDIAN_VERSION: 'REPLACE_GUARDIAN_VERSION_TAG'
   GUARDIAN_WIF_PROVIDER: 'REPLACE_GUARDIAN_WIF_PROVIDER'
   GUARDIAN_WIF_SERVICE_ACCOUNT: 'REPLACE_GUARDIAN_WIF_SERVICE_ACCOUNT'
@@ -63,25 +61,13 @@ jobs:
           cache_key: '${{ runner.os }}_${{ runner.arch }}_guardian_${{ env.GUARDIAN_VERSION }}'
           add_to_path: true
 
-      - name: 'Guardian Validate Permissions'
-        shell: 'bash'
-        env:
-          # used to get repository user permissions for validation (access to only this repo)
-          REPO_TOKEN: '${{ github.token }}'
-        run: |-
-          guardian workflows validate-permissions \
-          -github-owner="${GITHUB_OWNER_NAME}" \
-          -github-repo="${GITHUB_REPO_NAME}" \
-          -github-token="${REPO_TOKEN}" \
-          -allowed-permissions=admin
-
       - name: 'Guardian Directories'
         id: 'dirs'
         shell: 'bash'
         env:
           ENTRYPOINT: '${{ inputs.entrypoint }}'
         run: |-
-          DIRECTORIES=$(guardian entrypoints -dir="${ENTRYPOINT}" -format=json)
+          DIRECTORIES=$(guardian entrypoints -dir="${ENTRYPOINT}")
           echo "entrypoints -> ${DIRECTORIES}"
           echo "directories=${DIRECTORIES}" >> $GITHUB_OUTPUT
 
@@ -134,6 +120,4 @@ jobs:
           DIRECTORY: '${{ matrix.working_directory }}'
         shell: 'bash'
         run: |-
-          guardian run \
-          -dir="${DIRECTORY}" \
-          -- ${{ inputs.command }}
+          guardian run -dir="${DIRECTORY}" -- ${{ inputs.command }}

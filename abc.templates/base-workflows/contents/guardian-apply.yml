@@ -27,8 +27,6 @@ concurrency:
   group: '${{ github.workflow }}'
 
 env:
-  GITHUB_OWNER_NAME: '${{ github.event.repository.owner.login }}'
-  GITHUB_REPO_NAME: '${{ github.event.repository.name }}'
   GUARDIAN_VERSION: 'REPLACE_GUARDIAN_VERSION_TAG'
   GUARDIAN_WIF_PROVIDER: 'REPLACE_GUARDIAN_WIF_PROVIDER'
   GUARDIAN_WIF_SERVICE_ACCOUNT: 'REPLACE_GUARDIAN_WIF_SERVICE_ACCOUNT'
@@ -62,8 +60,11 @@ jobs:
       - name: 'Guardian Directories'
         id: 'dirs'
         shell: 'bash'
+        env:
+          # used to create comments on pull requests (access to only this repo)
+          GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
         run: |-
-          DIRECTORIES=$(guardian entrypoints -dir="REPLACE_TERRAFORM_DIRECTORY" -detect-changes -source-ref=HEAD~1 -dest-ref=HEAD -format=json)
+          DIRECTORIES=$(guardian entrypoints -dir="REPLACE_TERRAFORM_DIRECTORY" -detect-changes -source-ref=HEAD~1 -dest-ref=HEAD)
           echo "entrypoints -> ${DIRECTORIES}"
           echo "directories=${DIRECTORIES}" >> $GITHUB_OUTPUT
 
@@ -116,17 +117,8 @@ jobs:
       - name: 'Guardian Apply'
         shell: 'bash'
         env:
-          DIRECTORY: '${{ matrix.working_directory }}'
-          COMMIT_SHA: '${{ github.sha }}'
           # used to create comments on pull requests (access to only this repo)
-          REPO_TOKEN: '${{ github.token }}'
-          JOB_NAME: '${{ github.job }} (${{ matrix.working_directory }})'
+          GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
+          DIRECTORY: '${{ matrix.working_directory }}'
         run: |-
-          guardian apply \
-          -dir="${DIRECTORY}" \
-          -github-owner="${GITHUB_OWNER_NAME}" \
-          -github-repo="${GITHUB_REPO_NAME}" \
-          -github-token="${REPO_TOKEN}" \
-          -commit-sha="${COMMIT_SHA}" \
-          -bucket-name="${GUARDIAN_BUCKET_NAME}" \
-          -job-name="${JOB_NAME}"
+          guardian apply -dir="${DIRECTORY}" -storage="gcs://${GUARDIAN_BUCKET_NAME}"
