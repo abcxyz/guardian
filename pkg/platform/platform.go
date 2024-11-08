@@ -83,9 +83,6 @@ type Platform interface {
 	// GetPolicyData retrieves the required data for policy evaluation.
 	GetPolicyData(ctx context.Context) (*GetPolicyDataResult, error)
 
-	// ModifierContent returns the modifier content for parsing modifier flags.
-	ModifierContent(ctx context.Context) (string, error)
-
 	// StoragePrefix generates the unique storage prefix for the platform type.
 	StoragePrefix(ctx context.Context) (string, error)
 }

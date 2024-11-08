@@ -162,9 +162,8 @@ func TestGitHubReporterEntrypointsSummary(t *testing.T) {
 			name:   "success",
 			status: StatusSuccess,
 			params: &EntrypointsSummaryParams{
-				Message:     "summary message",
-				UpdateDirs:  []string{"update"},
-				DestroyDirs: []string{"destroy"},
+				Message: "summary message",
+				Dirs:    []string{"dirs"},
 			},
 			logURL: "https://github.com",
 			expGitHubClientReqs: []*github.Request{
@@ -175,23 +174,8 @@ func TestGitHubReporterEntrypointsSummary(t *testing.T) {
 							"\n" +
 							"summary message\n" +
 							"\n" +
-							"**Update**\n" +
-							"update\n" +
-							"\n" +
-							"**Destroy**\n" +
-							"destroy\n" +
-							"\n" +
-							"<details>\n" +
-							"<summary>Help</summary>\n" +
-							"\n" +
-							"Deleted directories are removed from source control without modification.\n" +
-							"\n" +
-							"To destroy an entire directory, add one or more modifier comments to the pull request body instructing Guardian to destroy the directory.\n" +
-							"\n" +
-							"```\n" +
-							"GUARDIAN_DESTROY=path/to/directory\n" +
-							"```\n" +
-							"</details>",
+							"**Directories**\n" +
+							"dirs",
 					},
 				},
 			},
@@ -200,9 +184,8 @@ func TestGitHubReporterEntrypointsSummary(t *testing.T) {
 			name:   "error",
 			status: StatusSuccess,
 			params: &EntrypointsSummaryParams{
-				Message:     "summary message",
-				UpdateDirs:  []string{"update"},
-				DestroyDirs: []string{"destroy"},
+				Message: "summary message",
+				Dirs:    []string{"dirs"},
 			},
 			logURL:                 "https://github.com",
 			createIssueCommentsErr: fmt.Errorf("FAILED!"),
@@ -215,23 +198,8 @@ func TestGitHubReporterEntrypointsSummary(t *testing.T) {
 							"\n" +
 							"summary message\n" +
 							"\n" +
-							"**Update**\n" +
-							"update\n" +
-							"\n" +
-							"**Destroy**\n" +
-							"destroy\n" +
-							"\n" +
-							"<details>\n" +
-							"<summary>Help</summary>\n" +
-							"\n" +
-							"Deleted directories are removed from source control without modification.\n" +
-							"\n" +
-							"To destroy an entire directory, add one or more modifier comments to the pull request body instructing Guardian to destroy the directory.\n" +
-							"\n" +
-							"```\n" +
-							"GUARDIAN_DESTROY=path/to/directory\n" +
-							"```\n" +
-							"</details>",
+							"**Directories**\n" +
+							"dirs",
 					},
 				},
 			},

@@ -22,30 +22,21 @@ import (
 	"flag"
 	"fmt"
 	"io/fs"
-	"path"
 	"slices"
 
 	"golang.org/x/exp/maps"
 
 	"github.com/abcxyz/guardian/internal/metricswrap"
 	"github.com/abcxyz/guardian/pkg/git"
-	"github.com/abcxyz/guardian/pkg/modifiers"
 	"github.com/abcxyz/guardian/pkg/platform"
 	"github.com/abcxyz/guardian/pkg/reporter"
 	"github.com/abcxyz/guardian/pkg/terraform"
 	"github.com/abcxyz/guardian/pkg/util"
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
-	"github.com/abcxyz/pkg/sets"
 )
 
 var _ cli.Command = (*EntrypointsCommand)(nil)
-
-// EntrypointsResult is the entrypoints command result.
-type EntrypointsResult struct {
-	Update  []string `json:"update"`
-	Destroy []string `json:"destroy"`
-}
 
 type EntrypointsCommand struct {
 	cli.BaseCommand
@@ -228,41 +219,18 @@ func (c *EntrypointsCommand) Process(ctx context.Context) error {
 		modifiedEntrypoints = append(modifiedEntrypoints, modifiedDirs...)
 	}
 
-	modifierContent, err := c.platformClient.ModifierContent(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to find modifier content: %w", err)
-	}
-	logger.DebugContext(ctx, "modifier content", "value", modifierContent)
-
-	metaValues := modifiers.ParseBodyMetaValues(ctx, modifierContent)
-	logger.DebugContext(ctx, "parsed body meta values", "values", metaValues)
-
-	destroyEntrypoints, err := c.processDestroyMetaValues(cwd, metaValues)
-	if err != nil {
-		return fmt.Errorf("failed to process destroy entrypoints: %w", err)
-	}
-	logger.DebugContext(ctx, "found destroy entrypoints from meta values", "dirs", destroyEntrypoints)
-
-	// update dirs are all entrypoints that aren't being destroyed
-	updatedEntrypoints := sets.Subtract(modifiedEntrypoints, destroyEntrypoints)
-
 	// sort them for consistent results
-	slices.Sort(updatedEntrypoints)
-	slices.Sort(destroyEntrypoints)
+	slices.Sort(modifiedEntrypoints)
 
-	results := &EntrypointsResult{
-		Update:  updatedEntrypoints,
-		Destroy: destroyEntrypoints,
-	}
+	results := modifiedEntrypoints
 
 	if err := c.writeOutput(cwd, results); err != nil {
 		return fmt.Errorf("failed to write output: %w", err)
 	}
 
 	if err := c.reporterClient.EntrypointsSummary(ctx, &reporter.EntrypointsSummaryParams{
-		Message:     "Guardian will run for the following directories",
-		UpdateDirs:  updatedEntrypoints,
-		DestroyDirs: destroyEntrypoints,
+		Message: "Guardian will run for the following directories",
+		Dirs:    modifiedEntrypoints,
 	}); err != nil {
 		return fmt.Errorf("failed to create report: %w", err)
 	}
@@ -326,38 +294,16 @@ func (c *EntrypointsCommand) detectEntrypointChanges(ctx context.Context, dir st
 	return modifiedDirs, nil
 }
 
-// processDestroyMetaValues processes the user supplied meta values for directories to destroy.
-func (c *EntrypointsCommand) processDestroyMetaValues(cwd string, metaValues modifiers.MetaValues) ([]string, error) {
-	metaDestroyDirs, ok := metaValues[modifiers.MetaKeyGuardianDestroy]
-	if !ok {
-		return []string{}, nil
-	}
-
-	for i, dir := range metaDestroyDirs {
-		metaDestroyDirs[i] = path.Join(cwd, dir)
-	}
-
-	return metaDestroyDirs, nil
-}
-
 // writeOutput writes the command output.
-func (c *EntrypointsCommand) writeOutput(cwd string, results *EntrypointsResult) error {
+func (c *EntrypointsCommand) writeOutput(cwd string, results []string) error {
 	// convert to child path for output
 	// using absolute path creates an ugly github workflow name
-	for k, dir := range results.Update {
+	for k, dir := range results {
 		childPath, err := util.ChildPath(cwd, dir)
 		if err != nil {
 			return fmt.Errorf("failed to get child path for [%s]: %w", dir, err)
 		}
-		results.Update[k] = childPath
-	}
-
-	for k, dir := range results.Destroy {
-		childPath, err := util.ChildPath(cwd, dir)
-		if err != nil {
-			return fmt.Errorf("failed to get child path for [%s]: %w", dir, err)
-		}
-		results.Destroy[k] = childPath
+		results[k] = childPath
 	}
 
 	if err := json.NewEncoder(c.Stdout()).Encode(results); err != nil {
