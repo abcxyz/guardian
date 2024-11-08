@@ -46,7 +46,6 @@ func TestEntrypointsProcess(t *testing.T) {
 		flagSourceRef     string
 		flagDetectChanges bool
 		flagMaxDepth      int
-		modifierContent   string
 		newGitClient      func(ctx context.Context, dir string) git.Git
 		platformClient    *platform.MockPlatform
 		reporterClient    *reporter.MockReporter
@@ -68,7 +67,7 @@ func TestEntrypointsProcess(t *testing.T) {
 					},
 				}
 			},
-			expStdout: `{"update":["testdata/entrypoint1/project1","testdata/entrypoint1/project2"],"destroy":[]}`,
+			expStdout: `["testdata/entrypoint1/project1","testdata/entrypoint1/project2"]`,
 		},
 		{
 			name:              "success_destroy",
@@ -76,7 +75,6 @@ func TestEntrypointsProcess(t *testing.T) {
 			flagDestRef:       "main",
 			flagSourceRef:     "ldap/feature",
 			flagDetectChanges: true,
-			modifierContent:   "GUARDIAN_DESTROY=testdata/entrypoint1/project3",
 			newGitClient: func(ctx context.Context, dir string) git.Git {
 				return &git.MockGitClient{
 					DiffResp: []string{
@@ -86,7 +84,7 @@ func TestEntrypointsProcess(t *testing.T) {
 					},
 				}
 			},
-			expStdout: `{"update":["testdata/entrypoint1/project1","testdata/entrypoint1/project2"],"destroy":["testdata/entrypoint1/project3"]}`,
+			expStdout: `["testdata/entrypoint1/project1","testdata/entrypoint1/project2"]`,
 		},
 		{
 			name:              "success_multi",
@@ -115,7 +113,7 @@ func TestEntrypointsProcess(t *testing.T) {
 					DiffResp: diffResp,
 				}
 			},
-			expStdout: `{"update":["testdata/entrypoint1/project1","testdata/entrypoint1/project2","testdata/entrypoint2/project3","testdata/entrypoint2/project4"],"destroy":[]}`,
+			expStdout: `["testdata/entrypoint1/project1","testdata/entrypoint1/project2","testdata/entrypoint2/project3","testdata/entrypoint2/project4"]`,
 		},
 		{
 			name:              "success_multi_destroy",
@@ -123,8 +121,6 @@ func TestEntrypointsProcess(t *testing.T) {
 			flagDestRef:       "main",
 			flagSourceRef:     "ldap/feature",
 			flagDetectChanges: true,
-			modifierContent: `GUARDIAN_DESTROY=testdata/entrypoint1/project3
-GUARDIAN_DESTROY=testdata/entrypoint2/project5`,
 			newGitClient: func(ctx context.Context, dir string) git.Git {
 				var diffResp []string
 
@@ -146,7 +142,7 @@ GUARDIAN_DESTROY=testdata/entrypoint2/project5`,
 					DiffResp: diffResp,
 				}
 			},
-			expStdout: `{"update":["testdata/entrypoint1/project1","testdata/entrypoint2/project4"],"destroy":["testdata/entrypoint1/project3","testdata/entrypoint2/project5"]}`,
+			expStdout: `["testdata/entrypoint1/project1","testdata/entrypoint2/project4"]`,
 		},
 		{
 			name:              "returns_json",
@@ -162,7 +158,7 @@ GUARDIAN_DESTROY=testdata/entrypoint2/project5`,
 					},
 				}
 			},
-			expStdout: `{"update":["testdata/entrypoint1/project1","testdata/entrypoint1/project2"],"destroy":[]}`,
+			expStdout: `["testdata/entrypoint1/project1","testdata/entrypoint1/project2"]`,
 		},
 		{
 			name:              "skips_detect_changes",
@@ -173,7 +169,7 @@ GUARDIAN_DESTROY=testdata/entrypoint2/project5`,
 			newGitClient: func(ctx context.Context, dir string) git.Git {
 				return &git.MockGitClient{}
 			},
-			expStdout: `{"update":["testdata/entrypoint1/project1","testdata/entrypoint1/project2"],"destroy":[]}`,
+			expStdout: `["testdata/entrypoint1/project1","testdata/entrypoint1/project2"]`,
 		},
 		{
 			name:              "errors",
@@ -196,9 +192,7 @@ GUARDIAN_DESTROY=testdata/entrypoint2/project5`,
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			mockPlatformClient := &platform.MockPlatform{
-				ModifierContentResp: tc.modifierContent,
-			}
+			mockPlatformClient := &platform.MockPlatform{}
 			mockReporterClient := &reporter.MockReporter{}
 
 			c := &EntrypointsCommand{

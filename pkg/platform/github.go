@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
-	"strings"
 	"time"
 
 	"github.com/google/go-github/v53/github"
@@ -276,68 +275,6 @@ func (g *GitHub) withRetries(ctx context.Context, retryFunc retry.RetryFunc) err
 		return fmt.Errorf("failed to execute retriable function: %w", err)
 	}
 	return nil
-}
-
-// ModifierContent returns the pull request body as the content to parse modifiers
-// from.
-func (g *GitHub) ModifierContent(ctx context.Context) (string, error) {
-	logger := logging.FromContext(ctx)
-
-	pullRequestEvents := []string{"pull_request", "pull_request_target"}
-	if slices.Contains(pullRequestEvents, g.cfg.GitHubEventName) {
-		logger.DebugContext(ctx, "modifier content from pull request",
-			"github_pull_request_number", g.cfg.GitHubPullRequestNumber,
-			"github_pull_request_body", g.cfg.GitHubPullRequestBody)
-		return g.cfg.GitHubPullRequestBody, nil
-	}
-
-	pullRequestFromCommitEvents := []string{"push"}
-	if slices.Contains(pullRequestFromCommitEvents, g.cfg.GitHubEventName) {
-		logger.DebugContext(ctx, "looking up pull request from commit sha",
-			"owner", g.cfg.GitHubOwner,
-			"repo", g.cfg.GitHubRepo,
-			"commit_sha", g.cfg.GitHubSHA)
-
-		var body strings.Builder
-		if err := g.withRetries(ctx, func(ctx context.Context) error {
-			ghPullRequests, resp, err := g.client.PullRequests.ListPullRequestsWithCommit(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, g.cfg.GitHubSHA, &github.PullRequestListOptions{
-				ListOptions: github.ListOptions{
-					PerPage: 100,
-				},
-			})
-			if err != nil {
-				if resp != nil {
-					if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
-						return retry.RetryableError(err)
-					}
-				}
-				if resp.StatusCode == http.StatusNotFound {
-					return nil
-				}
-				return fmt.Errorf("failed to list pull request comments: %w", err)
-			}
-
-			for _, v := range ghPullRequests {
-				logger.DebugContext(ctx, "found pull request for sha",
-					"pull_request_number", v.GetNumber(),
-					"pull_request_body", v.GetBody())
-
-				body.WriteString(v.GetBody())
-			}
-
-			return nil
-		}); err != nil {
-			return "", fmt.Errorf("failed to list pull request comments: %w", err)
-		}
-
-		logger.DebugContext(ctx, "modifier content from commit pull requests",
-			"modifier_content", body.String())
-
-		return body.String(), nil
-	}
-
-	logger.DebugContext(ctx, "returning no modifier content")
-	return "", nil
 }
 
 // StoragePrefix generates the unique storage prefix for the github platform type.

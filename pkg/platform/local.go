@@ -16,8 +16,6 @@ package platform
 
 import (
 	"context"
-
-	"github.com/abcxyz/pkg/cli"
 )
 
 var _ Platform = (*Local)(nil)
@@ -29,17 +27,6 @@ type Local struct {
 
 type localConfig struct {
 	LocalModifierContent string
-}
-
-func (l *localConfig) RegisterFlags(set *cli.FlagSet) {
-	f := set.NewSection("LOCAL OPTIONS")
-
-	f.StringVar(&cli.StringVar{
-		Name:    "local-modifier-content",
-		Target:  &l.LocalModifierContent,
-		Example: "GUARDIAN_DESTROY=terraform/target/directory",
-		Usage:   "The modifier content to parse Guardian modifiers from.",
-	})
 }
 
 // NewLocal creates a new Local instance.
