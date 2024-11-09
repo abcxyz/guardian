@@ -245,23 +245,61 @@ func (g *GitHub) GetLatestApprovers(ctx context.Context) (*GetLatestApproversRes
 	return result, nil
 }
 
+func (g *GitHub) GetUserRepoPermissions(ctx context.Context) (*GetUserAccessLevelResult, error) {
+	logger := logging.FromContext(ctx)
+	logger.DebugContext(ctx, "querying user repo permissions")
+
+	if g.cfg.GitHubCaller == "" {
+		return nil, fmt.Errorf("github-caller is required")
+	}
+	var result GetUserAccessLevelResult
+	return &result, g.withRetries(ctx, func(ctx context.Context) error {
+		permissionLevel, resp, err := g.client.Repositories.GetPermissionLevel(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, g.cfg.GitHubCaller)
+		if err != nil {
+			if resp != nil {
+				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
+					return retry.RetryableError(err)
+				}
+			}
+			return fmt.Errorf("failed to get user repo permissions: %w", err)
+		}
+		result.permission = *permissionLevel.Permission
+		return nil
+	})
+}
+
 // GitHubPolicyData defines the payload of GitHub contextual data used for
 // policy evaluation.
 type GitHubPolicyData struct {
 	PullRequestApprovers *GetLatestApproversResult `json:"pull_request_approvers"`
+	UserAccessLevel      string                    `json:"user_access_level"`
 }
 
 // GetPolicyData aggregates data from GitHub into a payload used for policy
 // evaluation.
 func (g *GitHub) GetPolicyData(ctx context.Context) (*GetPolicyDataResult, error) {
-	approvers, err := g.GetLatestApprovers(ctx)
+	t, err := g.GetUserRepoPermissions(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get latest approvers: %w", err)
+		return nil, fmt.Errorf("failed to get user repo permissions: %w", err)
+	}
+
+	p, ok := t.permission.(string)
+	if !ok {
+		return nil, fmt.Errorf("expected permission of type string")
+	}
+
+	var approvers *GetLatestApproversResult
+	if g.cfg.GitHubPullRequestNumber > 0 {
+		approvers, err = g.GetLatestApprovers(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get latest approvers: %w", err)
+		}
 	}
 
 	return &GetPolicyDataResult{
 		GitHub: &GitHubPolicyData{
 			PullRequestApprovers: approvers,
+			UserAccessLevel:      p,
 		},
 	}, nil
 }
