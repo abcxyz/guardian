@@ -285,10 +285,8 @@ func (g *GitHub) GetPolicyData(ctx context.Context) (*GetPolicyDataResult, error
 		return nil, fmt.Errorf("failed to get user repo permissions: %w", err)
 	}
 
-	approvers := &GetLatestApproversResult{
-		Users: []string{},
-		Teams: []string{},
-	}
+	var approvers *GetLatestApproversResult
+	// Skip, if the command is not running in the context of a pull request.
 	if g.cfg.GitHubPullRequestNumber > 0 {
 		approvers, err = g.GetLatestApprovers(ctx)
 		if err != nil {
