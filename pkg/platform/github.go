@@ -245,16 +245,18 @@ func (g *GitHub) GetLatestApprovers(ctx context.Context) (*GetLatestApproversRes
 	return result, nil
 }
 
-func (g *GitHub) GetUserRepoPermissions(ctx context.Context) (*GetUserAccessLevelResult, error) {
+// GetUserRepoPermissions returns the repo permission for the user that
+// triggered the workflow.
+func (g *GitHub) GetUserRepoPermissions(ctx context.Context) (string, error) {
 	logger := logging.FromContext(ctx)
 	logger.DebugContext(ctx, "querying user repo permissions")
 
-	if g.cfg.GitHubCaller == "" {
-		return nil, fmt.Errorf("github-caller is required")
+	if g.cfg.GitHubWorkflowUser == "" {
+		return "", fmt.Errorf("github-workflow-user is required")
 	}
-	var result GetUserAccessLevelResult
-	return &result, g.withRetries(ctx, func(ctx context.Context) error {
-		permissionLevel, resp, err := g.client.Repositories.GetPermissionLevel(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, g.cfg.GitHubCaller)
+	var result string
+	return result, g.withRetries(ctx, func(ctx context.Context) error {
+		permissionLevel, resp, err := g.client.Repositories.GetPermissionLevel(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, g.cfg.GitHubWorkflowUser)
 		if err != nil {
 			if resp != nil {
 				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
@@ -263,7 +265,7 @@ func (g *GitHub) GetUserRepoPermissions(ctx context.Context) (*GetUserAccessLeve
 			}
 			return fmt.Errorf("failed to get user repo permissions: %w", err)
 		}
-		result.permission = *permissionLevel.Permission
+		result = *permissionLevel.Permission
 		return nil
 	})
 }
@@ -278,17 +280,15 @@ type GitHubPolicyData struct {
 // GetPolicyData aggregates data from GitHub into a payload used for policy
 // evaluation.
 func (g *GitHub) GetPolicyData(ctx context.Context) (*GetPolicyDataResult, error) {
-	t, err := g.GetUserRepoPermissions(ctx)
+	p, err := g.GetUserRepoPermissions(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user repo permissions: %w", err)
 	}
 
-	p, ok := t.permission.(string)
-	if !ok {
-		return nil, fmt.Errorf("expected permission of type string")
+	approvers := &GetLatestApproversResult{
+		Users: []string{},
+		Teams: []string{},
 	}
-
-	var approvers *GetLatestApproversResult
 	if g.cfg.GitHubPullRequestNumber > 0 {
 		approvers, err = g.GetLatestApprovers(ctx)
 		if err != nil {

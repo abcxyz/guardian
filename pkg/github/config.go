@@ -50,7 +50,7 @@ type Config struct {
 	GitHubPullRequestNumber int
 	GitHubPullRequestBody   string
 	GitHubSHA               string
-	GitHubCaller            string
+	GitHubWorkflowUser      string
 }
 
 type configDefaults struct {
@@ -58,7 +58,7 @@ type configDefaults struct {
 	Repo              string
 	PullRequestNumber int
 	PullRequestBody   string
-	Caller            string
+	WorkflowUser      string
 }
 
 func (c *Config) RegisterFlags(set *cli.FlagSet) {
@@ -89,7 +89,7 @@ func (c *Config) RegisterFlags(set *cli.FlagSet) {
 	if githubContext.EventName == "workflow_dispatch" {
 		var event github.WorkflowDispatchEvent
 		if err := json.Unmarshal(data, &event); err == nil {
-			d.Caller = event.GetSender().GetLogin()
+			d.WorkflowUser = event.GetSender().GetLogin()
 		}
 	}
 
@@ -231,9 +231,9 @@ GITHUB_TOKEN.`,
 	})
 
 	f.StringVar(&cli.StringVar{
-		Name:   "github-caller",
-		EnvVar: "GITHUB_CALLER",
-		Target: &c.GitHubCaller,
+		Name:   "github-workflow-user",
+		EnvVar: "GITHUB_WORKFLOW_USER",
+		Target: &c.GitHubWorkflowUser,
 		Usage:  "The GitHub Login of the user requesting the workflow.",
 		Hidden: true,
 	})

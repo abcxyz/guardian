@@ -64,11 +64,6 @@ type GetLatestApproversResult struct {
 	Teams []string `json:"teams"`
 }
 
-// GetUserAccessLevelResult
-type GetUserAccessLevelResult struct {
-	permission any
-}
-
 // GetPolicyDataResult contains the required data for policy evaluation, by
 // platform.
 type GetPolicyDataResult struct {
