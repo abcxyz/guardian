@@ -56,6 +56,11 @@ func TestEnforce_Process(t *testing.T) {
 			assignReviewersErr: fmt.Errorf("failed to assign reviewers"),
 			wantErr:            "failed to assign reviewers",
 		},
+		{
+			name:        "fails_with_deny_all",
+			resultsFile: "testdata/deny_all.json",
+			wantErr:     "test-error-message",
+		},
 	}
 
 	for _, tc := range cases {
