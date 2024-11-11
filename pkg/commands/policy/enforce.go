@@ -141,12 +141,21 @@ func (c *EnforceCommand) Process(ctx context.Context) error {
 		logger.DebugContext(ctx, "processing policy decision",
 			"policy_name", k)
 
-		if err := c.EnforceMissingApprovals(ctx, b, k, v); err != nil {
-			merr = errors.Join(merr, err)
+		var violation error
+		var st strings.Builder
+		if err := c.EnforceMissingApprovals(ctx, &st, k, v); err != nil {
+			violation = errors.Join(violation, err)
 		}
 
-		if err := c.EnforceDenyAll(ctx, b, k, v); err != nil {
-			merr = errors.Join(merr, err)
+		if err := c.EnforceDenyAll(ctx, &st, k, v); err != nil {
+			violation = errors.Join(violation, err)
+		}
+
+		if violation != nil {
+			// Prints policy name followed by the violations found.
+			fmt.Fprintf(&b, "#### %s\n", k)
+			fmt.Fprintf(&b, "%s\n", st.String())
+			merr = errors.Join(merr, violation)
 		}
 	}
 
@@ -163,7 +172,7 @@ func (c *EnforceCommand) Process(ctx context.Context) error {
 	return merr
 }
 
-func (c *EnforceCommand) EnforceMissingApprovals(ctx context.Context, b strings.Builder, policyName string, r *Result) error {
+func (c *EnforceCommand) EnforceMissingApprovals(ctx context.Context, b *strings.Builder, policyName string, r *Result) error {
 	logger := logging.FromContext(ctx)
 
 	if len(r.MissingApprovals) == 0 {
@@ -174,17 +183,16 @@ func (c *EnforceCommand) EnforceMissingApprovals(ctx context.Context, b strings.
 
 	var merr error
 	var teams, users []string
-	fmt.Fprintf(&b, "#### %s\n", policyName)
 	for _, m := range r.MissingApprovals {
 		teams = append(teams, m.AssignTeams...)
 		users = append(users, m.AssignUsers...)
 
-		fmt.Fprint(&b, "- **Missing approvals from one of**:\n")
+		fmt.Fprint(b, "- **Missing approvals from one of**:\n")
 		if len(m.AssignUsers) > 0 {
-			fmt.Fprintf(&b, "\t - Users: %s\n", strings.Join(m.AssignUsers, ", "))
+			fmt.Fprintf(b, "\t - Users: %s\n", strings.Join(m.AssignUsers, ", "))
 		}
 		if len(m.AssignTeams) > 0 {
-			fmt.Fprintf(&b, "\t - Teams: %s\n", strings.Join(m.AssignTeams, ", "))
+			fmt.Fprintf(b, "\t - Teams: %s\n", strings.Join(m.AssignTeams, ", "))
 		}
 
 		merr = errors.Join(merr, fmt.Errorf("failed: \"%s\" - %s", policyName, m.Message))
@@ -219,15 +227,19 @@ type DenyAll struct {
 
 // EnforceDenyAll blocks the action if a deny all violation is found and reports
 // any violations with the detailed error message.
-func (c *EnforceCommand) EnforceDenyAll(ctx context.Context, b strings.Builder, policyName string, r *Result) error {
+func (c *EnforceCommand) EnforceDenyAll(ctx context.Context, b *strings.Builder, policyName string, r *Result) error {
 	logger := logging.FromContext(ctx)
 
-	fmt.Fprintf(&b, "#### %s\n", policyName)
-	for _, m := range r.DenyAll {
-		return fmt.Errorf("failed: \"%s\" - %s", policyName, m.Message)
+	if len(r.DenyAll) == 0 {
+		logger.DebugContext(ctx, "no deny all violations for policy",
+			"policy_name", policyName)
+		return nil
 	}
 
-	logger.DebugContext(ctx, "no deny all violation for policy",
-		"policy_name", policyName)
+	fmt.Fprint(b, "- **Action not allowed**:\n")
+	for _, m := range r.DenyAll {
+		fmt.Fprintf(b, "\t - Reason: %s\n", m.Message)
+		return fmt.Errorf("failed: \"%s\" - %s", policyName, m.Message)
+	}
 	return nil
 }
