@@ -39,6 +39,11 @@ func (l *Local) AssignReviewers(ctx context.Context, inputs *AssignReviewersInpu
 	return &AssignReviewersResult{}, nil
 }
 
+// GetUserRepoPermissions is a no-op and returns an empty string.
+func (l *Local) GetUserRepoPermissions(ctx context.Context) (string, error) {
+	return "", nil
+}
+
 // GetLatestApprovers returns an empty result.
 func (l *Local) GetLatestApprovers(ctx context.Context) (*GetLatestApproversResult, error) {
 	return &GetLatestApproversResult{}, nil

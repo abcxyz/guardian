@@ -30,6 +30,8 @@ type MockPlatform struct {
 	reqMu sync.Mutex
 	Reqs  []*Request
 
+	IsPullRequest bool
+
 	AssignReviewersErr  error
 	GetPolicyDataErr    error
 	ModifierContentResp string
@@ -38,6 +40,7 @@ type MockPlatform struct {
 	StoragePrefixErr    error
 	TeamApprovers       []string
 	UserApprovers       []string
+	UserAccessLevel     string
 }
 
 func (m *MockPlatform) AssignReviewers(ctx context.Context, input *AssignReviewersInput) (*AssignReviewersResult, error) {
@@ -59,7 +62,18 @@ func (m *MockPlatform) AssignReviewers(ctx context.Context, input *AssignReviewe
 }
 
 type MockPolicyData struct {
-	Approvers *GetLatestApproversResult `json:"approvers"`
+	Approvers       *GetLatestApproversResult `json:"approvers"`
+	UserAccessLevel string                    `json:"user_access_level"`
+}
+
+func (m *MockPlatform) GetUserRepoPermissions(ctx context.Context) (string, error) {
+	m.reqMu.Lock()
+	defer m.reqMu.Unlock()
+	m.Reqs = append(m.Reqs, &Request{
+		Name: "GetUserRepoPermissions",
+	})
+
+	return m.UserAccessLevel, nil
 }
 
 func (m *MockPlatform) GetLatestApprovers(ctx context.Context) (*GetLatestApproversResult, error) {
@@ -78,20 +92,26 @@ func (m *MockPlatform) GetLatestApprovers(ctx context.Context) (*GetLatestApprov
 func (m *MockPlatform) GetPolicyData(ctx context.Context) (*GetPolicyDataResult, error) {
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
-	m.Reqs = append(m.Reqs, &Request{
-		Name: "GetLatestApprovers",
-	})
+	m.Reqs = append(m.Reqs,
+		&Request{Name: "GetLatestApprovers"},
+		&Request{Name: "GetUserRepoPermissions"})
 
 	if m.GetPolicyDataErr != nil {
 		return nil, m.GetPolicyDataErr
 	}
 
+	var approvers *GetLatestApproversResult
+	if m.IsPullRequest {
+		approvers = &GetLatestApproversResult{
+			Teams: m.TeamApprovers,
+			Users: m.UserApprovers,
+		}
+	}
+
 	return &GetPolicyDataResult{
 		Mock: &MockPolicyData{
-			Approvers: &GetLatestApproversResult{
-				Teams: m.TeamApprovers,
-				Users: m.UserApprovers,
-			},
+			Approvers:       approvers,
+			UserAccessLevel: m.UserAccessLevel,
 		},
 	}, nil
 }

@@ -50,6 +50,7 @@ type Config struct {
 	GitHubPullRequestNumber int
 	GitHubPullRequestBody   string
 	GitHubSHA               string
+	GitHubActor             string
 }
 
 type configDefaults struct {
@@ -219,6 +220,14 @@ GITHUB_TOKEN.`,
 		EnvVar: "GITHUB_SHA",
 		Target: &c.GitHubSHA,
 		Usage:  "The GitHub SHA.",
+		Hidden: true,
+	})
+
+	f.StringVar(&cli.StringVar{
+		Name:   "github-actor",
+		EnvVar: "GITHUB_ACTOR",
+		Target: &c.GitHubActor,
+		Usage:  "The GitHub Login of the user requesting the workflow.",
 		Hidden: true,
 	})
 }
