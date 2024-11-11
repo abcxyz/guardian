@@ -30,6 +30,8 @@ type MockPlatform struct {
 	reqMu sync.Mutex
 	Reqs  []*Request
 
+	IsPullRequest bool
+
 	AssignReviewersErr  error
 	GetPolicyDataErr    error
 	ModifierContentResp string
@@ -98,12 +100,17 @@ func (m *MockPlatform) GetPolicyData(ctx context.Context) (*GetPolicyDataResult,
 		return nil, m.GetPolicyDataErr
 	}
 
+	var approvers *GetLatestApproversResult
+	if m.IsPullRequest {
+		approvers = &GetLatestApproversResult{
+			Teams: m.TeamApprovers,
+			Users: m.UserApprovers,
+		}
+	}
+
 	return &GetPolicyDataResult{
 		Mock: &MockPolicyData{
-			Approvers: &GetLatestApproversResult{
-				Teams: m.TeamApprovers,
-				Users: m.UserApprovers,
-			},
+			Approvers:       approvers,
 			UserAccessLevel: m.UserAccessLevel,
 		},
 	}, nil

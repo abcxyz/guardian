@@ -36,6 +36,7 @@ func TestFetchData_Process(t *testing.T) {
 
 	cases := []struct {
 		name             string
+		isPullRequest    bool
 		getPolicyDataErr error
 		wantErr          string
 		teams            []string
@@ -44,9 +45,10 @@ func TestFetchData_Process(t *testing.T) {
 		want             platform.GetPolicyDataResult
 	}{
 		{
-			name:  "prints_teams_and_users",
-			teams: []string{"team1", "team2"},
-			users: []string{"user1", "user2"},
+			name:          "prints_teams_and_users",
+			isPullRequest: true,
+			teams:         []string{"team1", "team2"},
+			users:         []string{"user1", "user2"},
 			want: platform.GetPolicyDataResult{
 				Mock: &platform.MockPolicyData{
 					Approvers: &platform.GetLatestApproversResult{
@@ -58,6 +60,7 @@ func TestFetchData_Process(t *testing.T) {
 		},
 		{
 			name:            "prints_user_access_level",
+			isPullRequest:   true,
 			userAccessLevel: "admin",
 			want: platform.GetPolicyDataResult{
 				Mock: &platform.MockPolicyData{
@@ -67,15 +70,28 @@ func TestFetchData_Process(t *testing.T) {
 			},
 		},
 		{
-			name:  "prints_no_approvers",
-			teams: []string{},
-			users: []string{},
+			name:          "prints_no_approvers",
+			isPullRequest: true,
+			teams:         []string{},
+			users:         []string{},
 			want: platform.GetPolicyDataResult{
 				Mock: &platform.MockPolicyData{
 					Approvers: &platform.GetLatestApproversResult{
 						Teams: []string{},
 						Users: []string{},
 					},
+				},
+			},
+		},
+		{
+			name:            "prints_no_approvers_outside_of_pull_request",
+			teams:           []string{},
+			users:           []string{},
+			isPullRequest:   false,
+			userAccessLevel: "read_only",
+			want: platform.GetPolicyDataResult{
+				Mock: &platform.MockPolicyData{
+					UserAccessLevel: "read_only",
 				},
 			},
 		},
@@ -102,6 +118,7 @@ func TestFetchData_Process(t *testing.T) {
 					TeamApprovers:    tc.teams,
 					UserApprovers:    tc.users,
 					UserAccessLevel:  tc.userAccessLevel,
+					IsPullRequest:    tc.isPullRequest,
 				},
 			}
 			outFilepath := path.Join(outDir, policyDataFilename)
