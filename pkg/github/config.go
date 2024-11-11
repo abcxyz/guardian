@@ -58,7 +58,6 @@ type configDefaults struct {
 	Repo              string
 	PullRequestNumber int
 	PullRequestBody   string
-	Actor             string
 }
 
 func (c *Config) RegisterFlags(set *cli.FlagSet) {
@@ -77,7 +76,6 @@ func (c *Config) RegisterFlags(set *cli.FlagSet) {
 		if err := json.Unmarshal(data, &event); err == nil {
 			d.PullRequestNumber = event.GetNumber()
 			d.PullRequestBody = event.GetPullRequest().GetBody()
-			d.Actor = event.GetSender().GetLogin()
 		}
 	}
 	if githubContext.EventName == "pull_request_target" {
@@ -85,13 +83,6 @@ func (c *Config) RegisterFlags(set *cli.FlagSet) {
 		if err := json.Unmarshal(data, &event); err == nil {
 			d.PullRequestNumber = event.GetNumber()
 			d.PullRequestBody = event.GetPullRequest().GetBody()
-			d.Actor = event.GetSender().GetLogin()
-		}
-	}
-	if githubContext.EventName == "workflow_dispatch" {
-		var event github.WorkflowDispatchEvent
-		if err := json.Unmarshal(data, &event); err == nil {
-			d.Actor = event.GetSender().GetLogin()
 		}
 	}
 
@@ -233,11 +224,10 @@ GITHUB_TOKEN.`,
 	})
 
 	f.StringVar(&cli.StringVar{
-		Name:    "github-actor",
-		EnvVar:  "GITHUB_ACTOR",
-		Target:  &c.GitHubActor,
-		Default: d.Actor,
-		Usage:   "The GitHub Login of the user requesting the workflow.",
-		Hidden:  true,
+		Name:   "github-actor",
+		EnvVar: "GITHUB_ACTOR",
+		Target: &c.GitHubActor,
+		Usage:  "The GitHub Login of the user requesting the workflow.",
+		Hidden: true,
 	})
 }
