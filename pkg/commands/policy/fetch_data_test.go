@@ -40,11 +40,11 @@ func TestFetchData_Process(t *testing.T) {
 		wantErr          string
 		teams            []string
 		users            []string
+		userAccessLevel  string
 		want             platform.GetPolicyDataResult
 	}{
 		{
-			name: "prints_teams_and_users",
-
+			name:  "prints_teams_and_users",
 			teams: []string{"team1", "team2"},
 			users: []string{"user1", "user2"},
 			want: platform.GetPolicyDataResult{
@@ -53,6 +53,16 @@ func TestFetchData_Process(t *testing.T) {
 						Teams: []string{"team1", "team2"},
 						Users: []string{"user1", "user2"},
 					},
+				},
+			},
+		},
+		{
+			name:            "prints_user_access_level",
+			userAccessLevel: "admin",
+			want: platform.GetPolicyDataResult{
+				Mock: &platform.MockPolicyData{
+					Approvers:       &platform.GetLatestApproversResult{},
+					UserAccessLevel: "admin",
 				},
 			},
 		},
@@ -91,6 +101,7 @@ func TestFetchData_Process(t *testing.T) {
 					GetPolicyDataErr: tc.getPolicyDataErr,
 					TeamApprovers:    tc.teams,
 					UserApprovers:    tc.users,
+					UserAccessLevel:  tc.userAccessLevel,
 				},
 			}
 			outFilepath := path.Join(outDir, policyDataFilename)

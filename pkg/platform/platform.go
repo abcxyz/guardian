@@ -76,6 +76,9 @@ type Platform interface {
 	// AssignReviewers assigns principals to review a change request.
 	AssignReviewers(ctx context.Context, inputs *AssignReviewersInput) (*AssignReviewersResult, error)
 
+	// GetUserRepoPermissions
+	GetUserRepoPermissions(ctx context.Context) (string, error)
+
 	// GetLatestApprovers retrieves the reviewers whose latest review is an
 	// approval.
 	GetLatestApprovers(ctx context.Context) (*GetLatestApproversResult, error)
