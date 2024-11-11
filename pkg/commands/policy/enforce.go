@@ -172,6 +172,8 @@ func (c *EnforceCommand) Process(ctx context.Context) error {
 	return merr
 }
 
+// EnforceMissingApprovals checks for any missing_approvals violations attempts
+// to assign the missing reviewers, and fails the status.
 func (c *EnforceCommand) EnforceMissingApprovals(ctx context.Context, b *strings.Builder, policyName string, r *Result) error {
 	logger := logging.FromContext(ctx)
 
