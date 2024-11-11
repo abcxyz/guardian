@@ -251,12 +251,12 @@ func (g *GitHub) GetUserRepoPermissions(ctx context.Context) (string, error) {
 	logger := logging.FromContext(ctx)
 	logger.DebugContext(ctx, "querying user repo permissions")
 
-	if g.cfg.GitHubWorkflowUser == "" {
-		return "", fmt.Errorf("github-workflow-user is required")
+	if g.cfg.GitHubActor == "" {
+		return "", fmt.Errorf("github-actor is required")
 	}
 	var result string
 	return result, g.withRetries(ctx, func(ctx context.Context) error {
-		permissionLevel, resp, err := g.client.Repositories.GetPermissionLevel(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, g.cfg.GitHubWorkflowUser)
+		permissionLevel, resp, err := g.client.Repositories.GetPermissionLevel(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, g.cfg.GitHubActor)
 		if err != nil {
 			if resp != nil {
 				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {

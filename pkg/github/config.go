@@ -50,7 +50,7 @@ type Config struct {
 	GitHubPullRequestNumber int
 	GitHubPullRequestBody   string
 	GitHubSHA               string
-	GitHubWorkflowUser      string
+	GitHubActor             string
 }
 
 type configDefaults struct {
@@ -58,7 +58,7 @@ type configDefaults struct {
 	Repo              string
 	PullRequestNumber int
 	PullRequestBody   string
-	WorkflowUser      string
+	Actor             string
 }
 
 func (c *Config) RegisterFlags(set *cli.FlagSet) {
@@ -77,7 +77,7 @@ func (c *Config) RegisterFlags(set *cli.FlagSet) {
 		if err := json.Unmarshal(data, &event); err == nil {
 			d.PullRequestNumber = event.GetNumber()
 			d.PullRequestBody = event.GetPullRequest().GetBody()
-			d.WorkflowUser = event.GetSender().GetLogin()
+			d.Actor = event.GetSender().GetLogin()
 		}
 	}
 	if githubContext.EventName == "pull_request_target" {
@@ -85,13 +85,13 @@ func (c *Config) RegisterFlags(set *cli.FlagSet) {
 		if err := json.Unmarshal(data, &event); err == nil {
 			d.PullRequestNumber = event.GetNumber()
 			d.PullRequestBody = event.GetPullRequest().GetBody()
-			d.WorkflowUser = event.GetSender().GetLogin()
+			d.Actor = event.GetSender().GetLogin()
 		}
 	}
 	if githubContext.EventName == "workflow_dispatch" {
 		var event github.WorkflowDispatchEvent
 		if err := json.Unmarshal(data, &event); err == nil {
-			d.WorkflowUser = event.GetSender().GetLogin()
+			d.Actor = event.GetSender().GetLogin()
 		}
 	}
 
@@ -233,10 +233,10 @@ GITHUB_TOKEN.`,
 	})
 
 	f.StringVar(&cli.StringVar{
-		Name:    "github-workflow-user",
-		EnvVar:  "GITHUB_WORKFLOW_USER",
-		Target:  &c.GitHubWorkflowUser,
-		Default: d.WorkflowUser,
+		Name:    "github-actor",
+		EnvVar:  "GITHUB_ACTOR",
+		Target:  &c.GitHubActor,
+		Default: d.Actor,
 		Usage:   "The GitHub Login of the user requesting the workflow.",
 		Hidden:  true,
 	})
