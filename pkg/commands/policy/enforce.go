@@ -135,33 +135,52 @@ func (c *EnforceCommand) Process(ctx context.Context) error {
 	}
 
 	var merr error
-	var teams, users []string
 	var b strings.Builder
 	for k, v := range *results {
 		logger.DebugContext(ctx, "processing policy decision",
 			"policy_name", k)
 
-		if len(v.MissingApprovals) == 0 {
-			logger.DebugContext(ctx, "no missing approvals for policy",
-				"policy_name", k)
-			continue
+		if err := c.EnforceMissingApprovals(ctx, b, k, v); err != nil {
+			merr = errors.Join(merr, err)
+		}
+	}
+
+	if err := c.reporter.Status(ctx, reporter.StatusPolicyViolation, &reporter.StatusParams{
+		Operation: "Policy Violation",
+		Dir:       c.directory,
+		Message:   "**NOTE**: After resolving the policy violations below, re-run the `Guardian Plan` workflow to re-evaluate policy enforcement checks.",
+		Details:   b.String(),
+	}); err != nil {
+		return fmt.Errorf("failed to report status: %w", err)
+	}
+	return merr
+}
+
+func (c *EnforceCommand) EnforceMissingApprovals(ctx context.Context, b strings.Builder, policyName string, r *Result) error {
+	logger := logging.FromContext(ctx)
+
+	if len(r.MissingApprovals) == 0 {
+		logger.DebugContext(ctx, "no missing approvals for policy",
+			"policy_name", policyName)
+		return nil
+	}
+
+	var merr error
+	var teams, users []string
+	fmt.Fprintf(&b, "#### %s\n", policyName)
+	for _, m := range r.MissingApprovals {
+		teams = append(teams, m.AssignTeams...)
+		users = append(users, m.AssignUsers...)
+
+		fmt.Fprint(&b, "- **Missing approvals from one of**:\n")
+		if len(m.AssignUsers) > 0 {
+			fmt.Fprintf(&b, "\t - Users: %s\n", strings.Join(m.AssignUsers, ", "))
+		}
+		if len(m.AssignTeams) > 0 {
+			fmt.Fprintf(&b, "\t - Teams: %s\n", strings.Join(m.AssignTeams, ", "))
 		}
 
-		fmt.Fprintf(&b, "#### %s\n", k)
-		for _, m := range v.MissingApprovals {
-			teams = append(teams, m.AssignTeams...)
-			users = append(users, m.AssignUsers...)
-
-			fmt.Fprint(&b, "- **Missing approvals from one of**:\n")
-			if len(m.AssignUsers) > 0 {
-				fmt.Fprintf(&b, "\t - Users: %s\n", strings.Join(m.AssignUsers, ", "))
-			}
-			if len(m.AssignTeams) > 0 {
-				fmt.Fprintf(&b, "\t - Teams: %s\n", strings.Join(m.AssignTeams, ", "))
-			}
-
-			merr = errors.Join(merr, fmt.Errorf("failed: \"%s\" - %s", k, m.Message))
-		}
+		merr = errors.Join(merr, fmt.Errorf("failed: \"%s\" - %s", policyName, m.Message))
 	}
 
 	// Skips assigning reviewers but returns any errors found. This is possible if
@@ -182,13 +201,5 @@ func (c *EnforceCommand) Process(ctx context.Context) error {
 		return fmt.Errorf("failed to assign reviewers: %w", err)
 	}
 
-	if err := c.reporter.Status(ctx, reporter.StatusPolicyViolation, &reporter.StatusParams{
-		Operation: "Policy Violation",
-		Dir:       c.directory,
-		Message:   "**NOTE**: After resolving the policy violations below, re-run the `Guardian Plan` workflow to re-evaluate policy enforcement checks.",
-		Details:   b.String(),
-	}); err != nil {
-		return fmt.Errorf("failed to report status: %w", err)
-	}
 	return merr
 }
