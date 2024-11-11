@@ -77,6 +77,7 @@ func (c *Config) RegisterFlags(set *cli.FlagSet) {
 		if err := json.Unmarshal(data, &event); err == nil {
 			d.PullRequestNumber = event.GetNumber()
 			d.PullRequestBody = event.GetPullRequest().GetBody()
+			d.WorkflowUser = event.GetSender().GetLogin()
 		}
 	}
 	if githubContext.EventName == "pull_request_target" {
@@ -84,6 +85,7 @@ func (c *Config) RegisterFlags(set *cli.FlagSet) {
 		if err := json.Unmarshal(data, &event); err == nil {
 			d.PullRequestNumber = event.GetNumber()
 			d.PullRequestBody = event.GetPullRequest().GetBody()
+			d.WorkflowUser = event.GetSender().GetLogin()
 		}
 	}
 	if githubContext.EventName == "workflow_dispatch" {
@@ -231,10 +233,11 @@ GITHUB_TOKEN.`,
 	})
 
 	f.StringVar(&cli.StringVar{
-		Name:   "github-workflow-user",
-		EnvVar: "GITHUB_WORKFLOW_USER",
-		Target: &c.GitHubWorkflowUser,
-		Usage:  "The GitHub Login of the user requesting the workflow.",
-		Hidden: true,
+		Name:    "github-workflow-user",
+		EnvVar:  "GITHUB_WORKFLOW_USER",
+		Target:  &c.GitHubWorkflowUser,
+		Default: d.WorkflowUser,
+		Usage:   "The GitHub Login of the user requesting the workflow.",
+		Hidden:  true,
 	})
 }
