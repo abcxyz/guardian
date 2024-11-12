@@ -34,7 +34,7 @@ import (
 // Result defines the expected structure of the OPA policy evaluation result.
 type Result struct {
 	MissingApprovals []*MissingApproval `json:"missing_approvals"`
-	DenyAll          []*DenyAll         `json:"deny_all"`
+	Deny             []*Deny            `json:"deny"`
 }
 
 // MissingApproval defines the missing approvals determined from the policy
@@ -147,7 +147,7 @@ func (c *EnforceCommand) Process(ctx context.Context) error {
 			violation = errors.Join(violation, err)
 		}
 
-		if err := c.EnforceDenyAll(ctx, &st, k, v); err != nil {
+		if err := c.EnforceDeny(ctx, &st, k, v); err != nil {
 			violation = errors.Join(violation, err)
 		}
 
@@ -221,25 +221,25 @@ func (c *EnforceCommand) EnforceMissingApprovals(ctx context.Context, b *strings
 	return merr
 }
 
-// DenyAll defines the expected structure of deny all violations from the policy
+// Deny defines the expected structure of deny violations from the policy
 // evaluation result.
-type DenyAll struct {
+type Deny struct {
 	Message string `json:"msg"`
 }
 
-// EnforceDenyAll blocks the action if a deny all violation is found and reports
+// EnforceDeny blocks the action if a deny violation is found and reports
 // any violations with the detailed error message.
-func (c *EnforceCommand) EnforceDenyAll(ctx context.Context, b *strings.Builder, policyName string, r *Result) error {
+func (c *EnforceCommand) EnforceDeny(ctx context.Context, b *strings.Builder, policyName string, r *Result) error {
 	logger := logging.FromContext(ctx)
 
-	if len(r.DenyAll) == 0 {
-		logger.DebugContext(ctx, "no deny all violations for policy",
+	if len(r.Deny) == 0 {
+		logger.DebugContext(ctx, "no deny violations for policy",
 			"policy_name", policyName)
 		return nil
 	}
 
 	fmt.Fprint(b, "- **Action not allowed**:\n")
-	for _, m := range r.DenyAll {
+	for _, m := range r.Deny {
 		fmt.Fprintf(b, "\t - Reason: %s\n", m.Message)
 		return fmt.Errorf("failed: \"%s\" - %s", policyName, m.Message)
 	}

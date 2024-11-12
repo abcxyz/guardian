@@ -1,6 +1,6 @@
 {
   "test_policy_name": {
-    "deny_all": [
+    "deny": [
       {
         "msg": "test-error-message"
       }

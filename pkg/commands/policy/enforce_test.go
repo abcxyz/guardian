@@ -57,8 +57,8 @@ func TestEnforce_Process(t *testing.T) {
 			wantErr:            "failed to assign reviewers",
 		},
 		{
-			name:        "fails_with_deny_all",
-			resultsFile: "testdata/deny_all.json",
+			name:        "fails_with_deny",
+			resultsFile: "testdata/deny.json",
 			wantErr:     "test-error-message",
 		},
 	}
