@@ -34,6 +34,7 @@ import (
 // Result defines the expected structure of the OPA policy evaluation result.
 type Result struct {
 	MissingApprovals []*MissingApproval `json:"missing_approvals"`
+	Deny             []*Deny            `json:"deny"`
 }
 
 // MissingApproval defines the missing approvals determined from the policy
@@ -135,33 +136,68 @@ func (c *EnforceCommand) Process(ctx context.Context) error {
 	}
 
 	var merr error
-	var teams, users []string
 	var b strings.Builder
 	for k, v := range *results {
 		logger.DebugContext(ctx, "processing policy decision",
 			"policy_name", k)
 
-		if len(v.MissingApprovals) == 0 {
-			logger.DebugContext(ctx, "no missing approvals for policy",
-				"policy_name", k)
-			continue
+		var violation error
+		var st strings.Builder
+		if err := c.EnforceMissingApprovals(ctx, &st, k, v); err != nil {
+			violation = errors.Join(violation, err)
 		}
 
-		fmt.Fprintf(&b, "#### %s\n", k)
-		for _, m := range v.MissingApprovals {
-			teams = append(teams, m.AssignTeams...)
-			users = append(users, m.AssignUsers...)
-
-			fmt.Fprint(&b, "- **Missing approvals from one of**:\n")
-			if len(m.AssignUsers) > 0 {
-				fmt.Fprintf(&b, "\t - Users: %s\n", strings.Join(m.AssignUsers, ", "))
-			}
-			if len(m.AssignTeams) > 0 {
-				fmt.Fprintf(&b, "\t - Teams: %s\n", strings.Join(m.AssignTeams, ", "))
-			}
-
-			merr = errors.Join(merr, fmt.Errorf("failed: \"%s\" - %s", k, m.Message))
+		if err := c.EnforceDeny(ctx, &st, k, v); err != nil {
+			violation = errors.Join(violation, err)
 		}
+
+		if violation != nil {
+			// Prints policy name followed by the violations found.
+			fmt.Fprintf(&b, "#### %s\n", k)
+			fmt.Fprintf(&b, "%s\n", st.String())
+			merr = errors.Join(merr, violation)
+		}
+	}
+
+	if merr != nil {
+		if err := c.reporter.Status(ctx, reporter.StatusPolicyViolation, &reporter.StatusParams{
+			Operation: "Policy Violation",
+			Dir:       c.directory,
+			Message:   "**NOTE**: After resolving the policy violations below, re-run the `Guardian Plan` workflow to re-evaluate policy enforcement checks.",
+			Details:   b.String(),
+		}); err != nil {
+			return fmt.Errorf("failed to report status: %w", err)
+		}
+	}
+	return merr
+}
+
+// EnforceMissingApprovals checks for any missing_approvals violations attempts
+// to assign the missing reviewers, and fails the status.
+func (c *EnforceCommand) EnforceMissingApprovals(ctx context.Context, b *strings.Builder, policyName string, r *Result) error {
+	logger := logging.FromContext(ctx)
+
+	if len(r.MissingApprovals) == 0 {
+		logger.DebugContext(ctx, "no missing approvals for policy",
+			"policy_name", policyName)
+		return nil
+	}
+
+	var merr error
+	var teams, users []string
+	for _, m := range r.MissingApprovals {
+		teams = append(teams, m.AssignTeams...)
+		users = append(users, m.AssignUsers...)
+
+		fmt.Fprint(b, "- **Missing approvals from one of**:\n")
+		if len(m.AssignUsers) > 0 {
+			fmt.Fprintf(b, "\t - Users: %s\n", strings.Join(m.AssignUsers, ", "))
+		}
+		if len(m.AssignTeams) > 0 {
+			fmt.Fprintf(b, "\t - Teams: %s\n", strings.Join(m.AssignTeams, ", "))
+		}
+
+		merr = errors.Join(merr, fmt.Errorf("failed: \"%s\" - %s", policyName, m.Message))
 	}
 
 	// Skips assigning reviewers but returns any errors found. This is possible if
@@ -182,13 +218,30 @@ func (c *EnforceCommand) Process(ctx context.Context) error {
 		return fmt.Errorf("failed to assign reviewers: %w", err)
 	}
 
-	if err := c.reporter.Status(ctx, reporter.StatusPolicyViolation, &reporter.StatusParams{
-		Operation: "Policy Violation",
-		Dir:       c.directory,
-		Message:   "**NOTE**: After resolving the policy violations below, re-run the `Guardian Plan` workflow to re-evaluate policy enforcement checks.",
-		Details:   b.String(),
-	}); err != nil {
-		return fmt.Errorf("failed to report status: %w", err)
-	}
 	return merr
+}
+
+// Deny defines the expected structure of deny violations from the policy
+// evaluation result.
+type Deny struct {
+	Message string `json:"msg"`
+}
+
+// EnforceDeny blocks the action if a deny violation is found and reports
+// any violations with the detailed error message.
+func (c *EnforceCommand) EnforceDeny(ctx context.Context, b *strings.Builder, policyName string, r *Result) error {
+	logger := logging.FromContext(ctx)
+
+	if len(r.Deny) == 0 {
+		logger.DebugContext(ctx, "no deny violations for policy",
+			"policy_name", policyName)
+		return nil
+	}
+
+	fmt.Fprint(b, "- **Action not allowed**:\n")
+	for _, m := range r.Deny {
+		fmt.Fprintf(b, "\t - Reason: %s\n", m.Message)
+		return fmt.Errorf("failed: \"%s\" - %s", policyName, m.Message)
+	}
+	return nil
 }
