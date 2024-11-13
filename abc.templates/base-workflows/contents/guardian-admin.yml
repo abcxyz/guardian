@@ -67,7 +67,7 @@ jobs:
         env:
           ENTRYPOINT: '${{ inputs.entrypoint }}'
         run: |-
-          DIRECTORIES=$(guardian entrypoints -dir="${ENTRYPOINT}")
+          DIRECTORIES=$(guardian entrypoints -dir="${ENTRYPOINT}" -reporter=local)
           echo "entrypoints -> ${DIRECTORIES}"
           echo "directories=${DIRECTORIES}" >> $GITHUB_OUTPUT
 
@@ -114,6 +114,40 @@ jobs:
           binary_subpath: 'guardian'
           cache_key: '${{ runner.os }}_${{ runner.arch }}_guardian_${{ env.GUARDIAN_VERSION }}'
           add_to_path: true
+
+      - name: 'Aggregate Policy Data'
+        shell: 'bash'
+        env:
+          # used to call GitHub API's for data aggregation
+          GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
+        run: |-
+          guardian policy fetch-data
+
+      - name: 'Setup OPA'
+        uses: 'open-policy-agent/setup-opa@34a30e8a924d1b03ce2cf7abe97250bbb1f332b5' # ratchet:open-policy-agent/setup-opa@v2
+        with:
+          version: 'latest'
+
+      - name: 'Evaluate Policy'
+        id: 'opa_eval'
+        shell: 'bash'
+        run: |-
+          DECISION=$(opa eval \
+            --format raw \
+            --data ./policy/guardian/admin \
+            --data ./guardian_policy_context.json \
+            "data.guardian.admin")
+          echo "$DECISION" > policy_results.json
+
+      - name: 'Enforce Policy'
+        shell: 'bash'
+        env:
+          GITHUB_TOKEN: '${{ github.token }}'
+        run: |-
+          guardian policy enforce \
+            -reporter=local \
+            -dir=${DIRECTORY} \
+            -results-file=policy_results.json
 
       - name: 'Guardian Admin'
         env:

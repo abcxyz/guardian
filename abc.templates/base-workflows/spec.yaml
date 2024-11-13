@@ -38,8 +38,10 @@ steps:
     params:
       paths:
         - 'contents'
+        - 'contents/admin_workflow_permissions.rego'
       as:
         - '.github/workflows'
+        - 'policy/guardian/admin/workflow_permissions.rego'
 
   - desc: 'Replace variables'
     action: 'string_replace'
