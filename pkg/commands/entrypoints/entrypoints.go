@@ -182,7 +182,11 @@ type Entrypoints []string
 
 // MarshalJSON implements json.Marshaler.MarshalJSON.
 func (e Entrypoints) MarshalJSON() ([]byte, error) {
-	return json.Marshal(NewResult(&e))
+	b, err := json.Marshal(NewResult(&e))
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal entrypoints: %w", err)
+	}
+	return b, nil
 }
 
 // Process handles the main logic for the Guardian init process.
