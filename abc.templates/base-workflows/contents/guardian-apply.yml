@@ -39,6 +39,7 @@ jobs:
 
     permissions:
       contents: 'read'
+      pull-requests: 'write'
 
     outputs:
       directories: '${{ steps.dirs.outputs.directories }}'
