@@ -177,6 +177,14 @@ func (c *EntrypointsCommand) Run(ctx context.Context, args []string) error {
 	return c.Process(ctx)
 }
 
+// Entrypoints is a custom type that implements the json.Marshaler interface.
+type Entrypoints []string
+
+// MarshalJSON implements json.Marshaler.MarshalJSON.
+func (e Entrypoints) MarshalJSON() ([]byte, error) {
+	return json.Marshal(NewResult(&e))
+}
+
 // Process handles the main logic for the Guardian init process.
 func (c *EntrypointsCommand) Process(ctx context.Context) error {
 	logger := logging.FromContext(ctx)
@@ -189,7 +197,7 @@ func (c *EntrypointsCommand) Process(ctx context.Context) error {
 		return fmt.Errorf("failed to get current working directory: %w", err)
 	}
 
-	modifiedEntrypoints := make([]string, 0)
+	var modifiedEntrypoints Entrypoints
 
 	for _, dir := range c.flagDir {
 		dirAbs, err := util.PathEvalAbs(dir)
@@ -294,8 +302,18 @@ func (c *EntrypointsCommand) detectEntrypointChanges(ctx context.Context, dir st
 	return modifiedDirs, nil
 }
 
+// Result is a custom type that defines the JSON representation of the output.
+type Result []string
+
+// NewResult creates a new Result from an Entrypoints type.
+func NewResult(e *Entrypoints) Result {
+	r := []string{}
+	r = append(r, *e...)
+	return r
+}
+
 // writeOutput writes the command output.
-func (c *EntrypointsCommand) writeOutput(cwd string, results []string) error {
+func (c *EntrypointsCommand) writeOutput(cwd string, results Entrypoints) error {
 	// convert to child path for output
 	// using absolute path creates an ugly github workflow name
 	for k, dir := range results {
