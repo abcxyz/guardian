@@ -189,7 +189,7 @@ func (c *EntrypointsCommand) Process(ctx context.Context) error {
 		return fmt.Errorf("failed to get current working directory: %w", err)
 	}
 
-	var modifiedEntrypoints []string
+	modifiedEntrypoints := make([]string, 0)
 
 	for _, dir := range c.flagDir {
 		dirAbs, err := util.PathEvalAbs(dir)
@@ -306,9 +306,6 @@ func (c *EntrypointsCommand) writeOutput(cwd string, results []string) error {
 		results[k] = childPath
 	}
 
-	if results == nil {
-		results = []string{}
-	}
 	if err := json.NewEncoder(c.Stdout()).Encode(results); err != nil {
 		return fmt.Errorf("failed to create json string: %w", err)
 	}
