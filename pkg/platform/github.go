@@ -174,23 +174,6 @@ type latestApproverQuery struct {
 	} `graphql:"repository(owner: $owner, name: $repo)"`
 }
 
-type member struct {
-	Login string
-}
-type team struct {
-	Name    string
-	Members struct {
-		Nodes []member
-	} `graphql:"members(first: 100)"`
-}
-type organizationTeamsAndMembershipsQuery struct {
-	Organization struct {
-		Teams struct {
-			Nodes []team
-		} `graphql:"teams(first: 100)"`
-	} `graphql:"organization(login: $owner)"`
-}
-
 // GetLatestApprovers retrieves the users whose latest review for a pull request
 // is an approval. It also returns the teams and subteams that the user
 // approvers are members of to indicate approval on behalf of those teams. Note,
@@ -223,16 +206,16 @@ func (g *GitHub) GetLatestApprovers(ctx context.Context) (*GetLatestApproversRes
 			hasApproved[review.Author.Login] = struct{}{}
 		}
 	}
-	var teamQuery organizationTeamsAndMembershipsQuery
-	if err := g.graphqlClient.Query(ctx, &teamQuery, map[string]any{
-		"owner": githubv4.String(g.cfg.GitHubOwner),
-	}); err != nil {
-		return nil, fmt.Errorf("failed to query organization teams and memberships: %w", err)
+
+	teams, err := g.GetTeamMemberships(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get team memberships: %w", err)
 	}
-	for _, team := range teamQuery.Organization.Teams.Nodes {
-		for _, member := range team.Members.Nodes {
-			if _, ok := hasApproved[member.Login]; ok {
-				result.Teams = append(result.Teams, team.Name)
+
+	for t, members := range teams {
+		for _, m := range members {
+			if _, ok := hasApproved[m]; ok {
+				result.Teams = append(result.Teams, t)
 				break
 			}
 		}
@@ -245,10 +228,44 @@ func (g *GitHub) GetLatestApprovers(ctx context.Context) (*GetLatestApproversRes
 	return result, nil
 }
 
+type member struct {
+	Login string
+}
+type team struct {
+	Name    string
+	Members struct {
+		Nodes []member
+	} `graphql:"members(first: 100)"`
+}
+type organizationTeamsAndMembershipsQuery struct {
+	Organization struct {
+		Teams struct {
+			Nodes []team
+		} `graphql:"teams(first: 100)"`
+	} `graphql:"organization(login: $owner)"`
+}
+
 // GetTeamMemberships returns a mapping of each team to list of members for the
 // given GitHub organization.
-func (l *GitHub) GetTeamMemberships(ctx context.Context) (map[string][]string, error) {
-	return map[string][]string{}, nil
+func (g *GitHub) GetTeamMemberships(ctx context.Context) (map[string][]string, error) {
+	logger := logging.FromContext(ctx)
+	logger.DebugContext(ctx, "querying team memberships")
+
+	var teamQuery organizationTeamsAndMembershipsQuery
+	if err := g.graphqlClient.Query(ctx, &teamQuery, map[string]any{
+		"owner": githubv4.String(g.cfg.GitHubOwner),
+	}); err != nil {
+		return nil, fmt.Errorf("failed to query organization teams and memberships: %w", err)
+	}
+
+	res := make(map[string][]string, len(teamQuery.Organization.Teams.Nodes))
+	for _, team := range teamQuery.Organization.Teams.Nodes {
+		for _, member := range team.Members.Nodes {
+			res[team.Name] = append(res[team.Name], member.Login)
+		}
+	}
+
+	return res, nil
 }
 
 // GetUserRepoPermissions returns the repo permission for the user that
