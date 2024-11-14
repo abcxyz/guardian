@@ -41,6 +41,7 @@ type MockPlatform struct {
 	TeamApprovers       []string
 	UserApprovers       []string
 	UserAccessLevel     string
+	TeamMemberships     map[string][]string
 }
 
 func (m *MockPlatform) AssignReviewers(ctx context.Context, input *AssignReviewersInput) (*AssignReviewersResult, error) {
@@ -64,6 +65,7 @@ func (m *MockPlatform) AssignReviewers(ctx context.Context, input *AssignReviewe
 type MockPolicyData struct {
 	Approvers       *GetLatestApproversResult `json:"approvers"`
 	UserAccessLevel string                    `json:"user_access_level"`
+	TeamMemberships map[string][]string       `json:"team_memberships"`
 }
 
 func (m *MockPlatform) GetUserRepoPermissions(ctx context.Context) (string, error) {
@@ -76,7 +78,7 @@ func (m *MockPlatform) GetUserRepoPermissions(ctx context.Context) (string, erro
 	return m.UserAccessLevel, nil
 }
 
-func (m *MockPlatform) GetLatestApprovers(ctx context.Context) (*GetLatestApproversResult, error) {
+func (m *MockPlatform) GetLatestApprovers(ctx context.Context, teamMemberships map[string][]string) (*GetLatestApproversResult, error) {
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
 	m.Reqs = append(m.Reqs, &Request{
@@ -89,12 +91,24 @@ func (m *MockPlatform) GetLatestApprovers(ctx context.Context) (*GetLatestApprov
 	}, nil
 }
 
+func (m *MockPlatform) GetTeamMemberships(ctx context.Context) (map[string][]string, error) {
+	m.reqMu.Lock()
+	defer m.reqMu.Unlock()
+	m.Reqs = append(m.Reqs, &Request{
+		Name: "GetTeamMemberships",
+	})
+
+	return m.TeamMemberships, nil
+}
+
 func (m *MockPlatform) GetPolicyData(ctx context.Context) (*GetPolicyDataResult, error) {
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
 	m.Reqs = append(m.Reqs,
+		&Request{Name: "GetTeamMemberships"},
 		&Request{Name: "GetLatestApprovers"},
-		&Request{Name: "GetUserRepoPermissions"})
+		&Request{Name: "GetUserRepoPermissions"},
+	)
 
 	if m.GetPolicyDataErr != nil {
 		return nil, m.GetPolicyDataErr
@@ -112,6 +126,7 @@ func (m *MockPlatform) GetPolicyData(ctx context.Context) (*GetPolicyDataResult,
 		Mock: &MockPolicyData{
 			Approvers:       approvers,
 			UserAccessLevel: m.UserAccessLevel,
+			TeamMemberships: m.TeamMemberships,
 		},
 	}, nil
 }

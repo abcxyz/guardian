@@ -174,30 +174,13 @@ type latestApproverQuery struct {
 	} `graphql:"repository(owner: $owner, name: $repo)"`
 }
 
-type member struct {
-	Login string
-}
-type team struct {
-	Name    string
-	Members struct {
-		Nodes []member
-	} `graphql:"members(first: 100)"`
-}
-type organizationTeamsAndMembershipsQuery struct {
-	Organization struct {
-		Teams struct {
-			Nodes []team
-		} `graphql:"teams(first: 100)"`
-	} `graphql:"organization(login: $owner)"`
-}
-
 // GetLatestApprovers retrieves the users whose latest review for a pull request
 // is an approval. It also returns the teams and subteams that the user
 // approvers are members of to indicate approval on behalf of those teams. Note,
 // a comment following a previous approval by the same user will still keep the
 // APPROVED state. However, if a reviewer previously approved the PR and
 // requests changes/dismisses the review, then the approval is not counted.
-func (g *GitHub) GetLatestApprovers(ctx context.Context) (*GetLatestApproversResult, error) {
+func (g *GitHub) GetLatestApprovers(ctx context.Context, teamMemberships map[string][]string) (*GetLatestApproversResult, error) {
 	logger := logging.FromContext(ctx)
 	logger.DebugContext(ctx, "querying latest approvers")
 
@@ -223,16 +206,11 @@ func (g *GitHub) GetLatestApprovers(ctx context.Context) (*GetLatestApproversRes
 			hasApproved[review.Author.Login] = struct{}{}
 		}
 	}
-	var teamQuery organizationTeamsAndMembershipsQuery
-	if err := g.graphqlClient.Query(ctx, &teamQuery, map[string]any{
-		"owner": githubv4.String(g.cfg.GitHubOwner),
-	}); err != nil {
-		return nil, fmt.Errorf("failed to query organization teams and memberships: %w", err)
-	}
-	for _, team := range teamQuery.Organization.Teams.Nodes {
-		for _, member := range team.Members.Nodes {
-			if _, ok := hasApproved[member.Login]; ok {
-				result.Teams = append(result.Teams, team.Name)
+
+	for t, members := range teamMemberships {
+		for _, m := range members {
+			if _, ok := hasApproved[m]; ok {
+				result.Teams = append(result.Teams, t)
 				break
 			}
 		}
@@ -243,6 +221,47 @@ func (g *GitHub) GetLatestApprovers(ctx context.Context) (*GetLatestApproversRes
 	)
 
 	return result, nil
+}
+
+type member struct {
+	Login string
+}
+type team struct {
+	Name    string
+	Members struct {
+		Nodes []member
+	} `graphql:"members(first: 100)"`
+}
+type organizationTeamsAndMembershipsQuery struct {
+	Organization struct {
+		Teams struct {
+			Nodes []team
+		} `graphql:"teams(first: 100)"`
+	} `graphql:"organization(login: $owner)"`
+}
+
+// GetTeamMemberships returns a mapping of each team to list of members for the
+// given GitHub organization.
+func (g *GitHub) GetTeamMemberships(ctx context.Context) (map[string][]string, error) {
+	logger := logging.FromContext(ctx)
+	logger.DebugContext(ctx, "querying team memberships")
+
+	var teamQuery organizationTeamsAndMembershipsQuery
+	if err := g.graphqlClient.Query(ctx, &teamQuery, map[string]any{
+		"owner": githubv4.String(g.cfg.GitHubOwner),
+	}); err != nil {
+		return nil, fmt.Errorf("failed to query organization teams and memberships: %w", err)
+	}
+
+	res := make(map[string][]string, len(teamQuery.Organization.Teams.Nodes))
+	for _, team := range teamQuery.Organization.Teams.Nodes {
+		res[team.Name] = make([]string, len(team.Members.Nodes))
+		for _, member := range team.Members.Nodes {
+			res[team.Name] = append(res[team.Name], member.Login)
+		}
+	}
+
+	return res, nil
 }
 
 // GetUserRepoPermissions returns the repo permission for the user that
@@ -275,6 +294,7 @@ func (g *GitHub) GetUserRepoPermissions(ctx context.Context) (string, error) {
 type GitHubPolicyData struct {
 	PullRequestApprovers *GetLatestApproversResult `json:"pull_request_approvers"`
 	UserAccessLevel      string                    `json:"user_access_level"`
+	TeamMemberships      map[string][]string       `json:"team_memberships"`
 }
 
 // GetPolicyData aggregates data from GitHub into a payload used for policy
@@ -285,10 +305,15 @@ func (g *GitHub) GetPolicyData(ctx context.Context) (*GetPolicyDataResult, error
 		return nil, fmt.Errorf("failed to get user repo permissions: %w", err)
 	}
 
+	teamMembers, err := g.GetTeamMemberships(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get team memberships: %w", err)
+	}
+
 	var approvers *GetLatestApproversResult
 	// Skip, if the command is not running in the context of a pull request.
 	if g.cfg.GitHubPullRequestNumber > 0 {
-		approvers, err = g.GetLatestApprovers(ctx)
+		approvers, err = g.GetLatestApprovers(ctx, teamMembers)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get latest approvers: %w", err)
 		}
@@ -298,6 +323,7 @@ func (g *GitHub) GetPolicyData(ctx context.Context) (*GetPolicyDataResult, error
 		GitHub: &GitHubPolicyData{
 			PullRequestApprovers: approvers,
 			UserAccessLevel:      p,
+			TeamMemberships:      teamMembers,
 		},
 	}, nil
 }

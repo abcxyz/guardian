@@ -42,6 +42,7 @@ func TestFetchData_Process(t *testing.T) {
 		teams            []string
 		users            []string
 		userAccessLevel  string
+		teamMappings     map[string][]string
 		want             platform.GetPolicyDataResult
 	}{
 		{
@@ -66,6 +67,21 @@ func TestFetchData_Process(t *testing.T) {
 				Mock: &platform.MockPolicyData{
 					Approvers:       &platform.GetLatestApproversResult{},
 					UserAccessLevel: "admin",
+				},
+			},
+		},
+		{
+			name: "prints_team_memberships",
+			teamMappings: map[string][]string{
+				"team1": {"user1", "user2"},
+				"team2": {"user3", "user4"},
+			},
+			want: platform.GetPolicyDataResult{
+				Mock: &platform.MockPolicyData{
+					TeamMemberships: map[string][]string{
+						"team1": {"user1", "user2"},
+						"team2": {"user3", "user4"},
+					},
 				},
 			},
 		},
@@ -119,6 +135,7 @@ func TestFetchData_Process(t *testing.T) {
 					UserApprovers:    tc.users,
 					UserAccessLevel:  tc.userAccessLevel,
 					IsPullRequest:    tc.isPullRequest,
+					TeamMemberships:  tc.teamMappings,
 				},
 			}
 			outFilepath := path.Join(outDir, policyDataFilename)
