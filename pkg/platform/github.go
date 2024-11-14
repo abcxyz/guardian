@@ -180,7 +180,7 @@ type latestApproverQuery struct {
 // a comment following a previous approval by the same user will still keep the
 // APPROVED state. However, if a reviewer previously approved the PR and
 // requests changes/dismisses the review, then the approval is not counted.
-func (g *GitHub) GetLatestApprovers(ctx context.Context) (*GetLatestApproversResult, error) {
+func (g *GitHub) GetLatestApprovers(ctx context.Context, teamMemberships map[string][]string) (*GetLatestApproversResult, error) {
 	logger := logging.FromContext(ctx)
 	logger.DebugContext(ctx, "querying latest approvers")
 
@@ -207,10 +207,6 @@ func (g *GitHub) GetLatestApprovers(ctx context.Context) (*GetLatestApproversRes
 		}
 	}
 
-	teamMemberships, err := g.GetTeamMemberships(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get team memberships: %w", err)
-	}
 	for t, members := range teamMemberships {
 		for _, m := range members {
 			if _, ok := hasApproved[m]; ok {
@@ -316,7 +312,7 @@ func (g *GitHub) GetPolicyData(ctx context.Context) (*GetPolicyDataResult, error
 	var approvers *GetLatestApproversResult
 	// Skip, if the command is not running in the context of a pull request.
 	if g.cfg.GitHubPullRequestNumber > 0 {
-		approvers, err = g.GetLatestApprovers(ctx)
+		approvers, err = g.GetLatestApprovers(ctx, teamMembers)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get latest approvers: %w", err)
 		}

@@ -76,7 +76,7 @@ func (m *MockPlatform) GetUserRepoPermissions(ctx context.Context) (string, erro
 	return m.UserAccessLevel, nil
 }
 
-func (m *MockPlatform) GetLatestApprovers(ctx context.Context) (*GetLatestApproversResult, error) {
+func (m *MockPlatform) GetLatestApprovers(ctx context.Context, teamMemberships map[string][]string) (*GetLatestApproversResult, error) {
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
 	m.Reqs = append(m.Reqs, &Request{
