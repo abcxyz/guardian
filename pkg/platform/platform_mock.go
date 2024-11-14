@@ -105,8 +105,10 @@ func (m *MockPlatform) GetPolicyData(ctx context.Context) (*GetPolicyDataResult,
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
 	m.Reqs = append(m.Reqs,
+		&Request{Name: "GetTeamMemberships"},
 		&Request{Name: "GetLatestApprovers"},
-		&Request{Name: "GetUserRepoPermissions"})
+		&Request{Name: "GetUserRepoPermissions"},
+	)
 
 	if m.GetPolicyDataErr != nil {
 		return nil, m.GetPolicyDataErr
