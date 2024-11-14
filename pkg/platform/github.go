@@ -255,6 +255,7 @@ func (g *GitHub) GetTeamMemberships(ctx context.Context) (map[string][]string, e
 
 	res := make(map[string][]string, len(teamQuery.Organization.Teams.Nodes))
 	for _, team := range teamQuery.Organization.Teams.Nodes {
+		res[team.Name] = make([]string, len(team.Members.Nodes))
 		for _, member := range team.Members.Nodes {
 			res[team.Name] = append(res[team.Name], member.Login)
 		}
