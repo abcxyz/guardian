@@ -83,6 +83,9 @@ type Platform interface {
 	// approval.
 	GetLatestApprovers(ctx context.Context) (*GetLatestApproversResult, error)
 
+	// GetTeamMemberships retrieves a mapping of each team to list of members.
+	GetTeamMemberships(ctx context.Context) (map[string][]string, error)
+
 	// GetPolicyData retrieves the required data for policy evaluation.
 	GetPolicyData(ctx context.Context) (*GetPolicyDataResult, error)
 

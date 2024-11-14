@@ -44,6 +44,11 @@ func (l *Local) GetUserRepoPermissions(ctx context.Context) (string, error) {
 	return "", nil
 }
 
+// GetTeamMemberships is a no-op and returns an empty map.
+func (l *Local) GetTeamMemberships(ctx context.Context) (map[string][]string, error) {
+	return map[string][]string{}, nil
+}
+
 // GetLatestApprovers returns an empty result.
 func (l *Local) GetLatestApprovers(ctx context.Context) (*GetLatestApproversResult, error) {
 	return &GetLatestApproversResult{}, nil

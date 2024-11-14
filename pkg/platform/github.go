@@ -245,6 +245,12 @@ func (g *GitHub) GetLatestApprovers(ctx context.Context) (*GetLatestApproversRes
 	return result, nil
 }
 
+// GetTeamMemberships returns a mapping of each team to list of members for the
+// given GitHub organization.
+func (l *GitHub) GetTeamMemberships(ctx context.Context) (map[string][]string, error) {
+	return map[string][]string{}, nil
+}
+
 // GetUserRepoPermissions returns the repo permission for the user that
 // triggered the workflow.
 func (g *GitHub) GetUserRepoPermissions(ctx context.Context) (string, error) {

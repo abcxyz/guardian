@@ -89,6 +89,10 @@ func (m *MockPlatform) GetLatestApprovers(ctx context.Context) (*GetLatestApprov
 	}, nil
 }
 
+func (l *MockPlatform) GetTeamMemberships(ctx context.Context) (map[string][]string, error) {
+	return map[string][]string{}, nil
+}
+
 func (m *MockPlatform) GetPolicyData(ctx context.Context) (*GetPolicyDataResult, error) {
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
