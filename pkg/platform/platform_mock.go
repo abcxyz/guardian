@@ -41,6 +41,7 @@ type MockPlatform struct {
 	TeamApprovers       []string
 	UserApprovers       []string
 	UserAccessLevel     string
+	TeamMemberships     map[string][]string
 }
 
 func (m *MockPlatform) AssignReviewers(ctx context.Context, input *AssignReviewersInput) (*AssignReviewersResult, error) {
@@ -64,6 +65,7 @@ func (m *MockPlatform) AssignReviewers(ctx context.Context, input *AssignReviewe
 type MockPolicyData struct {
 	Approvers       *GetLatestApproversResult `json:"approvers"`
 	UserAccessLevel string                    `json:"user_access_level"`
+	TeamMemberships map[string][]string       `json:"team_memberships"`
 }
 
 func (m *MockPlatform) GetUserRepoPermissions(ctx context.Context) (string, error) {
@@ -89,8 +91,14 @@ func (m *MockPlatform) GetLatestApprovers(ctx context.Context, teamMemberships m
 	}, nil
 }
 
-func (l *MockPlatform) GetTeamMemberships(ctx context.Context) (map[string][]string, error) {
-	return map[string][]string{}, nil
+func (m *MockPlatform) GetTeamMemberships(ctx context.Context) (map[string][]string, error) {
+	m.reqMu.Lock()
+	defer m.reqMu.Unlock()
+	m.Reqs = append(m.Reqs, &Request{
+		Name: "GetTeamMemberships",
+	})
+
+	return m.TeamMemberships, nil
 }
 
 func (m *MockPlatform) GetPolicyData(ctx context.Context) (*GetPolicyDataResult, error) {
@@ -116,6 +124,7 @@ func (m *MockPlatform) GetPolicyData(ctx context.Context) (*GetPolicyDataResult,
 		Mock: &MockPolicyData{
 			Approvers:       approvers,
 			UserAccessLevel: m.UserAccessLevel,
+			TeamMemberships: m.TeamMemberships,
 		},
 	}, nil
 }
