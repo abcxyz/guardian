@@ -207,12 +207,11 @@ func (g *GitHub) GetLatestApprovers(ctx context.Context) (*GetLatestApproversRes
 		}
 	}
 
-	teams, err := g.GetTeamMemberships(ctx)
+	teamMemberships, err := g.GetTeamMemberships(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get team memberships: %w", err)
 	}
-
-	for t, members := range teams {
+	for t, members := range teamMemberships {
 		for _, m := range members {
 			if _, ok := hasApproved[m]; ok {
 				result.Teams = append(result.Teams, t)
@@ -298,6 +297,7 @@ func (g *GitHub) GetUserRepoPermissions(ctx context.Context) (string, error) {
 type GitHubPolicyData struct {
 	PullRequestApprovers *GetLatestApproversResult `json:"pull_request_approvers"`
 	UserAccessLevel      string                    `json:"user_access_level"`
+	TeamMemberships      map[string][]string       `json:"team_memberships"`
 }
 
 // GetPolicyData aggregates data from GitHub into a payload used for policy
@@ -306,6 +306,11 @@ func (g *GitHub) GetPolicyData(ctx context.Context) (*GetPolicyDataResult, error
 	p, err := g.GetUserRepoPermissions(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user repo permissions: %w", err)
+	}
+
+	teamMembers, err := g.GetTeamMemberships(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get team memberships: %w", err)
 	}
 
 	var approvers *GetLatestApproversResult
@@ -321,6 +326,7 @@ func (g *GitHub) GetPolicyData(ctx context.Context) (*GetPolicyDataResult, error
 		GitHub: &GitHubPolicyData{
 			PullRequestApprovers: approvers,
 			UserAccessLevel:      p,
+			TeamMemberships:      teamMembers,
 		},
 	}, nil
 }
