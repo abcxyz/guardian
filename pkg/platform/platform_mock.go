@@ -31,6 +31,7 @@ type MockPlatform struct {
 	Reqs  []*Request
 
 	IsPullRequest bool
+	IncludeTeams  bool
 
 	AssignReviewersErr  error
 	ActorUsername       string
@@ -66,7 +67,7 @@ func (m *MockPlatform) AssignReviewers(ctx context.Context, input *AssignReviewe
 type MockActorData struct {
 	Username    string   `json:"username"`
 	AccessLevel string   `json:"access_level"`
-	Teams       []string `json:"teams"`
+	Teams       []string `json:"teams,omitempty"`
 }
 
 type MockPolicyData struct {
@@ -91,8 +92,13 @@ func (m *MockPlatform) GetLatestApprovers(ctx context.Context) (*GetLatestApprov
 		Name: "GetLatestApprovers",
 	})
 
+	var teams []string
+	if m.IncludeTeams {
+		teams = m.TeamApprovers
+	}
+
 	return &GetLatestApproversResult{
-		Teams: m.TeamApprovers,
+		Teams: teams,
 		Users: m.UserApprovers,
 	}, nil
 }
@@ -120,10 +126,16 @@ func (m *MockPlatform) GetPolicyData(ctx context.Context) (*GetPolicyDataResult,
 		return nil, m.GetPolicyDataErr
 	}
 
+	var approverTeams, userTeams []string
+	if m.IncludeTeams {
+		userTeams = m.UserTeams
+		approverTeams = m.TeamApprovers
+	}
+
 	var approvers *GetLatestApproversResult
 	if m.IsPullRequest {
 		approvers = &GetLatestApproversResult{
-			Teams: m.TeamApprovers,
+			Teams: approverTeams,
 			Users: m.UserApprovers,
 		}
 	}
@@ -134,7 +146,7 @@ func (m *MockPlatform) GetPolicyData(ctx context.Context) (*GetPolicyDataResult,
 			Actor: &MockActorData{
 				Username:    m.ActorUsername,
 				AccessLevel: m.UserAccessLevel,
-				Teams:       m.UserTeams,
+				Teams:       userTeams,
 			},
 		},
 	}, nil
