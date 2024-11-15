@@ -33,6 +33,7 @@ type MockPlatform struct {
 	IsPullRequest bool
 
 	AssignReviewersErr  error
+	ActorUsername       string
 	GetPolicyDataErr    error
 	ModifierContentResp string
 	ModifierContentErr  error
@@ -62,9 +63,14 @@ func (m *MockPlatform) AssignReviewers(ctx context.Context, input *AssignReviewe
 	}, nil
 }
 
+type MockActorData struct {
+	Username    string `json:"username"`
+	AccessLevel string `json:"access_level"`
+}
+
 type MockPolicyData struct {
 	Approvers       *GetLatestApproversResult `json:"approvers"`
-	UserAccessLevel string                    `json:"user_access_level"`
+	Actor           *MockActorData            `json:"actor"`
 	TeamMemberships map[string][]string       `json:"team_memberships"`
 }
 
@@ -124,8 +130,11 @@ func (m *MockPlatform) GetPolicyData(ctx context.Context) (*GetPolicyDataResult,
 
 	return &GetPolicyDataResult{
 		Mock: &MockPolicyData{
-			Approvers:       approvers,
-			UserAccessLevel: m.UserAccessLevel,
+			Approvers: approvers,
+			Actor: &MockActorData{
+				Username:    m.ActorUsername,
+				AccessLevel: m.UserAccessLevel,
+			},
 			TeamMemberships: m.TeamMemberships,
 		},
 	}, nil
