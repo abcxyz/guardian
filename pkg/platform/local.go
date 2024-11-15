@@ -50,7 +50,7 @@ func (l *Local) GetUserTeamMemberships(ctx context.Context, username string) ([]
 }
 
 // GetLatestApprovers returns an empty result.
-func (l *Local) GetLatestApprovers(ctx context.Context, teamMemberships map[string][]string) (*GetLatestApproversResult, error) {
+func (l *Local) GetLatestApprovers(ctx context.Context) (*GetLatestApproversResult, error) {
 	return &GetLatestApproversResult{}, nil
 }
 

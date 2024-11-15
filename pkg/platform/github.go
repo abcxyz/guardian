@@ -180,7 +180,7 @@ type latestApproverQuery struct {
 // a comment following a previous approval by the same user will still keep the
 // APPROVED state. However, if a reviewer previously approved the PR and
 // requests changes/dismisses the review, then the approval is not counted.
-func (g *GitHub) GetLatestApprovers(ctx context.Context, teamMemberships map[string][]string) (*GetLatestApproversResult, error) {
+func (g *GitHub) GetLatestApprovers(ctx context.Context) (*GetLatestApproversResult, error) {
 	logger := logging.FromContext(ctx)
 	logger.DebugContext(ctx, "querying latest approvers")
 
@@ -207,11 +207,16 @@ func (g *GitHub) GetLatestApprovers(ctx context.Context, teamMemberships map[str
 		}
 	}
 
-	for t, members := range teamMemberships {
-		for _, m := range members {
-			if _, ok := hasApproved[m]; ok {
+	found := make(map[string]struct{})
+	for username := range hasApproved {
+		teams, err := g.GetUserTeamMemberships(ctx, username)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get team memberships for approvers: %w", err)
+		}
+		for _, t := range teams {
+			if _, ok := found[t]; !ok {
 				result.Teams = append(result.Teams, t)
-				break
+				found[t] = struct{}{}
 			}
 		}
 	}
@@ -322,13 +327,13 @@ func (g *GitHub) GetPolicyData(ctx context.Context) (*GetPolicyDataResult, error
 
 	teamMembers, err := g.GetTeamMemberships(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get team memberships: %w", err)
+		return nil, fmt.Errorf("failed to get user teams: %w", err)
 	}
 
 	var approvers *GetLatestApproversResult
 	// Skip, if the command is not running in the context of a pull request.
 	if g.cfg.GitHubPullRequestNumber > 0 {
-		approvers, err = g.GetLatestApprovers(ctx, teamMembers)
+		approvers, err = g.GetLatestApprovers(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get latest approvers: %w", err)
 		}

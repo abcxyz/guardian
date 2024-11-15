@@ -42,7 +42,7 @@ type MockPlatform struct {
 	TeamApprovers       []string
 	UserApprovers       []string
 	UserAccessLevel     string
-	TeamMemberships     map[string][]string
+	TeamMemberships     []string
 }
 
 func (m *MockPlatform) AssignReviewers(ctx context.Context, input *AssignReviewersInput) (*AssignReviewersResult, error) {
@@ -84,7 +84,7 @@ func (m *MockPlatform) GetUserRepoPermissions(ctx context.Context) (string, erro
 	return m.UserAccessLevel, nil
 }
 
-func (m *MockPlatform) GetLatestApprovers(ctx context.Context, teamMemberships map[string][]string) (*GetLatestApproversResult, error) {
+func (m *MockPlatform) GetLatestApprovers(ctx context.Context) (*GetLatestApproversResult, error) {
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
 	m.Reqs = append(m.Reqs, &Request{

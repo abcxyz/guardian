@@ -157,7 +157,6 @@ func TestFetchData_Process(t *testing.T) {
 					UserApprovers:    tc.users,
 					UserAccessLevel:  tc.userAccessLevel,
 					IsPullRequest:    tc.isPullRequest,
-					TeamMemberships:  tc.teamMappings,
 				},
 			}
 			outFilepath := path.Join(outDir, policyDataFilename)
