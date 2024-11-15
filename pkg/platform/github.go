@@ -231,12 +231,20 @@ func (g *GitHub) GetLatestApprovers(ctx context.Context) (*GetLatestApproversRes
 type member struct {
 	Login string
 }
+
+// The members() GraphQL query may include more than one user, if one's username
+// is a substring of another's. This is because the 'query' parameter does not
+// support exact matches.
 type team struct {
 	Name    string
 	Members struct {
 		Nodes []member
-	} `graphql:"members(first: 100, userLogins: $usernames)"`
+	} `graphql:"members(first: 100, query: $username)"`
 }
+
+// The teams() GraphQL query does support 'userLogins' parameter, but this was
+// observed to only return teams that the users are direct members of. This is
+// why we filter by username in the members GraphQL subquery.
 type organizationTeamsForUserQuery struct {
 	Organization struct {
 		Teams struct {
@@ -259,14 +267,22 @@ func (g *GitHub) GetUserTeamMemberships(ctx context.Context, username string) ([
 
 	var teamQuery organizationTeamsForUserQuery
 	if err := g.graphqlClient.Query(ctx, &teamQuery, map[string]any{
-		"owner":     githubv4.String(g.cfg.GitHubOwner),
-		"usernames": []string{username},
+		"owner":    githubv4.String(g.cfg.GitHubOwner),
+		"username": githubv4.String(username),
 	}); err != nil {
 		return nil, fmt.Errorf("failed to query user team memberships: %w", err)
 	}
 
 	res := make([]string, len(teamQuery.Organization.Teams.Nodes))
 	for i, team := range teamQuery.Organization.Teams.Nodes {
+		for _, m := range team.Members.Nodes {
+			// It is important to check for exact matches of the username, due to the
+			// lack of exact username matching in the GraphQL query.
+			if m.Login == username {
+				res[i] = team.Name
+				break
+			}
+		}
 		res[i] = team.Name
 	}
 
