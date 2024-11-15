@@ -51,6 +51,9 @@ type Config struct {
 	GitHubPullRequestBody   string
 	GitHubSHA               string
 	GitHubActor             string
+
+	// Policy
+	IncludeTeams bool
 }
 
 type configDefaults struct {
@@ -229,5 +232,12 @@ GITHUB_TOKEN.`,
 		Target: &c.GitHubActor,
 		Usage:  "The GitHub Login of the user requesting the workflow.",
 		Hidden: true,
+	})
+
+	f.BoolVar(&cli.BoolVar{
+		Name:    "include-teams",
+		Default: false,
+		Target:  &c.IncludeTeams,
+		Usage:   "If true, includes team data in payload. Requires elevated token permissions.",
 	})
 }
