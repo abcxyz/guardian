@@ -239,5 +239,6 @@ GITHUB_TOKEN.`,
 		Default: false,
 		Target:  &c.IncludeTeams,
 		Usage:   "If true, includes team data in payload. Requires elevated token permissions.",
+		Hidden:  true,
 	})
 }
