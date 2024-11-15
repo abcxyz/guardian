@@ -81,10 +81,11 @@ type Platform interface {
 
 	// GetLatestApprovers retrieves the reviewers whose latest review is an
 	// approval.
-	GetLatestApprovers(ctx context.Context, teamMemberships map[string][]string) (*GetLatestApproversResult, error)
+	GetLatestApprovers(ctx context.Context) (*GetLatestApproversResult, error)
 
-	// GetTeamMemberships retrieves a mapping of each team to list of members.
-	GetTeamMemberships(ctx context.Context) (map[string][]string, error)
+	// GetUserTeamMemberships retrieves a list of teams that a user is a member
+	// of, within the given organization.
+	GetUserTeamMemberships(ctx context.Context, username string) ([]string, error)
 
 	// GetPolicyData retrieves the required data for policy evaluation.
 	GetPolicyData(ctx context.Context) (*GetPolicyDataResult, error)

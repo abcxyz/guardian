@@ -97,14 +97,14 @@ func (m *MockPlatform) GetLatestApprovers(ctx context.Context, teamMemberships m
 	}, nil
 }
 
-func (m *MockPlatform) GetTeamMemberships(ctx context.Context) (map[string][]string, error) {
+func (m *MockPlatform) GetUserTeamMemberships(ctx context.Context, username string) ([]string, error) {
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
 	m.Reqs = append(m.Reqs, &Request{
 		Name: "GetTeamMemberships",
 	})
 
-	return m.TeamMemberships, nil
+	return []string{}, nil
 }
 
 func (m *MockPlatform) GetPolicyData(ctx context.Context) (*GetPolicyDataResult, error) {

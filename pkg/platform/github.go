@@ -230,9 +230,9 @@ type team struct {
 	Name    string
 	Members struct {
 		Nodes []member
-	} `graphql:"members(first: 100)"`
+	} `graphql:"members(first: 100, userLogins: $usernames)"`
 }
-type organizationTeamsAndMembershipsQuery struct {
+type organizationTeamsForUserQuery struct {
 	Organization struct {
 		Teams struct {
 			Nodes []team
@@ -240,25 +240,29 @@ type organizationTeamsAndMembershipsQuery struct {
 	} `graphql:"organization(login: $owner)"`
 }
 
-// GetTeamMemberships returns a mapping of each team to list of members for the
-// given GitHub organization.
-func (g *GitHub) GetTeamMemberships(ctx context.Context) (map[string][]string, error) {
+// GetUserTeamMemberships returns a list of teams that a user is a member of,
+// within the given GitHub organization.
+func (g *GitHub) GetUserTeamMemberships(ctx context.Context, username string) ([]string, error) {
 	logger := logging.FromContext(ctx)
-	logger.DebugContext(ctx, "querying team memberships")
+	logger.DebugContext(ctx, "querying user team memberships",
+		"org", g.cfg.GitHubOwner,
+		"user", username)
 
-	var teamQuery organizationTeamsAndMembershipsQuery
-	if err := g.graphqlClient.Query(ctx, &teamQuery, map[string]any{
-		"owner": githubv4.String(g.cfg.GitHubOwner),
-	}); err != nil {
-		return nil, fmt.Errorf("failed to query organization teams and memberships: %w", err)
+	if username == "" {
+		return nil, fmt.Errorf("username is required")
 	}
 
-	res := make(map[string][]string, len(teamQuery.Organization.Teams.Nodes))
-	for _, team := range teamQuery.Organization.Teams.Nodes {
-		res[team.Name] = make([]string, len(team.Members.Nodes))
-		for i, member := range team.Members.Nodes {
-			res[team.Name][i] = member.Login
-		}
+	var teamQuery organizationTeamsForUserQuery
+	if err := g.graphqlClient.Query(ctx, &teamQuery, map[string]any{
+		"owner":     githubv4.String(g.cfg.GitHubOwner),
+		"usernames": []string{username},
+	}); err != nil {
+		return nil, fmt.Errorf("failed to query user team memberships: %w", err)
+	}
+
+	res := make([]string, len(teamQuery.Organization.Teams.Nodes))
+	for i, team := range teamQuery.Organization.Teams.Nodes {
+		res[i] = team.Name
 	}
 
 	return res, nil
