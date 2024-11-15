@@ -180,7 +180,7 @@ type latestApproverQuery struct {
 // a comment following a previous approval by the same user will still keep the
 // APPROVED state. However, if a reviewer previously approved the PR and
 // requests changes/dismisses the review, then the approval is not counted.
-func (g *GitHub) GetLatestApprovers(ctx context.Context, teamMemberships map[string][]string) (*GetLatestApproversResult, error) {
+func (g *GitHub) GetLatestApprovers(ctx context.Context) (*GetLatestApproversResult, error) {
 	logger := logging.FromContext(ctx)
 	logger.DebugContext(ctx, "querying latest approvers")
 
@@ -207,11 +207,16 @@ func (g *GitHub) GetLatestApprovers(ctx context.Context, teamMemberships map[str
 		}
 	}
 
-	for t, members := range teamMemberships {
-		for _, m := range members {
-			if _, ok := hasApproved[m]; ok {
+	found := make(map[string]struct{})
+	for username := range hasApproved {
+		teams, err := g.GetUserTeamMemberships(ctx, username)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get team memberships for approvers: %w", err)
+		}
+		for _, t := range teams {
+			if _, ok := found[t]; !ok {
 				result.Teams = append(result.Teams, t)
-				break
+				found[t] = struct{}{}
 			}
 		}
 	}
@@ -226,13 +231,21 @@ func (g *GitHub) GetLatestApprovers(ctx context.Context, teamMemberships map[str
 type member struct {
 	Login string
 }
+
+// The members() GraphQL query may include more than one user, if one's username
+// is a substring of another's. This is because the 'query' parameter does not
+// support exact matches.
 type team struct {
 	Name    string
 	Members struct {
 		Nodes []member
-	} `graphql:"members(first: 100)"`
+	} `graphql:"members(first: 100, query: $username)"`
 }
-type organizationTeamsAndMembershipsQuery struct {
+
+// The teams() GraphQL query does support 'userLogins' parameter, but this was
+// observed to only return teams that the users are direct members of. This is
+// why we filter by username in the members GraphQL subquery.
+type organizationTeamsForUserQuery struct {
 	Organization struct {
 		Teams struct {
 			Nodes []team
@@ -240,25 +253,37 @@ type organizationTeamsAndMembershipsQuery struct {
 	} `graphql:"organization(login: $owner)"`
 }
 
-// GetTeamMemberships returns a mapping of each team to list of members for the
-// given GitHub organization.
-func (g *GitHub) GetTeamMemberships(ctx context.Context) (map[string][]string, error) {
+// GetUserTeamMemberships returns a list of teams that a user is a member of,
+// within the given GitHub organization.
+func (g *GitHub) GetUserTeamMemberships(ctx context.Context, username string) ([]string, error) {
 	logger := logging.FromContext(ctx)
-	logger.DebugContext(ctx, "querying team memberships")
+	logger.DebugContext(ctx, "querying user team memberships",
+		"org", g.cfg.GitHubOwner,
+		"user", username)
 
-	var teamQuery organizationTeamsAndMembershipsQuery
-	if err := g.graphqlClient.Query(ctx, &teamQuery, map[string]any{
-		"owner": githubv4.String(g.cfg.GitHubOwner),
-	}); err != nil {
-		return nil, fmt.Errorf("failed to query organization teams and memberships: %w", err)
+	if username == "" {
+		return nil, fmt.Errorf("username is required")
 	}
 
-	res := make(map[string][]string, len(teamQuery.Organization.Teams.Nodes))
-	for _, team := range teamQuery.Organization.Teams.Nodes {
-		res[team.Name] = make([]string, len(team.Members.Nodes))
-		for _, member := range team.Members.Nodes {
-			res[team.Name] = append(res[team.Name], member.Login)
+	var teamQuery organizationTeamsForUserQuery
+	if err := g.graphqlClient.Query(ctx, &teamQuery, map[string]any{
+		"owner":    githubv4.String(g.cfg.GitHubOwner),
+		"username": githubv4.String(username),
+	}); err != nil {
+		return nil, fmt.Errorf("failed to query user team memberships: %w", err)
+	}
+
+	res := make([]string, len(teamQuery.Organization.Teams.Nodes))
+	for i, team := range teamQuery.Organization.Teams.Nodes {
+		for _, m := range team.Members.Nodes {
+			// It is important to check for exact matches of the username, due to the
+			// lack of exact username matching in the GraphQL query.
+			if m.Login == username {
+				res[i] = team.Name
+				break
+			}
 		}
+		res[i] = team.Name
 	}
 
 	return res, nil
@@ -291,8 +316,9 @@ func (g *GitHub) GetUserRepoPermissions(ctx context.Context) (string, error) {
 
 // GitHubActorData defines the payload of the actor used for policy evaluation.
 type GitHubActorData struct {
-	Username    string `json:"username"`
-	AccessLevel string `json:"access_level"`
+	Username    string   `json:"username"`
+	AccessLevel string   `json:"access_level"`
+	Teams       []string `json:"teams"`
 }
 
 // GitHubPolicyData defines the payload of GitHub contextual data used for
@@ -300,7 +326,6 @@ type GitHubActorData struct {
 type GitHubPolicyData struct {
 	PullRequestApprovers *GetLatestApproversResult `json:"pull_request_approvers"`
 	Actor                *GitHubActorData          `json:"actor"`
-	TeamMemberships      map[string][]string       `json:"team_memberships"`
 }
 
 // GetPolicyData aggregates data from GitHub into a payload used for policy
@@ -310,21 +335,21 @@ func (g *GitHub) GetPolicyData(ctx context.Context) (*GetPolicyDataResult, error
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user repo permissions: %w", err)
 	}
+	actorTeams, err := g.GetUserTeamMemberships(ctx, g.cfg.GitHubActor)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user teams: %w", err)
+	}
 
 	actor := &GitHubActorData{
 		Username:    g.cfg.GitHubActor,
 		AccessLevel: p,
-	}
-
-	teamMembers, err := g.GetTeamMemberships(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get team memberships: %w", err)
+		Teams:       actorTeams,
 	}
 
 	var approvers *GetLatestApproversResult
 	// Skip, if the command is not running in the context of a pull request.
 	if g.cfg.GitHubPullRequestNumber > 0 {
-		approvers, err = g.GetLatestApprovers(ctx, teamMembers)
+		approvers, err = g.GetLatestApprovers(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get latest approvers: %w", err)
 		}
@@ -334,7 +359,6 @@ func (g *GitHub) GetPolicyData(ctx context.Context) (*GetPolicyDataResult, error
 		GitHub: &GitHubPolicyData{
 			PullRequestApprovers: approvers,
 			Actor:                actor,
-			TeamMemberships:      teamMembers,
 		},
 	}, nil
 }

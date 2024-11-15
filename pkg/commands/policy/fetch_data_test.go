@@ -43,7 +43,7 @@ func TestFetchData_Process(t *testing.T) {
 		teams            []string
 		users            []string
 		userAccessLevel  string
-		teamMappings     map[string][]string
+		userTeams        []string
 		want             platform.GetPolicyDataResult
 	}{
 		{
@@ -52,6 +52,7 @@ func TestFetchData_Process(t *testing.T) {
 			teams:         []string{"team1", "team2"},
 			users:         []string{"user1", "user2"},
 			username:      "test-username",
+			userTeams:     []string{"team1"},
 			want: platform.GetPolicyDataResult{
 				Mock: &platform.MockPolicyData{
 					Approvers: &platform.GetLatestApproversResult{
@@ -60,6 +61,7 @@ func TestFetchData_Process(t *testing.T) {
 					},
 					Actor: &platform.MockActorData{
 						Username: "test-username",
+						Teams:    []string{"team1"},
 					},
 				},
 			},
@@ -80,20 +82,14 @@ func TestFetchData_Process(t *testing.T) {
 			},
 		},
 		{
-			name: "prints_team_memberships",
-			teamMappings: map[string][]string{
-				"team1": {"user1", "user2"},
-				"team2": {"user3", "user4"},
-			},
-			username: "test-username",
+			name:      "prints_team_memberships",
+			userTeams: []string{"team1", "team2"},
+			username:  "test-username",
 			want: platform.GetPolicyDataResult{
 				Mock: &platform.MockPolicyData{
-					TeamMemberships: map[string][]string{
-						"team1": {"user1", "user2"},
-						"team2": {"user3", "user4"},
-					},
 					Actor: &platform.MockActorData{
 						Username: "test-username",
+						Teams:    []string{"team1", "team2"},
 					},
 				},
 			},
@@ -157,7 +153,7 @@ func TestFetchData_Process(t *testing.T) {
 					UserApprovers:    tc.users,
 					UserAccessLevel:  tc.userAccessLevel,
 					IsPullRequest:    tc.isPullRequest,
-					TeamMemberships:  tc.teamMappings,
+					UserTeams:        tc.userTeams,
 				},
 			}
 			outFilepath := path.Join(outDir, policyDataFilename)
