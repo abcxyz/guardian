@@ -289,11 +289,17 @@ func (g *GitHub) GetUserRepoPermissions(ctx context.Context) (string, error) {
 	})
 }
 
+// GitHubActorData defines the payload of the actor used for policy evaluation.
+type GitHubActorData struct {
+	Username    string `json:"username"`
+	AccessLevel string `json:"access_level"`
+}
+
 // GitHubPolicyData defines the payload of GitHub contextual data used for
 // policy evaluation.
 type GitHubPolicyData struct {
 	PullRequestApprovers *GetLatestApproversResult `json:"pull_request_approvers"`
-	UserAccessLevel      string                    `json:"user_access_level"`
+	Actor                *GitHubActorData          `json:"actor"`
 	TeamMemberships      map[string][]string       `json:"team_memberships"`
 }
 
@@ -303,6 +309,11 @@ func (g *GitHub) GetPolicyData(ctx context.Context) (*GetPolicyDataResult, error
 	p, err := g.GetUserRepoPermissions(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user repo permissions: %w", err)
+	}
+
+	actor := &GitHubActorData{
+		Username:    g.cfg.GitHubActor,
+		AccessLevel: p,
 	}
 
 	teamMembers, err := g.GetTeamMemberships(ctx)
@@ -322,7 +333,7 @@ func (g *GitHub) GetPolicyData(ctx context.Context) (*GetPolicyDataResult, error
 	return &GetPolicyDataResult{
 		GitHub: &GitHubPolicyData{
 			PullRequestApprovers: approvers,
-			UserAccessLevel:      p,
+			Actor:                actor,
 			TeamMemberships:      teamMembers,
 		},
 	}, nil

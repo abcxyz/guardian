@@ -39,6 +39,7 @@ func TestFetchData_Process(t *testing.T) {
 		isPullRequest    bool
 		getPolicyDataErr error
 		wantErr          string
+		username         string
 		teams            []string
 		users            []string
 		userAccessLevel  string
@@ -50,11 +51,15 @@ func TestFetchData_Process(t *testing.T) {
 			isPullRequest: true,
 			teams:         []string{"team1", "team2"},
 			users:         []string{"user1", "user2"},
+			username:      "test-username",
 			want: platform.GetPolicyDataResult{
 				Mock: &platform.MockPolicyData{
 					Approvers: &platform.GetLatestApproversResult{
 						Teams: []string{"team1", "team2"},
 						Users: []string{"user1", "user2"},
+					},
+					Actor: &platform.MockActorData{
+						Username: "test-username",
 					},
 				},
 			},
@@ -63,10 +68,14 @@ func TestFetchData_Process(t *testing.T) {
 			name:            "prints_user_access_level",
 			isPullRequest:   true,
 			userAccessLevel: "admin",
+			username:        "test-username",
 			want: platform.GetPolicyDataResult{
 				Mock: &platform.MockPolicyData{
-					Approvers:       &platform.GetLatestApproversResult{},
-					UserAccessLevel: "admin",
+					Approvers: &platform.GetLatestApproversResult{},
+					Actor: &platform.MockActorData{
+						AccessLevel: "admin",
+						Username:    "test-username",
+					},
 				},
 			},
 		},
@@ -76,11 +85,15 @@ func TestFetchData_Process(t *testing.T) {
 				"team1": {"user1", "user2"},
 				"team2": {"user3", "user4"},
 			},
+			username: "test-username",
 			want: platform.GetPolicyDataResult{
 				Mock: &platform.MockPolicyData{
 					TeamMemberships: map[string][]string{
 						"team1": {"user1", "user2"},
 						"team2": {"user3", "user4"},
+					},
+					Actor: &platform.MockActorData{
+						Username: "test-username",
 					},
 				},
 			},
@@ -90,11 +103,15 @@ func TestFetchData_Process(t *testing.T) {
 			isPullRequest: true,
 			teams:         []string{},
 			users:         []string{},
+			username:      "test-username",
 			want: platform.GetPolicyDataResult{
 				Mock: &platform.MockPolicyData{
 					Approvers: &platform.GetLatestApproversResult{
 						Teams: []string{},
 						Users: []string{},
+					},
+					Actor: &platform.MockActorData{
+						Username: "test-username",
 					},
 				},
 			},
@@ -105,9 +122,13 @@ func TestFetchData_Process(t *testing.T) {
 			users:           []string{},
 			isPullRequest:   false,
 			userAccessLevel: "read_only",
+			username:        "test-username",
 			want: platform.GetPolicyDataResult{
 				Mock: &platform.MockPolicyData{
-					UserAccessLevel: "read_only",
+					Actor: &platform.MockActorData{
+						Username:    "test-username",
+						AccessLevel: "read_only",
+					},
 				},
 			},
 		},
@@ -130,6 +151,7 @@ func TestFetchData_Process(t *testing.T) {
 					flagOutputDir: outDir,
 				},
 				platform: &platform.MockPlatform{
+					ActorUsername:    tc.username,
 					GetPolicyDataErr: tc.getPolicyDataErr,
 					TeamApprovers:    tc.teams,
 					UserApprovers:    tc.users,
