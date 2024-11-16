@@ -61,7 +61,7 @@ type AssignReviewersResult struct {
 // approval.
 type GetLatestApproversResult struct {
 	Users []string `json:"users"`
-	Teams []string `json:"teams"`
+	Teams []string `json:"teams,omitempty"`
 }
 
 // GetPolicyDataResult contains the required data for policy evaluation, by

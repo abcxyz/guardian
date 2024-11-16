@@ -196,7 +196,6 @@ func (g *GitHub) GetLatestApprovers(ctx context.Context) (*GetLatestApproversRes
 	// Explicitly sets the default Users and Teams to empty slices. If these are
 	// not explicitly provided to OPA, then the policy result may be incorrect.
 	result := &GetLatestApproversResult{
-		Teams: []string{},
 		Users: []string{},
 	}
 	hasApproved := make(map[string]struct{}, len(approversQuery.Repository.PullRequest.LatestReviews.Nodes))
@@ -205,6 +204,14 @@ func (g *GitHub) GetLatestApprovers(ctx context.Context) (*GetLatestApproversRes
 			result.Users = append(result.Users, review.Author.Login)
 			hasApproved[review.Author.Login] = struct{}{}
 		}
+	}
+
+	logger.DebugContext(ctx, "found latest approvers from",
+		"users", result.Users,
+	)
+	if !g.cfg.IncludeTeams {
+		logger.DebugContext(ctx, "skipped fetching team approvers")
+		return result, nil
 	}
 
 	found := make(map[string]struct{})
@@ -221,7 +228,6 @@ func (g *GitHub) GetLatestApprovers(ctx context.Context) (*GetLatestApproversRes
 		}
 	}
 	logger.DebugContext(ctx, "found latest approvers from",
-		"users", result.Users,
 		"teams", result.Teams,
 	)
 
@@ -318,7 +324,7 @@ func (g *GitHub) GetUserRepoPermissions(ctx context.Context) (string, error) {
 type GitHubActorData struct {
 	Username    string   `json:"username"`
 	AccessLevel string   `json:"access_level"`
-	Teams       []string `json:"teams"`
+	Teams       []string `json:"teams,omitempty"`
 }
 
 // GitHubPolicyData defines the payload of GitHub contextual data used for
@@ -335,9 +341,13 @@ func (g *GitHub) GetPolicyData(ctx context.Context) (*GetPolicyDataResult, error
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user repo permissions: %w", err)
 	}
-	actorTeams, err := g.GetUserTeamMemberships(ctx, g.cfg.GitHubActor)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get user teams: %w", err)
+
+	var actorTeams []string
+	if g.cfg.IncludeTeams {
+		actorTeams, err = g.GetUserTeamMemberships(ctx, g.cfg.GitHubActor)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get user teams: %w", err)
+		}
 	}
 
 	actor := &GitHubActorData{
