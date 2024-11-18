@@ -106,23 +106,48 @@ process.
 `guardian policy fetch-data` - Fetches data from the corresponding code review
 platform to provide additional context for evaluating policies.
 
-* Requires `members: "read"` permission; Not available in default workflow token
-  permissions. See [github-token-minter](https://github.com/abcxyz/github-token-minter).
+The result is written to a local file, `guardian_policy_context.json`.
 
-The result is written to a local file, `guardian_policy_context.json`:
-```
-// Example
-{
-  "github": {
-    "pull_request_approvers:" [...] # github usernames
-  }
-}
-```
+  * Use `--include-teams` flag to return teams data in the payload. Requires
+    `members: "read"` permission; Not available in default workflow token
+    permissions. See [github-token-minter](https://github.com/abcxyz/github-token-minter).
+
+    ```
+    // Example
+    {
+      "github": {
+        "pull_request_approvers": {
+          "users": ["example-username"],
+          "teams": ["example-team-name"]
+        },
+        "actor": {
+          "username": "actor-name",
+          "access_level": "admin",
+          "teams": ["parent-team-of-actor"]
+        }
+      }
+    }
+    ```
 
 `guardian policy enforce` - Accepts a file of OPA evaluation results, and
 enforces the policies according to expected [enforcement rules](#supported-enforcement-rules).
 
 #### Supported Enforcement Rules
+
+* `deny` - Blocks the changes with a detailed error message.
+
+  Policy results must be in the following format:
+  ```
+    {
+      "name_of_policy": {
+        "deny": [
+          {
+            "msg": "Sample deny message."
+          }
+        ]
+      }
+    }
+  ```
 
 * `missing_approvals` - Assigns principals to the change request and fails the
   status check until the required approvals are met.
@@ -139,7 +164,7 @@ enforces the policies according to expected [enforcement rules](#supported-enfor
           {
             "assign_team_reviewers": [...] # github team names,
             "assign_user_reviewers": [...] # github usernames,
-            "msg": "missing approvals for changes related to...",
+            "msg": "missing approvals for changes related to..."
           }
         ],
       }
