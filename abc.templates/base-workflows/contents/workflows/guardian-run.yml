@@ -12,11 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Guardian admin is used to run Terraform commands as the privileged service account.
-# Due to the sensitive nature of the access this account has, this workflow is restricted
-# to only repository administrators to prevent misuse.
-name: 'guardian_admin'
-run-name: 'guardian_admin - [${{ inputs.command }}] [${{ inputs.args }}] [${{ inputs.entrypoint }}]'
+# Guardian run is used to run Terraform commands as the privileged service account.
+# Due to the sensitive nature of the access this account has, this workflow is
+# restricted to a set of users defined by Rego policy.
+name: 'guardian_run'
+run-name: 'guardian_run - [${{ inputs.command }}] [${{ inputs.entrypoint }}]'
 
 on:
   workflow_dispatch:
@@ -24,6 +24,17 @@ on:
       command:
         description: 'COMMAND - The Terraform command to run along with any arguments, e.g. plan -input=false, apply -auto-approve, etc.'
         required: true
+      entrypoint:
+        description: 'ENTRYPOINT - The directory to search for all child directories containing Terraform configurations. If left blank, the Terraform command will run for all configured directories.'
+        default: 'REPLACE_TERRAFORM_DIRECTORY'
+        type: 'string'
+  workflow_call:
+    inputs:
+      command:
+        description: 'COMMAND - The Terraform command to run.'
+        required: true
+        type: 'string'
+        default: 'plan'
       entrypoint:
         description: 'ENTRYPOINT - The directory to search for all child directories containing Terraform configurations. If left blank, the Terraform command will run for all configured directories.'
         default: 'REPLACE_TERRAFORM_DIRECTORY'
@@ -60,6 +71,51 @@ jobs:
           binary_subpath: 'guardian'
           cache_key: '${{ runner.os }}_${{ runner.arch }}_guardian_${{ env.GUARDIAN_VERSION }}'
           add_to_path: true
+
+      - name: 'Create Inputs File'
+        shell: 'bash'
+        run: |-
+          cat << EOF > workflow_dispatch_inputs.json
+          {
+            "command": "${{ inputs.command }}",
+            "entrypoint": "${{ inputs.entrypoint }}"
+          }
+          EOF
+
+      - name: 'Aggregate Policy Data'
+        shell: 'bash'
+        env:
+          # used to call GitHub API's for data aggregation
+          GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
+        run: |-
+          guardian policy fetch-data
+
+      - name: 'Setup OPA'
+        uses: 'open-policy-agent/setup-opa@34a30e8a924d1b03ce2cf7abe97250bbb1f332b5' # ratchet:open-policy-agent/setup-opa@v2
+        with:
+          version: 'latest'
+
+      - name: 'Evaluate Policy'
+        id: 'opa_eval'
+        shell: 'bash'
+        run: |-
+          DECISION=$(opa eval \
+            --format raw \
+            --input ./workflow_dispatch_inputs.json \
+            --data ./policy/guardian/run \
+            --data ./guardian_policy_context.json \
+            "data.guardian.run")
+          echo "$DECISION" > policy_results.json
+
+      - name: 'Enforce Policy'
+        shell: 'bash'
+        env:
+          GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
+        run: |-
+          guardian policy enforce \
+            -reporter=none \
+            -dir=${DIRECTORY} \
+            -results-file=policy_results.json
 
       - name: 'Guardian Directories'
         id: 'dirs'
