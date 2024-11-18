@@ -26,19 +26,11 @@ on:
     branches:
       - 'main'
 
-permissions:
-  contents: 'read'
-  id-token: 'write'
-  pull-requests: 'write'
-
 # only one plan, per pr should run at a time
 concurrency:
   group: '${{ github.workflow }}-${{ github.event.pull_request.number }}-${{ github.head_ref || github.ref }}'
 
 env:
-  GITHUB_OWNER_NAME: '${{ github.event.repository.owner.login }}'
-  GITHUB_REPO_NAME: '${{ github.event.repository.name }}'
-  PULL_REQUEST_NUMBER: '${{ github.event.pull_request.number }}'
   GUARDIAN_VERSION: '1.0.0'
   GUARDIAN_WIF_PROVIDER: 'my-guardian-wif-provider'
   GUARDIAN_WIF_SERVICE_ACCOUNT: 'my-guardian-service-account@abcxyz-my-project.iam.gserviceaccount.com'
@@ -48,52 +40,64 @@ env:
 jobs:
   init:
     runs-on: 'ubuntu-latest'
+
+    permissions:
+      contents: 'read'
+      pull-requests: 'write'
+
     outputs:
       directories: '${{ steps.dirs.outputs.directories }}'
     steps:
       - name: 'Checkout'
-        uses: 'actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11' # ratchet:actions/checkout@v4
+        uses: 'actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332' # ratchet:actions/checkout@v4
         with:
           fetch-depth: 0 # get everything so we can use git diff
           ref: '${{ github.event.pull_request.head.sha }}'
 
       - name: 'Setup Guardian'
-        uses: 'abcxyz/pkg/.github/actions/setup-binary@3eaafa17e8e4b078507bed004ad5c57627d0e486' # ratchet:abcxyz/pkg/.github/actions/setup-binary@main
+        uses: 'abcxyz/pkg/.github/actions/setup-binary@e6295e3016161bf062cabbf9b245603652923669' # ratchet:abcxyz/pkg/.github/actions/setup-binary@main
         with:
           download_url: 'https://github.com/abcxyz/guardian/releases/download/v${{ env.GUARDIAN_VERSION }}/guardian_${{ env.GUARDIAN_VERSION }}_linux_amd64.tar.gz'
           install_path: '${{ runner.temp }}/.guardian'
+          binary_subpath: 'guardian'
           cache_key: '${{ runner.os }}_${{ runner.arch }}_guardian_${{ env.GUARDIAN_VERSION }}'
           add_to_path: true
-
-      - name: 'Guardian Directories'
-        id: 'dirs'
-        shell: 'bash'
-        env:
-          SOURCE_REF: '${{ github.event.pull_request.base.sha }}'
-          DEST_REF: '${{ github.event.pull_request.head.sha }}'
-        run: |-
-          DIRECTORIES=$(guardian entrypoints -dir="." -detect-changes -source-ref="${SOURCE_REF}" -dest-ref="${DEST_REF}" -format=json)
-          echo "entrypoints -> ${DIRECTORIES}"
-          echo "directories=${DIRECTORIES}" >> $GITHUB_OUTPUT
 
       - name: 'Guardian Remove Previous Plan Comments'
         shell: 'bash'
         env:
           # used to delete old comments on pull requests (access to only this repo)
-          REPO_TOKEN: '${{ github.token }}'
+          GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
         run: |-
-          guardian workflows remove-guardian-comments \
-            -github-owner="${GITHUB_OWNER_NAME}" \
-            -github-repo="${GITHUB_REPO_NAME}" \
-            -github-token="${REPO_TOKEN}" \
-            -pull-request-number="${PULL_REQUEST_NUMBER}"
+          guardian workflows remove-guardian-comments
+
+      - name: 'Guardian Directories'
+        id: 'dirs'
+        shell: 'bash'
+        env:
+          # used to create comments on pull requests (access to only this repo)
+          GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
+          SOURCE_REF: '${{ github.event.pull_request.base.sha }}'
+          DEST_REF: '${{ github.event.pull_request.head.sha }}'
+        run: |-
+          DIRECTORIES=$(guardian entrypoints -dir="." -detect-changes -source-ref="${SOURCE_REF}" -dest-ref="${DEST_REF}")
+          echo "entrypoints -> ${DIRECTORIES}"
+          echo "directories=${DIRECTORIES}" >> $GITHUB_OUTPUT
+
 
   plan:
+    name: 'plan (${{ matrix.working_directory }})'
     if: |
       needs.init.outputs.directories != '[]'
     needs:
       - 'init'
     runs-on: 'ubuntu-latest'
+
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+      pull-requests: 'write'
+
     strategy:
       fail-fast: false
       max-parallel: 100
@@ -101,7 +105,7 @@ jobs:
         working_directory: '${{ fromJSON(needs.init.outputs.directories) }}'
     steps:
       - name: 'Checkout'
-        uses: 'actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11' # ratchet:actions/checkout@v4
+        uses: 'actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332' # ratchet:actions/checkout@v4
         with:
           ref: '${{ github.event.pull_request.head.sha }}'
 
@@ -112,7 +116,7 @@ jobs:
           service_account: '${{ env.GUARDIAN_WIF_SERVICE_ACCOUNT }}'
 
       - name: 'Setup Terraform'
-        uses: 'abcxyz/secure-setup-terraform@4d361110d3718e05b118be20051ba2855a2cc9e1' # ratchet:abcxyz/secure-setup-terraform@main
+        uses: 'abcxyz/secure-setup-terraform@fa5832adc577578c1dfb422d13722bdeb711cf29' # ratchet:abcxyz/secure-setup-terraform@main
         with:
           terraform_version: '${{ env.GUARDIAN_TERRAFORM_VERSION }}'
           terraform_module_location: './${{ matrix.working_directory }}'
@@ -121,27 +125,22 @@ jobs:
           terraform_wrapper: false
 
       - name: 'Setup Guardian'
-        uses: 'abcxyz/pkg/.github/actions/setup-binary@3eaafa17e8e4b078507bed004ad5c57627d0e486' # ratchet:abcxyz/pkg/.github/actions/setup-binary@main
+        uses: 'abcxyz/pkg/.github/actions/setup-binary@e6295e3016161bf062cabbf9b245603652923669' # ratchet:abcxyz/pkg/.github/actions/setup-binary@main
         with:
           download_url: 'https://github.com/abcxyz/guardian/releases/download/v${{ env.GUARDIAN_VERSION }}/guardian_${{ env.GUARDIAN_VERSION }}_linux_amd64.tar.gz'
           install_path: '${{ runner.temp }}/.guardian'
+          binary_subpath: 'guardian'
           cache_key: '${{ runner.os }}_${{ runner.arch }}_guardian_${{ env.GUARDIAN_VERSION }}'
           add_to_path: true
 
       - name: 'Guardian Plan'
         shell: 'bash'
         env:
-          DIRECTORY: '${{ matrix.working_directory }}'
           # used to create comments on pull requests (access to only this repo)
-          REPO_TOKEN: '${{ github.token }}'
+          GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
+          DIRECTORY: '${{ matrix.working_directory }}'
         run: |-
-          guardian plan \
-          -dir="${DIRECTORY}" \
-          -github-owner="${GITHUB_OWNER_NAME}" \
-          -github-repo="${GITHUB_REPO_NAME}" \
-          -github-token="${REPO_TOKEN}" \
-          -pull-request-number="${PULL_REQUEST_NUMBER}" \
-          -bucket-name="${GUARDIAN_BUCKET_NAME}"
+          guardian plan -dir="${DIRECTORY}" -storage="gcs://${GUARDIAN_BUCKET_NAME}"
 
   plan_success:
     if: '${{ always() }}'
@@ -149,12 +148,17 @@ jobs:
     needs:
       - 'init'
       - 'plan'
+
+    permissions:
+      pull-requests: 'write'
+
     steps:
       - name: 'Setup Guardian'
-        uses: 'abcxyz/pkg/.github/actions/setup-binary@3eaafa17e8e4b078507bed004ad5c57627d0e486' # ratchet:abcxyz/pkg/.github/actions/setup-binary@main
+        uses: 'abcxyz/pkg/.github/actions/setup-binary@e6295e3016161bf062cabbf9b245603652923669' # ratchet:abcxyz/pkg/.github/actions/setup-binary@main
         with:
           download_url: 'https://github.com/abcxyz/guardian/releases/download/v${{ env.GUARDIAN_VERSION }}/guardian_${{ env.GUARDIAN_VERSION }}_linux_amd64.tar.gz'
           install_path: '${{ runner.temp }}/.guardian'
+          binary_subpath: 'guardian'
           cache_key: '${{ runner.os }}_${{ runner.arch }}_guardian_${{ env.GUARDIAN_VERSION }}'
           add_to_path: true
 
@@ -162,12 +166,8 @@ jobs:
         shell: 'bash'
         env:
           # used to create comments on pull requests (access to only this repo)
-          REPO_TOKEN: '${{ github.token }}'
+          GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
         run: |-
           guardian workflows plan-status-comment \
-          -github-owner="${GITHUB_OWNER_NAME}" \
-          -github-repo="${GITHUB_REPO_NAME}" \
-          -github-token="${REPO_TOKEN}" \
-          -pull-request-number="${PULL_REQUEST_NUMBER}" \
           -init-result="${{ needs.init.result }}" \
           -plan-result="${{ needs.plan.result }}"
