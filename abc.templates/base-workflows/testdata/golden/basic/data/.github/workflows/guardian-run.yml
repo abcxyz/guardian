@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Guardian run is used to run Terraform commands that are most often used
-# to fix state after a failed workflow or get outputs for a given module
-# directory. Any user with write permissions on the repo can run this workflow.
+# Guardian run is used to run Terraform commands as the privileged service account.
+# Due to the sensitive nature of the access this account has, this workflow is
+# restricted to a set of users defined by Rego policy.
 name: 'guardian_run'
 run-name: 'guardian_run - [${{ inputs.command }}] [${{ inputs.entrypoint }}]'
 
@@ -22,25 +22,25 @@ on:
   workflow_dispatch:
     inputs:
       command:
+        description: 'COMMAND - The Terraform command to run along with any arguments, e.g. plan -input=false, apply -auto-approve, etc.'
+        required: true
+      entrypoint:
+        description: 'ENTRYPOINT - The directory to search for all child directories containing Terraform configurations. If left blank, the Terraform command will run for all configured directories.'
+        default: '.'
+        type: 'string'
+  workflow_call:
+    inputs:
+      command:
         description: 'COMMAND - The Terraform command to run.'
         required: true
-        type: 'choice'
+        type: 'string'
         default: 'plan'
-        options:
-          - 'plan'
-          - 'apply'
-          - 'output'
       entrypoint:
-        description: 'ENTRYPOINT - A directory to find all child directories containing Terraform configurations. If left blank, the Terraform command will run for all configured directories.'
+        description: 'ENTRYPOINT - The directory to search for all child directories containing Terraform configurations. If left blank, the Terraform command will run for all configured directories.'
         default: '.'
         type: 'string'
 
-permissions:
-  contents: 'read'
-  id-token: 'write'
-  pull-requests: 'read'
-
-# only one fix  should run at a time
+# only one admin should run at a time
 concurrency:
   group: '${{ github.workflow }}'
 
@@ -53,19 +53,69 @@ env:
 jobs:
   init:
     runs-on: 'ubuntu-latest'
+
+    permissions:
+      contents: 'read'
+
     outputs:
       directories: '${{ steps.dirs.outputs.directories }}'
     steps:
       - name: 'Checkout'
-        uses: 'actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11' # ratchet:actions/checkout@v4
+        uses: 'actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332' # ratchet:actions/checkout@v4
 
       - name: 'Setup Guardian'
-        uses: 'abcxyz/pkg/.github/actions/setup-binary@3eaafa17e8e4b078507bed004ad5c57627d0e486' # ratchet:abcxyz/pkg/.github/actions/setup-binary@main
+        uses: 'abcxyz/pkg/.github/actions/setup-binary@e6295e3016161bf062cabbf9b245603652923669' # ratchet:abcxyz/pkg/.github/actions/setup-binary@main
         with:
           download_url: 'https://github.com/abcxyz/guardian/releases/download/v${{ env.GUARDIAN_VERSION }}/guardian_${{ env.GUARDIAN_VERSION }}_linux_amd64.tar.gz'
           install_path: '${{ runner.temp }}/.guardian'
+          binary_subpath: 'guardian'
           cache_key: '${{ runner.os }}_${{ runner.arch }}_guardian_${{ env.GUARDIAN_VERSION }}'
           add_to_path: true
+
+      - name: 'Create Inputs File'
+        shell: 'bash'
+        run: |-
+          cat << EOF > workflow_dispatch_inputs.json
+          {
+            "command": "${{ inputs.command }}",
+            "entrypoint": "${{ inputs.entrypoint }}"
+          }
+          EOF
+
+      - name: 'Aggregate Policy Data'
+        shell: 'bash'
+        env:
+          # used to call GitHub API's for data aggregation
+          GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
+        run: |-
+          guardian policy fetch-data
+
+      - name: 'Setup OPA'
+        uses: 'open-policy-agent/setup-opa@34a30e8a924d1b03ce2cf7abe97250bbb1f332b5' # ratchet:open-policy-agent/setup-opa@v2
+        with:
+          version: 'latest'
+
+      - name: 'Evaluate Policy'
+        id: 'opa_eval'
+        shell: 'bash'
+        run: |-
+          DECISION=$(opa eval \
+            --format raw \
+            --input ./workflow_dispatch_inputs.json \
+            --data ./policy/guardian/run \
+            --data ./guardian_policy_context.json \
+            "data.guardian.run")
+          echo "$DECISION" > policy_results.json
+
+      - name: 'Enforce Policy'
+        shell: 'bash'
+        env:
+          GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
+        run: |-
+          guardian policy enforce \
+            -reporter=none \
+            -dir=${DIRECTORY} \
+            -results-file=policy_results.json
 
       - name: 'Guardian Directories'
         id: 'dirs'
@@ -73,16 +123,21 @@ jobs:
         env:
           ENTRYPOINT: '${{ inputs.entrypoint }}'
         run: |-
-          DIRECTORIES=$(guardian entrypoints -dir="${ENTRYPOINT}" -format=json)
+          DIRECTORIES=$(guardian entrypoints -dir="${ENTRYPOINT}" -reporter=none)
           echo "entrypoints -> ${DIRECTORIES}"
           echo "directories=${DIRECTORIES}" >> $GITHUB_OUTPUT
 
-  run:
+  admin:
     if: |
       needs.init.outputs.directories != '[]'
     needs:
       - 'init'
     runs-on: 'ubuntu-latest'
+
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
     strategy:
       fail-fast: false
       max-parallel: 100
@@ -90,7 +145,7 @@ jobs:
         working_directory: '${{ fromJSON(needs.init.outputs.directories) }}'
     steps:
       - name: 'Checkout'
-        uses: 'actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11' # ratchet:actions/checkout@v4
+        uses: 'actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332' # ratchet:actions/checkout@v4
 
       - name: 'Authenticate to Google Cloud'
         uses: 'google-github-actions/auth@71fee32a0bb7e97b4d33d548e7d957010649d8fa' # ratchet:google-github-actions/auth@v2
@@ -99,7 +154,7 @@ jobs:
           service_account: '${{ env.GUARDIAN_WIF_SERVICE_ACCOUNT }}'
 
       - name: 'Setup Terraform'
-        uses: 'abcxyz/secure-setup-terraform@4d361110d3718e05b118be20051ba2855a2cc9e1' # ratchet:abcxyz/secure-setup-terraform@main
+        uses: 'abcxyz/secure-setup-terraform@fa5832adc577578c1dfb422d13722bdeb711cf29' # ratchet:abcxyz/secure-setup-terraform@main
         with:
           terraform_version: '${{ env.GUARDIAN_TERRAFORM_VERSION }}'
           terraform_module_location: './${{ matrix.working_directory }}'
@@ -108,36 +163,17 @@ jobs:
           terraform_wrapper: false
 
       - name: 'Setup Guardian'
-        uses: 'abcxyz/pkg/.github/actions/setup-binary@3eaafa17e8e4b078507bed004ad5c57627d0e486' # ratchet:abcxyz/pkg/.github/actions/setup-binary@main
+        uses: 'abcxyz/pkg/.github/actions/setup-binary@e6295e3016161bf062cabbf9b245603652923669' # ratchet:abcxyz/pkg/.github/actions/setup-binary@main
         with:
           download_url: 'https://github.com/abcxyz/guardian/releases/download/v${{ env.GUARDIAN_VERSION }}/guardian_${{ env.GUARDIAN_VERSION }}_linux_amd64.tar.gz'
           install_path: '${{ runner.temp }}/.guardian'
+          binary_subpath: 'guardian'
           cache_key: '${{ runner.os }}_${{ runner.arch }}_guardian_${{ env.GUARDIAN_VERSION }}'
           add_to_path: true
 
-      - name: 'Guardian Output'
-        if: |
-          inputs.command == 'output'
+      - name: 'Guardian Admin'
         env:
           DIRECTORY: '${{ matrix.working_directory }}'
         shell: 'bash'
         run: |-
-          guardian run -dir="${DIRECTORY}" -- output
-
-      - name: 'Guardian Plan'
-        if: |
-          inputs.command == 'plan'
-        env:
-          DIRECTORY: '${{ matrix.working_directory }}'
-        shell: 'bash'
-        run: |-
-          guardian run -dir="${DIRECTORY}" -- plan -input=false
-
-      - name: 'Guardian Apply'
-        if: |
-          inputs.command == 'apply'
-        env:
-          DIRECTORY: '${{ matrix.working_directory }}'
-        shell: 'bash'
-        run: |-
-          guardian run -dir="${DIRECTORY}" -- apply -input=false -auto-approve
+          guardian run -dir="${DIRECTORY}" -- ${{ inputs.command }}
