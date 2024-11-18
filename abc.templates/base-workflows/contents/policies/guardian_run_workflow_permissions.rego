@@ -23,7 +23,9 @@ deny contains {
 } if {
     # Configuration
     default_allowed_commands := ["plan", "apply", "output"]
-    privileged_teams := [] # replace with team name
+    # Replace with team name. Requires GitHub Token Minter and `--include-teams`
+    # flag on `guardian policy fetch-data` command.
+    privileged_teams := []
     privileged_roles = ["admin"]
 
     # Start of policy
