@@ -23,6 +23,7 @@ on:
       - 'opened'
       - 'synchronize'
       - 'reopened'
+      - 'ready_for_review'
     branches:
       - 'main'
 
@@ -49,13 +50,13 @@ jobs:
       directories: '${{ steps.dirs.outputs.directories }}'
     steps:
       - name: 'Checkout'
-        uses: 'actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332' # ratchet:actions/checkout@v4
+        uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # ratchet:actions/checkout@v4
         with:
           fetch-depth: 0 # get everything so we can use git diff
           ref: '${{ github.event.pull_request.head.sha }}'
 
       - name: 'Setup Guardian'
-        uses: 'abcxyz/pkg/.github/actions/setup-binary@e6295e3016161bf062cabbf9b245603652923669' # ratchet:abcxyz/pkg/.github/actions/setup-binary@main
+        uses: 'abcxyz/pkg/.github/actions/setup-binary@90acbb7e25e72c3c7ae2c040244d8468f74f8d96' # ratchet:abcxyz/pkg/.github/actions/setup-binary@main
         with:
           download_url: 'https://github.com/abcxyz/guardian/releases/download/v${{ env.GUARDIAN_VERSION }}/guardian_${{ env.GUARDIAN_VERSION }}_linux_amd64.tar.gz'
           install_path: '${{ runner.temp }}/.guardian'
@@ -103,20 +104,24 @@ jobs:
       max-parallel: 100
       matrix:
         working_directory: '${{ fromJSON(needs.init.outputs.directories) }}'
+
+    env:
+      DIRECTORY: '${{ matrix.working_directory }}'
+
     steps:
       - name: 'Checkout'
-        uses: 'actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332' # ratchet:actions/checkout@v4
+        uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # ratchet:actions/checkout@v4
         with:
           ref: '${{ github.event.pull_request.head.sha }}'
 
       - name: 'Authenticate to Google Cloud'
-        uses: 'google-github-actions/auth@71fee32a0bb7e97b4d33d548e7d957010649d8fa' # ratchet:google-github-actions/auth@v2
+        uses: 'google-github-actions/auth@6fc4af4b145ae7821d527454aa9bd537d1f2dc5f' # ratchet:google-github-actions/auth@v2
         with:
           workload_identity_provider: '${{ env.GUARDIAN_WIF_PROVIDER }}'
           service_account: '${{ env.GUARDIAN_WIF_SERVICE_ACCOUNT }}'
 
       - name: 'Setup Terraform'
-        uses: 'abcxyz/secure-setup-terraform@fa5832adc577578c1dfb422d13722bdeb711cf29' # ratchet:abcxyz/secure-setup-terraform@main
+        uses: 'abcxyz/secure-setup-terraform@cedf5136321da85745811c74c063c19675bfa904' # ratchet:abcxyz/secure-setup-terraform@main
         with:
           terraform_version: '${{ env.GUARDIAN_TERRAFORM_VERSION }}'
           terraform_module_location: './${{ matrix.working_directory }}'
@@ -125,7 +130,7 @@ jobs:
           terraform_wrapper: false
 
       - name: 'Setup Guardian'
-        uses: 'abcxyz/pkg/.github/actions/setup-binary@e6295e3016161bf062cabbf9b245603652923669' # ratchet:abcxyz/pkg/.github/actions/setup-binary@main
+        uses: 'abcxyz/pkg/.github/actions/setup-binary@90acbb7e25e72c3c7ae2c040244d8468f74f8d96' # ratchet:abcxyz/pkg/.github/actions/setup-binary@main
         with:
           download_url: 'https://github.com/abcxyz/guardian/releases/download/v${{ env.GUARDIAN_VERSION }}/guardian_${{ env.GUARDIAN_VERSION }}_linux_amd64.tar.gz'
           install_path: '${{ runner.temp }}/.guardian'
@@ -138,7 +143,6 @@ jobs:
         env:
           # used to create comments on pull requests (access to only this repo)
           GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
-          DIRECTORY: '${{ matrix.working_directory }}'
         run: |-
           guardian plan -dir="${DIRECTORY}" -storage="gcs://${GUARDIAN_BUCKET_NAME}"
 
@@ -154,7 +158,7 @@ jobs:
 
     steps:
       - name: 'Setup Guardian'
-        uses: 'abcxyz/pkg/.github/actions/setup-binary@e6295e3016161bf062cabbf9b245603652923669' # ratchet:abcxyz/pkg/.github/actions/setup-binary@main
+        uses: 'abcxyz/pkg/.github/actions/setup-binary@90acbb7e25e72c3c7ae2c040244d8468f74f8d96' # ratchet:abcxyz/pkg/.github/actions/setup-binary@main
         with:
           download_url: 'https://github.com/abcxyz/guardian/releases/download/v${{ env.GUARDIAN_VERSION }}/guardian_${{ env.GUARDIAN_VERSION }}_linux_amd64.tar.gz'
           install_path: '${{ runner.temp }}/.guardian'
