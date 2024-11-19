@@ -279,17 +279,16 @@ func (g *GitHub) GetUserTeamMemberships(ctx context.Context, username string) ([
 		return nil, fmt.Errorf("failed to query user team memberships: %w", err)
 	}
 
-	res := make([]string, len(teamQuery.Organization.Teams.Nodes))
-	for i, team := range teamQuery.Organization.Teams.Nodes {
+	res := make([]string, 0)
+	for _, team := range teamQuery.Organization.Teams.Nodes {
 		for _, m := range team.Members.Nodes {
 			// It is important to check for exact matches of the username, due to the
 			// lack of exact username matching in the GraphQL query.
 			if m.Login == username {
-				res[i] = team.Name
+				res = append(res, team.Name)
 				break
 			}
 		}
-		res[i] = team.Name
 	}
 
 	return res, nil
