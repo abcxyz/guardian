@@ -153,7 +153,7 @@ func (c *EnforceCommand) Process(ctx context.Context) error {
 
 		if violation != nil {
 			// Prints policy name followed by the violations found.
-			fmt.Fprintf(&b, "#### %s\n", k)
+			fmt.Fprintf(&b, "#### Policy: `%s`\n", k)
 			fmt.Fprintf(&b, "%s\n", st.String())
 			merr = errors.Join(merr, violation)
 		}
@@ -163,7 +163,6 @@ func (c *EnforceCommand) Process(ctx context.Context) error {
 		if err := c.reporter.Status(ctx, reporter.StatusPolicyViolation, &reporter.StatusParams{
 			Operation: "Policy Violation",
 			Dir:       c.directory,
-			Message:   "**NOTE**: After resolving the policy violations below, re-run the `Guardian Plan` workflow to re-evaluate policy enforcement checks.",
 			Details:   b.String(),
 		}); err != nil {
 			return fmt.Errorf("failed to report status: %w", err)
@@ -189,14 +188,6 @@ func (c *EnforceCommand) EnforceMissingApprovals(ctx context.Context, b *strings
 		teams = append(teams, m.AssignTeams...)
 		users = append(users, m.AssignUsers...)
 
-		fmt.Fprint(b, "- **Missing approvals from one of**:\n")
-		if len(m.AssignUsers) > 0 {
-			fmt.Fprintf(b, "\t - Users: %s\n", strings.Join(m.AssignUsers, ", "))
-		}
-		if len(m.AssignTeams) > 0 {
-			fmt.Fprintf(b, "\t - Teams: %s\n", strings.Join(m.AssignTeams, ", "))
-		}
-
 		merr = errors.Join(merr, fmt.Errorf("failed: \"%s\" - %s", policyName, m.Message))
 	}
 
@@ -211,6 +202,15 @@ func (c *EnforceCommand) EnforceMissingApprovals(ctx context.Context, b *strings
 		"teams", teams,
 		"users", users,
 	)
+
+	fmt.Fprint(b, "- **Missing approvals from one of**:\n")
+	if len(users) > 0 {
+		fmt.Fprintf(b, "\t - Users: %s\n", strings.Join(users, ", "))
+	}
+	if len(teams) > 0 {
+		fmt.Fprintf(b, "\t - Teams: %s\n", strings.Join(teams, ", "))
+	}
+
 	if _, err := c.platform.AssignReviewers(ctx, &platform.AssignReviewersInput{
 		Teams: teams,
 		Users: users,
