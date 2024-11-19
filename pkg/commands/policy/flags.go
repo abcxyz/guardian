@@ -22,11 +22,19 @@ import (
 )
 
 type EnforceFlags struct {
+	DryRun      bool
 	ResultsFile string
 }
 
 func (e *EnforceFlags) Register(set *cli.FlagSet) {
 	f := set.NewSection("ENFORCE OPTIONS")
+
+	f.BoolVar(&cli.BoolVar{
+		Name:    "dry-run",
+		Default: false,
+		Target:  &e.DryRun,
+		Usage:   "Skips assigning reviewers and only reports any violations found.",
+	})
 
 	f.StringVar(&cli.StringVar{
 		Name:    "results-file",
