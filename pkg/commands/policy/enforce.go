@@ -163,6 +163,7 @@ func (c *EnforceCommand) Process(ctx context.Context) error {
 		if err := c.reporter.Status(ctx, reporter.StatusPolicyViolation, &reporter.StatusParams{
 			Operation: "Policy Violation",
 			Dir:       c.directory,
+			Message:   "The planned resource changes raised policy violations that need to be addressed:",
 			Details:   b.String(),
 		}); err != nil {
 			return fmt.Errorf("failed to report status: %w", err)
