@@ -70,7 +70,6 @@ jobs:
           echo "directories=${DIRECTORIES}" >> $GITHUB_OUTPUT
 
   apply:
-    name: 'apply (${{ matrix.working_directory }})'
     if: |
       needs.init.outputs.directories != '[]'
     needs:

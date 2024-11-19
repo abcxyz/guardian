@@ -87,7 +87,6 @@ jobs:
 
 
   plan:
-    name: 'plan (${{ matrix.working_directory }})'
     if: |
       needs.init.outputs.directories != '[]'
     needs:
