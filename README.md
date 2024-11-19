@@ -104,7 +104,8 @@ process.
 
 #### Subcommands
 `guardian policy fetch-data` - Fetches data from the corresponding code review
-platform to provide additional context for evaluating policies.
+platform to provide additional context for evaluating policies. Requires
+`metadata: "read"` permission.
 
 The result is written to a local file, `guardian_policy_context.json`.
 
