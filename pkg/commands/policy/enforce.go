@@ -212,6 +212,11 @@ func (c *EnforceCommand) EnforceMissingApprovals(ctx context.Context, b *strings
 		fmt.Fprintf(b, "\t - Teams: %s\n", strings.Join(teams, ", "))
 	}
 
+	if c.flags.DryRun {
+		logger.DebugContext(ctx, "skipped assigning reviewers", "dry_run", c.flags.DryRun)
+		return merr
+	}
+
 	if _, err := c.platform.AssignReviewers(ctx, &platform.AssignReviewersInput{
 		Teams: teams,
 		Users: users,
