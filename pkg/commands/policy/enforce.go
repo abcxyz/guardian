@@ -163,7 +163,7 @@ func (c *EnforceCommand) Process(ctx context.Context) error {
 		if err := c.reporter.Status(ctx, reporter.StatusPolicyViolation, &reporter.StatusParams{
 			Operation: "Policy Violation",
 			Dir:       c.directory,
-			Message:   "The planned resource changes raised policy violations that need to be addressed:",
+			Message:   "The planned resource changes raised policy violations that will need to be addressed:",
 			Details:   b.String(),
 		}); err != nil {
 			return fmt.Errorf("failed to report status: %w", err)
@@ -212,8 +212,8 @@ func (c *EnforceCommand) EnforceMissingApprovals(ctx context.Context, b *strings
 		fmt.Fprintf(b, "\t - Teams: %s\n", strings.Join(teams, ", "))
 	}
 
-	if c.flags.DryRun {
-		logger.DebugContext(ctx, "skipped assigning reviewers", "dry_run", c.flags.DryRun)
+	if c.flags.Silent {
+		logger.DebugContext(ctx, "skipped assigning reviewers", "silent", c.flags.Silent)
 		return merr
 	}
 
