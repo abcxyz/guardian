@@ -355,6 +355,23 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 		return &RunResult{commentDetails: commentDetails}, fmt.Errorf("failed to plan: %w", err)
 	}
 
+	planOut.Reset()
+	stderr.Reset()
+
+	// Produces a cleaner output of the planned changes for writing to comment.
+	// This will exclude extra lines from the plan, e.g. "refreshing state" and
+	// only contain details of the planned changes.
+	if _, err = c.terraformClient.Show(ctx, &planOut, multiStderr, &terraform.ShowOptions{
+		File:    pointer.To(planAbsFilepath),
+		NoColor: pointer.To(true),
+		JSON:    pointer.To(false),
+	}); err != nil {
+		return &RunResult{
+			commentDetails: stderr.String(),
+			hasChanges:     hasChanges,
+		}, fmt.Errorf("failed to terraform show: %w", err)
+	}
+
 	stderr.Reset()
 
 	util.Headerf(c.Stdout(), "Writing Plan to Local JSON File")
