@@ -106,6 +106,7 @@ jobs:
 
     env:
       DIRECTORY: '${{ matrix.working_directory }}'
+      GITHUB_JOB_NAME: '${{ github.job }} (${{ matrix.working_directory }})'
 
     steps:
       - name: 'Checkout'
