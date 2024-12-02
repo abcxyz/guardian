@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-package guardian.run.workflow_permissions
+package guardian.admin.workflow_permissions
 
 import rego.v1
 import data.github as github

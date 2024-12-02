@@ -16,7 +16,7 @@
 # Due to the sensitive nature of the access this account has, this workflow is restricted
 # to only repository administrators to prevent misuse.
 name: 'guardian_admin'
-run-name: 'guardian_admin - [${{ inputs.command }}] [${{ inputs.args }}] [${{ inputs.entrypoint }}]'
+run-name: 'guardian_admin - [${{ inputs.command }}] [${{ inputs.entrypoint }}]'
 
 on:
   workflow_dispatch:
@@ -61,13 +61,41 @@ jobs:
           cache_key: '${{ runner.os }}_${{ runner.arch }}_guardian_${{ env.GUARDIAN_VERSION }}'
           add_to_path: true
 
+      - name: 'Setup OPA'
+        uses: 'open-policy-agent/setup-opa@34a30e8a924d1b03ce2cf7abe97250bbb1f332b5' # ratchet:open-policy-agent/setup-opa@v2
+        with:
+          version: 'latest'
+
+      - name: 'Evaluate Policy'
+        id: 'opa_eval'
+        shell: 'bash'
+        run: |-
+          DECISION=$(opa eval \
+            --format raw \
+            --input ./workflow_dispatch_inputs.json \
+            --data ./policy/guardian/admin \
+            --data ./guardian_policy_context.json \
+            "data.guardian.admin")
+          echo "$DECISION" > policy_results.json
+
+      - name: 'Enforce Policy'
+        shell: 'bash'
+        env:
+          GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
+        run: |-
+          guardian policy enforce \
+            -reporter=none \
+            -dir=${DIRECTORY} \
+            -results-file=policy_results.json
+
       - name: 'Guardian Directories'
         id: 'dirs'
         shell: 'bash'
         env:
           ENTRYPOINT: '${{ inputs.entrypoint }}'
+          GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
         run: |-
-          DIRECTORIES=$(guardian entrypoints -dir="${ENTRYPOINT}")
+          DIRECTORIES=$(guardian entrypoints -dir="${ENTRYPOINT}" -reporter=none)
           echo "entrypoints -> ${DIRECTORIES}"
           echo "directories=${DIRECTORIES}" >> $GITHUB_OUTPUT
 
