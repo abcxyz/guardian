@@ -142,23 +142,51 @@ func filterDefaultURIs(uris []string) []string {
 func filterIgnored(values map[string]*assetinventory.AssetIAM, ignored *ignoredAssets) map[string]*assetinventory.AssetIAM {
 	filtered := make(map[string]*assetinventory.AssetIAM)
 	for k, a := range values {
-		if _, ok := ignored.roles[roleURI(a)]; ok {
-			continue
-		}
-		if a.ResourceType == assetinventory.Project {
-			if _, ok := ignored.projectIDs[a.ResourceID]; !ok {
-				filtered[k] = a
-			}
-		} else if a.ResourceType == assetinventory.Folder {
-			if _, ok := ignored.folderIDs[a.ResourceID]; !ok {
-				filtered[k] = a
-			}
-		} else { // Handle default case so we do not accidentally drop values.
+		if !isIgnored(a, ignored) {
 			filtered[k] = a
 		}
 	}
-
 	return filtered
+}
+
+// filterIgnoredTF removes any tf asset iam that is in the ignored assets.
+func filterIgnoredTF(values map[string]*TerraformStateIAMSource, ignored *ignoredAssets) map[string]*TerraformStateIAMSource {
+	filtered := make(map[string]*TerraformStateIAMSource)
+	for k, a := range values {
+		if !isIgnored(a.AssetIAM, ignored) {
+			filtered[k] = a
+		}
+	}
+	return filtered
+}
+
+func isIgnored(a *assetinventory.AssetIAM, ignored *ignoredAssets) bool {
+	if _, ok := ignored.roles[roleURI(a)]; ok {
+		return true
+	}
+	if a.ResourceType == assetinventory.Project {
+		if _, ok := ignored.projectIDs[a.ResourceID]; !ok {
+			return false
+		}
+	} else if a.ResourceType == assetinventory.Folder {
+		if _, ok := ignored.folderIDs[a.ResourceID]; !ok {
+			return false
+		}
+	} else { // Handle default case so we do not accidentally drop values.
+		return false
+	}
+	return true
+}
+
+func selectFrom[K any](values []string, from map[string]K) map[string]K {
+	r := make(map[string]K, len(values))
+	for _, v := range values {
+		if _, ok := from[v]; !ok {
+
+		}
+		r[v] = from[v]
+	}
+	return r
 }
 
 // expandGraph traverses the asset hierarchy graph and adds any nested folders or projects beneath every ignored asset.
