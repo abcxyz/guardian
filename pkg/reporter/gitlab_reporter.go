@@ -14,15 +14,62 @@
 
 package reporter
 
-import "context"
+import (
+	"context"
+	"fmt"
+
+	gitlab "github.com/xanzy/go-gitlab"
+)
+
+const gitLabMaxCommentLength = 1000000
 
 var _ Reporter = (*GitLabReporter)(nil)
 
 // GitLabReporter implements the Reporter interface.
-type GitLabReporter struct{}
+type GitLabReporter struct {
+	gitLabClient *gitlab.Client
+	inputs       *GitLabReporterInputs
+	logURL       string
+}
+
+// GitLabReporterInputs are the inputs used by the GitLab reporter.
+type GitLabReporterInputs struct {
+	GitLabProjectID      int
+	GitLabMergeRequestID int
+}
+
+func (i *GitLabReporterInputs) Validate() error {
+	if i.GitLabProjectID == 0 {
+		return fmt.Errorf("gitlab project id is required")
+	}
+	if i.GitLabMergeRequestID == 0 {
+		return fmt.Errorf("gitlab merge request id is required")
+	}
+	return nil
+}
+
+func NewGitLabReporter(ctx context.Context, gc *gitlab.Client, i *GitLabReporterInputs) (*GitLabReporter, error) {
+	if gc == nil {
+		return nil, fmt.Errorf("gitlab client is required")
+	}
+	return &GitLabReporter{
+		gitLabClient: gc,
+		inputs:       i,
+	}, nil
+}
 
 // Status reports the status of a run.
-func (g *GitLabReporter) Status(ctx context.Context, status Status, params *StatusParams) error {
+func (g *GitLabReporter) Status(ctx context.Context, st Status, p *StatusParams) error {
+	msg, err := statusMessage(st, p, g.logURL, gitLabMaxCommentLength)
+	if err != nil {
+		return fmt.Errorf("failed to generate status message: %w", err)
+	}
+
+	b := msg.String()
+	g.gitLabClient.Notes.CreateMergeRequestNote(g.inputs.GitLabProjectID, g.inputs.GitLabMergeRequestID, &gitlab.CreateMergeRequestNoteOptions{
+		Body: &b,
+	})
+
 	return nil
 }
 
