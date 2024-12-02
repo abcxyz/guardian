@@ -204,7 +204,7 @@ func driftMessage(drift *IAMDrift) string {
 		msg.WriteString("|----|-------------|--------|------|\n")
 		for _, k := range coKeys {
 			coChange := drift.ClickOpsChanges[k]
-			msg.WriteString(fmt.Sprintf("|%s|%s|%s|%s|\n", k, coChange.ResourceID, coChange.Member, coChange.Role))
+			msg.WriteString(fmt.Sprintf("|%s|%s|%s|%s|\n", k, ResourceURI(coChange), coChange.Member, coChange.Role))
 		}
 		if len(mtKeys) > 0 {
 			msg.WriteString("\n\n")
@@ -216,7 +216,7 @@ func driftMessage(drift *IAMDrift) string {
 		msg.WriteString("|----|---------------|-------------|--------|------|\n")
 		for _, k := range mtKeys {
 			mtChange := drift.MissingTerraformChanges[k]
-			msg.WriteString(fmt.Sprintf("|%s|%s|%s|%s|%s|\n", k, mtChange.StateFileURI, mtChange.AssetIAM.ResourceID, mtChange.AssetIAM.Member, mtChange.AssetIAM.Role))
+			msg.WriteString(fmt.Sprintf("|%s|%s|%s|%s|%s|\n", k, mtChange.StateFileURI, ResourceURI(mtChange.AssetIAM), mtChange.AssetIAM.Member, mtChange.AssetIAM.Role))
 		}
 	}
 	return msg.String()

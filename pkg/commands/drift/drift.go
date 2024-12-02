@@ -300,3 +300,20 @@ func (d *IAMDriftDetector) URI(i *assetinventory.AssetIAM) string {
 		return fmt.Sprintf("unknownParent:/organizations/%s/%s/%s/%s/%s", d.organizationID, i.ResourceType, i.ResourceID, role, i.Member)
 	}
 }
+
+// URI returns a canonical string identifier for the IAM entity.
+// This is used for diffing and as output to the user.
+func ResourceURI(i *assetinventory.AssetIAM) string {
+	switch i.ResourceType {
+	case assetinventory.Folder:
+		return fmt.Sprintf("folders/%s", i.ResourceID)
+	case assetinventory.Project:
+		return fmt.Sprintf("projects/%s", i.ResourceID)
+	case assetinventory.Organization:
+		return fmt.Sprintf("organizations/%s", i.ResourceID)
+	case assetinventory.Unknown:
+		return fmt.Sprintf("%s/%s", i.ResourceType, i.ResourceID)
+	default:
+		return fmt.Sprintf("%s/%s", i.ResourceType, i.ResourceID)
+	}
+}

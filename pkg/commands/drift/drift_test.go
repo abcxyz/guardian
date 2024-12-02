@@ -241,11 +241,11 @@ func TestDrift_driftMessage(t *testing.T) {
 			want: `Found Click Ops Changes
 | ID | Resource ID | Member | Role |
 |----|-------------|--------|------|
-|/organizations/1231231/folders/123123123123/roles/viewer/group:my-group@google.com|123123123123|group:my-group@google.com|roles/viewer|
-|/organizations/1231231/projects/my-project/roles/compute.admin/serviceAccount:my-service-account@my-project.iam.gserviceaccount.com|1231232222|serviceAccount:my-service-account@my-project.iam.gserviceaccount.com|roles/compute.admin|
-|/organizations/1231231/roles/browser/group:my-group@google.com|1231231|group:my-group@google.com|roles/browser|
-|/organizations/1231231/roles/browser/serviceAccount:my-service-account@my-project.iam.gserviceaccount.com|1231231|serviceAccount:my-service-account@my-project.iam.gserviceaccount.com|roles/browser|
-|/organizations/1231231/roles/browser/user:dcreey@google.com|1231231|user:dcreey@google.com|roles/browser|
+|/organizations/1231231/folders/123123123123/roles/viewer/group:my-group@google.com|folders/123123123123|group:my-group@google.com|roles/viewer|
+|/organizations/1231231/projects/my-project/roles/compute.admin/serviceAccount:my-service-account@my-project.iam.gserviceaccount.com|projects/1231232222|serviceAccount:my-service-account@my-project.iam.gserviceaccount.com|roles/compute.admin|
+|/organizations/1231231/roles/browser/group:my-group@google.com|organizations/1231231|group:my-group@google.com|roles/browser|
+|/organizations/1231231/roles/browser/serviceAccount:my-service-account@my-project.iam.gserviceaccount.com|organizations/1231231|serviceAccount:my-service-account@my-project.iam.gserviceaccount.com|roles/browser|
+|/organizations/1231231/roles/browser/user:dcreey@google.com|organizations/1231231|user:dcreey@google.com|roles/browser|
 `,
 		},
 		{
@@ -278,11 +278,11 @@ func TestDrift_driftMessage(t *testing.T) {
 			want: `Found Missing Terraform Changes
 | ID | StateFile URI | Resource ID | Member | Role |
 |----|---------------|-------------|--------|------|
-|/organizations/1231231/folders/123123123123/roles/viewer/group:my-group@google.com|gs://my-bucket/default.tf|123123123123|group:my-group@google.com|roles/viewer|
-|/organizations/1231231/projects/my-project/roles/compute.admin/serviceAccount:my-service-account@my-project.iam.gserviceaccount.com|gs://my-bucket/default.tf|1231232222|serviceAccount:my-service-account@my-project.iam.gserviceaccount.com|roles/compute.admin|
-|/organizations/1231231/roles/browser/group:my-group@google.com|gs://my-bucket/default.tf|1231231|group:my-group@google.com|roles/browser|
-|/organizations/1231231/roles/browser/serviceAccount:my-service-account@my-project.iam.gserviceaccount.com|gs://my-bucket/default.tf|1231231|serviceAccount:my-service-account@my-project.iam.gserviceaccount.com|roles/browser|
-|/organizations/1231231/roles/browser/user:dcreey@google.com|gs://my-bucket/default.tf|1231231|user:dcreey@google.com|roles/browser|
+|/organizations/1231231/folders/123123123123/roles/viewer/group:my-group@google.com|gs://my-bucket/default.tf|folders/123123123123|group:my-group@google.com|roles/viewer|
+|/organizations/1231231/projects/my-project/roles/compute.admin/serviceAccount:my-service-account@my-project.iam.gserviceaccount.com|gs://my-bucket/default.tf|projects/1231232222|serviceAccount:my-service-account@my-project.iam.gserviceaccount.com|roles/compute.admin|
+|/organizations/1231231/roles/browser/group:my-group@google.com|gs://my-bucket/default.tf|organizations/1231231|group:my-group@google.com|roles/browser|
+|/organizations/1231231/roles/browser/serviceAccount:my-service-account@my-project.iam.gserviceaccount.com|gs://my-bucket/default.tf|organizations/1231231|serviceAccount:my-service-account@my-project.iam.gserviceaccount.com|roles/browser|
+|/organizations/1231231/roles/browser/user:dcreey@google.com|gs://my-bucket/default.tf|organizations/1231231|user:dcreey@google.com|roles/browser|
 `,
 		},
 	}
