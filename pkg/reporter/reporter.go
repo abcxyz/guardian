@@ -23,17 +23,20 @@ import (
 	"strings"
 
 	"github.com/abcxyz/guardian/pkg/github"
+	"github.com/abcxyz/guardian/pkg/platform/config"
+	gitlab "github.com/xanzy/go-gitlab"
 )
 
 const (
 	TypeNone   string = "none"
 	TypeGitHub string = "github"
+	TypeGitLab string = "gitlab"
 	TypeFile   string = "file"
 )
 
 // SortedReporterTypes are the sorted Reporter types for printing messages and prediction.
 var SortedReporterTypes = func() []string {
-	allowed := append([]string{}, TypeNone, TypeGitHub)
+	allowed := append([]string{}, TypeNone, TypeGitHub, TypeGitLab)
 	sort.Strings(allowed)
 	return allowed
 }()
@@ -88,6 +91,7 @@ type Reporter interface {
 // Config is the configuration needed to generate different reporter types.
 type Config struct {
 	GitHub github.Config
+	GitLab config.GitLab
 }
 
 // NewReporter creates a new reporter based on the provided type.
@@ -124,6 +128,17 @@ func NewReporter(ctx context.Context, t string, c *Config) (Reporter, error) {
 		})
 	}
 
+	if strings.EqualFold(t, TypeGitLab) {
+		gc, err := gitlab.NewClient(c.GitLab.GitLabToken)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create gitlab client: %w", err)
+		}
+
+		return NewGitLabReporter(ctx, gc, &GitLabReporterInputs{
+			GitLabProjectID:      c.GitLab.GitLabProjectID,
+			GitLabMergeRequestID: c.GitLab.GitLabMergeRequestID,
+		})
+	}
 	return nil, fmt.Errorf("unknown reporter type: %s", t)
 }
 
