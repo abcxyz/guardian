@@ -110,5 +110,12 @@ func NewPlatform(ctx context.Context, cfg *Config) (Platform, error) {
 		return gc, nil
 	}
 
+	if strings.EqualFold(cfg.Type, TypeGitLab) {
+		gl, err := NewGitLab(ctx, &cfg.GitLab)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create gitlab: %w", err)
+		}
+		return gl, nil
+	}
 	return nil, fmt.Errorf("unknown platform type: %s", cfg.Type)
 }

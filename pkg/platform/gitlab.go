@@ -21,11 +21,10 @@ var _ Platform = (*GitLab)(nil)
 // GitLab implements the Platform interface.
 type GitLab struct{}
 
-// GitLabConfig is the configuration options for generating a GitLab client.
-type GitLabConfig struct{}
+type gitLabConfig struct{}
 
 // NewGitLab creates a new GitLab client.
-func NewGitLab(ctx context.Context, cfg *GitLabConfig) (*GitLab, error) {
+func NewGitLab(ctx context.Context, cfg *gitLabConfig) (*GitLab, error) {
 	return &GitLab{}, nil
 }
 
