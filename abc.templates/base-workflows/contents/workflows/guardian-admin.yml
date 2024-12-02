@@ -12,51 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Guardian run is used to run Terraform commands that are most often used
-# to fix state after a failed workflow or get outputs for a given module
-# directory. Any user with write permissions on the repo can run this workflow.
-name: 'guardian_run'
-run-name: 'guardian_run - [${{ inputs.command }}] [${{ inputs.entrypoint }}]'
+# Guardian admin is used to run Terraform commands as the privileged service account.
+# Due to the sensitive nature of the access this account has, this workflow is restricted
+# to only repository administrators to prevent misuse.
+name: 'guardian_admin'
+run-name: 'guardian_admin - [${{ inputs.command }}] [${{ inputs.args }}] [${{ inputs.entrypoint }}]'
 
 on:
   workflow_dispatch:
     inputs:
       command:
-        description: 'COMMAND - The Terraform command to run.'
+        description: 'COMMAND - The Terraform command to run along with any arguments, e.g. plan -input=false, apply -auto-approve, etc.'
         required: true
-        type: 'choice'
-        default: 'plan'
-        options:
-          - 'plan'
-          - 'apply'
-          - 'output'
       entrypoint:
         description: 'ENTRYPOINT - The directory to search for all child directories containing Terraform configurations. If left blank, the Terraform command will run for all configured directories.'
         default: 'REPLACE_TERRAFORM_DIRECTORY'
         type: 'string'
-      detailed-exitcode:
-        description: 'DETAILED-EXITCODE (usually false) - The value of the -detailed-exitcode flag for "terraform plan", which causes a nonempty diff to return a status code of 2; ignored for other commands besides "plan".'
-        type: 'boolean'
-        default: false
-        required: false
-  workflow_call:
-    inputs:
-      command:
-        description: 'COMMAND - The Terraform command to run.'
-        required: true
-        type: 'string'
-        default: 'plan'
-      entrypoint:
-        description: 'ENTRYPOINT - The directory to search for all child directories containing Terraform configurations. If left blank, the Terraform command will run for all configured directories.'
-        default: 'REPLACE_TERRAFORM_DIRECTORY'
-        type: 'string'
-      detailed-exitcode:
-        description: 'DETAILED-EXITCODE (usually false) - The value of the -detailed-exitcode flag for "terraform plan", which causes a nonempty diff to return a status code of 2; ignored for other commands besides "plan".'
-        type: 'boolean'
-        default: false
-        required: false
 
-# only one fix should run at a time
+# only one admin should run at a time
 concurrency:
   group: '${{ github.workflow }}'
 
@@ -98,7 +71,7 @@ jobs:
           echo "entrypoints -> ${DIRECTORIES}"
           echo "directories=${DIRECTORIES}" >> $GITHUB_OUTPUT
 
-  run:
+  admin:
     if: |
       needs.init.outputs.directories != '[]'
     needs:
@@ -142,30 +115,9 @@ jobs:
           cache_key: '${{ runner.os }}_${{ runner.arch }}_guardian_${{ env.GUARDIAN_VERSION }}'
           add_to_path: true
 
-      - name: 'Guardian Output'
-        if: |
-          inputs.command == 'output'
+      - name: 'Guardian Admin'
         env:
           DIRECTORY: '${{ matrix.working_directory }}'
         shell: 'bash'
         run: |-
-          guardian run -dir="${DIRECTORY}" -- output
-
-      - name: 'Guardian Plan'
-        if: |
-          inputs.command == 'plan'
-        env:
-          DIRECTORY: '${{ matrix.working_directory }}'
-          DETAILED_EXITCODE: '${{ inputs.detailed-exitcode }}'
-        shell: 'bash'
-        run: |-
-          guardian run -dir="${DIRECTORY}" -- plan -input=false -detailed-exitcode=${DETAILED_EXITCODE}
-
-      - name: 'Guardian Apply'
-        if: |
-          inputs.command == 'apply'
-        env:
-          DIRECTORY: '${{ matrix.working_directory }}'
-        shell: 'bash'
-        run: |-
-          guardian run -dir="${DIRECTORY}" -- apply -input=false -auto-approve
+          guardian run -dir="${DIRECTORY}" -- ${{ inputs.command }}
