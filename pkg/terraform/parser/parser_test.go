@@ -120,7 +120,7 @@ func TestParser_ProcessStates(t *testing.T) {
 			name:                   "success",
 			terraformStatefilename: "testdata/test_valid.tfstate",
 			want: map[string][]*assetinventory.AssetIAM{
-				"gs://my-bucket-123/abcsdasd/12312/default.tfstate": []*assetinventory.AssetIAM{
+				"gs://my-bucket-123/abcsdasd/12312/default.tfstate": {
 					{
 						ResourceID:   "1231231",
 						ResourceType: "Organization",
@@ -161,7 +161,7 @@ func TestParser_ProcessStates(t *testing.T) {
 			name:                   "success_no_known_assets",
 			terraformStatefilename: "testdata/test_valid.tfstate",
 			want: map[string][]*assetinventory.AssetIAM{
-				"gs://my-bucket-123/abcsdasd/12312/default.tfstate": []*assetinventory.AssetIAM{
+				"gs://my-bucket-123/abcsdasd/12312/default.tfstate": {
 					{
 						ResourceID:   "1231231",
 						ResourceType: "Organization",

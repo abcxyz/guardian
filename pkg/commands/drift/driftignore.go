@@ -181,10 +181,9 @@ func isIgnored(a *assetinventory.AssetIAM, ignored *ignoredAssets) bool {
 func selectFrom[K any](values []string, from map[string]K) map[string]K {
 	r := make(map[string]K, len(values))
 	for _, v := range values {
-		if _, ok := from[v]; !ok {
-
+		if f, ok := from[v]; ok {
+			r[v] = f
 		}
-		r[v] = from[v]
 	}
 	return r
 }

@@ -99,7 +99,7 @@ func TestDrift_DetectDrift(t *testing.T) {
 				BucketsData:      []string{bucket},
 			},
 			processStatesResp: map[string][]*assetinventory.AssetIAM{
-				statefileURI: []*assetinventory.AssetIAM{
+				statefileURI: {
 					orgSABrowser,
 					orgGroupBrowser,
 					orgUserBrowser,
@@ -146,7 +146,7 @@ func TestDrift_DetectDrift(t *testing.T) {
 				BucketsData:      []string{bucket},
 			},
 			processStatesResp: map[string][]*assetinventory.AssetIAM{
-				statefileURI: []*assetinventory.AssetIAM{
+				statefileURI: {
 					orgSABrowser,
 					orgGroupBrowser,
 					orgUserBrowser,
@@ -157,23 +157,23 @@ func TestDrift_DetectDrift(t *testing.T) {
 			want: &IAMDrift{
 				ClickOpsChanges: map[string]*assetinventory.AssetIAM{},
 				MissingTerraformChanges: map[string]*TerraformStateIAMSource{
-					"/organizations/1231231/folders/123123123123/roles/viewer/group:my-group@google.com": &TerraformStateIAMSource{
+					"/organizations/1231231/folders/123123123123/roles/viewer/group:my-group@google.com": {
 						AssetIAM:     folderViewer,
 						StateFileURI: statefileURI,
 					},
-					"/organizations/1231231/projects/my-project/roles/compute.admin/serviceAccount:my-service-account@my-project.iam.gserviceaccount.com": &TerraformStateIAMSource{
+					"/organizations/1231231/projects/my-project/roles/compute.admin/serviceAccount:my-service-account@my-project.iam.gserviceaccount.com": {
 						AssetIAM:     projectAdmin,
 						StateFileURI: statefileURI,
 					},
-					"/organizations/1231231/roles/browser/group:my-group@google.com": &TerraformStateIAMSource{
+					"/organizations/1231231/roles/browser/group:my-group@google.com": {
 						AssetIAM:     orgGroupBrowser,
 						StateFileURI: statefileURI,
 					},
-					"/organizations/1231231/roles/browser/serviceAccount:my-service-account@my-project.iam.gserviceaccount.com": &TerraformStateIAMSource{
+					"/organizations/1231231/roles/browser/serviceAccount:my-service-account@my-project.iam.gserviceaccount.com": {
 						AssetIAM:     orgSABrowser,
 						StateFileURI: statefileURI,
 					},
-					"/organizations/1231231/roles/browser/user:dcreey@google.com": &TerraformStateIAMSource{
+					"/organizations/1231231/roles/browser/user:dcreey@google.com": {
 						AssetIAM:     orgUserBrowser,
 						StateFileURI: statefileURI,
 					},
