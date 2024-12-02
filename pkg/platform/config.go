@@ -97,3 +97,5 @@ func defaultReporter(t string) string {
 		return reporter.TypeNone
 	}
 }
+
+type GitLabConfig struct{}

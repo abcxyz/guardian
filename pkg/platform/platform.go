@@ -27,16 +27,18 @@ const (
 	TypeUnspecified = ""
 	TypeLocal       = "local"
 	TypeGitHub      = "github"
+	TypeGitLab      = "gitlab"
 )
 
 var (
 	allowedTypes = map[string]struct{}{
 		TypeLocal:  {},
 		TypeGitHub: {},
+		TypeGitLab: {},
 	}
 	// SortedTypes are the sorted Platform types for printing messages and prediction.
 	SortedTypes = func() []string {
-		allowed := append([]string{}, TypeLocal, TypeGitHub)
+		allowed := append([]string{}, TypeLocal, TypeGitHub, TypeGitLab)
 		sort.Strings(allowed)
 		return allowed
 	}()
