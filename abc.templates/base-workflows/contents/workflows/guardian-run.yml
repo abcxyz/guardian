@@ -93,8 +93,9 @@ jobs:
         shell: 'bash'
         env:
           ENTRYPOINT: '${{ inputs.entrypoint }}'
+          GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
         run: |-
-          DIRECTORIES=$(guardian entrypoints -dir="${ENTRYPOINT}")
+          DIRECTORIES=$(guardian entrypoints -dir="${ENTRYPOINT}" -reporter=none)
           echo "entrypoints -> ${DIRECTORIES}"
           echo "directories=${DIRECTORIES}" >> $GITHUB_OUTPUT
 
@@ -114,6 +115,10 @@ jobs:
       max-parallel: 100
       matrix:
         working_directory: '${{ fromJSON(needs.init.outputs.directories) }}'
+
+    env:
+      DIRECTORY: '${{ matrix.working_directory }}'
+
     steps:
       - name: 'Checkout'
         uses: 'actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332' # ratchet:actions/checkout@v4
@@ -145,8 +150,6 @@ jobs:
       - name: 'Guardian Output'
         if: |
           inputs.command == 'output'
-        env:
-          DIRECTORY: '${{ matrix.working_directory }}'
         shell: 'bash'
         run: |-
           guardian run -dir="${DIRECTORY}" -- output
@@ -155,7 +158,6 @@ jobs:
         if: |
           inputs.command == 'plan'
         env:
-          DIRECTORY: '${{ matrix.working_directory }}'
           DETAILED_EXITCODE: '${{ inputs.detailed-exitcode }}'
         shell: 'bash'
         run: |-
@@ -164,8 +166,6 @@ jobs:
       - name: 'Guardian Apply'
         if: |
           inputs.command == 'apply'
-        env:
-          DIRECTORY: '${{ matrix.working_directory }}'
         shell: 'bash'
         run: |-
           guardian run -dir="${DIRECTORY}" -- apply -input=false -auto-approve
