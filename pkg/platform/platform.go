@@ -27,16 +27,18 @@ const (
 	TypeUnspecified = ""
 	TypeLocal       = "local"
 	TypeGitHub      = "github"
+	TypeGitLab      = "gitlab"
 )
 
 var (
 	allowedTypes = map[string]struct{}{
 		TypeLocal:  {},
 		TypeGitHub: {},
+		TypeGitLab: {},
 	}
 	// SortedTypes are the sorted Platform types for printing messages and prediction.
 	SortedTypes = func() []string {
-		allowed := append([]string{}, TypeLocal, TypeGitHub)
+		allowed := append([]string{}, TypeLocal, TypeGitHub, TypeGitLab)
 		sort.Strings(allowed)
 		return allowed
 	}()
@@ -108,5 +110,12 @@ func NewPlatform(ctx context.Context, cfg *Config) (Platform, error) {
 		return gc, nil
 	}
 
+	if strings.EqualFold(cfg.Type, TypeGitLab) {
+		gl, err := NewGitLab(ctx, &cfg.GitLab)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create gitlab: %w", err)
+		}
+		return gl, nil
+	}
 	return nil, fmt.Errorf("unknown platform type: %s", cfg.Type)
 }

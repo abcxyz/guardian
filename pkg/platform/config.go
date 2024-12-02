@@ -33,6 +33,7 @@ type Config struct {
 	Reporter string
 
 	GitHub gh.Config
+	GitLab gitLabConfig
 	Local  localConfig
 }
 
