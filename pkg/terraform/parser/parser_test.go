@@ -111,7 +111,7 @@ func TestParser_ProcessStates(t *testing.T) {
 		name                   string
 		terraformStatefilename string
 		gcsURIs                []string
-		want                   []*assetinventory.AssetIAM
+		want                   map[string][]*assetinventory.AssetIAM
 		wantErr                string
 		knownFolders           map[string]*assetinventory.HierarchyNode
 		knownProjects          map[string]*assetinventory.HierarchyNode
@@ -119,36 +119,38 @@ func TestParser_ProcessStates(t *testing.T) {
 		{
 			name:                   "success",
 			terraformStatefilename: "testdata/test_valid.tfstate",
-			want: []*assetinventory.AssetIAM{
-				{
-					ResourceID:   "1231231",
-					ResourceType: "Organization",
-					Member:       "group:my-group@google.com",
-					Role:         "roles/browser",
-				},
-				{
-					ResourceID:   "1231231",
-					ResourceType: "Organization",
-					Member:       "serviceAccount:my-service-account@my-project.iam.gserviceaccount.com",
-					Role:         "roles/browser",
-				},
-				{
-					ResourceID:   "1231231",
-					ResourceType: "Organization",
-					Member:       "user:dcreey@google.com",
-					Role:         "roles/browser",
-				},
-				{
-					ResourceID:   "123123123123",
-					ResourceType: "Folder",
-					Member:       "group:my-group@google.com",
-					Role:         "roles/viewer",
-				},
-				{
-					ResourceID:   "1231232222",
-					ResourceType: "Project",
-					Member:       "serviceAccount:my-service-account@my-project.iam.gserviceaccount.com",
-					Role:         "roles/compute.admin",
+			want: map[string][]*assetinventory.AssetIAM{
+				"gs://my-bucket-123/abcsdasd/12312/default.tfstate": []*assetinventory.AssetIAM{
+					{
+						ResourceID:   "1231231",
+						ResourceType: "Organization",
+						Member:       "group:my-group@google.com",
+						Role:         "roles/browser",
+					},
+					{
+						ResourceID:   "1231231",
+						ResourceType: "Organization",
+						Member:       "serviceAccount:my-service-account@my-project.iam.gserviceaccount.com",
+						Role:         "roles/browser",
+					},
+					{
+						ResourceID:   "1231231",
+						ResourceType: "Organization",
+						Member:       "user:dcreey@google.com",
+						Role:         "roles/browser",
+					},
+					{
+						ResourceID:   "123123123123",
+						ResourceType: "Folder",
+						Member:       "group:my-group@google.com",
+						Role:         "roles/viewer",
+					},
+					{
+						ResourceID:   "1231232222",
+						ResourceType: "Project",
+						Member:       "serviceAccount:my-service-account@my-project.iam.gserviceaccount.com",
+						Role:         "roles/compute.admin",
+					},
 				},
 			},
 			gcsURIs:       []string{"gs://my-bucket-123/abcsdasd/12312/default.tfstate"},
@@ -158,36 +160,38 @@ func TestParser_ProcessStates(t *testing.T) {
 		{
 			name:                   "success_no_known_assets",
 			terraformStatefilename: "testdata/test_valid.tfstate",
-			want: []*assetinventory.AssetIAM{
-				{
-					ResourceID:   "1231231",
-					ResourceType: "Organization",
-					Member:       "group:my-group@google.com",
-					Role:         "roles/browser",
-				},
-				{
-					ResourceID:   "1231231",
-					ResourceType: "Organization",
-					Member:       "serviceAccount:my-service-account@my-project.iam.gserviceaccount.com",
-					Role:         "roles/browser",
-				},
-				{
-					ResourceID:   "1231231",
-					ResourceType: "Organization",
-					Member:       "user:dcreey@google.com",
-					Role:         "roles/browser",
-				},
-				{
-					ResourceID:   "123123123123",
-					ResourceType: "Unknown",
-					Member:       "group:my-group@google.com",
-					Role:         "roles/viewer",
-				},
-				{
-					ResourceID:   "my-project",
-					ResourceType: "Unknown",
-					Member:       "serviceAccount:my-service-account@my-project.iam.gserviceaccount.com",
-					Role:         "roles/compute.admin",
+			want: map[string][]*assetinventory.AssetIAM{
+				"gs://my-bucket-123/abcsdasd/12312/default.tfstate": []*assetinventory.AssetIAM{
+					{
+						ResourceID:   "1231231",
+						ResourceType: "Organization",
+						Member:       "group:my-group@google.com",
+						Role:         "roles/browser",
+					},
+					{
+						ResourceID:   "1231231",
+						ResourceType: "Organization",
+						Member:       "serviceAccount:my-service-account@my-project.iam.gserviceaccount.com",
+						Role:         "roles/browser",
+					},
+					{
+						ResourceID:   "1231231",
+						ResourceType: "Organization",
+						Member:       "user:dcreey@google.com",
+						Role:         "roles/browser",
+					},
+					{
+						ResourceID:   "123123123123",
+						ResourceType: "Unknown",
+						Member:       "group:my-group@google.com",
+						Role:         "roles/viewer",
+					},
+					{
+						ResourceID:   "my-project",
+						ResourceType: "Unknown",
+						Member:       "serviceAccount:my-service-account@my-project.iam.gserviceaccount.com",
+						Role:         "roles/compute.admin",
+					},
 				},
 			},
 			gcsURIs: []string{"gs://my-bucket-123/abcsdasd/12312/default.tfstate"},
@@ -195,7 +199,7 @@ func TestParser_ProcessStates(t *testing.T) {
 		{
 			name:                   "ignores_unsupported_iam_bindings",
 			terraformStatefilename: "testdata/test_ignored.tfstate",
-			want:                   nil,
+			want:                   map[string][]*assetinventory.AssetIAM{},
 			gcsURIs:                []string{"gs://my-bucket-123/abcsdasd/12312/default.tfstate"},
 		},
 		{

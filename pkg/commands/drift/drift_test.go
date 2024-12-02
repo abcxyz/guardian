@@ -25,9 +25,10 @@ import (
 )
 
 var (
-	orgID  = "1231231"
-	bucket = "my-bucket"
-	folder = &assetinventory.HierarchyNode{
+	orgID        = "1231231"
+	bucket       = "my-bucket"
+	statefileURI = "gs://my-bucket/default.tf"
+	folder       = &assetinventory.HierarchyNode{
 		ID:         "123123123123",
 		Name:       "123123123123",
 		NodeType:   assetinventory.Folder,
@@ -78,7 +79,7 @@ func TestDrift_DetectDrift(t *testing.T) {
 
 	cases := []struct {
 		name                 string
-		processStatesResp    []*assetinventory.AssetIAM
+		processStatesResp    map[string][]*assetinventory.AssetIAM
 		assetInventoryClient assetinventory.AssetInventory
 		gcsBuckets           []string
 		want                 *IAMDrift
@@ -97,16 +98,18 @@ func TestDrift_DetectDrift(t *testing.T) {
 				AssetProjectData: []*assetinventory.HierarchyNode{project},
 				BucketsData:      []string{bucket},
 			},
-			processStatesResp: []*assetinventory.AssetIAM{
-				orgSABrowser,
-				orgGroupBrowser,
-				orgUserBrowser,
-				folderViewer,
-				projectAdmin,
+			processStatesResp: map[string][]*assetinventory.AssetIAM{
+				statefileURI: []*assetinventory.AssetIAM{
+					orgSABrowser,
+					orgGroupBrowser,
+					orgUserBrowser,
+					folderViewer,
+					projectAdmin,
+				},
 			},
 			want: &IAMDrift{
-				ClickOpsChanges:         []string{},
-				MissingTerraformChanges: []string{},
+				ClickOpsChanges:         map[string]*assetinventory.AssetIAM{},
+				MissingTerraformChanges: map[string]*TerraformStateIAMSource{},
 			},
 		},
 		{
@@ -124,14 +127,14 @@ func TestDrift_DetectDrift(t *testing.T) {
 				BucketsData:      []string{bucket},
 			},
 			want: &IAMDrift{
-				ClickOpsChanges: []string{
-					"/organizations/1231231/folders/123123123123/roles/viewer/group:my-group@google.com",
-					"/organizations/1231231/projects/my-project/roles/compute.admin/serviceAccount:my-service-account@my-project.iam.gserviceaccount.com",
-					"/organizations/1231231/roles/browser/group:my-group@google.com",
-					"/organizations/1231231/roles/browser/serviceAccount:my-service-account@my-project.iam.gserviceaccount.com",
-					"/organizations/1231231/roles/browser/user:dcreey@google.com",
+				ClickOpsChanges: map[string]*assetinventory.AssetIAM{
+					"/organizations/1231231/folders/123123123123/roles/viewer/group:my-group@google.com":                                                  folderViewer,
+					"/organizations/1231231/projects/my-project/roles/compute.admin/serviceAccount:my-service-account@my-project.iam.gserviceaccount.com": projectAdmin,
+					"/organizations/1231231/roles/browser/group:my-group@google.com":                                                                      orgGroupBrowser,
+					"/organizations/1231231/roles/browser/serviceAccount:my-service-account@my-project.iam.gserviceaccount.com":                           orgSABrowser,
+					"/organizations/1231231/roles/browser/user:dcreey@google.com":                                                                         orgUserBrowser,
 				},
-				MissingTerraformChanges: []string{},
+				MissingTerraformChanges: map[string]*TerraformStateIAMSource{},
 			},
 		},
 		{
@@ -142,21 +145,38 @@ func TestDrift_DetectDrift(t *testing.T) {
 				AssetProjectData: []*assetinventory.HierarchyNode{project},
 				BucketsData:      []string{bucket},
 			},
-			processStatesResp: []*assetinventory.AssetIAM{
-				orgSABrowser,
-				orgGroupBrowser,
-				orgUserBrowser,
-				folderViewer,
-				projectAdmin,
+			processStatesResp: map[string][]*assetinventory.AssetIAM{
+				statefileURI: []*assetinventory.AssetIAM{
+					orgSABrowser,
+					orgGroupBrowser,
+					orgUserBrowser,
+					folderViewer,
+					projectAdmin,
+				},
 			},
 			want: &IAMDrift{
-				ClickOpsChanges: []string{},
-				MissingTerraformChanges: []string{
-					"/organizations/1231231/folders/123123123123/roles/viewer/group:my-group@google.com",
-					"/organizations/1231231/projects/my-project/roles/compute.admin/serviceAccount:my-service-account@my-project.iam.gserviceaccount.com",
-					"/organizations/1231231/roles/browser/group:my-group@google.com",
-					"/organizations/1231231/roles/browser/serviceAccount:my-service-account@my-project.iam.gserviceaccount.com",
-					"/organizations/1231231/roles/browser/user:dcreey@google.com",
+				ClickOpsChanges: map[string]*assetinventory.AssetIAM{},
+				MissingTerraformChanges: map[string]*TerraformStateIAMSource{
+					"/organizations/1231231/folders/123123123123/roles/viewer/group:my-group@google.com": &TerraformStateIAMSource{
+						AssetIAM:     folderViewer,
+						StateFileURI: statefileURI,
+					},
+					"/organizations/1231231/projects/my-project/roles/compute.admin/serviceAccount:my-service-account@my-project.iam.gserviceaccount.com": &TerraformStateIAMSource{
+						AssetIAM:     projectAdmin,
+						StateFileURI: statefileURI,
+					},
+					"/organizations/1231231/roles/browser/group:my-group@google.com": &TerraformStateIAMSource{
+						AssetIAM:     orgGroupBrowser,
+						StateFileURI: statefileURI,
+					},
+					"/organizations/1231231/roles/browser/serviceAccount:my-service-account@my-project.iam.gserviceaccount.com": &TerraformStateIAMSource{
+						AssetIAM:     orgSABrowser,
+						StateFileURI: statefileURI,
+					},
+					"/organizations/1231231/roles/browser/user:dcreey@google.com": &TerraformStateIAMSource{
+						AssetIAM:     orgUserBrowser,
+						StateFileURI: statefileURI,
+					},
 				},
 			},
 		},

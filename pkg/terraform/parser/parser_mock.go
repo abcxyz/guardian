@@ -26,7 +26,7 @@ type MockTerraformParser struct {
 	StateFileURIsErr          error
 	StateWithoutResourcesResp bool
 	StateWithoutResourcesErr  error
-	ProcessStatesResp         []*assetinventory.AssetIAM
+	ProcessStatesResp         map[string][]*assetinventory.AssetIAM
 	ProcessStatesErr          error
 }
 
@@ -48,6 +48,6 @@ func (p *MockTerraformParser) StateWithoutResources(ctx context.Context, uri str
 }
 
 // ProcessStates finds all IAM in memberships, bindings, or policies in the given terraform state files.
-func (p *MockTerraformParser) ProcessStates(ctx context.Context, gcsUris []string) ([]*assetinventory.AssetIAM, error) {
+func (p *MockTerraformParser) ProcessStates(ctx context.Context, gcsUris []string) (map[string][]*assetinventory.AssetIAM, error) {
 	return p.ProcessStatesResp, p.ProcessStatesErr
 }

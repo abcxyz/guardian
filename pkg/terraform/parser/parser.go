@@ -192,7 +192,9 @@ func (p *TerraformParser) ProcessStates(ctx context.Context, gcsUris []string) (
 		if err != nil {
 			return nil, fmt.Errorf("failed to decode terraform state: %w", err)
 		}
-		iams[uri] = parsedIAM
+		if len(parsedIAM) > 0 {
+			iams[uri] = parsedIAM
+		}
 	}
 	return iams, nil
 }
