@@ -61,6 +61,24 @@ jobs:
           cache_key: '${{ runner.os }}_${{ runner.arch }}_guardian_${{ env.GUARDIAN_VERSION }}'
           add_to_path: true
 
+      - name: 'Create Inputs File'
+        shell: 'bash'
+        run: |-
+          cat << EOF > workflow_dispatch_inputs.json
+          {
+            "command": "${{ inputs.command }}",
+            "entrypoint": "${{ inputs.entrypoint }}"
+          }
+          EOF
+
+      - name: 'Aggregate Policy Data'
+        shell: 'bash'
+        env:
+          # used to call GitHub API's for data aggregation
+          GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
+        run: |-
+          guardian policy fetch-data
+
       - name: 'Setup OPA'
         uses: 'open-policy-agent/setup-opa@34a30e8a924d1b03ce2cf7abe97250bbb1f332b5' # ratchet:open-policy-agent/setup-opa@v2
         with:
