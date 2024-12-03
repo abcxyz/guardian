@@ -24,7 +24,6 @@ import (
 
 	gh "github.com/abcxyz/guardian/pkg/github"
 	"github.com/abcxyz/guardian/pkg/platform/config"
-
 	"github.com/abcxyz/guardian/pkg/reporter"
 	"github.com/abcxyz/pkg/cli"
 )

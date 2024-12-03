@@ -19,8 +19,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/abcxyz/pkg/cli"
 	"github.com/sethvargo/go-envconfig"
+
+	"github.com/abcxyz/pkg/cli"
 )
 
 // GitLab is the configurable values for the GitLab client.

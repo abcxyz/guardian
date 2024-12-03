@@ -22,9 +22,10 @@ import (
 	"sort"
 	"strings"
 
+	gitlab "github.com/xanzy/go-gitlab"
+
 	"github.com/abcxyz/guardian/pkg/github"
 	"github.com/abcxyz/guardian/pkg/platform/config"
-	gitlab "github.com/xanzy/go-gitlab"
 )
 
 const (
