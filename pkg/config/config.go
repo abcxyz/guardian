@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package config defines the configuration options for all supported platform types.
 package config
 
 import (
@@ -59,7 +60,7 @@ var (
 	}()
 )
 
-// Config is the configuration needed to generate different Platform types.
+// Platform is the configuration needed to generate different Platform types.
 type Platform struct {
 	Type     string
 	Reporter string
