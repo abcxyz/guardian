@@ -129,7 +129,7 @@ func NewReporter(ctx context.Context, t string, c *Config) (Reporter, error) {
 	}
 
 	if strings.EqualFold(t, TypeGitLab) {
-		gc, err := gitlab.NewClient(c.GitLab.GitLabToken, gitlab.WithBaseURL("https://baplab.tycho.joonix.net/api/v4"))
+		gc, err := gitlab.NewClient(c.GitLab.GitLabToken, gitlab.WithBaseURL(c.GitLab.GitLabBaseURL))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create gitlab client: %w", err)
 		}
