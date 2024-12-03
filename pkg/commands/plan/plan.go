@@ -31,6 +31,7 @@ import (
 	"github.com/posener/complete/v2"
 
 	"github.com/abcxyz/guardian/internal/metricswrap"
+	"github.com/abcxyz/guardian/pkg/config"
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/platform"
 	"github.com/abcxyz/guardian/pkg/reporter"
@@ -67,7 +68,7 @@ type PlanCommand struct {
 	childPath     string
 	storagePrefix string
 
-	platformConfig platform.Config
+	platformConfig config.Platform
 
 	flags.CommonFlags
 

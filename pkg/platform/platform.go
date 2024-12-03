@@ -79,11 +79,11 @@ type Platform interface {
 
 // NewPlatform creates a new platform based on the provided type.
 func NewPlatform(ctx context.Context, cfg *config.Platform) (Platform, error) {
-	if strings.EqualFold(cfg.Type, config.TypeLocal) {
+	if strings.EqualFold(cfg.Type, config.PlatformTypeLocal) {
 		return NewLocal(ctx, &cfg.Local), nil
 	}
 
-	if strings.EqualFold(cfg.Type, config.TypeGitHub) {
+	if strings.EqualFold(cfg.Type, config.PlatformTypeGitHub) {
 		gc, err := NewGitHub(ctx, &cfg.GitHub)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create github: %w", err)
@@ -91,7 +91,7 @@ func NewPlatform(ctx context.Context, cfg *config.Platform) (Platform, error) {
 		return gc, nil
 	}
 
-	if strings.EqualFold(cfg.Type, config.TypeGitLab) {
+	if strings.EqualFold(cfg.Type, config.PlatformTypeGitLab) {
 		gl, err := NewGitLab(ctx, &cfg.GitLab)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create gitlab: %w", err)

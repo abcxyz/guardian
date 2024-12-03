@@ -20,7 +20,7 @@ import (
 	"fmt"
 
 	"github.com/abcxyz/guardian/internal/metricswrap"
-	"github.com/abcxyz/guardian/pkg/platform"
+	"github.com/abcxyz/guardian/pkg/config"
 	"github.com/abcxyz/guardian/pkg/reporter"
 	"github.com/abcxyz/pkg/cli"
 )
@@ -30,7 +30,7 @@ var _ cli.Command = (*RemoveGuardianCommentsCommand)(nil)
 type RemoveGuardianCommentsCommand struct {
 	cli.BaseCommand
 
-	platformConfig platform.Config
+	platformConfig config.Platform
 
 	reporterClient reporter.Reporter
 }

@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/abcxyz/guardian/internal/metricswrap"
+	"github.com/abcxyz/guardian/pkg/config"
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/platform"
 	"github.com/abcxyz/guardian/pkg/reporter"
@@ -54,7 +55,7 @@ type EnforceCommand struct {
 	cli.BaseCommand
 
 	directory      string
-	platformConfig platform.Config
+	platformConfig config.Platform
 	flags          EnforceFlags
 	commonFlags    flags.CommonFlags
 	platform       platform.Platform

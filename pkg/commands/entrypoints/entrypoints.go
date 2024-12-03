@@ -27,6 +27,7 @@ import (
 	"golang.org/x/exp/maps"
 
 	"github.com/abcxyz/guardian/internal/metricswrap"
+	"github.com/abcxyz/guardian/pkg/config"
 	"github.com/abcxyz/guardian/pkg/git"
 	"github.com/abcxyz/guardian/pkg/platform"
 	"github.com/abcxyz/guardian/pkg/reporter"
@@ -41,7 +42,7 @@ var _ cli.Command = (*EntrypointsCommand)(nil)
 type EntrypointsCommand struct {
 	cli.BaseCommand
 
-	platformConfig platform.Config
+	platformConfig config.Platform
 
 	flagDir                     []string
 	flagDestRef                 string

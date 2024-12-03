@@ -22,8 +22,8 @@ import (
 	"slices"
 
 	"github.com/abcxyz/guardian/internal/metricswrap"
+	"github.com/abcxyz/guardian/pkg/config"
 	"github.com/abcxyz/guardian/pkg/github"
-	"github.com/abcxyz/guardian/pkg/platform"
 	"github.com/abcxyz/guardian/pkg/reporter"
 	"github.com/abcxyz/guardian/pkg/util"
 	"github.com/abcxyz/pkg/cli"
@@ -34,7 +34,7 @@ var _ cli.Command = (*PlanStatusCommentCommand)(nil)
 type PlanStatusCommentCommand struct {
 	cli.BaseCommand
 
-	platformConfig platform.Config
+	platformConfig config.Platform
 
 	flagInitResult string
 	flagPlanResult []string

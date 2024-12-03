@@ -31,6 +31,7 @@ import (
 
 	"github.com/abcxyz/guardian/internal/metricswrap"
 	"github.com/abcxyz/guardian/pkg/commands/plan"
+	"github.com/abcxyz/guardian/pkg/config"
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/platform"
 	"github.com/abcxyz/guardian/pkg/reporter"
@@ -63,7 +64,7 @@ type ApplyCommand struct {
 	planFileLocalPath string
 	storagePrefix     string
 
-	platformConfig platform.Config
+	platformConfig config.Platform
 
 	flags.CommonFlags
 

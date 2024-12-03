@@ -22,6 +22,7 @@ import (
 	"path"
 
 	"github.com/abcxyz/guardian/internal/metricswrap"
+	"github.com/abcxyz/guardian/pkg/config"
 	"github.com/abcxyz/guardian/pkg/platform"
 	"github.com/abcxyz/guardian/pkg/util"
 	"github.com/abcxyz/pkg/cli"
@@ -39,7 +40,7 @@ const (
 type FetchDataCommand struct {
 	cli.BaseCommand
 
-	platformConfig platform.Config
+	platformConfig config.Platform
 	platform       platform.Platform
 	flags          FetchDataFlags
 }
