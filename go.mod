@@ -15,6 +15,7 @@ require (
 	github.com/googleapis/gax-go/v2 v2.12.4
 	github.com/hashicorp/hcl/v2 v2.20.1
 	github.com/posener/complete/v2 v2.1.0
+	github.com/sethvargo/go-envconfig v1.0.1
 	github.com/sethvargo/go-githubactions v1.2.0
 	github.com/sethvargo/go-retry v0.2.4
 	github.com/shurcooL/githubv4 v0.0.0-20240727222349-48295856cce7
@@ -58,7 +59,6 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
 	github.com/posener/script v1.2.0 // indirect
-	github.com/sethvargo/go-envconfig v1.0.1 // indirect
 	github.com/shurcooL/graphql v0.0.0-20230722043721-ed46e5a46466 // indirect
 	github.com/stoewer/go-strcase v1.3.0 // indirect
 	github.com/zclconf/go-cty v1.14.4 // indirect
