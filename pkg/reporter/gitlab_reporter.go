@@ -38,6 +38,7 @@ type GitLabReporterInputs struct {
 	GitLabMergeRequestID int
 }
 
+// Validate validates the required inputs.
 func (i *GitLabReporterInputs) Validate() error {
 	if i.GitLabProjectID == 0 {
 		return fmt.Errorf("gitlab project id is required")
@@ -48,6 +49,7 @@ func (i *GitLabReporterInputs) Validate() error {
 	return nil
 }
 
+// NewGitLabReporter creates a new GitLabReporter.
 func NewGitLabReporter(ctx context.Context, gc *gitlab.Client, i *GitLabReporterInputs) (*GitLabReporter, error) {
 	if gc == nil {
 		return nil, fmt.Errorf("gitlab client is required")
