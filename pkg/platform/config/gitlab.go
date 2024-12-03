@@ -15,7 +15,13 @@
 // Package config defines configuration options for each supported platform.
 package config
 
-import "github.com/abcxyz/pkg/cli"
+import (
+	"context"
+	"fmt"
+
+	"github.com/abcxyz/pkg/cli"
+	"github.com/sethvargo/go-envconfig"
+)
 
 type GitLab struct {
 	GitLabBaseURL        string
@@ -24,38 +30,52 @@ type GitLab struct {
 	GitLabProjectID      int
 }
 
+type GitLabPredefined struct {
+	Host           string `env:"CI_SERVER_HOST"`
+	Token          string `env:"CI_JOB_TOKEN"`
+	ProjectID      int    `env:"CI_PROJECT_ID"`
+	MergeRequestID int    `env:"CI_MERGE_REQUEST_ID"`
+}
+
 func (g *GitLab) RegisterFlags(set *cli.FlagSet) {
 	f := set.NewSection("GITLAB OPTIONS")
+
+	configDefault := &GitLabPredefined{}
+	_ = envconfig.Process(context.Background(), configDefault)
 
 	f.StringVar(&cli.StringVar{
 		Name:    "gitlab-base-url",
 		EnvVar:  "GITLAB_BASE_URL",
 		Target:  &g.GitLabBaseURL,
 		Example: "https://gitlab.example.domain.com/api/v4",
+		Default: fmt.Sprintf("%s/api/v4", configDefault.Host),
 		Usage:   "The base URL of the GitLab instance.",
 		Hidden:  true,
 	})
 
 	f.StringVar(&cli.StringVar{
-		Name:   "gitlab-token",
-		EnvVar: "GITLAB_TOKEN",
-		Target: &g.GitLabToken,
-		Usage:  "The GitLab access token to make GitLab API calls.",
-		Hidden: true,
+		Name:    "gitlab-token",
+		EnvVar:  "GITLAB_TOKEN",
+		Target:  &g.GitLabToken,
+		Default: configDefault.Token,
+		Usage:   "The GitLab access token to make GitLab API calls.",
+		Hidden:  true,
 	})
 
 	f.IntVar(&cli.IntVar{
-		Name:   "gitlab-project-id",
-		EnvVar: "GITLAB_PROJECT_ID",
-		Target: &g.GitLabProjectID,
-		Usage:  "The numeric ID of the GitLab project",
-		Hidden: true,
+		Name:    "gitlab-project-id",
+		EnvVar:  "GITLAB_PROJECT_ID",
+		Target:  &g.GitLabProjectID,
+		Default: configDefault.ProjectID,
+		Usage:   "The numeric ID of the GitLab project",
+		Hidden:  true,
 	})
 
 	f.IntVar(&cli.IntVar{
 		Name:    "gitlab-merge-request-id",
 		Target:  &g.GitLabMergeRequestID,
 		Example: "123",
+		Default: configDefault.MergeRequestID,
 		Usage:   "The numeric ID of the GitLab merge request",
 		Hidden:  true,
 	})
