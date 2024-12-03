@@ -23,6 +23,7 @@ import (
 	"github.com/sethvargo/go-envconfig"
 )
 
+// GitLab is the configurable values for the GitLab client.
 type GitLab struct {
 	GitLabBaseURL        string
 	GitLabToken          string
@@ -30,6 +31,8 @@ type GitLab struct {
 	GitLabProjectID      int
 }
 
+// GitLabPredefined is the expected variables available in GitLab Pipelines.
+// See https://docs.gitlab.com/ee/ci/variables/predefined_variables.html.
 type GitLabPredefined struct {
 	Host           string `env:"CI_SERVER_HOST"`
 	Token          string `env:"CI_JOB_TOKEN"`
