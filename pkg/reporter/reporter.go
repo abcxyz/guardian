@@ -19,24 +19,11 @@ import (
 	"context"
 	"fmt"
 	"regexp"
-	"sort"
 	"strings"
 
+	"github.com/abcxyz/guardian/pkg/config"
 	"github.com/abcxyz/guardian/pkg/github"
 )
-
-const (
-	TypeNone   string = "none"
-	TypeGitHub string = "github"
-	TypeFile   string = "file"
-)
-
-// SortedReporterTypes are the sorted Reporter types for printing messages and prediction.
-var SortedReporterTypes = func() []string {
-	allowed := append([]string{}, TypeNone, TypeGitHub)
-	sort.Strings(allowed)
-	return allowed
-}()
 
 // Status is the result of the operation Guardian is performing.
 type Status string
@@ -92,15 +79,15 @@ type Config struct {
 
 // NewReporter creates a new reporter based on the provided type.
 func NewReporter(ctx context.Context, t string, c *Config) (Reporter, error) {
-	if strings.EqualFold(t, TypeNone) {
+	if strings.EqualFold(t, config.ReporterTypeNone) {
 		return NewNoopReporter(ctx)
 	}
 
-	if strings.EqualFold(t, TypeFile) {
+	if strings.EqualFold(t, config.ReporterTypeFile) {
 		return NewFileReporter()
 	}
 
-	if strings.EqualFold(t, TypeGitHub) {
+	if strings.EqualFold(t, config.ReporterTypeGitHub) {
 		c.GitHub.Permissions = map[string]string{
 			"contents":      "read",
 			"pull_requests": "write",

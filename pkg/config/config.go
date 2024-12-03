@@ -12,32 +12,64 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package platform
+package config
 
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/posener/complete/v2"
 
 	gh "github.com/abcxyz/guardian/pkg/github"
-	"github.com/abcxyz/guardian/pkg/reporter"
 	"github.com/abcxyz/pkg/cli"
 )
 
+const (
+	PlatformTypeUnspecified = ""
+	PlatformTypeLocal       = "local"
+	PlatformTypeGitHub      = "github"
+	PlatformTypeGitLab      = "gitlab"
+
+	ReporterTypeNone   string = "none"
+	ReporterTypeGitHub string = "github"
+	ReporterTypeFile   string = "file"
+)
+
+var (
+	allowedPlatformTypes = map[string]struct{}{
+		PlatformTypeLocal:  {},
+		PlatformTypeGitHub: {},
+		PlatformTypeGitLab: {},
+	}
+	// SortedPlatformTypes are the sorted Platform types for printing messages and prediction.
+	SortedPlatformTypes = func() []string {
+		allowed := append([]string{}, PlatformTypeLocal, PlatformTypeGitHub, PlatformTypeGitLab)
+		sort.Strings(allowed)
+		return allowed
+	}()
+
+	// SortedReporterTypes are the sorted Reporter types for printing messages and prediction.
+	SortedReporterTypes = func() []string {
+		allowed := append([]string{}, ReporterTypeNone, ReporterTypeGitHub)
+		sort.Strings(allowed)
+		return allowed
+	}()
+)
+
 // Config is the configuration needed to generate different Platform types.
-type Config struct {
+type Platform struct {
 	Type     string
 	Reporter string
 
 	GitHub gh.Config
-	GitLab gitLabConfig
-	Local  localConfig
+	GitLab GitLab
+	Local  Local
 }
 
-func (c *Config) RegisterFlags(set *cli.FlagSet) {
+func (c *Platform) RegisterFlags(set *cli.FlagSet) {
 	f := set.NewSection("PLATFORM OPTIONS")
 	// Type value is loaded in the following order:
 	//
@@ -48,9 +80,9 @@ func (c *Config) RegisterFlags(set *cli.FlagSet) {
 		Name:    "platform",
 		Target:  &c.Type,
 		Example: "github",
-		Usage:   fmt.Sprintf("The code review platform for Guardian to integrate with. Allowed values are %q.", SortedTypes),
+		Usage:   fmt.Sprintf("The code review platform for Guardian to integrate with. Allowed values are %q.", SortedPlatformTypes),
 		Predict: complete.PredictFunc(func(prefix string) []string {
-			return SortedTypes
+			return SortedPlatformTypes
 		}),
 	})
 
@@ -58,9 +90,9 @@ func (c *Config) RegisterFlags(set *cli.FlagSet) {
 		Name:    "reporter",
 		Target:  &c.Reporter,
 		Example: "github",
-		Usage:   fmt.Sprintf("The reporting strategy for Guardian status updates. Allowed values are %q.", reporter.SortedReporterTypes),
+		Usage:   fmt.Sprintf("The reporting strategy for Guardian status updates. Allowed values are %q.", SortedReporterTypes),
 		Predict: complete.PredictFunc(func(prefix string) []string {
-			return reporter.SortedReporterTypes
+			return SortedReporterTypes
 		}),
 	})
 
@@ -70,14 +102,14 @@ func (c *Config) RegisterFlags(set *cli.FlagSet) {
 	set.AfterParse(func(merr error) error {
 		c.Type = strings.ToLower(strings.TrimSpace(c.Type))
 
-		if _, ok := allowedTypes[c.Type]; !ok && c.Type != TypeUnspecified {
+		if _, ok := allowedPlatformTypes[c.Type]; !ok && c.Type != PlatformTypeUnspecified {
 			merr = errors.Join(merr, fmt.Errorf("unsupported value for platform flag: %s", c.Type))
 		}
 
-		if c.Type == TypeUnspecified {
-			c.Type = TypeLocal
+		if c.Type == PlatformTypeUnspecified {
+			c.Type = PlatformTypeLocal
 			if v, _ := strconv.ParseBool(set.GetEnv("GITHUB_ACTIONS")); v {
-				c.Type = TypeGitHub
+				c.Type = PlatformTypeGitHub
 			}
 		}
 
@@ -92,9 +124,9 @@ func (c *Config) RegisterFlags(set *cli.FlagSet) {
 // default reporter returns the default reporter based on platform type.
 func defaultReporter(t string) string {
 	switch t {
-	case TypeGitHub:
-		return reporter.TypeGitHub
+	case ReporterTypeGitHub:
+		return ReporterTypeGitHub
 	default:
-		return reporter.TypeNone
+		return ReporterTypeNone
 	}
 }

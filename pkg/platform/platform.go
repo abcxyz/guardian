@@ -19,31 +19,12 @@ package platform
 import (
 	"context"
 	"fmt"
-	"sort"
 	"strings"
+
+	"github.com/abcxyz/guardian/pkg/config"
 )
 
-const (
-	TypeUnspecified = ""
-	TypeLocal       = "local"
-	TypeGitHub      = "github"
-	TypeGitLab      = "gitlab"
-)
-
-var (
-	allowedTypes = map[string]struct{}{
-		TypeLocal:  {},
-		TypeGitHub: {},
-		TypeGitLab: {},
-	}
-	// SortedTypes are the sorted Platform types for printing messages and prediction.
-	SortedTypes = func() []string {
-		allowed := append([]string{}, TypeLocal, TypeGitHub, TypeGitLab)
-		sort.Strings(allowed)
-		return allowed
-	}()
-	_ Platform = (*GitHub)(nil)
-)
+var _ Platform = (*GitHub)(nil)
 
 // AssignReviewersInput defines the principal types that can be assigned to a
 // change request.
@@ -97,12 +78,12 @@ type Platform interface {
 }
 
 // NewPlatform creates a new platform based on the provided type.
-func NewPlatform(ctx context.Context, cfg *Config) (Platform, error) {
-	if strings.EqualFold(cfg.Type, TypeLocal) {
+func NewPlatform(ctx context.Context, cfg *config.Platform) (Platform, error) {
+	if strings.EqualFold(cfg.Type, config.TypeLocal) {
 		return NewLocal(ctx, &cfg.Local), nil
 	}
 
-	if strings.EqualFold(cfg.Type, TypeGitHub) {
+	if strings.EqualFold(cfg.Type, config.TypeGitHub) {
 		gc, err := NewGitHub(ctx, &cfg.GitHub)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create github: %w", err)
@@ -110,7 +91,7 @@ func NewPlatform(ctx context.Context, cfg *Config) (Platform, error) {
 		return gc, nil
 	}
 
-	if strings.EqualFold(cfg.Type, TypeGitLab) {
+	if strings.EqualFold(cfg.Type, config.TypeGitLab) {
 		gl, err := NewGitLab(ctx, &cfg.GitLab)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create gitlab: %w", err)

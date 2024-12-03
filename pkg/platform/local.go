@@ -16,21 +16,19 @@ package platform
 
 import (
 	"context"
+
+	"github.com/abcxyz/guardian/pkg/config"
 )
 
 var _ Platform = (*Local)(nil)
 
 // Local implements the Platform interface for running Guardian locally.
 type Local struct {
-	cfg *localConfig
-}
-
-type localConfig struct {
-	LocalModifierContent string
+	cfg *config.Local
 }
 
 // NewLocal creates a new Local instance.
-func NewLocal(ctx context.Context, cfg *localConfig) *Local {
+func NewLocal(ctx context.Context, cfg *config.Local) *Local {
 	return &Local{cfg: cfg}
 }
 
