@@ -210,7 +210,7 @@ func (c *PlanCommand) Run(ctx context.Context, args []string) error {
 	}
 	c.storageClient = sc
 
-	rc, err := reporter.NewReporter(ctx, c.platformConfig.Reporter, &reporter.Config{GitHub: c.platformConfig.GitHub})
+	rc, err := reporter.NewReporter(ctx, c.platformConfig.Reporter, &reporter.Config{GitHub: c.platformConfig.GitHub, GitLab: c.platformConfig.GitLab})
 	if err != nil {
 		return fmt.Errorf("failed to create reporter client: %w", err)
 	}

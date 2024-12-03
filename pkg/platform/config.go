@@ -23,6 +23,8 @@ import (
 	"github.com/posener/complete/v2"
 
 	gh "github.com/abcxyz/guardian/pkg/github"
+	"github.com/abcxyz/guardian/pkg/platform/config"
+
 	"github.com/abcxyz/guardian/pkg/reporter"
 	"github.com/abcxyz/pkg/cli"
 )
@@ -33,7 +35,7 @@ type Config struct {
 	Reporter string
 
 	GitHub gh.Config
-	GitLab gitLabConfig
+	GitLab config.GitLab
 	Local  localConfig
 }
 
@@ -66,6 +68,7 @@ func (c *Config) RegisterFlags(set *cli.FlagSet) {
 
 	// leave last to put help under platform options
 	c.GitHub.RegisterFlags(set)
+	c.GitLab.RegisterFlags(set)
 
 	set.AfterParse(func(merr error) error {
 		c.Type = strings.ToLower(strings.TrimSpace(c.Type))
@@ -94,6 +97,8 @@ func defaultReporter(t string) string {
 	switch t {
 	case TypeGitHub:
 		return reporter.TypeGitHub
+	case TypeGitLab:
+		return reporter.TypeGitLab
 	default:
 		return reporter.TypeNone
 	}

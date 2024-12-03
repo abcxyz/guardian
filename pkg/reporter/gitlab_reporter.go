@@ -52,6 +52,11 @@ func NewGitLabReporter(ctx context.Context, gc *gitlab.Client, i *GitLabReporter
 	if gc == nil {
 		return nil, fmt.Errorf("gitlab client is required")
 	}
+
+	if err := i.Validate(); err != nil {
+		return nil, fmt.Errorf("failed to validate gitlab reporter inputs: %w", err)
+	}
+
 	return &GitLabReporter{
 		gitLabClient: gc,
 		inputs:       i,
@@ -66,9 +71,12 @@ func (g *GitLabReporter) Status(ctx context.Context, st Status, p *StatusParams)
 	}
 
 	b := msg.String()
-	g.gitLabClient.Notes.CreateMergeRequestNote(g.inputs.GitLabProjectID, g.inputs.GitLabMergeRequestID, &gitlab.CreateMergeRequestNoteOptions{
+	_, _, err = g.gitLabClient.Notes.CreateMergeRequestNote(g.inputs.GitLabProjectID, g.inputs.GitLabMergeRequestID, &gitlab.CreateMergeRequestNoteOptions{
 		Body: &b,
 	})
+	if err != nil {
+		return fmt.Errorf("failed to create merge request note: %w", err)
+	}
 
 	return nil
 }

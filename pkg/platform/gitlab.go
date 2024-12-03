@@ -14,17 +14,19 @@
 
 package platform
 
-import "context"
+import (
+	"context"
+
+	"github.com/abcxyz/guardian/pkg/platform/config"
+)
 
 var _ Platform = (*GitLab)(nil)
 
 // GitLab implements the Platform interface.
 type GitLab struct{}
 
-type gitLabConfig struct{}
-
 // NewGitLab creates a new GitLab client.
-func NewGitLab(ctx context.Context, cfg *gitLabConfig) (*GitLab, error) {
+func NewGitLab(ctx context.Context, cfg *config.GitLab) (*GitLab, error) {
 	return &GitLab{}, nil
 }
 
