@@ -97,7 +97,9 @@ func NewGitHub(ctx context.Context, cfg *gh.Config) (*GitHub, error) {
 	graphqlClient := githubv4.NewClient(tc)
 
 	if err := validateGitHubReporterInputs(cfg); err != nil {
-		logger.WarnContext(ctx, "skipping comment reporting", "skip_reporting", cfg.SkipReporting, "err", err)
+		logger.WarnContext(ctx, "skipping comment reporting",
+			"skip_reporting", cfg.SkipReporting,
+			"err", err)
 		cfg.SkipReporting = true
 	}
 
