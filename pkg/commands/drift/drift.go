@@ -29,6 +29,7 @@ import (
 	"github.com/abcxyz/pkg/workerpool"
 )
 
+// TerraformStateIAMSource is a wrapper around AssetIAM with extra metadata about terraform state.
 type TerraformStateIAMSource struct {
 	*assetinventory.AssetIAM
 	// The URI of the statefile.
@@ -41,6 +42,7 @@ type IAMDrift struct {
 	MissingTerraformChanges map[string]*TerraformStateIAMSource
 }
 
+// IAMDriftDetector detects iam drift between a GCP org and terraform state files.
 type IAMDriftDetector struct {
 	assetInventoryClient  assetinventory.AssetInventory
 	terraformParser       parser.Terraform
@@ -50,6 +52,7 @@ type IAMDriftDetector struct {
 	projectsByID          map[string]*assetinventory.HierarchyNode
 }
 
+// NewIAMDriftDetector constructs a new instance of a IAMDriftDetector.
 func NewIAMDriftDetector(ctx context.Context, organizationID string, maxConcurrentRequests int64) (*IAMDriftDetector, error) {
 	assetInventoryClient, err := assetinventory.NewClient(ctx)
 	if err != nil {

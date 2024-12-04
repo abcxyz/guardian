@@ -199,7 +199,7 @@ func driftMessage(drift *IAMDrift) string {
 	sort.Strings(coKeys)
 	sort.Strings(mtKeys)
 	if len(coKeys) > 0 {
-		msg.WriteString("Found Click Ops Changes\n")
+		msg.WriteString("Found Click Ops Changes (IAM resources actually present in GCP but not described in terraform state)\n")
 		msg.WriteString("| ID | Resource ID | Member | Role |\n")
 		msg.WriteString("|----|-------------|--------|------|\n")
 		for _, k := range coKeys {
@@ -211,7 +211,7 @@ func driftMessage(drift *IAMDrift) string {
 		}
 	}
 	if len(mtKeys) > 0 {
-		msg.WriteString("Found Missing Terraform Changes\n")
+		msg.WriteString("Found Missing Terraform Changes (IAM resources not actually present in GCP but still described in terraform state)\n")
 		msg.WriteString("| ID | StateFile URI | Resource ID | Member | Role |\n")
 		msg.WriteString("|----|---------------|-------------|--------|------|\n")
 		for _, k := range mtKeys {
