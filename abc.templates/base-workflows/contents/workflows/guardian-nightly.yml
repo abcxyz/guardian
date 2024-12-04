@@ -27,8 +27,9 @@ jobs:
     name: 'Guardian run plan'
     uses: './.github/workflows/guardian-run.yml'
     with:
-      command: 'plan --detailed-exitcode'
+      command: 'plan'
       entrypoint: 'REPLACE_TERRAFORM_DIRECTORY'
+      detailed-exitcode: true
 
   nightly-plan:
     runs-on: 'ubuntu-latest'
