@@ -55,6 +55,8 @@ type GitHub struct {
 
 // NewGitHub creates a new GitHub client.
 func NewGitHub(ctx context.Context, cfg *gh.Config) (*GitHub, error) {
+	logger := logging.FromContext(ctx)
+
 	if cfg.MaxRetries <= 0 {
 		cfg.MaxRetries = 3
 	}
@@ -94,18 +96,32 @@ func NewGitHub(ctx context.Context, cfg *gh.Config) (*GitHub, error) {
 	client := github.NewClient(tc)
 	graphqlClient := githubv4.NewClient(tc)
 
-	var logURL string
-	if cfg.GitHubServerURL != "" || cfg.GitHubRunID > 0 || cfg.GitHubRunAttempt > 0 {
-		logURL = fmt.Sprintf("%s/%s/%s/actions/runs/%d/attempts/%d", cfg.GitHubServerURL, cfg.GitHubOwner, cfg.GitHubRepo, cfg.GitHubRunID, cfg.GitHubRunAttempt)
+	if err := validateGitHubReporterInputs(cfg); err != nil {
+		logger.WarnContext(ctx, "skipping comment reporting", "skip_reporting", cfg.SkipReporting, "err", err)
+		cfg.SkipReporting = true
 	}
-
-	// TODO: Resolve Job URL with GitHub API.
 
 	g := &GitHub{
 		cfg:           cfg,
 		client:        client,
 		graphqlClient: graphqlClient,
-		logURL:        logURL,
+	}
+
+	if cfg.SkipReporting {
+		return g, nil
+	}
+
+	var logURL string
+	if cfg.GitHubServerURL != "" || cfg.GitHubRunID > 0 || cfg.GitHubRunAttempt > 0 {
+		logURL = fmt.Sprintf("%s/%s/%s/actions/runs/%d/attempts/%d", cfg.GitHubServerURL, cfg.GitHubOwner, cfg.GitHubRepo, cfg.GitHubRunID, cfg.GitHubRunAttempt)
+	}
+
+	if cfg.GitHubJobName != "" {
+		resolvedURL, err := g.resolveJobLogsURL(ctx)
+		if err != nil {
+			resolvedURL = logURL
+		}
+		g.logURL = resolvedURL
 	}
 
 	return g, nil
@@ -475,6 +491,13 @@ func (g *GitHub) StoragePrefix(ctx context.Context) (string, error) {
 
 // CommentStatus reports the status of a run.
 func (g *GitHub) CommentStatus(ctx context.Context, st Status, p *StatusParams) error {
+	logger := logging.FromContext(ctx)
+
+	if g.cfg.SkipReporting {
+		logger.DebugContext(ctx, "skipping status comment", "dir", p.Dir)
+		return nil
+	}
+
 	msg, err := statusMessage(st, p, g.logURL, githubMaxCommentLength)
 	if err != nil {
 		return fmt.Errorf("failed to generate status message: %w", err)
@@ -513,4 +536,63 @@ func (g *GitHub) createIssueComment(ctx context.Context, owner, repo string, num
 	}
 
 	return nil
+}
+
+// Job is the GitHub Job that runs as part of a workflow.
+type Job struct {
+	ID   int64
+	Name string
+	URL  string
+}
+
+func (g *GitHub) resolveJobLogsURL(ctx context.Context) (string, error) {
+	var jobs []*Job
+
+	if err := g.withRetries(ctx, func(ctx context.Context) error {
+		ghJobs, resp, err := g.client.Actions.ListWorkflowJobs(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, g.cfg.GitHubRunID, nil)
+		if err != nil {
+			if resp != nil {
+				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
+					return retry.RetryableError(err)
+				}
+			}
+			return fmt.Errorf("failed to list jobs for workflow run attempt: %w", err)
+		}
+
+		for _, workflowJob := range ghJobs.Jobs {
+			jobs = append(jobs, &Job{ID: workflowJob.GetID(), Name: workflowJob.GetName(), URL: *workflowJob.HTMLURL})
+		}
+		return nil
+	}); err != nil {
+		return "", fmt.Errorf("failed to resolve direct URL to job logs: %w", err)
+	}
+
+	for _, job := range jobs {
+		if g.cfg.GitHubJobName == job.Name {
+			return job.URL, nil
+		}
+	}
+	return "", fmt.Errorf("failed to resolve direct URL to job logs: no job found matching name %s", g.cfg.GitHubJobName)
+}
+
+// validateGitHubReporterInputs validates the inputs required for reporting.
+func validateGitHubReporterInputs(cfg *gh.Config) error {
+	var merr error
+	if cfg.SkipReporting {
+		return fmt.Errorf("found skip reporting from configuration")
+	}
+
+	if cfg.GitHubOwner == "" {
+		merr = errors.Join(merr, fmt.Errorf("github owner is required"))
+	}
+
+	if cfg.GitHubRepo == "" {
+		merr = errors.Join(merr, fmt.Errorf("github repo is required"))
+	}
+
+	if cfg.GitHubPullRequestNumber <= 0 && cfg.GitHubSHA == "" {
+		merr = errors.Join(merr, fmt.Errorf("one of github pull request number or github sha are required"))
+	}
+
+	return merr
 }

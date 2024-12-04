@@ -54,6 +54,8 @@ type Config struct {
 
 	// Policy
 	IncludeTeams bool
+
+	SkipReporting bool
 }
 
 type configDefaults struct {
