@@ -28,12 +28,6 @@ const (
 	TypeLocal       = "local"
 	TypeGitHub      = "github"
 	TypeGitLab      = "gitlab"
-
-	StatusSuccess         Status = Status("SUCCESS")          //nolint:errname // Not an error
-	StatusFailure         Status = Status("FAILURE")          //nolint:errname // Not an error
-	StatusNoOperation     Status = Status("NO CHANGES")       //nolint:errname // Not an error
-	StatusPolicyViolation Status = Status("POLICY VIOLATION") //nolint:errname // Not an error
-	StatusUnknown         Status = Status("UNKNOWN")          //nolint:errname // Not an error
 )
 
 var (
@@ -49,34 +43,8 @@ var (
 		return allowed
 	}()
 
-	statusText = map[Status]string{
-		StatusSuccess:         "🟩 SUCCESS",
-		StatusNoOperation:     "🟦 NO CHANGES",
-		StatusFailure:         "🟥 FAILED",
-		StatusUnknown:         "⛔️ UNKNOWN",
-		StatusPolicyViolation: "🚨 ATTENTION REQUIRED",
-	}
-
 	_ Platform = (*GitHub)(nil)
 )
-
-// Status is the result of the operation Guardian is performing.
-type Status string
-
-// StatusParams are the parameters for writing status reports.
-type StatusParams struct {
-	HasDiff   bool
-	Details   string
-	Dir       string
-	Message   string
-	Operation string
-}
-
-// EntrypointsSummaryParams are the parameters for writing entrypoints summary reports.
-type EntrypointsSummaryParams struct {
-	Message string
-	Dirs    []string
-}
 
 // AssignReviewersInput defines the principal types that can be assigned to a
 // change request.

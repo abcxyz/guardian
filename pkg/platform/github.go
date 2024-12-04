@@ -32,6 +32,8 @@ import (
 	"github.com/abcxyz/pkg/logging"
 )
 
+const githubMaxCommentLength = 65536
+
 var (
 	_ Platform = (*GitHub)(nil)
 
@@ -48,6 +50,7 @@ type GitHub struct {
 	cfg           *gh.Config
 	client        *github.Client
 	graphqlClient *githubv4.Client
+	logURL        string
 }
 
 // NewGitHub creates a new GitHub client.
@@ -463,7 +466,22 @@ func (g *GitHub) StoragePrefix(ctx context.Context) (string, error) {
 }
 
 // CommentStatus reports the status of a run.
-func (g *GitHub) CommentStatus(ctx context.Context, status Status, params *StatusParams) error {
+func (g *GitHub) CommentStatus(ctx context.Context, st Status, p *StatusParams) error {
+	msg, err := statusMessage(st, p, g.logURL, githubMaxCommentLength)
+	if err != nil {
+		return fmt.Errorf("failed to generate status message: %w", err)
+	}
+
+	if err = g.createIssueComment(
+		ctx,
+		g.cfg.GitHubOwner,
+		g.cfg.GitHubRepo,
+		g.cfg.GitHubPullRequestNumber,
+		msg.String(),
+	); err != nil {
+		return fmt.Errorf("failed to report: %w", err)
+	}
+
 	return nil
 }
 
@@ -474,5 +492,27 @@ func (g *GitHub) CommentEntrypointsSummary(ctx context.Context, params *Entrypoi
 
 // ClearComments clears any existing reports that can be removed.
 func (g *GitHub) ClearComments(ctx context.Context) error {
+	return nil
+}
+
+// createIssueComment creates a comment for an issue or pull request.
+func (g *GitHub) createIssueComment(ctx context.Context, owner, repo string, number int, body string) error {
+	if err := g.withRetries(ctx, func(ctx context.Context) error {
+		_, resp, err := g.client.Issues.CreateComment(ctx, owner, repo, number, &github.IssueComment{
+			Body: &body,
+		})
+		if err != nil {
+			if resp != nil {
+				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
+					return retry.RetryableError(err)
+				}
+			}
+			return fmt.Errorf("failed to create pull-request/issue comment: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return fmt.Errorf("failed to create pull-request/issue comment with retries: %w", err)
+	}
+
 	return nil
 }
