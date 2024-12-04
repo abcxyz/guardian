@@ -12,14 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-package guardian.run.workflow_permissions
+package guardian.admin.workflow_permissions
 
 import rego.v1
 import data.github as github
 import input
 
 # Configuration
-default_allowed_commands := ["plan", "apply", "output"]
 # Replace with team name. Requires GitHub Token Minter and `--include-teams`
 # flag on `guardian policy fetch-data` command.
 privileged_teams := []
@@ -30,10 +29,6 @@ command := split(input.command, " ")[0]
 
 # Start of policy
 default authorized := false
-
-authorized if {
-  command in default_allowed_commands
-}
 
 authorized if {
   github.actor.access_level in privileged_roles
