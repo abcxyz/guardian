@@ -161,3 +161,18 @@ func (m *MockPlatform) StoragePrefix(ctx context.Context) (string, error) {
 
 	return m.StoragePrefixResp, m.StoragePrefixErr
 }
+
+// CommentStatus reports the status of a run.
+func (m *MockPlatform) CommentStatus(ctx context.Context, status Status, params *StatusParams) error {
+	return nil
+}
+
+// CommentEntrypointsSummary reports the summary for the entrypionts command.
+func (m *MockPlatform) CommentEntrypointsSummary(ctx context.Context, params *EntrypointsSummaryParams) error {
+	return nil
+}
+
+// ClearComments clears any existing reports that can be removed.
+func (m *MockPlatform) ClearComments(ctx context.Context) error {
+	return nil
+}

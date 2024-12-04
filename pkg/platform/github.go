@@ -461,3 +461,18 @@ func (g *GitHub) StoragePrefix(ctx context.Context) (string, error) {
 	logger.DebugContext(ctx, "returning no storage prefix")
 	return "", nil
 }
+
+// CommentStatus reports the status of a run.
+func (g *GitHub) CommentStatus(ctx context.Context, status Status, params *StatusParams) error {
+	return nil
+}
+
+// CommentEntrypointsSummary reports the summary for the entrypionts command.
+func (g *GitHub) CommentEntrypointsSummary(ctx context.Context, params *EntrypointsSummaryParams) error {
+	return nil
+}
+
+// ClearComments clears any existing reports that can be removed.
+func (g *GitHub) ClearComments(ctx context.Context) error {
+	return nil
+}
