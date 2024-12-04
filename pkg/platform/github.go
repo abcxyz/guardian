@@ -493,16 +493,6 @@ func (g *GitHub) CommentStatus(ctx context.Context, st Status, p *StatusParams) 
 	return nil
 }
 
-// CommentEntrypointsSummary reports the summary for the entrypionts command.
-func (g *GitHub) CommentEntrypointsSummary(ctx context.Context, params *EntrypointsSummaryParams) error {
-	return nil
-}
-
-// ClearComments clears any existing reports that can be removed.
-func (g *GitHub) ClearComments(ctx context.Context) error {
-	return nil
-}
-
 // createIssueComment creates a comment for an issue or pull request.
 func (g *GitHub) createIssueComment(ctx context.Context, owner, repo string, number int, body string) error {
 	if err := g.withRetries(ctx, func(ctx context.Context) error {

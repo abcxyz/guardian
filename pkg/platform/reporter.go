@@ -21,11 +21,11 @@ import (
 )
 
 const (
-	StatusSuccess         Status = Status("SUCCESS")          //nolint:errname // Not an error
-	StatusFailure         Status = Status("FAILURE")          //nolint:errname // Not an error
-	StatusNoOperation     Status = Status("NO CHANGES")       //nolint:errname // Not an error
-	StatusPolicyViolation Status = Status("POLICY VIOLATION") //nolint:errname // Not an error
-	StatusUnknown         Status = Status("UNKNOWN")          //nolint:errname // Not an error
+	StatusSuccess         Status = Status("SUCCESS")
+	StatusFailure         Status = Status("FAILURE")
+	StatusNoOperation     Status = Status("NO CHANGES")
+	StatusPolicyViolation Status = Status("POLICY VIOLATION")
+	StatusUnknown         Status = Status("UNKNOWN")
 )
 
 var statusText = map[Status]string{
@@ -46,12 +46,6 @@ type StatusParams struct {
 	Dir       string
 	Message   string
 	Operation string
-}
-
-// EntrypointsSummaryParams are the parameters for writing entrypoints summary reports.
-type EntrypointsSummaryParams struct {
-	Message string
-	Dirs    []string
 }
 
 // markdownPill returns a markdown element that is bolded and wraped in a inline code block.
@@ -145,27 +139,6 @@ func statusMessage(st Status, p *StatusParams, logURL string, maxCommentLength i
 		}
 
 		fmt.Fprintf(&msg, "%s", detailsText)
-	}
-
-	return msg, nil
-}
-
-// entrypointsSummaryMessage generates the entrypoints summary message based on the provided reporter values.
-func entrypointsSummaryMessage(p *EntrypointsSummaryParams, logURL string) (strings.Builder, error) {
-	var msg strings.Builder
-
-	fmt.Fprintf(&msg, "%s", commentPrefix)
-
-	if logURL != "" {
-		fmt.Fprintf(&msg, " [%s]", markdownURL("logs", logURL))
-	}
-
-	if p.Message != "" {
-		fmt.Fprintf(&msg, "\n\n%s", p.Message)
-	}
-
-	if len(p.Dirs) > 0 {
-		fmt.Fprintf(&msg, "\n\n**%s**\n%s", "Directories", strings.Join(p.Dirs, "\n"))
 	}
 
 	return msg, nil
