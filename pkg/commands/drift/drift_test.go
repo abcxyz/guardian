@@ -238,7 +238,7 @@ func TestDrift_driftMessage(t *testing.T) {
 				},
 				MissingTerraformChanges: map[string]*TerraformStateIAMSource{},
 			},
-			want: `Found Click Ops Changes
+			want: `Found Click Ops Changes (IAM resources actually present in GCP but not described in terraform state)
 | ID | Resource ID | Member | Role |
 |----|-------------|--------|------|
 |/organizations/1231231/folders/123123123123/roles/viewer/group:my-group@google.com|folders/123123123123|group:my-group@google.com|roles/viewer|
@@ -275,7 +275,7 @@ func TestDrift_driftMessage(t *testing.T) {
 					},
 				},
 			},
-			want: `Found Missing Terraform Changes
+			want: `Found Missing Terraform Changes (IAM resources not actually present in GCP but still described in terraform state)
 | ID | StateFile URI | Resource ID | Member | Role |
 |----|---------------|-------------|--------|------|
 |/organizations/1231231/folders/123123123123/roles/viewer/group:my-group@google.com|gs://my-bucket/default.tf|folders/123123123123|group:my-group@google.com|roles/viewer|
