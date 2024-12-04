@@ -94,10 +94,18 @@ func NewGitHub(ctx context.Context, cfg *gh.Config) (*GitHub, error) {
 	client := github.NewClient(tc)
 	graphqlClient := githubv4.NewClient(tc)
 
+	var logURL string
+	if cfg.GitHubServerURL != "" || cfg.GitHubRunID > 0 || cfg.GitHubRunAttempt > 0 {
+		logURL = fmt.Sprintf("%s/%s/%s/actions/runs/%d/attempts/%d", cfg.GitHubServerURL, cfg.GitHubOwner, cfg.GitHubRepo, cfg.GitHubRunID, cfg.GitHubRunAttempt)
+	}
+
+	// TODO: Resolve Job URL with GitHub API.
+
 	g := &GitHub{
 		cfg:           cfg,
 		client:        client,
 		graphqlClient: graphqlClient,
+		logURL:        logURL,
 	}
 
 	return g, nil
