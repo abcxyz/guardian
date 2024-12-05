@@ -100,6 +100,17 @@ func NewGitHub(ctx context.Context, cfg *gh.Config) (*GitHub, error) {
 		graphqlClient: graphqlClient,
 	}
 
+	if cfg.GitHubServerURL != "" || cfg.GitHubRunID > 0 || cfg.GitHubRunAttempt > 0 {
+		g.logURL = fmt.Sprintf("%s/%s/%s/actions/runs/%d/attempts/%d", cfg.GitHubServerURL, cfg.GitHubOwner, cfg.GitHubRepo, cfg.GitHubRunID, cfg.GitHubRunAttempt)
+	}
+
+	if cfg.GitHubJobName != "" {
+		resolvedURL, err := g.resolveJobLogsURL(ctx)
+		if err == nil {
+			g.logURL = resolvedURL
+		}
+	}
+
 	return g, nil
 }
 
@@ -527,4 +538,41 @@ func validateGitHubReporterInputs(cfg *gh.Config) error {
 	}
 
 	return merr
+}
+
+// Job is the GitHub Job that runs as part of a workflow.
+type job struct {
+	ID   int64
+	Name string
+	URL  string
+}
+
+func (g *GitHub) resolveJobLogsURL(ctx context.Context) (string, error) {
+	var jobs []*job
+
+	if err := g.withRetries(ctx, func(ctx context.Context) error {
+		ghJobs, resp, err := g.client.Actions.ListWorkflowJobs(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, g.cfg.GitHubRunID, nil)
+		if err != nil {
+			if resp != nil {
+				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
+					return retry.RetryableError(err)
+				}
+			}
+			return fmt.Errorf("failed to list jobs for workflow run attempt: %w", err)
+		}
+
+		for _, workflowJob := range ghJobs.Jobs {
+			jobs = append(jobs, &job{ID: workflowJob.GetID(), Name: workflowJob.GetName(), URL: *workflowJob.HTMLURL})
+		}
+		return nil
+	}); err != nil {
+		return "", fmt.Errorf("failed to resolve direct URL to job logs: %w", err)
+	}
+
+	for _, job := range jobs {
+		if g.cfg.GitHubJobName == job.Name {
+			return job.URL, nil
+		}
+	}
+	return "", fmt.Errorf("failed to resolve direct URL to job logs: no job found matching name %s", g.cfg.GitHubJobName)
 }
