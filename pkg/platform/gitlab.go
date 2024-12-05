@@ -64,3 +64,8 @@ func (g *GitLab) StoragePrefix(ctx context.Context) (string, error) {
 func (g *GitLab) CommentStatus(ctx context.Context, status Status, params *StatusParams) error {
 	return nil
 }
+
+// CommentEntrypointsSummary reports the summary for the entrypoints command.
+func (g *GitLab) CommentEntrypointsSummary(ctx context.Context, params *EntrypointsSummaryParams) error {
+	return nil
+}

@@ -98,6 +98,9 @@ type Platform interface {
 
 	// CommentStatus reports the status of a run.
 	CommentStatus(ctx context.Context, status Status, params *StatusParams) error
+
+	// CommentEntrypointsSummary reports the summary for the entrypoints command.
+	CommentEntrypointsSummary(ctx context.Context, params *EntrypointsSummaryParams) error
 }
 
 // NewPlatform creates a new platform based on the provided type.

@@ -501,7 +501,7 @@ func (g *GitHub) CommentStatus(ctx context.Context, st Status, p *StatusParams) 
 }
 
 // EntrypointsSummary implements the reporter EntrypointsSummary function by writing a GitHub comment.
-func (g *GitHub) EntrypointsSummary(ctx context.Context, p *EntrypointsSummaryParams) error {
+func (g *GitHub) CommentEntrypointsSummary(ctx context.Context, p *EntrypointsSummaryParams) error {
 	msg, err := entrypointsSummaryMessage(p, g.logURL)
 	if err != nil {
 		return fmt.Errorf("failed to generate summary message: %w", err)
