@@ -32,6 +32,8 @@ import (
 	"github.com/abcxyz/pkg/logging"
 )
 
+const githubMaxCommentLength = 65536
+
 var (
 	_ Platform = (*GitHub)(nil)
 
@@ -48,6 +50,7 @@ type GitHub struct {
 	cfg           *gh.Config
 	client        *github.Client
 	graphqlClient *githubv4.Client
+	logURL        string
 }
 
 // NewGitHub creates a new GitHub client.
@@ -460,4 +463,68 @@ func (g *GitHub) StoragePrefix(ctx context.Context) (string, error) {
 
 	logger.DebugContext(ctx, "returning no storage prefix")
 	return "", nil
+}
+
+// CommentStatus reports the status of a run.
+func (g *GitHub) CommentStatus(ctx context.Context, st Status, p *StatusParams) error {
+	if err := validateGitHubReporterInputs(g.cfg); err != nil {
+		return fmt.Errorf("failed to validate reporter inputs: %w", err)
+	}
+
+	msg, err := statusMessage(st, p, g.logURL, githubMaxCommentLength)
+	if err != nil {
+		return fmt.Errorf("failed to generate status message: %w", err)
+	}
+
+	if err = g.createIssueComment(
+		ctx,
+		g.cfg.GitHubOwner,
+		g.cfg.GitHubRepo,
+		g.cfg.GitHubPullRequestNumber,
+		msg.String(),
+	); err != nil {
+		return fmt.Errorf("failed to report: %w", err)
+	}
+
+	return nil
+}
+
+// createIssueComment creates a comment for an issue or pull request.
+func (g *GitHub) createIssueComment(ctx context.Context, owner, repo string, number int, body string) error {
+	if err := g.withRetries(ctx, func(ctx context.Context) error {
+		_, resp, err := g.client.Issues.CreateComment(ctx, owner, repo, number, &github.IssueComment{
+			Body: &body,
+		})
+		if err != nil {
+			if resp != nil {
+				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
+					return retry.RetryableError(err)
+				}
+			}
+			return fmt.Errorf("failed to create pull-request/issue comment: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return fmt.Errorf("failed to create pull-request/issue comment with retries: %w", err)
+	}
+
+	return nil
+}
+
+// validateGitHubReporterInputs validates the inputs required for reporting.
+func validateGitHubReporterInputs(cfg *gh.Config) error {
+	var merr error
+	if cfg.GitHubOwner == "" {
+		merr = errors.Join(merr, fmt.Errorf("github owner is required"))
+	}
+
+	if cfg.GitHubRepo == "" {
+		merr = errors.Join(merr, fmt.Errorf("github repo is required"))
+	}
+
+	if cfg.GitHubPullRequestNumber <= 0 && cfg.GitHubSHA == "" {
+		merr = errors.Join(merr, fmt.Errorf("one of github pull request number or github sha are required"))
+	}
+
+	return merr
 }

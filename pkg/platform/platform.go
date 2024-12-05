@@ -42,6 +42,7 @@ var (
 		sort.Strings(allowed)
 		return allowed
 	}()
+
 	_ Platform = (*GitHub)(nil)
 )
 
@@ -94,6 +95,9 @@ type Platform interface {
 
 	// StoragePrefix generates the unique storage prefix for the platform type.
 	StoragePrefix(ctx context.Context) (string, error)
+
+	// CommentStatus reports the status of a run.
+	CommentStatus(ctx context.Context, status Status, params *StatusParams) error
 }
 
 // NewPlatform creates a new platform based on the provided type.
