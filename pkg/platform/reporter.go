@@ -60,6 +60,12 @@ type StatusParams struct {
 	Operation string
 }
 
+// EntrypointsSummaryParams are the parameters for writing entrypoints summary reports.
+type EntrypointsSummaryParams struct {
+	Message string
+	Dirs    []string
+}
+
 // markdownPill returns a markdown element that is bolded and wraped in a inline code block.
 func markdownPill(text string) string {
 	return fmt.Sprintf("**`%s`**", text)
@@ -139,6 +145,27 @@ func statusMessage(st Status, p *StatusParams, logURL string, maxCommentLength i
 		}
 
 		fmt.Fprintf(&msg, "%s", detailsText)
+	}
+
+	return msg, nil
+}
+
+// entrypointsSummaryMessage generates the entrypoints summary message based on the provided reporter values.
+func entrypointsSummaryMessage(p *EntrypointsSummaryParams, logURL string) (strings.Builder, error) {
+	var msg strings.Builder
+
+	fmt.Fprintf(&msg, "%s", commentPrefix)
+
+	if logURL != "" {
+		fmt.Fprintf(&msg, " [%s]", markdownURL("logs", logURL))
+	}
+
+	if p.Message != "" {
+		fmt.Fprintf(&msg, "\n\n%s", p.Message)
+	}
+
+	if len(p.Dirs) > 0 {
+		fmt.Fprintf(&msg, "\n\n**%s**\n%s", "Directories", strings.Join(p.Dirs, "\n"))
 	}
 
 	return msg, nil

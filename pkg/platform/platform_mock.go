@@ -166,3 +166,8 @@ func (m *MockPlatform) StoragePrefix(ctx context.Context) (string, error) {
 func (m *MockPlatform) CommentStatus(ctx context.Context, status Status, params *StatusParams) error {
 	return nil
 }
+
+// CommentEntrypointsSummary reports the summary for the entrypoints command.
+func (m *MockPlatform) CommentEntrypointsSummary(ctx context.Context, params *EntrypointsSummaryParams) error {
+	return nil
+}

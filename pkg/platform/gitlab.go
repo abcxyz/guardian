@@ -18,6 +18,8 @@ import "context"
 
 var _ Platform = (*GitLab)(nil)
 
+// TODO(gjonathanhong): Implement GitLab platform.
+
 // GitLab implements the Platform interface.
 type GitLab struct{}
 
@@ -62,5 +64,10 @@ func (g *GitLab) StoragePrefix(ctx context.Context) (string, error) {
 
 // CommentStatus reports the status of a run.
 func (g *GitLab) CommentStatus(ctx context.Context, status Status, params *StatusParams) error {
+	return nil
+}
+
+// CommentEntrypointsSummary reports the summary for the entrypoints command.
+func (g *GitLab) CommentEntrypointsSummary(ctx context.Context, params *EntrypointsSummaryParams) error {
 	return nil
 }

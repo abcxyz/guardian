@@ -500,6 +500,30 @@ func (g *GitHub) CommentStatus(ctx context.Context, st Status, p *StatusParams) 
 	return nil
 }
 
+// CommentEntrypointsSummary implements the reporter EntrypointsSummary function by writing a GitHub comment.
+func (g *GitHub) CommentEntrypointsSummary(ctx context.Context, p *EntrypointsSummaryParams) error {
+	if err := validateGitHubReporterInputs(g.cfg); err != nil {
+		return fmt.Errorf("failed to validate reporter inputs: %w", err)
+	}
+
+	msg, err := entrypointsSummaryMessage(p, g.logURL)
+	if err != nil {
+		return fmt.Errorf("failed to generate summary message: %w", err)
+	}
+
+	if err := g.createIssueComment(
+		ctx,
+		g.cfg.GitHubOwner,
+		g.cfg.GitHubRepo,
+		g.cfg.GitHubPullRequestNumber,
+		msg.String(),
+	); err != nil {
+		return fmt.Errorf("failed to report: %w", err)
+	}
+
+	return nil
+}
+
 // createIssueComment creates a comment for an issue or pull request.
 func (g *GitHub) createIssueComment(ctx context.Context, owner, repo string, number int, body string) error {
 	if err := g.withRetries(ctx, func(ctx context.Context) error {
