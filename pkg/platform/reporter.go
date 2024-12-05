@@ -28,13 +28,25 @@ const (
 	StatusUnknown         Status = Status("UNKNOWN")
 )
 
-var statusText = map[Status]string{
-	StatusSuccess:         "🟩 SUCCESS",
-	StatusNoOperation:     "🟦 NO CHANGES",
-	StatusFailure:         "🟥 FAILED",
-	StatusUnknown:         "⛔️ UNKNOWN",
-	StatusPolicyViolation: "🚨 ATTENTION REQUIRED",
-}
+var (
+	tildeChanged = regexp.MustCompile(
+		"(?m)" + // enable multi-line mode
+			"^([\t ]*)" + // only match tilde at start of line, can lead with tabs or spaces
+			"([~])") // tilde represents changes and needs switched to exclamation for git diff
+
+	swapLeadingWhitespace = regexp.MustCompile(
+		"(?m)" + // enable multi-line mode
+			"^([\t ]*)" + // only match tilde at start of line, can lead with tabs or spaces
+			`((\-(\/\+)*)|(\+(\/\-)*)|(!))`) // match characters to swap whitespace for git diff (+, +/-, -, -/+, !)
+
+	statusText = map[Status]string{
+		StatusSuccess:         "🟩 SUCCESS",
+		StatusNoOperation:     "🟦 NO CHANGES",
+		StatusFailure:         "🟥 FAILED",
+		StatusUnknown:         "⛔️ UNKNOWN",
+		StatusPolicyViolation: "🚨 ATTENTION REQUIRED",
+	}
+)
 
 // Status is the result of the operation Guardian is performing.
 type Status string
@@ -58,7 +70,7 @@ func markdownURL(text, URL string) string {
 	return fmt.Sprintf("[%s](%s)", text, URL)
 }
 
-// markdonZippy returns a collapsible section with a given title and body.
+// markdownZippy returns a collapsible section with a given title and body.
 func markdownZippy(title, body string) string {
 	return fmt.Sprintf("<details>\n<summary>%s</summary>\n\n%s\n</details>", title, body)
 }
@@ -67,18 +79,6 @@ func markdownZippy(title, body string) string {
 func markdownDiffZippy(title, body string) string {
 	return fmt.Sprintf("<details>\n<summary>%s</summary>\n\n```diff\n\n%s\n```\n</details>", title, body)
 }
-
-var (
-	tildeChanged = regexp.MustCompile(
-		"(?m)" + // enable multi-line mode
-			"^([\t ]*)" + // only match tilde at start of line, can lead with tabs or spaces
-			"([~])") // tilde represents changes and needs switched to exclamation for git diff
-
-	swapLeadingWhitespace = regexp.MustCompile(
-		"(?m)" + // enable multi-line mode
-			"^([\t ]*)" + // only match tilde at start of line, can lead with tabs or spaces
-			`((\-(\/\+)*)|(\+(\/\-)*)|(!))`) // match characters to swap whitespace for git diff (+, +/-, -, -/+, !)
-)
 
 // formatOutputForDiff formats the Terraform diff output for use with
 // diff markdown formatting.
