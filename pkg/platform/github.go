@@ -500,7 +500,7 @@ func (g *GitHub) CommentStatus(ctx context.Context, st Status, p *StatusParams) 
 	return nil
 }
 
-// EntrypointsSummary implements the reporter EntrypointsSummary function by writing a GitHub comment.
+// CommentEntrypointsSummary implements the reporter EntrypointsSummary function by writing a GitHub comment.
 func (g *GitHub) CommentEntrypointsSummary(ctx context.Context, p *EntrypointsSummaryParams) error {
 	msg, err := entrypointsSummaryMessage(p, g.logURL)
 	if err != nil {
