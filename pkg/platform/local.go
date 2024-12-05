@@ -78,3 +78,8 @@ func (l *Local) CommentStatus(ctx context.Context, status Status, params *Status
 func (l *Local) CommentEntrypointsSummary(ctx context.Context, params *EntrypointsSummaryParams) error {
 	return nil
 }
+
+// ClearComments clears any existing reports that can be removed.
+func (l *Local) ClearComments(ctx context.Context) error {
+	return nil
+}
