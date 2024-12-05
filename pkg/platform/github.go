@@ -55,8 +55,6 @@ type GitHub struct {
 
 // NewGitHub creates a new GitHub client.
 func NewGitHub(ctx context.Context, cfg *gh.Config) (*GitHub, error) {
-	logger := logging.FromContext(ctx)
-
 	if cfg.MaxRetries <= 0 {
 		cfg.MaxRetries = 3
 	}
@@ -96,34 +94,10 @@ func NewGitHub(ctx context.Context, cfg *gh.Config) (*GitHub, error) {
 	client := github.NewClient(tc)
 	graphqlClient := githubv4.NewClient(tc)
 
-	if err := validateGitHubReporterInputs(cfg); err != nil {
-		logger.WarnContext(ctx, "skipping comment reporting",
-			"skip_reporting", cfg.SkipReporting,
-			"err", err)
-		cfg.SkipReporting = true
-	}
-
 	g := &GitHub{
 		cfg:           cfg,
 		client:        client,
 		graphqlClient: graphqlClient,
-	}
-
-	if cfg.SkipReporting {
-		return g, nil
-	}
-
-	var logURL string
-	if cfg.GitHubServerURL != "" || cfg.GitHubRunID > 0 || cfg.GitHubRunAttempt > 0 {
-		logURL = fmt.Sprintf("%s/%s/%s/actions/runs/%d/attempts/%d", cfg.GitHubServerURL, cfg.GitHubOwner, cfg.GitHubRepo, cfg.GitHubRunID, cfg.GitHubRunAttempt)
-	}
-
-	if cfg.GitHubJobName != "" {
-		resolvedURL, err := g.resolveJobLogsURL(ctx)
-		if err != nil {
-			resolvedURL = logURL
-		}
-		g.logURL = resolvedURL
 	}
 
 	return g, nil
@@ -493,11 +467,8 @@ func (g *GitHub) StoragePrefix(ctx context.Context) (string, error) {
 
 // CommentStatus reports the status of a run.
 func (g *GitHub) CommentStatus(ctx context.Context, st Status, p *StatusParams) error {
-	logger := logging.FromContext(ctx)
-
-	if g.cfg.SkipReporting {
-		logger.DebugContext(ctx, "skipping status comment", "dir", p.Dir)
-		return nil
+	if err := validateGitHubReporterInputs(g.cfg); err != nil {
+		return fmt.Errorf("failed to validate reporter inputs: %w", err)
 	}
 
 	msg, err := statusMessage(st, p, g.logURL, githubMaxCommentLength)
@@ -580,10 +551,6 @@ func (g *GitHub) resolveJobLogsURL(ctx context.Context) (string, error) {
 // validateGitHubReporterInputs validates the inputs required for reporting.
 func validateGitHubReporterInputs(cfg *gh.Config) error {
 	var merr error
-	if cfg.SkipReporting {
-		return fmt.Errorf("found skip reporting from configuration")
-	}
-
 	if cfg.GitHubOwner == "" {
 		merr = errors.Join(merr, fmt.Errorf("github owner is required"))
 	}
