@@ -511,43 +511,6 @@ func (g *GitHub) createIssueComment(ctx context.Context, owner, repo string, num
 	return nil
 }
 
-// Job is the GitHub Job that runs as part of a workflow.
-type Job struct {
-	ID   int64
-	Name string
-	URL  string
-}
-
-func (g *GitHub) resolveJobLogsURL(ctx context.Context) (string, error) {
-	var jobs []*Job
-
-	if err := g.withRetries(ctx, func(ctx context.Context) error {
-		ghJobs, resp, err := g.client.Actions.ListWorkflowJobs(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, g.cfg.GitHubRunID, nil)
-		if err != nil {
-			if resp != nil {
-				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
-					return retry.RetryableError(err)
-				}
-			}
-			return fmt.Errorf("failed to list jobs for workflow run attempt: %w", err)
-		}
-
-		for _, workflowJob := range ghJobs.Jobs {
-			jobs = append(jobs, &Job{ID: workflowJob.GetID(), Name: workflowJob.GetName(), URL: *workflowJob.HTMLURL})
-		}
-		return nil
-	}); err != nil {
-		return "", fmt.Errorf("failed to resolve direct URL to job logs: %w", err)
-	}
-
-	for _, job := range jobs {
-		if g.cfg.GitHubJobName == job.Name {
-			return job.URL, nil
-		}
-	}
-	return "", fmt.Errorf("failed to resolve direct URL to job logs: no job found matching name %s", g.cfg.GitHubJobName)
-}
-
 // validateGitHubReporterInputs validates the inputs required for reporting.
 func validateGitHubReporterInputs(cfg *gh.Config) error {
 	var merr error
