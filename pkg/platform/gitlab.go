@@ -62,6 +62,16 @@ func (g *GitLab) StoragePrefix(ctx context.Context) (string, error) {
 	return "", nil
 }
 
+// ListReports lists existing reports for an issue or change request.
+func (g *GitLab) ListReports(ctx context.Context, opts *ListReportsOptions) (*ListReportsResult, error) {
+	return nil, nil
+}
+
+// DeleteReport deletes an existing comment from an issue or change request.
+func (g *GitLab) DeleteReport(ctx context.Context, id int64) error {
+	return nil
+}
+
 // ReportStatus reports the status of a run.
 func (g *GitLab) ReportStatus(ctx context.Context, status Status, params *StatusParams) error {
 	return nil
@@ -69,5 +79,10 @@ func (g *GitLab) ReportStatus(ctx context.Context, status Status, params *Status
 
 // ReportEntrypointsSummary reports the summary for the entrypoints command.
 func (g *GitLab) ReportEntrypointsSummary(ctx context.Context, params *EntrypointsSummaryParams) error {
+	return nil
+}
+
+// ClearReports clears any existing reports that can be removed.
+func (g *GitLab) ClearReports(ctx context.Context) error {
 	return nil
 }

@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/google/go-github/v53/github"
@@ -519,6 +520,96 @@ func (g *GitHub) ReportEntrypointsSummary(ctx context.Context, p *EntrypointsSum
 		msg.String(),
 	); err != nil {
 		return fmt.Errorf("failed to report: %w", err)
+	}
+
+	return nil
+}
+
+// ClearReports clears any existing reports that can be removed.
+func (g *GitHub) ClearReports(ctx context.Context) error {
+	listOpts := &ListReportsOptions{
+		GitHub: &github.IssueListCommentsOptions{
+			ListOptions: github.ListOptions{PerPage: 100},
+		},
+	}
+
+	for {
+		response, err := g.ListReports(ctx, listOpts)
+		if err != nil {
+			return fmt.Errorf("failed to list comments: %w", err)
+		}
+
+		if response.Reports == nil {
+			return nil
+		}
+
+		for _, comment := range response.Reports {
+			// prefix is not found, skip
+			if !strings.HasPrefix(comment.Body, commentPrefix) {
+				continue
+			}
+
+			// found the prefix, delete the comment
+			if err := g.DeleteReport(ctx, comment.ID); err != nil {
+				return fmt.Errorf("failed to delete comment: %w", err)
+			}
+		}
+
+		if response.Pagination == nil {
+			return nil
+		}
+		listOpts.GitHub.Page = response.Pagination.NextPage
+	}
+}
+
+// ListReports lists existing comments for an issue or change request.
+func (g *GitHub) ListReports(ctx context.Context, opts *ListReportsOptions) (*ListReportsResult, error) {
+	var comments []*Report
+	var pagination *Pagination
+
+	if err := g.withRetries(ctx, func(ctx context.Context) error {
+		ghComments, resp, err := g.client.Issues.ListComments(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, g.cfg.GitHubPullRequestNumber, opts.GitHub)
+		if err != nil {
+			if resp != nil {
+				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
+					return retry.RetryableError(err)
+				}
+			}
+			return fmt.Errorf("failed to list pull request comments: %w", err)
+		}
+
+		for _, c := range ghComments {
+			comments = append(comments, &Report{ID: c.GetID(), Body: c.GetBody()})
+		}
+
+		if resp.NextPage != 0 {
+			pagination = &Pagination{NextPage: resp.NextPage}
+		}
+
+		return nil
+	}); err != nil {
+		return nil, fmt.Errorf("failed to list pull request comments: %w", err)
+	}
+
+	return &ListReportsResult{Reports: comments, Pagination: pagination}, nil
+}
+
+// DeleteReport deletes an existing comment from an issue or change request.
+func (g *GitHub) DeleteReport(ctx context.Context, id int64) error {
+	if err := g.withRetries(ctx, func(ctx context.Context) error {
+		resp, err := g.client.Issues.DeleteComment(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, id)
+		if err != nil {
+			if resp != nil {
+				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
+					return retry.RetryableError(err)
+				}
+			}
+			return fmt.Errorf("failed to delete pull request comment: %w", err)
+		}
+
+		return nil
+	}); err != nil {
+		return fmt.Errorf("failed to delete pull request comment: %w", err)
 	}
 
 	return nil
