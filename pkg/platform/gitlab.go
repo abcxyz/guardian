@@ -18,6 +18,8 @@ import "context"
 
 var _ Platform = (*GitLab)(nil)
 
+// TODO(gjonathanhong): Implement GitLab platform.
+
 // GitLab implements the Platform interface.
 type GitLab struct{}
 
