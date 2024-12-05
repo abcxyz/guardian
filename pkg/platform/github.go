@@ -541,14 +541,14 @@ func validateGitHubReporterInputs(cfg *gh.Config) error {
 }
 
 // Job is the GitHub Job that runs as part of a workflow.
-type Job struct {
+type job struct {
 	ID   int64
 	Name string
 	URL  string
 }
 
 func (g *GitHub) resolveJobLogsURL(ctx context.Context) (string, error) {
-	var jobs []*Job
+	var jobs []*job
 
 	if err := g.withRetries(ctx, func(ctx context.Context) error {
 		ghJobs, resp, err := g.client.Actions.ListWorkflowJobs(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, g.cfg.GitHubRunID, nil)
@@ -562,7 +562,7 @@ func (g *GitHub) resolveJobLogsURL(ctx context.Context) (string, error) {
 		}
 
 		for _, workflowJob := range ghJobs.Jobs {
-			jobs = append(jobs, &Job{ID: workflowJob.GetID(), Name: workflowJob.GetName(), URL: *workflowJob.HTMLURL})
+			jobs = append(jobs, &job{ID: workflowJob.GetID(), Name: workflowJob.GetName(), URL: *workflowJob.HTMLURL})
 		}
 		return nil
 	}); err != nil {
