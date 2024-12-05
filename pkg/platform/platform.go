@@ -101,6 +101,9 @@ type Platform interface {
 
 	// CommentEntrypointsSummary reports the summary for the entrypoints command.
 	CommentEntrypointsSummary(ctx context.Context, params *EntrypointsSummaryParams) error
+
+	// ClearComments clears any existing reports that can be removed.
+	ClearComments(ctx context.Context) error
 }
 
 // NewPlatform creates a new platform based on the provided type.
