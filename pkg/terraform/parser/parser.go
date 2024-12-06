@@ -76,7 +76,7 @@ type Terraform interface {
 	StateFileURIs(ctx context.Context, gcsBuckets []string) ([]string, error)
 
 	// ProcessStates returns the IAM permissions stored in the given state files.
-	ProcessStates(ctx context.Context, gcsUris []string) ([]*assetinventory.AssetIAM, error)
+	ProcessStates(ctx context.Context, gcsUris []string) (map[string][]*assetinventory.AssetIAM, error)
 
 	// StateWithoutResources determines if the given statefile at the uri contains any resources or not.
 	StateWithoutResources(ctx context.Context, uri string) (bool, error)
@@ -167,8 +167,8 @@ func (p *TerraformParser) StateWithoutResources(ctx context.Context, uri string)
 }
 
 // ProcessStates finds all IAM in memberships, bindings, or policies in the given terraform state files.
-func (p *TerraformParser) ProcessStates(ctx context.Context, gcsUris []string) ([]*assetinventory.AssetIAM, error) {
-	var iams []*assetinventory.AssetIAM
+func (p *TerraformParser) ProcessStates(ctx context.Context, gcsUris []string) (map[string][]*assetinventory.AssetIAM, error) {
+	iams := make(map[string][]*assetinventory.AssetIAM, len(gcsUris))
 	for _, uri := range gcsUris {
 		var state TerraformState
 		bucket, name, err := storage.SplitObjectURI(uri)
@@ -192,7 +192,9 @@ func (p *TerraformParser) ProcessStates(ctx context.Context, gcsUris []string) (
 		if err != nil {
 			return nil, fmt.Errorf("failed to decode terraform state: %w", err)
 		}
-		iams = append(iams, parsedIAM...)
+		if len(parsedIAM) > 0 {
+			iams[uri] = parsedIAM
+		}
 	}
 	return iams, nil
 }
