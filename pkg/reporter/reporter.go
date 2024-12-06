@@ -139,7 +139,7 @@ func markdownURL(text, URL string) string {
 
 // markdonZippy returns a collapsible section with a given title and body.
 func markdownZippy(title, body string) string {
-	return fmt.Sprintf("<details>\n<summary>%s</summary>\n\n%s\n</details>", title, body)
+	return fmt.Sprintf("<details>\n<summary>%s</summary>\n\n```%s```\n</details>", title, body)
 }
 
 // markdonDiffZippy returns a collapsible section with a given title and body.
