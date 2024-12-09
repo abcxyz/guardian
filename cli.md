@@ -20,6 +20,12 @@ Supported commands:
 
 These options influence any command run with Guardian.
 
+### Platform Options
+These options sets the code review platform that Guardian should interact with.
+
+- **-platform="github"** - The code review platform for Guardian to integrate with. Allowed values are ["github", "local"].
+- **-reporter="github"** - The reporting strategy for Guardian status updates. Allowed values are ["github", "none"].
+
 ### GitHub Options
 
 These options influence how Guardian interacts with GitHub:
@@ -28,9 +34,15 @@ These options influence how Guardian interacts with GitHub:
   This option can also be specified with the GITHUB_ACTIONS environment variable.
 * **-github-owner="organization-name"** - The GitHub repository owner.
 * **-github-repo="repository-name"** - The GitHub repository name.
-* **-github-token="string"** - The GitHub access token to make GitHub API calls. This
+* **-github-token="string"** - The GitHub access token used for Terraform to make GitHub API calls. This
   value is automatically set on GitHub Actions. This option can also be specified with
   the GITHUB_TOKEN environment variable.
+* **-guardian-github-token="string"** - The GitHub access token for Guardian to make GitHub API calls.
+  This is separate from GITHUB_TOKEN becuse Terraform uses GITHUB_TOKEN to
+  authenticate to the GitHub APIs also. Splitting this up allows use to
+  follow least privilege for the caller (e.g. Guardian vs Terraform). If
+  not supplied this will default to GITHUB_TOKEN. This option can also be
+  specified with the GUARDIAN_GITHUB_TOKEN environment variable.
 * **-github-pull-request-number="100"** - The GitHub pull request number associated with this
   apply. Only one of pull-request-number and commit-sha can be given. The default value is "0".
 
@@ -57,7 +69,7 @@ Usage: guardian entrypoints [options]
 
 ### Options
 
-Also supports [GitHub Options](#github-options) and [Retry Options](#retry-options).
+Also supports [Platform Options](#platform-options), [GitHub Options](#github-options) and [Retry Options](#retry-options).
 
 * **-dir** - The root directory to search for entrypoint directories. Defaults to the current working directory.
 * **-dest-ref="ref-name"** - The destination GitHub ref name for finding file changes.
@@ -69,8 +81,6 @@ Also supports [GitHub Options](#github-options) and [Retry Options](#retry-optio
   formats are: [json text]. The default value is "text".
 * **-max-depth="int"** - How far to traverse the filesystem beneath the target
   directory for entrypoints. The default value is "-1".
-* **-pull-request-number="100"** - The GitHub pull request number associated with
-  this plan. The default value is "0".
 * **-source-ref="ref-name"** - The source GitHub ref name for finding file changes.
 
 ## Apply
@@ -94,12 +104,13 @@ Also supports [GitHub Options](#github-options) and [Retry Options](#retry-optio
 
 * **-dir** - The Terraform directory to run the apply command. Defaults to the current working directory.
 * **-allow-lockfile-changes** - Allow modification of the Terraform lockfile. The default value is "false".
-* **-storage="gcs://my-guardian-state-bucket"** - The storage strategy for saving Guardian plan files. Defaults to current working directory. Valid values are ["file" "gcs"].
+* **-storage="gcs://my-guardian-state-bucket"** - The storage strategy for saving Guardian plan files. Defaults to current working directory. Valid values are ["file", "gcs"].
 * **-commit-sha="e538db9a29f2ff7a404a2ef40bb62a6df88c98c1"** - The commit sha to determine
   the pull request number associated with this apply. Only one of pull-request-number
   and commit-sha can be given.
 * **-lock-timeout="10m"** - The duration Terraform should wait to obtain a lock when
   running commands that modify state. The default value is "10m".
+* **-output-dir="./output/plan"** - Write the plan binary and JSON file to a target local directory.
 
 ## Plan
 
@@ -122,12 +133,10 @@ Also supports [GitHub Options](#github-options) and [Retry Options](#retry-optio
 
 * **-dir** - The Terraform directory to run the plan command. Defaults to the current working directory.
 * **-allow-lockfile-changes** - Allow modification of the Terraform lockfile. The default value is "false".
-* **-bucket-name="my-guardian-state-bucket"** - The Google Cloud Storage bucket name to store Guardian plan files.
+* **-storage="gcs://my-guardian-state-bucket"** - The storage strategy for saving Guardian plan files. Defaults to current working directory. Valid values are ["file", "gcs"].
 * **-lock-timeout="10m"** - The duration Terraform should wait to obtain a lock when
   running commands that modify state. The default value is "10m".
-* **-pull-request-number="100"** - The GitHub pull request number associated with this
-  plan. Only one of pull-request-number and commit-sha can be given. The default value is "0".
-
+* **-output-dir="./output/plan"** - Write the plan binary and JSON file to a target local directory.
 ## Run
 
 Run a Terraform command for a directory.
