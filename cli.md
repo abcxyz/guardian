@@ -339,3 +339,40 @@ Usage: guardian workflows remove-guardian-comments [options]
 ### Options
 
 Supports [Platform Options](#platform-options), [GitHub Options](#github-options) and [Retry Options](#retry-options).
+
+## Policy fetch-data
+
+Fetch data used for policy evaluation.
+
+Usage: guardian policy fetch-data [options]
+
+### Prerequisites
+
+* Required GitHub [permissions](#guardian-cli).
+
+* **members: read** is required for `--include-teams` flag.
+
+### Options
+
+Supports [Platform Options](#platform-options), [GitHub Options](#github-options) and [Retry Options](#retry-options).
+
+* **-output-dir="example/dir"** - Write the policy data JSON file to a target local directory.
+* **--include-teams** - If true, includes team data in payload. Requires 'members: read' token permissions."
+
+
+## Policy enforce
+
+Enforce a set of Guardian policies
+
+Usage: guardian policy enforce [options]
+
+### Prerequisites
+
+* Required GitHub [permissions](#guardian-cli).
+
+### Options
+
+Supports [Platform Options](#platform-options), [GitHub Options](#github-options) and [Retry Options](#retry-options).
+
+* **-results-file="results.json"** - The path to a JSON file containing the OPA eval result.
+* **-silent** - Skips any actions and only reports the violations found. The default value is "false".
