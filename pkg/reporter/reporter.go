@@ -60,11 +60,12 @@ var statusText = map[Status]string{
 
 // StatusParams are the parameters for writing status reports.
 type StatusParams struct {
-	HasDiff   bool
-	Details   string
-	Dir       string
-	Message   string
-	Operation string
+	HasDiff      bool
+	Details      string
+	Dir          string
+	ErrorMessage string
+	Message      string
+	Operation    string
 }
 
 // EntrypointsSummaryParams are the parameters for writing entrypoints summary reports.
@@ -201,6 +202,10 @@ func statusMessage(st Status, p *StatusParams, logURL string, maxCommentLength i
 
 	if p.Message != "" {
 		fmt.Fprintf(&msg, "\n\n %s", p.Message)
+	}
+
+	if p.ErrorMessage != "" {
+		fmt.Fprintf(&msg, "\n\n **Error:** `%s`", p.ErrorMessage)
 	}
 
 	if p.Details != "" {
