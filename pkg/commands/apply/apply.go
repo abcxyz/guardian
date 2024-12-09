@@ -68,7 +68,6 @@ type ApplyCommand struct {
 	flags.CommonFlags
 
 	flagStorage              string
-	flagDestroy              bool
 	flagAllowLockfileChanges bool
 	flagLockTimeout          time.Duration
 
@@ -109,13 +108,6 @@ func (c *ApplyCommand) Flags() *cli.FlagSet {
 		Predict: complete.PredictFunc(func(prefix string) []string {
 			return storage.SortedStorageTypes
 		}),
-	})
-
-	f.BoolVar(&cli.BoolVar{
-		Name:    "destroy",
-		Target:  &c.flagDestroy,
-		Example: "true",
-		Usage:   "Use the destroy flag to apply changes to destroy all infrastructure.",
 	})
 
 	f.BoolVar(&cli.BoolVar{
@@ -258,9 +250,6 @@ func (c *ApplyCommand) Process(ctx context.Context) (merr error) {
 	c.planFileLocalPath = planFileLocalPath
 
 	operation := "apply"
-	if c.flagDestroy {
-		operation = "apply (destroy)"
-	}
 
 	rp := &reporter.StatusParams{
 		Operation: operation,
