@@ -219,7 +219,7 @@ func TestPlan_Process(t *testing.T) {
 			expReporterClientReqs: []*reporter.Request{
 				{
 					Name:   "Status",
-					Params: []any{reporter.StatusFailure, &reporter.StatusParams{HasDiff: false, Details: "terraform init failed", Dir: "testdata", Operation: "plan"}},
+					Params: []any{reporter.StatusFailure, &reporter.StatusParams{HasDiff: false, Details: "terraform init failed", ErrorMessage: "failed to initialize: failed to run terraform init", Dir: "testdata", Operation: "plan"}},
 				},
 			},
 		},
