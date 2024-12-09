@@ -72,7 +72,6 @@ func TestApply_Process(t *testing.T) {
 		directory                string
 		flagAllowLockfileChanges bool
 		flagLockTimeout          time.Duration
-		flagDestroy              bool
 		planExitCode             string
 		storageParent            string
 		storagePrefix            string
@@ -97,37 +96,6 @@ func TestApply_Process(t *testing.T) {
 				{
 					Name:   "Status",
 					Params: []any{reporter.StatusSuccess, &reporter.StatusParams{HasDiff: true, Details: "terraform apply success", Dir: "testdir", Operation: "apply"}},
-				},
-			},
-			expStorageClientReqs: []*storage.Request{
-				{
-					Name: "GetObject",
-					Params: []any{
-						"testdir/test-tfplan.binary",
-					},
-				},
-				{
-					Name: "DeleteObject",
-					Params: []any{
-						"testdir/test-tfplan.binary",
-					},
-				},
-			},
-		},
-		{
-			name:      "success_destroy",
-			directory: "testdir",
-
-			storagePrefix:            "",
-			flagAllowLockfileChanges: true,
-			flagLockTimeout:          10 * time.Minute,
-			flagDestroy:              true,
-			planExitCode:             "2",
-			terraformClient:          terraformMock,
-			expReporterClientReqs: []*reporter.Request{
-				{
-					Name:   "Status",
-					Params: []any{reporter.StatusSuccess, &reporter.StatusParams{HasDiff: true, Details: "terraform apply success", Dir: "testdir", Operation: "apply (destroy)"}},
 				},
 			},
 			expStorageClientReqs: []*storage.Request{
@@ -203,40 +171,6 @@ func TestApply_Process(t *testing.T) {
 				},
 			},
 		},
-		{
-			name:      "handles_error_destroy",
-			directory: "testdir",
-
-			storagePrefix:            "",
-			flagAllowLockfileChanges: true,
-			flagLockTimeout:          10 * time.Minute,
-			flagDestroy:              true,
-			planExitCode:             "2",
-			terraformClient:          terraformErrorMock,
-			expStdout:                "terraform apply output",
-			expStderr:                "terraform apply failed",
-			err:                      "failed to run Guardian apply: failed to apply: failed to run terraform apply",
-			expReporterClientReqs: []*reporter.Request{
-				{
-					Name:   "Status",
-					Params: []any{reporter.StatusFailure, &reporter.StatusParams{HasDiff: true, Details: "terraform apply failed", Dir: "testdir", Operation: "apply (destroy)"}},
-				},
-			},
-			expStorageClientReqs: []*storage.Request{
-				{
-					Name: "GetObject",
-					Params: []any{
-						"testdir/test-tfplan.binary",
-					},
-				},
-				{
-					Name: "DeleteObject",
-					Params: []any{
-						"testdir/test-tfplan.binary",
-					},
-				},
-			},
-		},
 	}
 
 	for _, tc := range cases {
@@ -257,7 +191,6 @@ func TestApply_Process(t *testing.T) {
 				childPath:                tc.directory,
 				planFilename:             "test-tfplan.binary",
 				storagePrefix:            tc.storagePrefix,
-				flagDestroy:              tc.flagDestroy,
 				flagAllowLockfileChanges: tc.flagAllowLockfileChanges,
 				flagLockTimeout:          tc.flagLockTimeout,
 				storageClient:            mockStorageClient,

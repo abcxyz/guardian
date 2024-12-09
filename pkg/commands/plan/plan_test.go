@@ -126,7 +126,6 @@ func TestPlan_Process(t *testing.T) {
 		directory                string
 		storageParent            string
 		storagePrefix            string
-		flagDestroy              bool
 		flagAllowLockfileChanges bool
 		flagLockTimeout          time.Duration
 		terraformClient          *terraform.MockTerraformClient
@@ -147,30 +146,6 @@ func TestPlan_Process(t *testing.T) {
 				{
 					Name:   "Status",
 					Params: []any{reporter.StatusSuccess, &reporter.StatusParams{HasDiff: true, Details: "terraform show success with diff", Dir: "testdata", Operation: "plan"}},
-				},
-			},
-			expStorageClientReqs: []*storage.Request{
-				{
-					Name: "CreateObject",
-					Params: []any{
-						"testdata/tfplan.binary",
-						"this is a plan binary",
-					},
-				},
-			},
-		},
-		{
-			name:                     "success_with_diff_destroy",
-			directory:                "testdata",
-			storagePrefix:            "",
-			flagAllowLockfileChanges: true,
-			flagLockTimeout:          10 * time.Minute,
-			flagDestroy:              true,
-			terraformClient:          terraformDiffMock,
-			expReporterClientReqs: []*reporter.Request{
-				{
-					Name:   "Status",
-					Params: []any{reporter.StatusSuccess, &reporter.StatusParams{HasDiff: true, Details: "terraform show success with diff", Dir: "testdata", Operation: "plan (destroy)"}},
 				},
 			},
 			expStorageClientReqs: []*storage.Request{
@@ -239,7 +214,6 @@ func TestPlan_Process(t *testing.T) {
 				childPath:                tc.directory,
 				storagePrefix:            tc.storagePrefix,
 				flagOutputDir:            t.TempDir(),
-				flagDestroy:              tc.flagDestroy,
 				flagAllowLockfileChanges: tc.flagAllowLockfileChanges,
 				flagLockTimeout:          tc.flagLockTimeout,
 				terraformClient:          tc.terraformClient,
