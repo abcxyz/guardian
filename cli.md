@@ -136,11 +136,6 @@ Also supports [Platform Options](#platform-options), [GitHub Options](#github-op
   *Supported values:*
     - Local file storage - Format `file://my/absolute/path`
     - Google Cloud Storage Bucket - Format `gcs://my-guardian-state-bucket`
-* **-storage="URL"** - The storage strategy for saving Guardian plan files. Defaults to current working directory of the local filesystem.
-
-  *Supported values:*
-    - Local file storage - Format `file://my/absolute/path`
-    - Google Cloud Storage Bucket - Format `gcs://my-guardian-state-bucket`
 
 * **-lock-timeout="10m"** - The duration Terraform should wait to obtain a lock when
   running commands that modify state. The default value is "10m".
