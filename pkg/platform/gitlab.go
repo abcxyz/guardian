@@ -71,3 +71,8 @@ func (g *GitLab) CommentStatus(ctx context.Context, status Status, params *Statu
 func (g *GitLab) CommentEntrypointsSummary(ctx context.Context, params *EntrypointsSummaryParams) error {
 	return nil
 }
+
+// ClearComments clears any existing reports that can be removed.
+func (g *GitLab) ClearComments(ctx context.Context) error {
+	return nil
+}

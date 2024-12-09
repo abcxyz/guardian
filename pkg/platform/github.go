@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/google/go-github/v53/github"
@@ -519,6 +520,108 @@ func (g *GitHub) CommentEntrypointsSummary(ctx context.Context, p *EntrypointsSu
 		msg.String(),
 	); err != nil {
 		return fmt.Errorf("failed to report: %w", err)
+	}
+
+	return nil
+}
+
+// ClearComments clears any existing reports that can be removed.
+func (g *GitHub) ClearComments(ctx context.Context) error {
+	listOpts := &github.IssueListCommentsOptions{
+		ListOptions: github.ListOptions{PerPage: 100},
+	}
+
+	for {
+		response, err := g.listIssueComments(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, g.cfg.GitHubPullRequestNumber, listOpts)
+		if err != nil {
+			return fmt.Errorf("failed to list comments: %w", err)
+		}
+
+		if response.Comments == nil {
+			return nil
+		}
+
+		for _, comment := range response.Comments {
+			// prefix is not found, skip
+			if !strings.HasPrefix(comment.Body, commentPrefix) {
+				continue
+			}
+
+			// found the prefix, delete the comment
+			if err := g.deleteIssueComment(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, comment.ID); err != nil {
+				return fmt.Errorf("failed to delete comment: %w", err)
+			}
+		}
+
+		if response.Pagination == nil {
+			return nil
+		}
+		listOpts.Page = response.Pagination.NextPage
+	}
+}
+
+type issueComment struct {
+	ID   int64
+	Body string
+}
+
+type issueCommentResponse struct {
+	Comments   []*issueComment
+	Pagination *pagination
+}
+
+// Pagination is the paging details for a list response.
+type pagination struct {
+	NextPage int
+}
+
+// listIssueComments lists existing comments for an issue or pull request.
+func (g *GitHub) listIssueComments(ctx context.Context, owner, repo string, number int, opts *github.IssueListCommentsOptions) (*issueCommentResponse, error) {
+	var comments []*issueComment
+	var pagination *pagination
+
+	if err := g.withRetries(ctx, func(ctx context.Context) error {
+		ghComments, resp, err := g.client.Issues.ListComments(ctx, owner, repo, number, opts)
+		if err != nil {
+			if resp != nil {
+				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
+					return retry.RetryableError(err)
+				}
+			}
+			return fmt.Errorf("failed to list pull request comments: %w", err)
+		}
+
+		for _, c := range ghComments {
+			comments = append(comments, &issueComment{ID: c.GetID(), Body: c.GetBody()})
+		}
+
+		if resp.NextPage != 0 {
+			pagination = &pagination{NextPage: resp.NextPage}
+		}
+
+		return nil
+	}); err != nil {
+		return nil, fmt.Errorf("failed to list pull request comments: %w", err)
+	}
+
+	return &issueCommentResponse{Comments: comments, Pagination: pagination}, nil
+}
+
+func (g *GitHub) deleteIssueComment(ctx context.Context, owner, repo string, id int64) error {
+	if err := g.withRetries(ctx, func(ctx context.Context) error {
+		resp, err := g.client.Issues.DeleteComment(ctx, owner, repo, id)
+		if err != nil {
+			if resp != nil {
+				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
+					return retry.RetryableError(err)
+				}
+			}
+			return fmt.Errorf("failed to delete pull request comment: %w", err)
+		}
+
+		return nil
+	}); err != nil {
+		return fmt.Errorf("failed to delete pull request comment: %w", err)
 	}
 
 	return nil
