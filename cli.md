@@ -13,7 +13,8 @@ Supported commands:
 | drift                       | [statefiles](#drift-statefiles)                                 | `issues: write`<br> `contents: read`                              | Detect drift for terraform statefiles                         |
 | workflows                   | [plan-status-comment](#workflows-plan-status-comment)           | `pull-requests: write`                                            | Add Guardian plan comment to a pull request                   |
 |                             | [remove-guardian-comments](#workflows-remove-guardian-comments) | `contents: read`<br> `pull-requests: write`                       | Remove previous Guardian comments from a pull request         |
-|                             | [validate-permissions](#workflows-validate-permissions)         | `contents: read`                                                  | Validate required permissions for the current GitHub workflow |
+| policy                      | fetch-data                                                      | `contents: read`                                                  | Fetch data used for policy evaluation   |
+|                             | enforce                                                         | `contents: read` <br> `pull-requests: write`                      | Enforce a set of Guardian policies      |
 
 ## Shared Options
 
@@ -30,6 +31,8 @@ These options influence how Guardian interacts with GitHub:
 * **-github-token="string"** - The GitHub access token to make GitHub API calls. This
   value is automatically set on GitHub Actions. This option can also be specified with
   the GITHUB_TOKEN environment variable.
+* **-github-pull-request-number="100"** - The GitHub pull request number associated with this
+  apply. Only one of pull-request-number and commit-sha can be given. The default value is "0".
 
 ### Retry Options
 
@@ -91,14 +94,12 @@ Also supports [GitHub Options](#github-options) and [Retry Options](#retry-optio
 
 * **-dir** - The Terraform directory to run the apply command. Defaults to the current working directory.
 * **-allow-lockfile-changes** - Allow modification of the Terraform lockfile. The default value is "false".
-* **-bucket-name="my-guardian-state-bucket"** - The Google Cloud Storage bucket name to store Guardian plan files.
+* **-storage="gcs://my-guardian-state-bucket"** - The storage strategy for saving Guardian plan files. Defaults to current working directory. Valid values are ["file" "gcs"].
 * **-commit-sha="e538db9a29f2ff7a404a2ef40bb62a6df88c98c1"** - The commit sha to determine
   the pull request number associated with this apply. Only one of pull-request-number
   and commit-sha can be given.
 * **-lock-timeout="10m"** - The duration Terraform should wait to obtain a lock when
   running commands that modify state. The default value is "10m".
-* **-pull-request-number="100"** - The GitHub pull request number associated with this
-  apply. Only one of pull-request-number and commit-sha can be given. The default value is "0".
 
 ## Plan
 
@@ -359,4 +360,3 @@ Usage: guardian workflows validate-permissions [options]
 Also supports [GitHub Options](#github-options) and [Retry Options](#retry-options).
 
 * **-allowed-permissions="admin, write"** - The list of allowed permissions to validate against.
-        

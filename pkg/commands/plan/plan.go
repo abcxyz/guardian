@@ -72,7 +72,6 @@ type PlanCommand struct {
 	flags.CommonFlags
 
 	flagOutputDir            string
-	flagDestroy              bool
 	flagStorage              string
 	flagAllowLockfileChanges bool
 	flagLockTimeout          time.Duration
@@ -111,13 +110,6 @@ func (c *PlanCommand) Flags() *cli.FlagSet {
 		Predict: complete.PredictFunc(func(prefix string) []string {
 			return storage.SortedStorageTypes
 		}),
-	})
-
-	f.BoolVar(&cli.BoolVar{
-		Name:    "destroy",
-		Target:  &c.flagDestroy,
-		Example: "true",
-		Usage:   "Use the destroy flag to plan changes to destroy all infrastructure.",
 	})
 
 	f.BoolVar(&cli.BoolVar{
@@ -231,9 +223,6 @@ func (c *PlanCommand) Process(ctx context.Context) error {
 	util.Headerf(c.Stdout(), ("Starting Guardian Plan"))
 
 	operation := "plan"
-	if c.flagDestroy {
-		operation = "plan (destroy)"
-	}
 
 	rp := &reporter.StatusParams{
 		Operation: operation,
@@ -338,7 +327,6 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 		Out:              pointer.To(planAbsFilepath),
 		Input:            pointer.To(false),
 		NoColor:          pointer.To(true),
-		Destroy:          pointer.To(c.flagDestroy),
 		DetailedExitcode: pointer.To(true),
 		LockTimeout:      pointer.To(c.flagLockTimeout.String()),
 	})
