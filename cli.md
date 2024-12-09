@@ -125,7 +125,7 @@ Usage: guardian plan [options]
 
 ### Options
 
-Also supports [GitHub Options](#github-options) and [Retry Options](#retry-options).
+Also supports [Platform Options](#platform-options), [GitHub Options](#github-options) and [Retry Options](#retry-options).
 
 * **-dir** - The Terraform directory to run the plan command. Defaults to the current working directory.
 * **-allow-lockfile-changes** - Allow modification of the Terraform lockfile. The default value is "false".
