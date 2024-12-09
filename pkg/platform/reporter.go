@@ -53,11 +53,12 @@ type Status string
 
 // StatusParams are the parameters for writing status reports.
 type StatusParams struct {
-	HasDiff   bool
-	Details   string
-	Dir       string
-	Message   string
-	Operation string
+	HasDiff      bool
+	Details      string
+	Dir          string
+	ErrorMessage string
+	Message      string
+	Operation    string
 }
 
 // EntrypointsSummaryParams are the parameters for writing entrypoints summary reports.
@@ -78,7 +79,7 @@ func markdownURL(text, URL string) string {
 
 // markdownZippy returns a collapsible section with a given title and body.
 func markdownZippy(title, body string) string {
-	return fmt.Sprintf("<details>\n<summary>%s</summary>\n\n%s\n</details>", title, body)
+	return fmt.Sprintf("<details>\n<summary>%s</summary>\n\n`%s`\n</details>", title, body)
 }
 
 // markdonDiffZippy returns a collapsible section with a given title and body.
@@ -128,6 +129,10 @@ func statusMessage(st Status, p *StatusParams, logURL string, maxCommentLength i
 
 	if p.Message != "" {
 		fmt.Fprintf(&msg, "\n\n %s", p.Message)
+	}
+
+	if p.ErrorMessage != "" {
+		fmt.Fprintf(&msg, "\n\n **Error:** `%s`", p.ErrorMessage)
 	}
 
 	if p.Details != "" {

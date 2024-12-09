@@ -246,6 +246,7 @@ func (c *PlanCommand) Process(ctx context.Context) error {
 	if err != nil {
 		merr = errors.Join(merr, fmt.Errorf("failed to run Guardian plan: %w", err))
 		status = reporter.StatusFailure
+		rp.ErrorMessage = err.Error()
 		rp.Details = result.commentDetails
 	}
 
