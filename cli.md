@@ -100,17 +100,13 @@ Usage: guardian apply [options]
 
 ### Options
 
-Also supports [GitHub Options](#github-options) and [Retry Options](#retry-options).
+Also supports [Platform Options](#platform-options), [GitHub Options](#github-options) and [Retry Options](#retry-options).
 
 * **-dir** - The Terraform directory to run the apply command. Defaults to the current working directory.
 * **-allow-lockfile-changes** - Allow modification of the Terraform lockfile. The default value is "false".
 * **-storage="gcs://my-guardian-state-bucket"** - The storage strategy for saving Guardian plan files. Defaults to current working directory. Valid values are ["file", "gcs"].
-* **-commit-sha="e538db9a29f2ff7a404a2ef40bb62a6df88c98c1"** - The commit sha to determine
-  the pull request number associated with this apply. Only one of pull-request-number
-  and commit-sha can be given.
 * **-lock-timeout="10m"** - The duration Terraform should wait to obtain a lock when
   running commands that modify state. The default value is "10m".
-* **-output-dir="./output/plan"** - Write the plan binary and JSON file to a target local directory.
 
 ## Plan
 
@@ -137,6 +133,7 @@ Also supports [GitHub Options](#github-options) and [Retry Options](#retry-optio
 * **-lock-timeout="10m"** - The duration Terraform should wait to obtain a lock when
   running commands that modify state. The default value is "10m".
 * **-output-dir="./output/plan"** - Write the plan binary and JSON file to a target local directory.
+
 ## Run
 
 Run a Terraform command for a directory.
