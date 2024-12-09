@@ -154,14 +154,9 @@ Also supports [GitHub Options](#github-options) and [Retry Options](#retry-optio
 
 * **-dir** - The Terraform directory to run the command. Defaults to the current working directory.
 * **-allow-lockfile-changes** - Allow modification of the Terraform lockfile. The default value is "false".
-* **-bucket-name="my-guardian-state-bucket"** - The Google Cloud Storage bucket name to store Guardian plan files.
-* **-commit-sha="e538db9a29f2ff7a404a2ef40bb62a6df88c98c1"** - The commit sha to determine
-  the pull request number associated with this apply run. Only one of pull-request-number
-  and commit-sha can be given.
 * **-lock-timeout="10m"** - The duration Terraform should wait to obtain a lock when
   running commands that modify state. The default value is "10m".
-* **-pull-request-number="100"** - The GitHub pull request number associated with this
-  apply run. Only one of pull-request-number and commit-sha can be given. The default value is "0".
+* **-allowed-terraform-commands="plan, apply, destroy"** - The list of allowed Terraform commands to be run. Defaults to all commands.
 
 ## IAM cleanup
 
