@@ -172,7 +172,7 @@ func (m *MockPlatform) CommentEntrypointsSummary(ctx context.Context, params *En
 	return nil
 }
 
-// ClearComments clears any existing reports that can be removed.
-func (m *MockPlatform) ClearComments(ctx context.Context) error {
+// ClearReports clears any existing reports that can be removed.
+func (m *MockPlatform) ClearReports(ctx context.Context) error {
 	return nil
 }

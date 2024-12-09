@@ -525,8 +525,8 @@ func (g *GitHub) CommentEntrypointsSummary(ctx context.Context, p *EntrypointsSu
 	return nil
 }
 
-// ClearComments clears any existing reports that can be removed.
-func (g *GitHub) ClearComments(ctx context.Context) error {
+// ClearReports clears any existing reports that can be removed.
+func (g *GitHub) ClearReports(ctx context.Context) error {
 	listOpts := &github.IssueListCommentsOptions{
 		ListOptions: github.ListOptions{PerPage: 100},
 	}
