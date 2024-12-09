@@ -38,8 +38,8 @@ These options influence how Guardian interacts with GitHub:
   value is automatically set on GitHub Actions. This option can also be specified with
   the GITHUB_TOKEN environment variable.
 * **-guardian-github-token="string"** - The GitHub access token for Guardian to make GitHub API calls.
-  This is separate from GITHUB_TOKEN becuse Terraform uses GITHUB_TOKEN to
-  authenticate to the GitHub APIs also. Splitting this up allows use to
+  This is separate from GITHUB_TOKEN because Terraform uses GITHUB_TOKEN to
+  authenticate to the GitHub APIs also. Splitting this up allows users to
   follow least privilege for the caller (e.g. Guardian vs Terraform). If
   not supplied this will default to GITHUB_TOKEN. This option can also be
   specified with the GUARDIAN_GITHUB_TOKEN environment variable.
