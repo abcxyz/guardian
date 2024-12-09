@@ -34,9 +34,6 @@ These options influence how Guardian interacts with GitHub:
   This option can also be specified with the GITHUB_ACTIONS environment variable.
 * **-github-owner="organization-name"** - The GitHub repository owner.
 * **-github-repo="repository-name"** - The GitHub repository name.
-* **-github-token="string"** - The GitHub access token used for Terraform to make GitHub API calls. This
-  value is automatically set on GitHub Actions. This option can also be specified with
-  the GITHUB_TOKEN environment variable.
 * **-guardian-github-token="string"** - The GitHub access token for Guardian to make GitHub API calls.
   This is separate from GITHUB_TOKEN because Terraform uses GITHUB_TOKEN to
   authenticate to the GitHub APIs also. Splitting this up allows users to
