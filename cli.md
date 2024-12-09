@@ -13,8 +13,8 @@ Supported commands:
 | drift                       | [statefiles](#drift-statefiles)                                 | `issues: write`<br> `contents: read`                              | Detect drift for terraform statefiles                         |
 | workflows                   | [plan-status-comment](#workflows-plan-status-comment)           | `pull-requests: write`                                            | Add Guardian plan comment to a pull request                   |
 |                             | [remove-guardian-comments](#workflows-remove-guardian-comments) | `contents: read`<br> `pull-requests: write`                       | Remove previous Guardian comments from a pull request         |
-| policy                      | fetch-data                                                      | `contents: read`                                                  | Fetch data used for policy evaluation   |
-|                             | enforce                                                         | `contents: read` <br> `pull-requests: write`                      | Enforce a set of Guardian policies      |
+| policy                      | fetch-data                                                      | See [Policy fetch-data command](#policy-fetch-data)               | Fetch data used for policy evaluation   |
+|                             | enforce                                                         | See [Policy enforce command](#policy-fetch-data)                  | Enforce a set of Guardian policies      |
 
 ## Shared Options
 
