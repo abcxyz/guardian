@@ -560,25 +560,25 @@ func (g *GitHub) ClearReports(ctx context.Context) error {
 	}
 }
 
-type issueComment struct {
+type IssueComment struct {
 	ID   int64
 	Body string
 }
 
-type issueCommentResponse struct {
-	Comments   []*issueComment
-	Pagination *pagination
+type IssueCommentResponse struct {
+	Comments   []*IssueComment
+	Pagination *Pagination
 }
 
 // Pagination is the paging details for a list response.
-type pagination struct {
+type Pagination struct {
 	NextPage int
 }
 
 // listIssueComments lists existing comments for an issue or pull request.
-func (g *GitHub) listIssueComments(ctx context.Context, owner, repo string, number int, opts *github.IssueListCommentsOptions) (*issueCommentResponse, error) {
-	var comments []*issueComment
-	var pagination *pagination
+func (g *GitHub) listIssueComments(ctx context.Context, owner, repo string, number int, opts *github.IssueListCommentsOptions) (*IssueCommentResponse, error) {
+	var comments []*IssueComment
+	var pagination *Pagination
 
 	if err := g.withRetries(ctx, func(ctx context.Context) error {
 		ghComments, resp, err := g.client.Issues.ListComments(ctx, owner, repo, number, opts)
@@ -592,11 +592,11 @@ func (g *GitHub) listIssueComments(ctx context.Context, owner, repo string, numb
 		}
 
 		for _, c := range ghComments {
-			comments = append(comments, &issueComment{ID: c.GetID(), Body: c.GetBody()})
+			comments = append(comments, &IssueComment{ID: c.GetID(), Body: c.GetBody()})
 		}
 
 		if resp.NextPage != 0 {
-			pagination = &pagination{NextPage: resp.NextPage}
+			pagination = &Pagination{NextPage: resp.NextPage}
 		}
 
 		return nil
@@ -604,7 +604,7 @@ func (g *GitHub) listIssueComments(ctx context.Context, owner, repo string, numb
 		return nil, fmt.Errorf("failed to list pull request comments: %w", err)
 	}
 
-	return &issueCommentResponse{Comments: comments, Pagination: pagination}, nil
+	return &IssueCommentResponse{Comments: comments, Pagination: pagination}, nil
 }
 
 func (g *GitHub) deleteIssueComment(ctx context.Context, owner, repo string, id int64) error {
