@@ -321,12 +321,10 @@ Usage: guardian workflows plan-status-comment [options]
 
 ### Options
 
-Also supports [GitHub Options](#github-options) and [Retry Options](#retry-options).
+Also supports [Platform Options](#platform-options), [GitHub Options](#github-options) and [Retry Options](#retry-options).
 
 * **-init-result="success"** - The Guardian init job result status.
 * **-plan-result="failure"** - The Guardian plan job result status.
-* **-pull-request-number="100"** - The GitHub pull request number to remove plan
-  comments from. The default value is "0".
 
 ## Workflows remove-guardian-comments
 
@@ -340,24 +338,4 @@ Usage: guardian workflows remove-guardian-comments [options]
 
 ### Options
 
-Also supports [GitHub Options](#github-options) and [Retry Options](#retry-options).
-
-* **-pull-request-number="100"** - The GitHub pull request number to remove plan
-  comments from. The default value is "0".
-* **-for-command="plan,apply"** - The Guardian command to remove comments for. Valid values are ["apply", "plan"]
-
-## Workflows validate-permissions
-
-Validate a list of allowed permissions for the actor running the current GitHub workflow.
-
-Usage: guardian workflows validate-permissions [options]
-
-### Prerequisites
-
-* Read permission to the target GitHub repository `content`.
-
-### Options
-
-Also supports [GitHub Options](#github-options) and [Retry Options](#retry-options).
-
-* **-allowed-permissions="admin, write"** - The list of allowed permissions to validate against.
+Supports [Platform Options](#platform-options), [GitHub Options](#github-options) and [Retry Options](#retry-options).
