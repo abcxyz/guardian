@@ -365,7 +365,18 @@ Usage: guardian policy enforce [options]
 
 ### Prerequisites
 
-* Required GitHub [permissions](#guardian-cli).
+* Requires `pull-requests: "write"` to report any policy violations in a Pull Request comment.
+
+The set of required permissions depends on the the type of policy being enforced.
+
+*Policy types:*
+- `missing_approvals` - Requires `pull-requests: "write"` to assign reviewers to the pull request.
+
+  > [!NOTE]
+  > The default workflow token cannot assign **teams** to pull requests. See
+    [github-token-minter](https://github.com/abcxyz/github-token-minter) to support assigning team reviewers.
+
+- `deny` - No additional permissions required.
 
 ### Options
 
