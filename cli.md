@@ -101,7 +101,12 @@ Also supports [Platform Options](#platform-options), [GitHub Options](#github-op
 
 * **-dir** - The Terraform directory to run the apply command. Defaults to the current working directory.
 * **-allow-lockfile-changes** - Allow modification of the Terraform lockfile. The default value is "false".
-* **-storage="gcs://my-guardian-state-bucket"** - The storage strategy for saving Guardian plan files. Defaults to current working directory. Valid values are ["file", "gcs"].
+* **-storage="URL"** - The storage strategy for saving Guardian plan files. Defaults to current working directory of the local filesystem.
+
+  *Supported values:*
+    - Local file storage - Format `file://my/absolute/path`
+    - Google Cloud Storage Bucket - Format `gcs://my-guardian-state-bucket`
+
 * **-lock-timeout="10m"** - The duration Terraform should wait to obtain a lock when
   running commands that modify state. The default value is "10m".
 
@@ -126,7 +131,17 @@ Also supports [Platform Options](#platform-options), [GitHub Options](#github-op
 
 * **-dir** - The Terraform directory to run the plan command. Defaults to the current working directory.
 * **-allow-lockfile-changes** - Allow modification of the Terraform lockfile. The default value is "false".
-* **-storage="gcs://my-guardian-state-bucket"** - The storage strategy for saving Guardian plan files. Defaults to current working directory. Valid values are ["file", "gcs"].
+* **-storage="URL"** - The storage strategy for saving Guardian plan files. Defaults to current working directory of the local filesystem.
+
+  *Supported values:*
+    - Local file storage - Format `file://my/absolute/path`
+    - Google Cloud Storage Bucket - Format `gcs://my-guardian-state-bucket`
+* **-storage="URL"** - The storage strategy for saving Guardian plan files. Defaults to current working directory of the local filesystem.
+
+  *Supported values:*
+    - Local file storage - Format `file://my/absolute/path`
+    - Google Cloud Storage Bucket - Format `gcs://my-guardian-state-bucket`
+
 * **-lock-timeout="10m"** - The duration Terraform should wait to obtain a lock when
   running commands that modify state. The default value is "10m".
 * **-output-dir="./output/plan"** - Write the plan binary and JSON file to a target local directory.
