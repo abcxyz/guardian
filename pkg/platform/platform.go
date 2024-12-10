@@ -113,6 +113,9 @@ type Platform interface {
 	// GetPolicyData retrieves the required data for policy evaluation.
 	GetPolicyData(ctx context.Context) (*GetPolicyDataResult, error)
 
+	// ListReports lists existing reports for an issue or change request.
+	ListReports(ctx context.Context, opts *ListReportsOptions) (*ListReportsResult, error)
+
 	// StoragePrefix generates the unique storage prefix for the platform type.
 	StoragePrefix(ctx context.Context) (string, error)
 

@@ -162,6 +162,11 @@ func (m *MockPlatform) StoragePrefix(ctx context.Context) (string, error) {
 	return m.StoragePrefixResp, m.StoragePrefixErr
 }
 
+// ListReports lists existing reports for an issue or change request.
+func (m *MockPlatform) ListReports(ctx context.Context, opts *ListReportsOptions) (*ListReportsResult, error) {
+	return nil, nil
+}
+
 // CommentStatus reports the status of a run.
 func (m *MockPlatform) CommentStatus(ctx context.Context, status Status, params *StatusParams) error {
 	return nil

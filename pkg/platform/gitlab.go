@@ -62,6 +62,11 @@ func (g *GitLab) StoragePrefix(ctx context.Context) (string, error) {
 	return "", nil
 }
 
+// ListReports lists existing reports for an issue or change request.
+func (g *GitLab) ListReports(ctx context.Context, opts *ListReportsOptions) (*ListReportsResult, error) {
+	return nil, nil
+}
+
 // CommentStatus reports the status of a run.
 func (g *GitLab) CommentStatus(ctx context.Context, status Status, params *StatusParams) error {
 	return nil

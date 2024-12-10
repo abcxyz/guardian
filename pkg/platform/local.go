@@ -69,6 +69,11 @@ func (l *Local) StoragePrefix(ctx context.Context) (string, error) {
 	return "", nil
 }
 
+// ListReports lists existing reports for an issue or change request.
+func (l *Local) ListReports(ctx context.Context, opts *ListReportsOptions) (*ListReportsResult, error) {
+	return nil, nil
+}
+
 // CommentStatus is a no-op.
 func (l *Local) CommentStatus(ctx context.Context, status Status, params *StatusParams) error {
 	return nil
