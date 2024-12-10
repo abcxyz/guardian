@@ -527,21 +527,23 @@ func (g *GitHub) CommentEntrypointsSummary(ctx context.Context, p *EntrypointsSu
 
 // ClearReports clears any existing reports that can be removed.
 func (g *GitHub) ClearReports(ctx context.Context) error {
-	listOpts := &github.IssueListCommentsOptions{
-		ListOptions: github.ListOptions{PerPage: 100},
+	listOpts := &ListReportsOptions{
+		GitHub: &github.IssueListCommentsOptions{
+			ListOptions: github.ListOptions{PerPage: 100},
+		},
 	}
 
 	for {
-		response, err := g.listIssueComments(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, g.cfg.GitHubPullRequestNumber, listOpts)
+		response, err := g.ListReports(ctx, listOpts)
 		if err != nil {
 			return fmt.Errorf("failed to list comments: %w", err)
 		}
 
-		if response.Comments == nil {
+		if response.Reports == nil {
 			return nil
 		}
 
-		for _, comment := range response.Comments {
+		for _, comment := range response.Reports {
 			// prefix is not found, skip
 			if !strings.HasPrefix(comment.Body, commentPrefix) {
 				continue
@@ -556,32 +558,17 @@ func (g *GitHub) ClearReports(ctx context.Context) error {
 		if response.Pagination == nil {
 			return nil
 		}
-		listOpts.Page = response.Pagination.NextPage
+		listOpts.GitHub.Page = response.Pagination.NextPage
 	}
 }
 
-type IssueComment struct {
-	ID   int64
-	Body string
-}
-
-type IssueCommentResponse struct {
-	Comments   []*IssueComment
-	Pagination *Pagination
-}
-
-// Pagination is the paging details for a list response.
-type Pagination struct {
-	NextPage int
-}
-
-// listIssueComments lists existing comments for an issue or pull request.
-func (g *GitHub) listIssueComments(ctx context.Context, owner, repo string, number int, opts *github.IssueListCommentsOptions) (*IssueCommentResponse, error) {
-	var comments []*IssueComment
+// ListReports lists existing comments for an issue or change request.
+func (g *GitHub) ListReports(ctx context.Context, opts *ListReportsOptions) (*ListReportsResult, error) {
+	var comments []*Report
 	var pagination *Pagination
 
 	if err := g.withRetries(ctx, func(ctx context.Context) error {
-		ghComments, resp, err := g.client.Issues.ListComments(ctx, owner, repo, number, opts)
+		ghComments, resp, err := g.client.Issues.ListComments(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, g.cfg.GitHubPullRequestNumber, opts.GitHub)
 		if err != nil {
 			if resp != nil {
 				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
@@ -592,7 +579,7 @@ func (g *GitHub) listIssueComments(ctx context.Context, owner, repo string, numb
 		}
 
 		for _, c := range ghComments {
-			comments = append(comments, &IssueComment{ID: c.GetID(), Body: c.GetBody()})
+			comments = append(comments, &Report{ID: c.GetID(), Body: c.GetBody()})
 		}
 
 		if resp.NextPage != 0 {
@@ -604,7 +591,7 @@ func (g *GitHub) listIssueComments(ctx context.Context, owner, repo string, numb
 		return nil, fmt.Errorf("failed to list pull request comments: %w", err)
 	}
 
-	return &IssueCommentResponse{Comments: comments, Pagination: pagination}, nil
+	return &ListReportsResult{Reports: comments, Pagination: pagination}, nil
 }
 
 func (g *GitHub) deleteIssueComment(ctx context.Context, owner, repo string, id int64) error {

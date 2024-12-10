@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/google/go-github/v53/github"
 )
 
 const (
@@ -72,6 +74,24 @@ type GetLatestApproversResult struct {
 type GetPolicyDataResult struct {
 	GitHub *GitHubPolicyData `json:"github,omitempty"`
 	Mock   *MockPolicyData   `json:"mock,omitempty"`
+}
+
+type Report struct {
+	ID   int64
+	Body string
+}
+
+type ListReportsOptions struct {
+	GitHub *github.IssueListCommentsOptions
+}
+type ListReportsResult struct {
+	Reports    []*Report
+	Pagination *Pagination
+}
+
+// Pagination is the paging details for a list response.
+type Pagination struct {
+	NextPage int
 }
 
 // Platform defines the minimum interface for a code review platform.
