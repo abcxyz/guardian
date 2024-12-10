@@ -13,11 +13,18 @@ Supported commands:
 | drift                       | [statefiles](#drift-statefiles)                                 | `issues: write`<br> `contents: read`                              | Detect drift for terraform statefiles                         |
 | workflows                   | [plan-status-comment](#workflows-plan-status-comment)           | `pull-requests: write`                                            | Add Guardian plan comment to a pull request                   |
 |                             | [remove-guardian-comments](#workflows-remove-guardian-comments) | `contents: read`<br> `pull-requests: write`                       | Remove previous Guardian comments from a pull request         |
-|                             | [validate-permissions](#workflows-validate-permissions)         | `contents: read`                                                  | Validate required permissions for the current GitHub workflow |
+| policy                      | fetch-data                                                      | See [Policy fetch-data command](#policy-fetch-data)               | Fetch data used for policy evaluation   |
+|                             | enforce                                                         | See [Policy enforce command](#policy-fetch-data)                  | Enforce a set of Guardian policies      |
 
 ## Shared Options
 
 These options influence any command run with Guardian.
+
+### Platform Options
+These options sets the code review platform that Guardian should interact with.
+
+- **-platform="github"** - The code review platform for Guardian to integrate with. Allowed values are ["github", "local"].
+- **-reporter="github"** - The reporting strategy for Guardian status updates. Allowed values are ["github", "none"].
 
 ### GitHub Options
 
@@ -27,9 +34,14 @@ These options influence how Guardian interacts with GitHub:
   This option can also be specified with the GITHUB_ACTIONS environment variable.
 * **-github-owner="organization-name"** - The GitHub repository owner.
 * **-github-repo="repository-name"** - The GitHub repository name.
-* **-github-token="string"** - The GitHub access token to make GitHub API calls. This
-  value is automatically set on GitHub Actions. This option can also be specified with
-  the GITHUB_TOKEN environment variable.
+* **-guardian-github-token="string"** - The GitHub access token for Guardian to make GitHub API calls.
+  This is separate from GITHUB_TOKEN because Terraform uses GITHUB_TOKEN to
+  authenticate to the GitHub APIs also. Splitting this up allows users to
+  follow least privilege for the caller (e.g. Guardian vs Terraform). If
+  not supplied this will default to GITHUB_TOKEN. This option can also be
+  specified with the GUARDIAN_GITHUB_TOKEN environment variable.
+* **-github-pull-request-number="100"** - The GitHub pull request number associated with this
+  apply. Only one of pull-request-number and commit-sha can be given. The default value is "0".
 
 ### Retry Options
 
@@ -54,7 +66,7 @@ Usage: guardian entrypoints [options]
 
 ### Options
 
-Also supports [GitHub Options](#github-options) and [Retry Options](#retry-options).
+Also supports [Platform Options](#platform-options), [GitHub Options](#github-options) and [Retry Options](#retry-options).
 
 * **-dir** - The root directory to search for entrypoint directories. Defaults to the current working directory.
 * **-dest-ref="ref-name"** - The destination GitHub ref name for finding file changes.
@@ -66,8 +78,6 @@ Also supports [GitHub Options](#github-options) and [Retry Options](#retry-optio
   formats are: [json text]. The default value is "text".
 * **-max-depth="int"** - How far to traverse the filesystem beneath the target
   directory for entrypoints. The default value is "-1".
-* **-pull-request-number="100"** - The GitHub pull request number associated with
-  this plan. The default value is "0".
 * **-source-ref="ref-name"** - The source GitHub ref name for finding file changes.
 
 ## Apply
@@ -87,18 +97,18 @@ Usage: guardian apply [options]
 
 ### Options
 
-Also supports [GitHub Options](#github-options) and [Retry Options](#retry-options).
+Also supports [Platform Options](#platform-options), [GitHub Options](#github-options) and [Retry Options](#retry-options).
 
 * **-dir** - The Terraform directory to run the apply command. Defaults to the current working directory.
 * **-allow-lockfile-changes** - Allow modification of the Terraform lockfile. The default value is "false".
-* **-bucket-name="my-guardian-state-bucket"** - The Google Cloud Storage bucket name to store Guardian plan files.
-* **-commit-sha="e538db9a29f2ff7a404a2ef40bb62a6df88c98c1"** - The commit sha to determine
-  the pull request number associated with this apply. Only one of pull-request-number
-  and commit-sha can be given.
+* **-storage="URL"** - The storage strategy for saving Guardian plan files. Defaults to current working directory of the local filesystem.
+
+  *Supported values:*
+    - Local file storage - Format `file://my/absolute/path`
+    - Google Cloud Storage Bucket - Format `gcs://my-guardian-state-bucket`
+
 * **-lock-timeout="10m"** - The duration Terraform should wait to obtain a lock when
   running commands that modify state. The default value is "10m".
-* **-pull-request-number="100"** - The GitHub pull request number associated with this
-  apply. Only one of pull-request-number and commit-sha can be given. The default value is "0".
 
 ## Plan
 
@@ -117,15 +127,19 @@ Usage: guardian plan [options]
 
 ### Options
 
-Also supports [GitHub Options](#github-options) and [Retry Options](#retry-options).
+Also supports [Platform Options](#platform-options), [GitHub Options](#github-options) and [Retry Options](#retry-options).
 
 * **-dir** - The Terraform directory to run the plan command. Defaults to the current working directory.
 * **-allow-lockfile-changes** - Allow modification of the Terraform lockfile. The default value is "false".
-* **-bucket-name="my-guardian-state-bucket"** - The Google Cloud Storage bucket name to store Guardian plan files.
+* **-storage="URL"** - The storage strategy for saving Guardian plan files. Defaults to current working directory of the local filesystem.
+
+  *Supported values:*
+    - Local file storage - Format `file://my/absolute/path`
+    - Google Cloud Storage Bucket - Format `gcs://my-guardian-state-bucket`
+
 * **-lock-timeout="10m"** - The duration Terraform should wait to obtain a lock when
   running commands that modify state. The default value is "10m".
-* **-pull-request-number="100"** - The GitHub pull request number associated with this
-  plan. Only one of pull-request-number and commit-sha can be given. The default value is "0".
+* **-output-dir="./output/plan"** - Write the plan binary and JSON file to a target local directory.
 
 ## Run
 
@@ -147,14 +161,9 @@ Also supports [GitHub Options](#github-options) and [Retry Options](#retry-optio
 
 * **-dir** - The Terraform directory to run the command. Defaults to the current working directory.
 * **-allow-lockfile-changes** - Allow modification of the Terraform lockfile. The default value is "false".
-* **-bucket-name="my-guardian-state-bucket"** - The Google Cloud Storage bucket name to store Guardian plan files.
-* **-commit-sha="e538db9a29f2ff7a404a2ef40bb62a6df88c98c1"** - The commit sha to determine
-  the pull request number associated with this apply run. Only one of pull-request-number
-  and commit-sha can be given.
 * **-lock-timeout="10m"** - The duration Terraform should wait to obtain a lock when
   running commands that modify state. The default value is "10m".
-* **-pull-request-number="100"** - The GitHub pull request number associated with this
-  apply run. Only one of pull-request-number and commit-sha can be given. The default value is "0".
+* **-allowed-terraform-commands="plan, apply, destroy"** - The list of allowed Terraform commands to be run. Defaults to all commands.
 
 ## IAM cleanup
 
@@ -319,12 +328,10 @@ Usage: guardian workflows plan-status-comment [options]
 
 ### Options
 
-Also supports [GitHub Options](#github-options) and [Retry Options](#retry-options).
+Also supports [Platform Options](#platform-options), [GitHub Options](#github-options) and [Retry Options](#retry-options).
 
 * **-init-result="success"** - The Guardian init job result status.
 * **-plan-result="failure"** - The Guardian plan job result status.
-* **-pull-request-number="100"** - The GitHub pull request number to remove plan
-  comments from. The default value is "0".
 
 ## Workflows remove-guardian-comments
 
@@ -338,25 +345,51 @@ Usage: guardian workflows remove-guardian-comments [options]
 
 ### Options
 
-Also supports [GitHub Options](#github-options) and [Retry Options](#retry-options).
+Supports [Platform Options](#platform-options), [GitHub Options](#github-options) and [Retry Options](#retry-options).
 
-* **-pull-request-number="100"** - The GitHub pull request number to remove plan
-  comments from. The default value is "0".
-* **-for-command="plan,apply"** - The Guardian command to remove comments for. Valid values are ["apply", "plan"]
+## Policy fetch-data
 
-## Workflows validate-permissions
+Fetch data used for policy evaluation.
 
-Validate a list of allowed permissions for the actor running the current GitHub workflow.
-
-Usage: guardian workflows validate-permissions [options]
+Usage: guardian policy fetch-data [options]
 
 ### Prerequisites
 
-* Read permission to the target GitHub repository `content`.
+* Required GitHub [permissions](#guardian-cli).
+
+* **members: read** is required for `--include-teams` flag.
 
 ### Options
 
-Also supports [GitHub Options](#github-options) and [Retry Options](#retry-options).
+Supports [Platform Options](#platform-options), [GitHub Options](#github-options) and [Retry Options](#retry-options).
 
-* **-allowed-permissions="admin, write"** - The list of allowed permissions to validate against.
-        
+* **-output-dir="example/dir"** - Write the policy data JSON file to a target local directory.
+* **--include-teams** - If true, includes team data in payload. Requires 'members: read' token permissions."
+
+
+## Policy enforce
+
+Enforce a set of Guardian policies
+
+Usage: guardian policy enforce [options]
+
+### Prerequisites
+
+* Requires `pull-requests: "write"` to report any policy violations in a Pull Request comment.
+
+The set of required permissions depends on the the type of policy being enforced.
+
+*Policy types:*
+- `missing_approvals` - Requires `pull-requests: "write"` to assign reviewers to the pull request.
+
+  > The default workflow token cannot assign **teams** to pull requests. See
+    [github-token-minter](https://github.com/abcxyz/github-token-minter) to support assigning team reviewers.
+
+- `deny` - No additional permissions required.
+
+### Options
+
+Supports [Platform Options](#platform-options), [GitHub Options](#github-options) and [Retry Options](#retry-options).
+
+* **-results-file="results.json"** - The path to a JSON file containing the OPA eval result.
+* **-silent** - Skips any actions and only reports the violations found. The default value is "false".
