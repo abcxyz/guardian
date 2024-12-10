@@ -550,7 +550,7 @@ func (g *GitHub) ClearReports(ctx context.Context) error {
 			}
 
 			// found the prefix, delete the comment
-			if err := g.deleteIssueComment(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, comment.ID); err != nil {
+			if err := g.DeleteReport(ctx, comment.ID); err != nil {
 				return fmt.Errorf("failed to delete comment: %w", err)
 			}
 		}
@@ -594,9 +594,10 @@ func (g *GitHub) ListReports(ctx context.Context, opts *ListReportsOptions) (*Li
 	return &ListReportsResult{Reports: comments, Pagination: pagination}, nil
 }
 
-func (g *GitHub) deleteIssueComment(ctx context.Context, owner, repo string, id int64) error {
+// DeleteReport deletes an existing comment from an issue or change request.
+func (g *GitHub) DeleteReport(ctx context.Context, id int64) error {
 	if err := g.withRetries(ctx, func(ctx context.Context) error {
-		resp, err := g.client.Issues.DeleteComment(ctx, owner, repo, id)
+		resp, err := g.client.Issues.DeleteComment(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, id)
 		if err != nil {
 			if resp != nil {
 				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {

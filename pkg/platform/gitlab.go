@@ -67,6 +67,11 @@ func (g *GitLab) ListReports(ctx context.Context, opts *ListReportsOptions) (*Li
 	return nil, nil
 }
 
+// DeleteReport deletes an existing comment from an issue or change request.
+func (g *GitLab) DeleteReport(ctx context.Context, id int64) error {
+	return nil
+}
+
 // CommentStatus reports the status of a run.
 func (g *GitLab) CommentStatus(ctx context.Context, status Status, params *StatusParams) error {
 	return nil

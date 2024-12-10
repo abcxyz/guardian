@@ -74,6 +74,11 @@ func (l *Local) ListReports(ctx context.Context, opts *ListReportsOptions) (*Lis
 	return nil, nil
 }
 
+// DeleteReport deletes an existing comment from an issue or change request.
+func (l *Local) DeleteReport(ctx context.Context, id int64) error {
+	return nil
+}
+
 // CommentStatus is a no-op.
 func (l *Local) CommentStatus(ctx context.Context, status Status, params *StatusParams) error {
 	return nil

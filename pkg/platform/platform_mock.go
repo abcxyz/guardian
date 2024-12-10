@@ -167,6 +167,11 @@ func (m *MockPlatform) ListReports(ctx context.Context, opts *ListReportsOptions
 	return nil, nil
 }
 
+// DeleteReport deletes an existing comment from an issue or change request.
+func (m *MockPlatform) DeleteReport(ctx context.Context, id int64) error {
+	return nil
+}
+
 // CommentStatus reports the status of a run.
 func (m *MockPlatform) CommentStatus(ctx context.Context, status Status, params *StatusParams) error {
 	return nil
