@@ -76,14 +76,18 @@ type GetPolicyDataResult struct {
 	Mock   *MockPolicyData   `json:"mock,omitempty"`
 }
 
+// Report is a comment/note on an issue or change request.
 type Report struct {
 	ID   int64
 	Body string
 }
 
+// ListReportsOptions contains the options for listing reports.
 type ListReportsOptions struct {
 	GitHub *github.IssueListCommentsOptions
 }
+
+// ListReportsResults contains the results of listing reports.
 type ListReportsResult struct {
 	Reports    []*Report
 	Pagination *Pagination
