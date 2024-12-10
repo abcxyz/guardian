@@ -36,8 +36,11 @@ type MockPlatform struct {
 	AssignReviewersErr  error
 	ActorUsername       string
 	GetPolicyDataErr    error
+	DeleteReportErr     error
+	ListReportsErr      error
 	ModifierContentResp string
 	ModifierContentErr  error
+	Reports             []*Report
 	StoragePrefixResp   string
 	StoragePrefixErr    error
 	TeamApprovers       []string
@@ -164,11 +167,32 @@ func (m *MockPlatform) StoragePrefix(ctx context.Context) (string, error) {
 
 // ListReports lists existing reports for an issue or change request.
 func (m *MockPlatform) ListReports(ctx context.Context, opts *ListReportsOptions) (*ListReportsResult, error) {
-	return nil, nil
+	m.reqMu.Lock()
+	defer m.reqMu.Unlock()
+	m.Reqs = append(m.Reqs,
+		&Request{Name: "ListReports"},
+	)
+
+	if m.ListReportsErr != nil {
+		return nil, m.ListReportsErr
+	}
+
+	return &ListReportsResult{
+		Reports: m.Reports,
+	}, nil
 }
 
 // DeleteReport deletes an existing comment from an issue or change request.
 func (m *MockPlatform) DeleteReport(ctx context.Context, id int64) error {
+	m.reqMu.Lock()
+	defer m.reqMu.Unlock()
+	m.Reqs = append(m.Reqs,
+		&Request{Name: "DeleteReport"},
+	)
+
+	if m.DeleteReportErr != nil {
+		return m.DeleteReportErr
+	}
 	return nil
 }
 
