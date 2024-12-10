@@ -17,7 +17,10 @@ package drift
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
+
+	"golang.org/x/exp/maps"
 
 	"github.com/abcxyz/guardian/internal/metricswrap"
 	"github.com/abcxyz/guardian/internal/version"
@@ -191,14 +194,30 @@ func (c *DetectIamDriftCommand) Run(ctx context.Context, args []string) error {
 
 func driftMessage(drift *IAMDrift) string {
 	var msg strings.Builder
-	if len(drift.ClickOpsChanges) > 0 {
-		msg.WriteString(fmt.Sprintf("Found Click Ops Changes \n> %s", strings.Join(drift.ClickOpsChanges, "\n> ")))
-		if len(drift.MissingTerraformChanges) > 0 {
+	coKeys := maps.Keys(drift.ClickOpsChanges)
+	mtKeys := maps.Keys(drift.MissingTerraformChanges)
+	sort.Strings(coKeys)
+	sort.Strings(mtKeys)
+	if len(coKeys) > 0 {
+		msg.WriteString("Found Click Ops Changes (IAM resources actually present in GCP but not described in terraform state)\n")
+		msg.WriteString("| ID | Resource ID | Member | Role |\n")
+		msg.WriteString("|----|-------------|--------|------|\n")
+		for _, k := range coKeys {
+			coChange := drift.ClickOpsChanges[k]
+			msg.WriteString(fmt.Sprintf("|%s|%s|%s|%s|\n", k, ResourceURI(coChange), coChange.Member, coChange.Role))
+		}
+		if len(mtKeys) > 0 {
 			msg.WriteString("\n\n")
 		}
 	}
-	if len(drift.MissingTerraformChanges) > 0 {
-		msg.WriteString(fmt.Sprintf("Found Missing Terraform Changes \n> %s", strings.Join(drift.MissingTerraformChanges, "\n> ")))
+	if len(mtKeys) > 0 {
+		msg.WriteString("Found Missing Terraform Changes (IAM resources not actually present in GCP but still described in terraform state)\n")
+		msg.WriteString("| ID | StateFile URI | Resource ID | Member | Role |\n")
+		msg.WriteString("|----|---------------|-------------|--------|------|\n")
+		for _, k := range mtKeys {
+			mtChange := drift.MissingTerraformChanges[k]
+			msg.WriteString(fmt.Sprintf("|%s|%s|%s|%s|%s|\n", k, mtChange.StateFileURI, ResourceURI(mtChange.AssetIAM), mtChange.AssetIAM.Member, mtChange.AssetIAM.Role))
+		}
 	}
 	return msg.String()
 }
