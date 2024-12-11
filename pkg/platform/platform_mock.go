@@ -201,11 +201,6 @@ func (m *MockPlatform) DeleteReport(ctx context.Context, id int64) error {
 	return nil
 }
 
-// CommentStatus reports the status of a run.
-func (m *MockPlatform) CommentStatus(ctx context.Context, status Status, params *StatusParams) error {
-	return nil
-}
-
 // ReportEntrypointsSummary reports the summary for the entrypoints command.
 func (m *MockPlatform) ReportEntrypointsSummary(ctx context.Context, params *EntrypointsSummaryParams) error {
 	return nil
