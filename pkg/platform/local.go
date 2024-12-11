@@ -74,7 +74,7 @@ func (l *Local) ReportStatus(ctx context.Context, status Status, params *StatusP
 	return nil
 }
 
-// CommentEntrypointsSummary is a no-op.
-func (l *Local) CommentEntrypointsSummary(ctx context.Context, params *EntrypointsSummaryParams) error {
+// ReportEntrypointsSummary is a no-op.
+func (l *Local) ReportEntrypointsSummary(ctx context.Context, params *EntrypointsSummaryParams) error {
 	return nil
 }

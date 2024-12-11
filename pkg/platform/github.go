@@ -500,8 +500,8 @@ func (g *GitHub) ReportStatus(ctx context.Context, st Status, p *StatusParams) e
 	return nil
 }
 
-// CommentEntrypointsSummary implements the reporter EntrypointsSummary function by writing a GitHub comment.
-func (g *GitHub) CommentEntrypointsSummary(ctx context.Context, p *EntrypointsSummaryParams) error {
+// ReportEntrypointsSummary implements the reporter EntrypointsSummary function by writing a GitHub comment.
+func (g *GitHub) ReportEntrypointsSummary(ctx context.Context, p *EntrypointsSummaryParams) error {
 	if err := validateGitHubReporterInputs(g.cfg); err != nil {
 		return fmt.Errorf("failed to validate reporter inputs: %w", err)
 	}

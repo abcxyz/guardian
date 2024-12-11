@@ -67,7 +67,7 @@ func (g *GitLab) ReportStatus(ctx context.Context, status Status, params *Status
 	return nil
 }
 
-// CommentEntrypointsSummary reports the summary for the entrypoints command.
-func (g *GitLab) CommentEntrypointsSummary(ctx context.Context, params *EntrypointsSummaryParams) error {
+// ReportEntrypointsSummary reports the summary for the entrypoints command.
+func (g *GitLab) ReportEntrypointsSummary(ctx context.Context, params *EntrypointsSummaryParams) error {
 	return nil
 }

@@ -167,7 +167,7 @@ func (m *MockPlatform) ReportStatus(ctx context.Context, status Status, params *
 	return nil
 }
 
-// CommentEntrypointsSummary reports the summary for the entrypoints command.
-func (m *MockPlatform) CommentEntrypointsSummary(ctx context.Context, params *EntrypointsSummaryParams) error {
+// ReportEntrypointsSummary reports the summary for the entrypoints command.
+func (m *MockPlatform) ReportEntrypointsSummary(ctx context.Context, params *EntrypointsSummaryParams) error {
 	return nil
 }
