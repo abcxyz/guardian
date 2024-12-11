@@ -96,8 +96,8 @@ type Platform interface {
 	// StoragePrefix generates the unique storage prefix for the platform type.
 	StoragePrefix(ctx context.Context) (string, error)
 
-	// CommentStatus reports the status of a run.
-	CommentStatus(ctx context.Context, status Status, params *StatusParams) error
+	// ReportStatus reports the status of a run.
+	ReportStatus(ctx context.Context, status Status, params *StatusParams) error
 
 	// CommentEntrypointsSummary reports the summary for the entrypoints command.
 	CommentEntrypointsSummary(ctx context.Context, params *EntrypointsSummaryParams) error

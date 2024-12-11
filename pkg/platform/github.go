@@ -476,8 +476,8 @@ func (g *GitHub) StoragePrefix(ctx context.Context) (string, error) {
 	return "", nil
 }
 
-// CommentStatus reports the status of a run.
-func (g *GitHub) CommentStatus(ctx context.Context, st Status, p *StatusParams) error {
+// ReportStatus reports the status of a run.
+func (g *GitHub) ReportStatus(ctx context.Context, st Status, p *StatusParams) error {
 	if err := validateGitHubReporterInputs(g.cfg); err != nil {
 		return fmt.Errorf("failed to validate reporter inputs: %w", err)
 	}

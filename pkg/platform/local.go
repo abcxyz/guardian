@@ -69,8 +69,8 @@ func (l *Local) StoragePrefix(ctx context.Context) (string, error) {
 	return "", nil
 }
 
-// CommentStatus is a no-op.
-func (l *Local) CommentStatus(ctx context.Context, status Status, params *StatusParams) error {
+// ReportStatus is a no-op.
+func (l *Local) ReportStatus(ctx context.Context, status Status, params *StatusParams) error {
 	return nil
 }
 
