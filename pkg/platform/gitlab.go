@@ -62,12 +62,12 @@ func (g *GitLab) StoragePrefix(ctx context.Context) (string, error) {
 	return "", nil
 }
 
-// CommentStatus reports the status of a run.
-func (g *GitLab) CommentStatus(ctx context.Context, status Status, params *StatusParams) error {
+// ReportStatus reports the status of a run.
+func (g *GitLab) ReportStatus(ctx context.Context, status Status, params *StatusParams) error {
 	return nil
 }
 
-// CommentEntrypointsSummary reports the summary for the entrypoints command.
-func (g *GitLab) CommentEntrypointsSummary(ctx context.Context, params *EntrypointsSummaryParams) error {
+// ReportEntrypointsSummary reports the summary for the entrypoints command.
+func (g *GitLab) ReportEntrypointsSummary(ctx context.Context, params *EntrypointsSummaryParams) error {
 	return nil
 }

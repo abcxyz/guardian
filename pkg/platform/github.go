@@ -476,8 +476,8 @@ func (g *GitHub) StoragePrefix(ctx context.Context) (string, error) {
 	return "", nil
 }
 
-// CommentStatus reports the status of a run.
-func (g *GitHub) CommentStatus(ctx context.Context, st Status, p *StatusParams) error {
+// ReportStatus reports the status of a run.
+func (g *GitHub) ReportStatus(ctx context.Context, st Status, p *StatusParams) error {
 	if err := validateGitHubReporterInputs(g.cfg); err != nil {
 		return fmt.Errorf("failed to validate reporter inputs: %w", err)
 	}
@@ -500,8 +500,8 @@ func (g *GitHub) CommentStatus(ctx context.Context, st Status, p *StatusParams) 
 	return nil
 }
 
-// CommentEntrypointsSummary implements the reporter EntrypointsSummary function by writing a GitHub comment.
-func (g *GitHub) CommentEntrypointsSummary(ctx context.Context, p *EntrypointsSummaryParams) error {
+// ReportEntrypointsSummary implements the reporter EntrypointsSummary function by writing a GitHub comment.
+func (g *GitHub) ReportEntrypointsSummary(ctx context.Context, p *EntrypointsSummaryParams) error {
 	if err := validateGitHubReporterInputs(g.cfg); err != nil {
 		return fmt.Errorf("failed to validate reporter inputs: %w", err)
 	}
