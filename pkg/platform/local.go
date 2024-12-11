@@ -69,6 +69,16 @@ func (l *Local) StoragePrefix(ctx context.Context) (string, error) {
 	return "", nil
 }
 
+// ListReports lists existing reports for an issue or change request.
+func (l *Local) ListReports(ctx context.Context, opts *ListReportsOptions) (*ListReportsResult, error) {
+	return nil, nil
+}
+
+// DeleteReport deletes an existing comment from an issue or change request.
+func (l *Local) DeleteReport(ctx context.Context, id int64) error {
+	return nil
+}
+
 // ReportStatus is a no-op.
 func (l *Local) ReportStatus(ctx context.Context, status Status, params *StatusParams) error {
 	return nil
@@ -76,5 +86,10 @@ func (l *Local) ReportStatus(ctx context.Context, status Status, params *StatusP
 
 // ReportEntrypointsSummary is a no-op.
 func (l *Local) ReportEntrypointsSummary(ctx context.Context, params *EntrypointsSummaryParams) error {
+	return nil
+}
+
+// ClearReports clears any existing reports that can be removed.
+func (l *Local) ClearReports(ctx context.Context) error {
 	return nil
 }
