@@ -17,10 +17,10 @@ package drift
 import (
 	"context"
 	"fmt"
-	"maps"
-	"slices"
 	"sort"
 	"strings"
+
+	"golang.org/x/exp/maps"
 
 	"github.com/abcxyz/guardian/internal/metricswrap"
 	"github.com/abcxyz/guardian/internal/version"
@@ -194,8 +194,8 @@ func (c *DetectIamDriftCommand) Run(ctx context.Context, args []string) error {
 
 func driftMessage(drift *IAMDrift) string {
 	var msg strings.Builder
-	coKeys := slices.Collect(maps.Keys(drift.ClickOpsChanges))
-	mtKeys := slices.Collect(maps.Keys(drift.MissingTerraformChanges))
+	coKeys := maps.Keys(drift.ClickOpsChanges)
+	mtKeys := maps.Keys(drift.MissingTerraformChanges)
 	sort.Strings(coKeys)
 	sort.Strings(mtKeys)
 	if len(coKeys) > 0 {
