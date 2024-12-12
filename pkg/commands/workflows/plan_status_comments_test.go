@@ -21,7 +21,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	"github.com/abcxyz/guardian/pkg/reporter"
+	"github.com/abcxyz/guardian/pkg/platform"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/testutil"
 )
@@ -37,7 +37,7 @@ func TestPlanStatusCommentsProcess(t *testing.T) {
 		flagPlanResult        []string
 		createStatusErr       error
 		err                   string
-		expReporterClientReqs []*reporter.Request
+		expPlatformClientReqs []*platform.Request
 	}{
 		{
 			name:           "success",
@@ -48,10 +48,10 @@ func TestPlanStatusCommentsProcess(t *testing.T) {
 			name:           "skipped",
 			flagInitResult: "success",
 			flagPlanResult: []string{"skipped", "skipped"},
-			expReporterClientReqs: []*reporter.Request{
+			expPlatformClientReqs: []*platform.Request{
 				{
 					Name:   "Status",
-					Params: []any{reporter.StatusNoOperation, &reporter.StatusParams{Operation: "plan", Message: "No Terraform changes detected, planning skipped."}},
+					Params: []any{platform.StatusNoOperation, &platform.StatusParams{Operation: "plan", Message: "No Terraform changes detected, planning skipped."}},
 				},
 			},
 		},
@@ -71,10 +71,10 @@ func TestPlanStatusCommentsProcess(t *testing.T) {
 			name:           "handles_errors",
 			flagInitResult: "success",
 			flagPlanResult: []string{"skipped", "skipped"},
-			expReporterClientReqs: []*reporter.Request{
+			expPlatformClientReqs: []*platform.Request{
 				{
 					Name:   "Status",
-					Params: []any{reporter.StatusNoOperation, &reporter.StatusParams{Operation: "plan", Message: "No Terraform changes detected, planning skipped."}},
+					Params: []any{platform.StatusNoOperation, &platform.StatusParams{Operation: "plan", Message: "No Terraform changes detected, planning skipped."}},
 				},
 			},
 			createStatusErr: fmt.Errorf("error creating comment"),
@@ -88,14 +88,14 @@ func TestPlanStatusCommentsProcess(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			mockReporterClient := &reporter.MockReporter{
-				StatusErr: tc.createStatusErr,
+			mockPlatformClient := &platform.MockPlatform{
+				ReportStatusErr: tc.createStatusErr,
 			}
 
 			c := &PlanStatusCommentCommand{
 				flagInitResult: tc.flagInitResult,
 				flagPlanResult: tc.flagPlanResult,
-				reporterClient: mockReporterClient,
+				platformClient: mockPlatformClient,
 			}
 
 			err := c.Process(ctx)
@@ -103,7 +103,7 @@ func TestPlanStatusCommentsProcess(t *testing.T) {
 				t.Errorf(diff)
 			}
 
-			if diff := cmp.Diff(mockReporterClient.Reqs, tc.expReporterClientReqs); diff != "" {
+			if diff := cmp.Diff(mockPlatformClient.Reqs, tc.expPlatformClientReqs); diff != "" {
 				t.Errorf("ReporterClient calls not as expected; (-got,+want): %s", diff)
 			}
 		})

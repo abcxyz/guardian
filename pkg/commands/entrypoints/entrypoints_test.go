@@ -24,7 +24,6 @@ import (
 
 	"github.com/abcxyz/guardian/pkg/git"
 	"github.com/abcxyz/guardian/pkg/platform"
-	"github.com/abcxyz/guardian/pkg/reporter"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/testutil"
 )
@@ -48,7 +47,6 @@ func TestEntrypointsProcess(t *testing.T) {
 		flagMaxDepth      int
 		newGitClient      func(ctx context.Context, dir string) git.Git
 		platformClient    *platform.MockPlatform
-		reporterClient    *reporter.MockReporter
 		err               string
 		expStdout         string
 		expStderr         string
@@ -193,7 +191,6 @@ func TestEntrypointsProcess(t *testing.T) {
 			t.Parallel()
 
 			mockPlatformClient := &platform.MockPlatform{}
-			mockReporterClient := &reporter.MockReporter{}
 
 			c := &EntrypointsCommand{
 				flagDir:           tc.flagDir,
@@ -202,7 +199,6 @@ func TestEntrypointsProcess(t *testing.T) {
 				flagDetectChanges: tc.flagDetectChanges,
 				flagMaxDepth:      tc.flagMaxDepth,
 				platformClient:    mockPlatformClient,
-				reporterClient:    mockReporterClient,
 
 				newGitClient: tc.newGitClient,
 			}

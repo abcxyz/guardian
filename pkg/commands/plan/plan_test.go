@@ -23,7 +23,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	"github.com/abcxyz/guardian/pkg/reporter"
+	"github.com/abcxyz/guardian/pkg/platform"
 	"github.com/abcxyz/guardian/pkg/storage"
 	"github.com/abcxyz/guardian/pkg/terraform"
 	"github.com/abcxyz/pkg/logging"
@@ -130,7 +130,7 @@ func TestPlan_Process(t *testing.T) {
 		flagLockTimeout          time.Duration
 		terraformClient          *terraform.MockTerraformClient
 		err                      string
-		expReporterClientReqs    []*reporter.Request
+		expPlatformClientReqs    []*platform.Request
 		expStorageClientReqs     []*storage.Request
 		expStdout                string
 		expStderr                string
@@ -142,10 +142,10 @@ func TestPlan_Process(t *testing.T) {
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
 			terraformClient:          terraformDiffMock,
-			expReporterClientReqs: []*reporter.Request{
+			expPlatformClientReqs: []*platform.Request{
 				{
 					Name:   "Status",
-					Params: []any{reporter.StatusSuccess, &reporter.StatusParams{HasDiff: true, Details: "terraform show success with diff", Dir: "testdata", Operation: "plan"}},
+					Params: []any{platform.StatusSuccess, &platform.StatusParams{HasDiff: true, Details: "terraform show success with diff", Dir: "testdata", Operation: "plan"}},
 				},
 			},
 			expStorageClientReqs: []*storage.Request{
@@ -165,10 +165,10 @@ func TestPlan_Process(t *testing.T) {
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
 			terraformClient:          terraformNoDiffMock,
-			expReporterClientReqs: []*reporter.Request{
+			expPlatformClientReqs: []*platform.Request{
 				{
 					Name:   "Status",
-					Params: []any{reporter.StatusNoOperation, &reporter.StatusParams{HasDiff: false, Dir: "testdata", Operation: "plan"}},
+					Params: []any{platform.StatusNoOperation, &platform.StatusParams{HasDiff: false, Dir: "testdata", Operation: "plan"}},
 				},
 			},
 			expStorageClientReqs: []*storage.Request{
@@ -191,10 +191,10 @@ func TestPlan_Process(t *testing.T) {
 			expStdout:                "terraform init output",
 			expStderr:                "terraform init failed",
 			err:                      "failed to run Guardian plan: failed to initialize: failed to run terraform init",
-			expReporterClientReqs: []*reporter.Request{
+			expPlatformClientReqs: []*platform.Request{
 				{
 					Name:   "Status",
-					Params: []any{reporter.StatusFailure, &reporter.StatusParams{HasDiff: false, Details: "terraform init failed", ErrorMessage: "failed to initialize: failed to run terraform init", Dir: "testdata", Operation: "plan"}},
+					Params: []any{platform.StatusFailure, &platform.StatusParams{HasDiff: false, Details: "terraform init failed", ErrorMessage: "failed to initialize: failed to run terraform init", Dir: "testdata", Operation: "plan"}},
 				},
 			},
 		},
@@ -207,7 +207,7 @@ func TestPlan_Process(t *testing.T) {
 			t.Parallel()
 
 			mockStorageClient := &storage.MockStorageClient{}
-			mockReporterClient := &reporter.MockReporter{}
+			mockPlatformClient := &platform.MockPlatform{}
 
 			c := &PlanCommand{
 				directory:                tc.directory,
@@ -218,7 +218,7 @@ func TestPlan_Process(t *testing.T) {
 				flagLockTimeout:          tc.flagLockTimeout,
 				terraformClient:          tc.terraformClient,
 				storageClient:            mockStorageClient,
-				reporterClient:           mockReporterClient,
+				platformClient:           mockPlatformClient,
 			}
 
 			_, stdout, stderr := c.Pipe()
@@ -228,8 +228,8 @@ func TestPlan_Process(t *testing.T) {
 				t.Errorf(diff)
 			}
 
-			if diff := cmp.Diff(mockReporterClient.Reqs, tc.expReporterClientReqs); diff != "" {
-				t.Errorf("Reporter calls not as expected; (-got,+want): %s", diff)
+			if diff := cmp.Diff(mockPlatformClient.Reqs, tc.expPlatformClientReqs); diff != "" {
+				t.Errorf("Platform calls not as expected; (-got,+want): %s", diff)
 			}
 
 			if diff := cmp.Diff(mockStorageClient.Reqs, tc.expStorageClientReqs); diff != "" {

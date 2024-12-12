@@ -33,7 +33,6 @@ import (
 	"github.com/abcxyz/guardian/internal/metricswrap"
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/platform"
-	"github.com/abcxyz/guardian/pkg/reporter"
 	"github.com/abcxyz/guardian/pkg/storage"
 	"github.com/abcxyz/guardian/pkg/terraform"
 	"github.com/abcxyz/guardian/pkg/util"
@@ -78,7 +77,6 @@ type PlanCommand struct {
 
 	storageClient   storage.Storage
 	terraformClient terraform.Terraform
-	reporterClient  reporter.Reporter
 	platformClient  platform.Platform
 }
 
@@ -202,12 +200,6 @@ func (c *PlanCommand) Run(ctx context.Context, args []string) error {
 	}
 	c.storageClient = sc
 
-	rc, err := reporter.NewReporter(ctx, c.platformConfig.Reporter, &reporter.Config{GitHub: c.platformConfig.GitHub})
-	if err != nil {
-		return fmt.Errorf("failed to create reporter client: %w", err)
-	}
-	c.reporterClient = rc
-
 	return c.Process(ctx)
 }
 
@@ -215,8 +207,7 @@ func (c *PlanCommand) Run(ctx context.Context, args []string) error {
 func (c *PlanCommand) Process(ctx context.Context) error {
 	logger := logging.FromContext(ctx)
 	logger.DebugContext(ctx, "starting guardian plan",
-		"platform", c.platformConfig.Type,
-		"reporter", c.platformConfig.Reporter)
+		"platform", c.platformConfig.Type)
 
 	var merr error
 
@@ -224,28 +215,28 @@ func (c *PlanCommand) Process(ctx context.Context) error {
 
 	operation := "plan"
 
-	rp := &reporter.StatusParams{
+	sp := &platform.StatusParams{
 		Operation: operation,
 		Dir:       c.childPath,
 	}
 
-	status := reporter.StatusNoOperation
+	status := platform.StatusNoOperation
 
 	result, err := c.terraformPlan(ctx)
 	if err != nil {
 		merr = errors.Join(merr, fmt.Errorf("failed to run Guardian plan: %w", err))
-		status = reporter.StatusFailure
-		rp.ErrorMessage = err.Error()
-		rp.Details = result.commentDetails
+		status = platform.StatusFailure
+		sp.ErrorMessage = err.Error()
+		sp.Details = result.commentDetails
 	}
 
 	if result.hasChanges && err == nil {
-		status = reporter.StatusSuccess
-		rp.Details = result.commentDetails
-		rp.HasDiff = true
+		status = platform.StatusSuccess
+		sp.Details = result.commentDetails
+		sp.HasDiff = true
 	}
 
-	if err := c.reporterClient.Status(ctx, status, rp); err != nil {
+	if err := c.platformClient.ReportStatus(ctx, status, sp); err != nil {
 		merr = errors.Join(merr, fmt.Errorf("failed to report status: %w", err))
 	}
 
