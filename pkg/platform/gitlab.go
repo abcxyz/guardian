@@ -20,21 +20,31 @@ import (
 	"os"
 
 	"github.com/abcxyz/pkg/cli"
+	"github.com/abcxyz/pkg/logging"
 	gitlab "gitlab.com/gitlab-org/api/client-go"
 )
 
 var _ Platform = (*GitLab)(nil)
 
+// Based on https://docs.gitlab.com/ee/administration/instance_limits.html#size-of-comments-and-descriptions-of-issues-merge-requests-and-epics.
+const gitlabMaxCommentLength = 1000000
+
 // TODO(gjonathanhong): Implement GitLab platform.
 
 // GitLab implements the Platform interface.
 type GitLab struct {
+	cfg    *gitLabConfig
 	client *gitlab.Client
+
+	logURL string
 }
 
 type gitLabConfig struct {
 	GitLabToken   string
 	GitLabBaseURL string
+
+	GitLabProjectID      int
+	GitLabMergeRequestID int
 }
 
 type gitLabPredefinedConfig struct {
@@ -93,6 +103,7 @@ func NewGitLab(ctx context.Context, cfg *gitLabConfig) (*GitLab, error) {
 
 	return &GitLab{
 		client: c,
+		cfg:    cfg,
 	}, nil
 }
 
@@ -139,7 +150,15 @@ func (g *GitLab) DeleteReport(ctx context.Context, id int64) error {
 }
 
 // ReportStatus reports the status of a run.
-func (g *GitLab) ReportStatus(ctx context.Context, status Status, params *StatusParams) error {
+func (g *GitLab) ReportStatus(ctx context.Context, st Status, p *StatusParams) error {
+	msg, err := statusMessage(st, p, g.logURL, gitlabMaxCommentLength)
+	if err != nil {
+		return fmt.Errorf("failed to generate status message: %w", err)
+	}
+
+	if err := g.createMergeRequestNote(ctx, msg.String()); err != nil {
+		return fmt.Errorf("failed to report status: %w", err)
+	}
 	return nil
 }
 
@@ -150,5 +169,21 @@ func (g *GitLab) ReportEntrypointsSummary(ctx context.Context, params *Entrypoin
 
 // ClearReports clears any existing reports that can be removed.
 func (g *GitLab) ClearReports(ctx context.Context) error {
+	return nil
+}
+
+func (g *GitLab) createMergeRequestNote(ctx context.Context, msg string) error {
+	logger := logging.FromContext(ctx)
+
+	logger.DebugContext(ctx, "creating merge request note",
+		"project", g.cfg.GitLabProjectID,
+		"merge_request", g.cfg.GitLabMergeRequestID)
+
+	if _, _, err := g.client.Notes.CreateMergeRequestNote(g.cfg.GitLabProjectID, g.cfg.GitLabMergeRequestID, &gitlab.CreateMergeRequestNoteOptions{
+		Body: &msg,
+	}); err != nil {
+		return fmt.Errorf("failed to create merge request note: %w", err)
+	}
+
 	return nil
 }
