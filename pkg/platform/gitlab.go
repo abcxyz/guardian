@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
@@ -48,8 +49,10 @@ type gitLabConfig struct {
 }
 
 type gitLabPredefinedConfig struct {
-	CIJobToken   string
-	CIServerHost string
+	CIJobToken       string
+	CIServerHost     string
+	CIProjectID      int
+	CIMergeRequestID int
 }
 
 // Load retrieves the predefined GitLab CI/CD variables from environment. See
@@ -61,6 +64,14 @@ func (c *gitLabPredefinedConfig) Load() {
 
 	if v := os.Getenv("CI_SERVER_URL"); v != "" {
 		c.CIServerHost = fmt.Sprintf("%s/api/v4", v)
+	}
+
+	if v, err := strconv.Atoi(os.Getenv("CI_PROJECT_ID")); err == nil {
+		c.CIProjectID = v
+	}
+
+	if v, err := strconv.Atoi(os.Getenv("CI_MERGE_REQUEST_ID")); err == nil {
+		c.CIMergeRequestID = v
 	}
 }
 
@@ -86,6 +97,24 @@ func (c *gitLabConfig) RegisterFlags(set *cli.FlagSet) {
 		Example: "https://git.mydomain.com/api/v4",
 		Default: cfgDefaults.CIServerHost,
 		Usage:   "The base URL of the GitLab instance API.",
+		Hidden:  true,
+	})
+
+	f.IntVar(&cli.IntVar{
+		Name:    "gitlab-project-id",
+		EnvVar:  "GITLAB_PROJECT_ID",
+		Target:  &c.GitLabProjectID,
+		Default: cfgDefaults.CIProjectID,
+		Usage:   "The GitLab project ID.",
+		Hidden:  true,
+	})
+
+	f.IntVar(&cli.IntVar{
+		Name:    "gitlab-merge-request-id",
+		EnvVar:  "GITLAB_MERGE_REQUEST_ID",
+		Target:  &c.GitLabMergeRequestID,
+		Default: cfgDefaults.CIMergeRequestID,
+		Usage:   "The GitLab merge request ID.",
 		Hidden:  true,
 	})
 }
