@@ -244,7 +244,7 @@ jobs:
         env:
           GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
         run: |-
-          DIRECTORIES=$(guardian entrypoints -dir=./terraform/project1 -dir=./terraform/project2 -reporter="none")
+          DIRECTORIES=$(guardian entrypoints -dir=./terraform/project1 -dir=./terraform/project2)
           echo "entrypoints -> ${DIRECTORIES}"
           echo "directories=${DIRECTORIES}" >> $GITHUB_OUTPUT
 
