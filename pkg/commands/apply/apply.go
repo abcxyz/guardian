@@ -33,7 +33,6 @@ import (
 	"github.com/abcxyz/guardian/pkg/commands/plan"
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/platform"
-	"github.com/abcxyz/guardian/pkg/reporter"
 	"github.com/abcxyz/guardian/pkg/storage"
 	"github.com/abcxyz/guardian/pkg/terraform"
 	"github.com/abcxyz/guardian/pkg/util"
@@ -73,7 +72,6 @@ type ApplyCommand struct {
 
 	storageClient   storage.Storage
 	terraformClient terraform.Terraform
-	reporterClient  reporter.Reporter
 	platformClient  platform.Platform
 }
 
@@ -187,12 +185,6 @@ func (c *ApplyCommand) Run(ctx context.Context, args []string) error {
 	}
 	c.storageClient = sc
 
-	rc, err := reporter.NewReporter(ctx, c.platformConfig.Reporter, &reporter.Config{GitHub: c.platformConfig.GitHub})
-	if err != nil {
-		return fmt.Errorf("failed to create reporter client: %w", err)
-	}
-	c.reporterClient = rc
-
 	return c.Process(ctx)
 }
 
@@ -200,8 +192,7 @@ func (c *ApplyCommand) Run(ctx context.Context, args []string) error {
 func (c *ApplyCommand) Process(ctx context.Context) (merr error) {
 	logger := logging.FromContext(ctx)
 	logger.DebugContext(ctx, "starting guardian apply",
-		"platform", c.platformConfig.Type,
-		"reporter", c.platformConfig.Reporter)
+		"platform", c.platformConfig.Type)
 
 	util.Headerf(c.Stdout(), "Starting Guardian Apply")
 
@@ -251,23 +242,23 @@ func (c *ApplyCommand) Process(ctx context.Context) (merr error) {
 
 	operation := "apply"
 
-	rp := &reporter.StatusParams{
+	sp := &platform.StatusParams{
 		Operation: operation,
 		Dir:       c.childPath,
 		HasDiff:   true,
 	}
 
-	status := reporter.StatusSuccess
+	status := platform.StatusSuccess
 
 	result, err := c.terraformApply(ctx)
 	if err != nil {
 		merr = errors.Join(merr, fmt.Errorf("failed to run Guardian apply: %w", err))
-		status = reporter.StatusFailure
+		status = platform.StatusFailure
 	}
 
-	rp.Details = result.commentDetails
+	sp.Details = result.commentDetails
 
-	if err := c.reporterClient.Status(ctx, status, rp); err != nil {
+	if err := c.platformClient.ReportStatus(ctx, status, sp); err != nil {
 		merr = errors.Join(merr, fmt.Errorf("failed to report status: %w", err))
 	}
 
