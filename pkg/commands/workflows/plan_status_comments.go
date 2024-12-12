@@ -35,8 +35,9 @@ type PlanStatusCommentCommand struct {
 
 	platformConfig platform.Config
 
-	flagInitResult string
-	flagPlanResult []string
+	flagInitResult    string
+	flagPlanResult    []string
+	flagSkipReporting bool
 
 	platformClient platform.Platform
 }
@@ -72,6 +73,14 @@ func (c *PlanStatusCommentCommand) Flags() *cli.FlagSet {
 		Target:  &c.flagPlanResult,
 		Example: "failure",
 		Usage:   "The Guardian plan job result status.",
+	})
+
+	f.BoolVar(&cli.BoolVar{
+		Name:    "skip-reporting",
+		Target:  &c.flagSkipReporting,
+		Default: false,
+		Example: "true",
+		Usage:   "Skips reporting of the plan status on the change request.",
 	})
 
 	set.AfterParse(func(existingErr error) (merr error) {
@@ -117,6 +126,10 @@ func (c *PlanStatusCommentCommand) Process(ctx context.Context) error {
 	// no comments as each plan run will comment their failure status
 	if c.flagInitResult == github.GitHubWorkflowResultFailure || slices.Contains(c.flagPlanResult, github.GitHubWorkflowResultFailure) {
 		return fmt.Errorf("init or plan has one or more failures")
+	}
+
+	if c.flagSkipReporting {
+		return nil
 	}
 
 	// all plan runs were skipped, meaning there were no changes to plan

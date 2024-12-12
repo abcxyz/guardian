@@ -74,6 +74,7 @@ type PlanCommand struct {
 	flagStorage              string
 	flagAllowLockfileChanges bool
 	flagLockTimeout          time.Duration
+	flagSkipReporting        bool
 
 	storageClient   storage.Storage
 	terraformClient terraform.Terraform
@@ -130,6 +131,14 @@ func (c *PlanCommand) Flags() *cli.FlagSet {
 		Target:  &c.flagOutputDir,
 		Example: "./output/plan",
 		Usage:   "Write the plan binary and JSON file to a target local directory.",
+	})
+
+	f.BoolVar(&cli.BoolVar{
+		Name:    "skip-reporting",
+		Target:  &c.flagSkipReporting,
+		Default: false,
+		Example: "true",
+		Usage:   "Skips reporting of the plan status on the change request.",
 	})
 	return set
 }
@@ -234,6 +243,10 @@ func (c *PlanCommand) Process(ctx context.Context) error {
 		status = platform.StatusSuccess
 		sp.Details = result.commentDetails
 		sp.HasDiff = true
+	}
+
+	if c.flagSkipReporting {
+		return merr
 	}
 
 	if err := c.platformClient.ReportStatus(ctx, status, sp); err != nil {

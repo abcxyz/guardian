@@ -48,6 +48,7 @@ type EntrypointsCommand struct {
 	flagDetectChanges           bool
 	flagFailUnresolvableModules bool
 	flagMaxDepth                int
+	flagSkipReporting           bool
 
 	parsedFlagMaxDepth *int
 
@@ -112,6 +113,14 @@ func (c *EntrypointsCommand) Flags() *cli.FlagSet {
 		Target:  &c.flagMaxDepth,
 		Usage:   `How far to traverse the filesystem beneath the target directory for entrypoints.`,
 		Default: -1,
+	})
+
+	f.BoolVar(&cli.BoolVar{
+		Name:    "skip-reporting",
+		Target:  &c.flagSkipReporting,
+		Default: false,
+		Example: "true",
+		Usage:   "Skips reporting of the entrypoints status on the change request.",
 	})
 
 	// should come after command options in help output
@@ -217,6 +226,10 @@ func (c *EntrypointsCommand) Process(ctx context.Context) error {
 
 	if err := c.writeOutput(cwd, results); err != nil {
 		return fmt.Errorf("failed to write output: %w", err)
+	}
+
+	if c.flagSkipReporting {
+		return nil
 	}
 
 	if err := c.platformClient.ReportEntrypointsSummary(ctx, &platform.EntrypointsSummaryParams{
