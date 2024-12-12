@@ -304,7 +304,7 @@ func (d *IAMDriftDetector) URI(i *assetinventory.AssetIAM) string {
 	}
 }
 
-// URI returns a canonical string identifier for the IAM entity.
+// ResourceURI returns a canonical string identifier for the IAM entity.
 // This is used for diffing and as output to the user.
 func ResourceURI(i *assetinventory.AssetIAM) string {
 	switch i.ResourceType {

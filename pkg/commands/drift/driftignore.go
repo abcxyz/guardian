@@ -164,18 +164,21 @@ func isIgnored(a *assetinventory.AssetIAM, ignored *ignoredAssets) bool {
 	if _, ok := ignored.roles[roleURI(a)]; ok {
 		return true
 	}
-	if a.ResourceType == assetinventory.Project {
+	switch a.ResourceType {
+	case assetinventory.Project:
 		if _, ok := ignored.projectIDs[a.ResourceID]; !ok {
 			return false
 		}
-	} else if a.ResourceType == assetinventory.Folder {
+		return true
+	case assetinventory.Folder:
 		if _, ok := ignored.folderIDs[a.ResourceID]; !ok {
 			return false
 		}
-	} else { // Handle default case so we do not accidentally drop values.
+		return true
+	default:
+		// Handle default case so we do not accidentally drop values.
 		return false
 	}
-	return true
 }
 
 func selectFrom[K any](values []string, from map[string]K) map[string]K {
