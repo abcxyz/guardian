@@ -16,6 +16,7 @@ package platform
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -62,8 +63,8 @@ func (c *gitLabPredefinedConfig) Load() {
 		c.CIJobToken = v
 	}
 
-	if v := os.Getenv("CI_SERVER_URL"); v != "" {
-		c.CIServerHost = fmt.Sprintf("%s/api/v4", v)
+	if v := os.Getenv("CI_API_V4_URL"); v != "" {
+		c.CIServerHost = v
 	}
 
 	if v, err := strconv.Atoi(os.Getenv("CI_PROJECT_ID")); err == nil {
@@ -93,7 +94,7 @@ func (c *gitLabConfig) RegisterFlags(set *cli.FlagSet) {
 	f.StringVar(&cli.StringVar{
 		Name:    "gitlab-base-url",
 		EnvVar:  "GITHUB_BASE_URL",
-		Target:  &c.GitLabToken,
+		Target:  &c.GitLabBaseURL,
 		Example: "https://git.mydomain.com/api/v4",
 		Default: cfgDefaults.CIServerHost,
 		Usage:   "The base URL of the GitLab instance API.",
@@ -180,6 +181,10 @@ func (g *GitLab) DeleteReport(ctx context.Context, id int64) error {
 
 // ReportStatus reports the status of a run.
 func (g *GitLab) ReportStatus(ctx context.Context, st Status, p *StatusParams) error {
+	if err := validateGitLabReporterInputs(g.cfg); err != nil {
+		return fmt.Errorf("failed to validate GitLab reporter inputs: %w", err)
+	}
+
 	msg, err := statusMessage(st, p, g.logURL, gitlabMaxCommentLength)
 	if err != nil {
 		return fmt.Errorf("failed to generate status message: %w", err)
@@ -215,4 +220,21 @@ func (g *GitLab) createMergeRequestNote(ctx context.Context, msg string) error {
 	}
 
 	return nil
+}
+
+func validateGitLabReporterInputs(cfg *gitLabConfig) error {
+	var merr error
+	if cfg.GitLabProjectID <= 0 {
+		merr = errors.Join(merr, fmt.Errorf("gitlab project id is required"))
+	}
+
+	if cfg.GitLabMergeRequestID <= 0 {
+		merr = errors.Join(merr, fmt.Errorf("gitlab merge request id is required"))
+	}
+
+	if cfg.GitLabToken == "" {
+		merr = errors.Join(merr, fmt.Errorf("gitlab token is required"))
+	}
+
+	return merr
 }
