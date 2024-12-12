@@ -14,20 +14,86 @@
 
 package platform
 
-import "context"
+import (
+	"context"
+	"fmt"
+	"os"
+
+	"github.com/abcxyz/pkg/cli"
+	gitlab "gitlab.com/gitlab-org/api/client-go"
+)
 
 var _ Platform = (*GitLab)(nil)
 
 // TODO(gjonathanhong): Implement GitLab platform.
 
 // GitLab implements the Platform interface.
-type GitLab struct{}
+type GitLab struct {
+	client *gitlab.Client
+}
 
-type gitLabConfig struct{}
+type gitLabConfig struct {
+	GitLabToken   string
+	GitLabBaseURL string
+}
+
+type gitLabPredefinedConfig struct {
+	CIJobToken   string
+	CIServerHost string
+}
+
+// Load retrieves the predefined GitLab CI/CD variables from environment. See
+// https://docs.gitlab.com/ee/ci/variables/predefined_variables.html#predefined-variables.
+func (c *gitLabPredefinedConfig) Load() {
+	if v := os.Getenv("CI_JOB_TOKEN"); v != "" {
+		c.CIJobToken = v
+	}
+
+	if v := os.Getenv("CI_SERVER_URL"); v != "" {
+		c.CIServerHost = fmt.Sprintf("%s/api/v4", v)
+	}
+}
+
+func (c *gitLabConfig) RegisterFlags(set *cli.FlagSet) {
+	f := set.NewSection("GITLAB OPTIONS")
+
+	cfgDefaults := &gitLabPredefinedConfig{}
+	cfgDefaults.Load()
+
+	f.StringVar(&cli.StringVar{
+		Name:    "gitlab-token",
+		EnvVar:  "GITLAB_TOKEN",
+		Target:  &c.GitLabToken,
+		Default: cfgDefaults.CIJobToken,
+		Usage:   "The GitLab access token to make GitLab API calls.",
+		Hidden:  true,
+	})
+
+	f.StringVar(&cli.StringVar{
+		Name:    "gitlab-base-url",
+		EnvVar:  "GITHUB_BASE_URL",
+		Target:  &c.GitLabToken,
+		Example: "https://git.mydomain.com/api/v4",
+		Default: cfgDefaults.CIServerHost,
+		Usage:   "The base URL of the GitLab instance API.",
+		Hidden:  true,
+	})
+}
 
 // NewGitLab creates a new GitLab client.
 func NewGitLab(ctx context.Context, cfg *gitLabConfig) (*GitLab, error) {
-	return &GitLab{}, nil
+	if cfg.GitLabBaseURL == "" {
+		return nil, fmt.Errorf("gitlab base url is required")
+	}
+
+	c, err := gitlab.NewClient(cfg.GitLabToken, gitlab.WithBaseURL(cfg.GitLabBaseURL))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create gitlab client: %w", err)
+	}
+
+	return &GitLab{
+		client: c,
+	}, nil
 }
 
 // AssignReviewers adds users to the reviewers list of a Merge Request.
