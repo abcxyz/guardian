@@ -18,7 +18,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sort"
 	"strings"
 
 	"golang.org/x/exp/maps"
@@ -30,12 +29,20 @@ import (
 	"github.com/abcxyz/pkg/workerpool"
 )
 
-// IAMDrift represents the detected iam drift in a gcp org.
-type IAMDrift struct {
-	ClickOpsChanges         []string
-	MissingTerraformChanges []string
+// TerraformStateIAMSource is a wrapper around AssetIAM with extra metadata about terraform state.
+type TerraformStateIAMSource struct {
+	*assetinventory.AssetIAM
+	// The URI of the statefile.
+	StateFileURI string
 }
 
+// IAMDrift represents the detected iam drift in a gcp org.
+type IAMDrift struct {
+	ClickOpsChanges         map[string]*assetinventory.AssetIAM
+	MissingTerraformChanges map[string]*TerraformStateIAMSource
+}
+
+// IAMDriftDetector detects iam drift between a GCP org and terraform state files.
 type IAMDriftDetector struct {
 	assetInventoryClient  assetinventory.AssetInventory
 	terraformParser       parser.Terraform
@@ -45,6 +52,7 @@ type IAMDriftDetector struct {
 	projectsByID          map[string]*assetinventory.HierarchyNode
 }
 
+// NewIAMDriftDetector constructs a new instance of a IAMDriftDetector.
 func NewIAMDriftDetector(ctx context.Context, organizationID string, maxConcurrentRequests int64) (*IAMDriftDetector, error) {
 	assetInventoryClient, err := assetinventory.NewClient(ctx)
 	if err != nil {
@@ -151,7 +159,7 @@ func (d *IAMDriftDetector) DetectDrift(
 	}
 
 	gcpIAMNoIgnored := filterIgnored(gcpIAM, ignoredExpanded)
-	tfIAMNoIgnored := filterIgnored(tfIAM, ignoredExpanded)
+	tfIAMNoIgnored := filterIgnoredTF(tfIAM, ignoredExpanded)
 
 	logger.DebugContext(ctx, "gcp iam entries",
 		"number_of_in_scope_entries", len(gcpIAMNoIgnored),
@@ -162,16 +170,17 @@ func (d *IAMDriftDetector) DetectDrift(
 		"number_of_entries", len(tfIAM),
 		"number_of_ignored_entries", len(tfIAM)-len(tfIAMNoIgnored))
 
-	clickOpsChanges := sets.SubtractMapKeys(gcpIAMNoIgnored, tfIAMNoIgnored)
-	missingTerraformChanges := sets.SubtractMapKeys(tfIAMNoIgnored, gcpIAMNoIgnored)
+	clickOpsChanges := sets.Subtract(maps.Keys(gcpIAMNoIgnored), maps.Keys(tfIAMNoIgnored))
+	missingTerraformChanges := sets.Subtract(maps.Keys(tfIAMNoIgnored), maps.Keys(gcpIAMNoIgnored))
 
-	clickOpsNoIgnoredChanges := sets.Subtract(maps.Keys(clickOpsChanges), maps.Keys(ignored.iamAssets))
-	missingTerraformNoIgnoredChanges := sets.Subtract(maps.Keys(missingTerraformChanges), maps.Keys(ignored.iamAssets))
+	clickOpsNoIgnoredChanges := sets.Subtract(clickOpsChanges, maps.Keys(ignored.iamAssets))
+	missingTerraformNoIgnoredChanges := sets.Subtract(missingTerraformChanges, maps.Keys(ignored.iamAssets))
 
 	clickOpsNoDefaultIgnoredChanges := filterDefaultURIs(clickOpsNoIgnoredChanges)
 	missingTerraformNoDefaultIgnoredChanges := filterDefaultURIs(missingTerraformNoIgnoredChanges)
-	sort.Strings(clickOpsNoDefaultIgnoredChanges)
-	sort.Strings(missingTerraformNoDefaultIgnoredChanges)
+
+	finalClickOpsChanges := selectFrom(clickOpsNoDefaultIgnoredChanges, gcpIAM)
+	finalMissingTerraformChanges := selectFrom(missingTerraformNoDefaultIgnoredChanges, tfIAM)
 
 	logger.DebugContext(ctx, "found click ops changes",
 		"number_of_in_scope_changes", len(clickOpsNoDefaultIgnoredChanges),
@@ -183,8 +192,8 @@ func (d *IAMDriftDetector) DetectDrift(
 		"number_of_ignored_changes", (len(missingTerraformChanges) - len(missingTerraformNoDefaultIgnoredChanges)))
 
 	return &IAMDrift{
-		ClickOpsChanges:         clickOpsNoDefaultIgnoredChanges,
-		MissingTerraformChanges: missingTerraformNoDefaultIgnoredChanges,
+		ClickOpsChanges:         finalClickOpsChanges,
+		MissingTerraformChanges: finalMissingTerraformChanges,
 	}, nil
 }
 
@@ -214,15 +223,15 @@ func (d *IAMDriftDetector) actualGCPIAM(ctx context.Context) (map[string]*asseti
 
 // terraformStateIAM locates all terraform state files in GCS buckets and parses them to find all IAM resources.
 // Returns a map of asset URI to asset IAM.
-func (d *IAMDriftDetector) terraformStateIAM(ctx context.Context, gcsBuckets []string) (map[string]*assetinventory.AssetIAM, error) {
+func (d *IAMDriftDetector) terraformStateIAM(ctx context.Context, gcsBuckets []string) (map[string]*TerraformStateIAMSource, error) {
 	d.terraformParser.SetAssets(d.foldersByID, d.projectsByID)
-	w := workerpool.New[[]*assetinventory.AssetIAM](&workerpool.Config{
+	w := workerpool.New[map[string][]*assetinventory.AssetIAM](&workerpool.Config{
 		Concurrency: d.maxConcurrentRequests,
 		StopOnError: true,
 	})
 	for _, b := range gcsBuckets {
 		bucket := b
-		if err := w.Do(ctx, func() ([]*assetinventory.AssetIAM, error) {
+		if err := w.Do(ctx, func() (map[string][]*assetinventory.AssetIAM, error) {
 			gcsURIs, err := d.terraformParser.StateFileURIs(ctx, []string{bucket})
 			if err != nil {
 				return nil, fmt.Errorf("failed to get terraform state file URIs: %w", err)
@@ -242,7 +251,7 @@ func (d *IAMDriftDetector) terraformStateIAM(ctx context.Context, gcsBuckets []s
 		return nil, fmt.Errorf("failed to execute terraform IAM tasks in parallel: %w", err)
 	}
 
-	tfIAM := make(map[string]*assetinventory.AssetIAM)
+	tfIAM := make(map[string]*TerraformStateIAMSource)
 	errs := []error{}
 	for _, r := range iamResults {
 		if err := r.Error; err != nil {
@@ -251,8 +260,13 @@ func (d *IAMDriftDetector) terraformStateIAM(ctx context.Context, gcsBuckets []s
 			}
 			continue
 		}
-		for _, iamF := range r.Value {
-			tfIAM[d.URI(iamF)] = iamF
+		for statefileURI, iamFs := range r.Value {
+			for _, iamF := range iamFs {
+				tfIAM[d.URI(iamF)] = &TerraformStateIAMSource{
+					AssetIAM:     iamF,
+					StateFileURI: statefileURI,
+				}
+			}
 		}
 	}
 	if len(errs) > 0 {
@@ -287,5 +301,22 @@ func (d *IAMDriftDetector) URI(i *assetinventory.AssetIAM) string {
 		return fmt.Sprintf("unknownParent:/organizations/%s/%s/%s/%s/%s", d.organizationID, i.ResourceType, i.ResourceID, role, i.Member)
 	default:
 		return fmt.Sprintf("unknownParent:/organizations/%s/%s/%s/%s/%s", d.organizationID, i.ResourceType, i.ResourceID, role, i.Member)
+	}
+}
+
+// ResourceURI returns a canonical string identifier for the IAM entity.
+// This is used for diffing and as output to the user.
+func ResourceURI(i *assetinventory.AssetIAM) string {
+	switch i.ResourceType {
+	case assetinventory.Folder:
+		return fmt.Sprintf("folders/%s", i.ResourceID)
+	case assetinventory.Project:
+		return fmt.Sprintf("projects/%s", i.ResourceID)
+	case assetinventory.Organization:
+		return fmt.Sprintf("organizations/%s", i.ResourceID)
+	case assetinventory.Unknown:
+		return fmt.Sprintf("%s/%s", i.ResourceType, i.ResourceID)
+	default:
+		return fmt.Sprintf("%s/%s", i.ResourceType, i.ResourceID)
 	}
 }
