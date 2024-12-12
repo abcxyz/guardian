@@ -21,9 +21,10 @@ import (
 	"os"
 	"strconv"
 
+	gitlab "gitlab.com/gitlab-org/api/client-go"
+
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
-	gitlab "gitlab.com/gitlab-org/api/client-go"
 )
 
 var _ Platform = (*GitLab)(nil)
