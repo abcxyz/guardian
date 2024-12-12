@@ -36,14 +36,21 @@ type MockPlatform struct {
 	AssignReviewersErr  error
 	ActorUsername       string
 	GetPolicyDataErr    error
+	DeleteReportErr     error
+	ListReportsErr      error
 	ModifierContentResp string
 	ModifierContentErr  error
+	Reports             []*Report
 	StoragePrefixResp   string
 	StoragePrefixErr    error
 	TeamApprovers       []string
 	UserApprovers       []string
 	UserAccessLevel     string
 	UserTeams           []string
+
+	ReportStatusErr             error
+	ReportEntrypointsSummaryErr error
+	ClearReportsErr             error
 }
 
 func (m *MockPlatform) AssignReviewers(ctx context.Context, input *AssignReviewersInput) (*AssignReviewersResult, error) {
@@ -160,4 +167,80 @@ func (m *MockPlatform) StoragePrefix(ctx context.Context) (string, error) {
 	})
 
 	return m.StoragePrefixResp, m.StoragePrefixErr
+}
+
+// ReportStatus reports the status of a run.
+func (m *MockPlatform) ReportStatus(ctx context.Context, s Status, p *StatusParams) error {
+	m.reqMu.Lock()
+	defer m.reqMu.Unlock()
+
+	// make a copy to prevent outside modification
+	pCopy := new(StatusParams)
+	*pCopy = *p
+
+	m.Reqs = append(m.Reqs, &Request{
+		Name:   "Status",
+		Params: []any{s, pCopy},
+	})
+
+	return m.ReportStatusErr
+}
+
+// ListReports lists existing reports for an issue or change request.
+func (m *MockPlatform) ListReports(ctx context.Context, opts *ListReportsOptions) (*ListReportsResult, error) {
+	m.reqMu.Lock()
+	defer m.reqMu.Unlock()
+	m.Reqs = append(m.Reqs,
+		&Request{Name: "ListReports"},
+	)
+
+	if m.ListReportsErr != nil {
+		return nil, m.ListReportsErr
+	}
+
+	return &ListReportsResult{
+		Reports: m.Reports,
+	}, nil
+}
+
+// DeleteReport deletes an existing comment from an issue or change request.
+func (m *MockPlatform) DeleteReport(ctx context.Context, id int64) error {
+	m.reqMu.Lock()
+	defer m.reqMu.Unlock()
+	m.Reqs = append(m.Reqs,
+		&Request{Name: "DeleteReport"},
+	)
+
+	if m.DeleteReportErr != nil {
+		return m.DeleteReportErr
+	}
+	return nil
+}
+
+// ReportEntrypointsSummary reports the summary for the entrypoints command.
+func (m *MockPlatform) ReportEntrypointsSummary(ctx context.Context, p *EntrypointsSummaryParams) error {
+	m.reqMu.Lock()
+	defer m.reqMu.Unlock()
+
+	// make a copy to prevent outside modification
+	pCopy := new(EntrypointsSummaryParams)
+	*pCopy = *p
+
+	m.Reqs = append(m.Reqs, &Request{
+		Name:   "EntrypointsSummary",
+		Params: []any{pCopy},
+	})
+
+	return m.ReportEntrypointsSummaryErr
+}
+
+// ClearReports clears any existing reports that can be removed.
+func (m *MockPlatform) ClearReports(ctx context.Context) error {
+	m.reqMu.Lock()
+	defer m.reqMu.Unlock()
+	m.Reqs = append(m.Reqs, &Request{
+		Name: "Clear",
+	})
+
+	return m.ClearReportsErr
 }

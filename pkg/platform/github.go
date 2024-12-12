@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/google/go-github/v53/github"
@@ -31,6 +32,8 @@ import (
 	"github.com/abcxyz/pkg/githubauth"
 	"github.com/abcxyz/pkg/logging"
 )
+
+const githubMaxCommentLength = 65536
 
 var (
 	_ Platform = (*GitHub)(nil)
@@ -48,6 +51,7 @@ type GitHub struct {
 	cfg           *gh.Config
 	client        *github.Client
 	graphqlClient *githubv4.Client
+	logURL        string
 }
 
 // NewGitHub creates a new GitHub client.
@@ -95,6 +99,17 @@ func NewGitHub(ctx context.Context, cfg *gh.Config) (*GitHub, error) {
 		cfg:           cfg,
 		client:        client,
 		graphqlClient: graphqlClient,
+	}
+
+	if cfg.GitHubServerURL != "" || cfg.GitHubRunID > 0 || cfg.GitHubRunAttempt > 0 {
+		g.logURL = fmt.Sprintf("%s/%s/%s/actions/runs/%d/attempts/%d", cfg.GitHubServerURL, cfg.GitHubOwner, cfg.GitHubRepo, cfg.GitHubRunID, cfg.GitHubRunAttempt)
+	}
+
+	if cfg.GitHubJobName != "" {
+		resolvedURL, err := g.resolveJobLogsURL(ctx)
+		if err == nil {
+			g.logURL = resolvedURL
+		}
 	}
 
 	return g, nil
@@ -460,4 +475,219 @@ func (g *GitHub) StoragePrefix(ctx context.Context) (string, error) {
 
 	logger.DebugContext(ctx, "returning no storage prefix")
 	return "", nil
+}
+
+// ReportStatus reports the status of a run.
+func (g *GitHub) ReportStatus(ctx context.Context, st Status, p *StatusParams) error {
+	if err := validateGitHubReporterInputs(g.cfg); err != nil {
+		return fmt.Errorf("failed to validate reporter inputs: %w", err)
+	}
+
+	msg, err := statusMessage(st, p, g.logURL, githubMaxCommentLength)
+	if err != nil {
+		return fmt.Errorf("failed to generate status message: %w", err)
+	}
+
+	if err = g.createIssueComment(
+		ctx,
+		g.cfg.GitHubOwner,
+		g.cfg.GitHubRepo,
+		g.cfg.GitHubPullRequestNumber,
+		msg.String(),
+	); err != nil {
+		return fmt.Errorf("failed to report: %w", err)
+	}
+
+	return nil
+}
+
+// ReportEntrypointsSummary implements the reporter EntrypointsSummary function by writing a GitHub comment.
+func (g *GitHub) ReportEntrypointsSummary(ctx context.Context, p *EntrypointsSummaryParams) error {
+	if err := validateGitHubReporterInputs(g.cfg); err != nil {
+		return fmt.Errorf("failed to validate reporter inputs: %w", err)
+	}
+
+	msg, err := entrypointsSummaryMessage(p, g.logURL)
+	if err != nil {
+		return fmt.Errorf("failed to generate summary message: %w", err)
+	}
+
+	if err := g.createIssueComment(
+		ctx,
+		g.cfg.GitHubOwner,
+		g.cfg.GitHubRepo,
+		g.cfg.GitHubPullRequestNumber,
+		msg.String(),
+	); err != nil {
+		return fmt.Errorf("failed to report: %w", err)
+	}
+
+	return nil
+}
+
+// ClearReports clears any existing reports that can be removed.
+func (g *GitHub) ClearReports(ctx context.Context) error {
+	listOpts := &ListReportsOptions{
+		GitHub: &github.IssueListCommentsOptions{
+			ListOptions: github.ListOptions{PerPage: 100},
+		},
+	}
+
+	for {
+		response, err := g.ListReports(ctx, listOpts)
+		if err != nil {
+			return fmt.Errorf("failed to list comments: %w", err)
+		}
+
+		if response.Reports == nil {
+			return nil
+		}
+
+		for _, comment := range response.Reports {
+			// prefix is not found, skip
+			if !strings.HasPrefix(comment.Body, commentPrefix) {
+				continue
+			}
+
+			// found the prefix, delete the comment
+			if err := g.DeleteReport(ctx, comment.ID); err != nil {
+				return fmt.Errorf("failed to delete comment: %w", err)
+			}
+		}
+
+		if response.Pagination == nil {
+			return nil
+		}
+		listOpts.GitHub.Page = response.Pagination.NextPage
+	}
+}
+
+// ListReports lists existing comments for an issue or change request.
+func (g *GitHub) ListReports(ctx context.Context, opts *ListReportsOptions) (*ListReportsResult, error) {
+	var comments []*Report
+	var pagination *Pagination
+
+	if err := g.withRetries(ctx, func(ctx context.Context) error {
+		ghComments, resp, err := g.client.Issues.ListComments(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, g.cfg.GitHubPullRequestNumber, opts.GitHub)
+		if err != nil {
+			if resp != nil {
+				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
+					return retry.RetryableError(err)
+				}
+			}
+			return fmt.Errorf("failed to list pull request comments: %w", err)
+		}
+
+		for _, c := range ghComments {
+			comments = append(comments, &Report{ID: c.GetID(), Body: c.GetBody()})
+		}
+
+		if resp.NextPage != 0 {
+			pagination = &Pagination{NextPage: resp.NextPage}
+		}
+
+		return nil
+	}); err != nil {
+		return nil, fmt.Errorf("failed to list pull request comments: %w", err)
+	}
+
+	return &ListReportsResult{Reports: comments, Pagination: pagination}, nil
+}
+
+// DeleteReport deletes an existing comment from an issue or change request.
+func (g *GitHub) DeleteReport(ctx context.Context, id int64) error {
+	if err := g.withRetries(ctx, func(ctx context.Context) error {
+		resp, err := g.client.Issues.DeleteComment(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, id)
+		if err != nil {
+			if resp != nil {
+				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
+					return retry.RetryableError(err)
+				}
+			}
+			return fmt.Errorf("failed to delete pull request comment: %w", err)
+		}
+
+		return nil
+	}); err != nil {
+		return fmt.Errorf("failed to delete pull request comment: %w", err)
+	}
+
+	return nil
+}
+
+// createIssueComment creates a comment for an issue or pull request.
+func (g *GitHub) createIssueComment(ctx context.Context, owner, repo string, number int, body string) error {
+	if err := g.withRetries(ctx, func(ctx context.Context) error {
+		_, resp, err := g.client.Issues.CreateComment(ctx, owner, repo, number, &github.IssueComment{
+			Body: &body,
+		})
+		if err != nil {
+			if resp != nil {
+				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
+					return retry.RetryableError(err)
+				}
+			}
+			return fmt.Errorf("failed to create pull-request/issue comment: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return fmt.Errorf("failed to create pull-request/issue comment with retries: %w", err)
+	}
+
+	return nil
+}
+
+// validateGitHubReporterInputs validates the inputs required for reporting.
+func validateGitHubReporterInputs(cfg *gh.Config) error {
+	var merr error
+	if cfg.GitHubOwner == "" {
+		merr = errors.Join(merr, fmt.Errorf("github owner is required"))
+	}
+
+	if cfg.GitHubRepo == "" {
+		merr = errors.Join(merr, fmt.Errorf("github repo is required"))
+	}
+
+	if cfg.GitHubPullRequestNumber <= 0 && cfg.GitHubSHA == "" {
+		merr = errors.Join(merr, fmt.Errorf("one of github pull request number or github sha are required"))
+	}
+
+	return merr
+}
+
+// Job is the GitHub Job that runs as part of a workflow.
+type job struct {
+	ID   int64
+	Name string
+	URL  string
+}
+
+func (g *GitHub) resolveJobLogsURL(ctx context.Context) (string, error) {
+	var jobs []*job
+
+	if err := g.withRetries(ctx, func(ctx context.Context) error {
+		ghJobs, resp, err := g.client.Actions.ListWorkflowJobs(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, g.cfg.GitHubRunID, nil)
+		if err != nil {
+			if resp != nil {
+				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
+					return retry.RetryableError(err)
+				}
+			}
+			return fmt.Errorf("failed to list jobs for workflow run attempt: %w", err)
+		}
+
+		for _, workflowJob := range ghJobs.Jobs {
+			jobs = append(jobs, &job{ID: workflowJob.GetID(), Name: workflowJob.GetName(), URL: *workflowJob.HTMLURL})
+		}
+		return nil
+	}); err != nil {
+		return "", fmt.Errorf("failed to resolve direct URL to job logs: %w", err)
+	}
+
+	for _, job := range jobs {
+		if g.cfg.GitHubJobName == job.Name {
+			return job.URL, nil
+		}
+	}
+	return "", fmt.Errorf("failed to resolve direct URL to job logs: no job found matching name %s", g.cfg.GitHubJobName)
 }

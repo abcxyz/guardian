@@ -21,7 +21,6 @@ import (
 
 	"github.com/abcxyz/guardian/internal/metricswrap"
 	"github.com/abcxyz/guardian/pkg/platform"
-	"github.com/abcxyz/guardian/pkg/reporter"
 	"github.com/abcxyz/pkg/cli"
 )
 
@@ -32,7 +31,7 @@ type RemoveGuardianCommentsCommand struct {
 
 	platformConfig platform.Config
 
-	reporterClient reporter.Reporter
+	platformClient platform.Platform
 }
 
 func (c *RemoveGuardianCommentsCommand) Desc() string {
@@ -68,18 +67,18 @@ func (c *RemoveGuardianCommentsCommand) Run(ctx context.Context, args []string) 
 		return flag.ErrHelp
 	}
 
-	rc, err := reporter.NewReporter(ctx, c.platformConfig.Reporter, &reporter.Config{GitHub: c.platformConfig.GitHub})
+	platform, err := platform.NewPlatform(ctx, &c.platformConfig)
 	if err != nil {
-		return fmt.Errorf("failed to create reporter client: %w", err)
+		return fmt.Errorf("failed to create platform: %w", err)
 	}
-	c.reporterClient = rc
+	c.platformClient = platform
 
 	return c.Process(ctx)
 }
 
 // Process handles the main logic for the Guardian remove plan comments process.
 func (c *RemoveGuardianCommentsCommand) Process(ctx context.Context) error {
-	if err := c.reporterClient.Clear(ctx); err != nil {
+	if err := c.platformClient.ClearReports(ctx); err != nil {
 		return fmt.Errorf("failed to remove comments: %w", err)
 	}
 

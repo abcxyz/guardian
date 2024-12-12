@@ -12,119 +12,59 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package reporter provides an SDK for reporting Guardian results.
-package reporter
+package platform
 
 import (
-	"context"
 	"fmt"
 	"regexp"
-	"sort"
 	"strings"
-
-	"github.com/abcxyz/guardian/pkg/github"
 )
 
 const (
-	TypeNone   string = "none"
-	TypeGitHub string = "github"
-	TypeFile   string = "file"
+	StatusSuccess         Status = Status("SUCCESS")
+	StatusFailure         Status = Status("FAILURE")
+	StatusNoOperation     Status = Status("NO CHANGES")
+	StatusPolicyViolation Status = Status("POLICY VIOLATION")
+	StatusUnknown         Status = Status("UNKNOWN")
 )
 
-// SortedReporterTypes are the sorted Reporter types for printing messages and prediction.
-var SortedReporterTypes = func() []string {
-	allowed := append([]string{}, TypeNone, TypeGitHub)
-	sort.Strings(allowed)
-	return allowed
-}()
+var (
+	tildeChanged = regexp.MustCompile(
+		"(?m)" + // enable multi-line mode
+			"^([\t ]*)" + // only match tilde at start of line, can lead with tabs or spaces
+			"([~])") // tilde represents changes and needs switched to exclamation for git diff
+
+	swapLeadingWhitespace = regexp.MustCompile(
+		"(?m)" + // enable multi-line mode
+			"^([\t ]*)" + // only match tilde at start of line, can lead with tabs or spaces
+			`((\-(\/\+)*)|(\+(\/\-)*)|(!))`) // match characters to swap whitespace for git diff (+, +/-, -, -/+, !)
+
+	statusText = map[Status]string{
+		StatusSuccess:         "🟩 SUCCESS",
+		StatusNoOperation:     "🟦 NO CHANGES",
+		StatusFailure:         "🟥 FAILED",
+		StatusUnknown:         "⛔️ UNKNOWN",
+		StatusPolicyViolation: "🚨 ATTENTION REQUIRED",
+	}
+)
 
 // Status is the result of the operation Guardian is performing.
 type Status string
 
-// the supported statuses for reporters.
-const (
-	StatusSuccess         Status = Status("SUCCESS")          //nolint:errname // Not an error
-	StatusFailure         Status = Status("FAILURE")          //nolint:errname // Not an error
-	StatusNoOperation     Status = Status("NO CHANGES")       //nolint:errname // Not an error
-	StatusPolicyViolation Status = Status("POLICY VIOLATION") //nolint:errname // Not an error
-	StatusUnknown         Status = Status("UNKNOWN")          //nolint:errname // Not an error
-)
-
-var statusText = map[Status]string{
-	StatusSuccess:         "🟩 SUCCESS",
-	StatusNoOperation:     "🟦 NO CHANGES",
-	StatusFailure:         "🟥 FAILED",
-	StatusUnknown:         "⛔️ UNKNOWN",
-	StatusPolicyViolation: "🚨 ATTENTION REQUIRED",
-}
-
 // StatusParams are the parameters for writing status reports.
 type StatusParams struct {
-	HasDiff   bool
-	Details   string
-	Dir       string
-	Message   string
-	Operation string
+	HasDiff      bool
+	Details      string
+	Dir          string
+	ErrorMessage string
+	Message      string
+	Operation    string
 }
 
 // EntrypointsSummaryParams are the parameters for writing entrypoints summary reports.
 type EntrypointsSummaryParams struct {
 	Message string
 	Dirs    []string
-}
-
-// Reporter defines the minimum interface for a reporter.
-type Reporter interface {
-	// Status reports the status of a run.
-	Status(ctx context.Context, status Status, params *StatusParams) error
-
-	// EntrypointsSummary reports the summary for the entrypionts command.
-	EntrypointsSummary(ctx context.Context, params *EntrypointsSummaryParams) error
-
-	// Clear clears any existing reports that can be removed.
-	Clear(ctx context.Context) error
-}
-
-// Config is the configuration needed to generate different reporter types.
-type Config struct {
-	GitHub github.Config
-}
-
-// NewReporter creates a new reporter based on the provided type.
-func NewReporter(ctx context.Context, t string, c *Config) (Reporter, error) {
-	if strings.EqualFold(t, TypeNone) {
-		return NewNoopReporter(ctx)
-	}
-
-	if strings.EqualFold(t, TypeFile) {
-		return NewFileReporter()
-	}
-
-	if strings.EqualFold(t, TypeGitHub) {
-		c.GitHub.Permissions = map[string]string{
-			"contents":      "read",
-			"pull_requests": "write",
-		}
-
-		gc, err := github.NewGitHubClient(ctx, &c.GitHub)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create github client: %w", err)
-		}
-
-		return NewGitHubReporter(ctx, gc, &GitHubReporterInputs{
-			GitHubOwner:             c.GitHub.GitHubOwner,
-			GitHubRepo:              c.GitHub.GitHubRepo,
-			GitHubPullRequestNumber: c.GitHub.GitHubPullRequestNumber,
-			GitHubServerURL:         c.GitHub.GitHubServerURL,
-			GitHubRunID:             c.GitHub.GitHubRunID,
-			GitHubRunAttempt:        c.GitHub.GitHubRunAttempt,
-			GitHubJob:               c.GitHub.GitHubJob,
-			GitHubJobName:           c.GitHub.GitHubJobName,
-			GitHubSHA:               c.GitHub.GitHubSHA,
-		})
-	}
-
-	return nil, fmt.Errorf("unknown reporter type: %s", t)
 }
 
 // markdownPill returns a markdown element that is bolded and wraped in a inline code block.
@@ -137,27 +77,15 @@ func markdownURL(text, URL string) string {
 	return fmt.Sprintf("[%s](%s)", text, URL)
 }
 
-// markdonZippy returns a collapsible section with a given title and body.
+// markdownZippy returns a collapsible section with a given title and body.
 func markdownZippy(title, body string) string {
-	return fmt.Sprintf("<details>\n<summary>%s</summary>\n\n%s\n</details>", title, body)
+	return fmt.Sprintf("<details>\n<summary>%s</summary>\n\n`%s`\n</details>", title, body)
 }
 
 // markdonDiffZippy returns a collapsible section with a given title and body.
 func markdownDiffZippy(title, body string) string {
 	return fmt.Sprintf("<details>\n<summary>%s</summary>\n\n```diff\n\n%s\n```\n</details>", title, body)
 }
-
-var (
-	tildeChanged = regexp.MustCompile(
-		"(?m)" + // enable multi-line mode
-			"^([\t ]*)" + // only match tilde at start of line, can lead with tabs or spaces
-			"([~])") // tilde represents changes and needs switched to exclamation for git diff
-
-	swapLeadingWhitespace = regexp.MustCompile(
-		"(?m)" + // enable multi-line mode
-			"^([\t ]*)" + // only match tilde at start of line, can lead with tabs or spaces
-			`((\-(\/\+)*)|(\+(\/\-)*)|(!))`) // match characters to swap whitespace for git diff (+, +/-, -, -/+, !)
-)
 
 // formatOutputForDiff formats the Terraform diff output for use with
 // diff markdown formatting.
@@ -201,6 +129,10 @@ func statusMessage(st Status, p *StatusParams, logURL string, maxCommentLength i
 
 	if p.Message != "" {
 		fmt.Fprintf(&msg, "\n\n %s", p.Message)
+	}
+
+	if p.ErrorMessage != "" {
+		fmt.Fprintf(&msg, "\n\n **Error:** `%s`", p.ErrorMessage)
 	}
 
 	if p.Details != "" {

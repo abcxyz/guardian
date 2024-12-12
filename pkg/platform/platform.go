@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/google/go-github/v53/github"
 )
 
 const (
@@ -42,6 +44,7 @@ var (
 		sort.Strings(allowed)
 		return allowed
 	}()
+
 	_ Platform = (*GitHub)(nil)
 )
 
@@ -73,6 +76,28 @@ type GetPolicyDataResult struct {
 	Mock   *MockPolicyData   `json:"mock,omitempty"`
 }
 
+// Report is a comment/note on an issue or change request.
+type Report struct {
+	ID   int64
+	Body string
+}
+
+// ListReportsOptions contains the options for listing reports.
+type ListReportsOptions struct {
+	GitHub *github.IssueListCommentsOptions
+}
+
+// ListReportsResults contains the results of listing reports.
+type ListReportsResult struct {
+	Reports    []*Report
+	Pagination *Pagination
+}
+
+// Pagination is the paging details for a list response.
+type Pagination struct {
+	NextPage int
+}
+
 // Platform defines the minimum interface for a code review platform.
 type Platform interface {
 	// AssignReviewers assigns principals to review a change request.
@@ -92,8 +117,23 @@ type Platform interface {
 	// GetPolicyData retrieves the required data for policy evaluation.
 	GetPolicyData(ctx context.Context) (*GetPolicyDataResult, error)
 
+	// ListReports lists existing reports for an issue or change request.
+	ListReports(ctx context.Context, opts *ListReportsOptions) (*ListReportsResult, error)
+
+	// DeleteReport deletes an existing comment from an issue or change request.
+	DeleteReport(ctx context.Context, id int64) error
+
 	// StoragePrefix generates the unique storage prefix for the platform type.
 	StoragePrefix(ctx context.Context) (string, error)
+
+	// ReportStatus reports the status of a run.
+	ReportStatus(ctx context.Context, status Status, params *StatusParams) error
+
+	// ReportEntrypointsSummary reports the summary for the entrypoints command.
+	ReportEntrypointsSummary(ctx context.Context, params *EntrypointsSummaryParams) error
+
+	// ClearReports clears any existing reports that can be removed.
+	ClearReports(ctx context.Context) error
 }
 
 // NewPlatform creates a new platform based on the provided type.

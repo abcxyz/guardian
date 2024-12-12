@@ -23,7 +23,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	"github.com/abcxyz/guardian/pkg/reporter"
+	"github.com/abcxyz/guardian/pkg/platform"
 	"github.com/abcxyz/guardian/pkg/storage"
 	"github.com/abcxyz/guardian/pkg/terraform"
 	"github.com/abcxyz/pkg/logging"
@@ -126,12 +126,11 @@ func TestPlan_Process(t *testing.T) {
 		directory                string
 		storageParent            string
 		storagePrefix            string
-		flagDestroy              bool
 		flagAllowLockfileChanges bool
 		flagLockTimeout          time.Duration
 		terraformClient          *terraform.MockTerraformClient
 		err                      string
-		expReporterClientReqs    []*reporter.Request
+		expPlatformClientReqs    []*platform.Request
 		expStorageClientReqs     []*storage.Request
 		expStdout                string
 		expStderr                string
@@ -143,34 +142,10 @@ func TestPlan_Process(t *testing.T) {
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
 			terraformClient:          terraformDiffMock,
-			expReporterClientReqs: []*reporter.Request{
+			expPlatformClientReqs: []*platform.Request{
 				{
 					Name:   "Status",
-					Params: []any{reporter.StatusSuccess, &reporter.StatusParams{HasDiff: true, Details: "terraform show success with diff", Dir: "testdata", Operation: "plan"}},
-				},
-			},
-			expStorageClientReqs: []*storage.Request{
-				{
-					Name: "CreateObject",
-					Params: []any{
-						"testdata/tfplan.binary",
-						"this is a plan binary",
-					},
-				},
-			},
-		},
-		{
-			name:                     "success_with_diff_destroy",
-			directory:                "testdata",
-			storagePrefix:            "",
-			flagAllowLockfileChanges: true,
-			flagLockTimeout:          10 * time.Minute,
-			flagDestroy:              true,
-			terraformClient:          terraformDiffMock,
-			expReporterClientReqs: []*reporter.Request{
-				{
-					Name:   "Status",
-					Params: []any{reporter.StatusSuccess, &reporter.StatusParams{HasDiff: true, Details: "terraform show success with diff", Dir: "testdata", Operation: "plan (destroy)"}},
+					Params: []any{platform.StatusSuccess, &platform.StatusParams{HasDiff: true, Details: "terraform show success with diff", Dir: "testdata", Operation: "plan"}},
 				},
 			},
 			expStorageClientReqs: []*storage.Request{
@@ -190,10 +165,10 @@ func TestPlan_Process(t *testing.T) {
 			flagAllowLockfileChanges: true,
 			flagLockTimeout:          10 * time.Minute,
 			terraformClient:          terraformNoDiffMock,
-			expReporterClientReqs: []*reporter.Request{
+			expPlatformClientReqs: []*platform.Request{
 				{
 					Name:   "Status",
-					Params: []any{reporter.StatusNoOperation, &reporter.StatusParams{HasDiff: false, Dir: "testdata", Operation: "plan"}},
+					Params: []any{platform.StatusNoOperation, &platform.StatusParams{HasDiff: false, Dir: "testdata", Operation: "plan"}},
 				},
 			},
 			expStorageClientReqs: []*storage.Request{
@@ -216,10 +191,10 @@ func TestPlan_Process(t *testing.T) {
 			expStdout:                "terraform init output",
 			expStderr:                "terraform init failed",
 			err:                      "failed to run Guardian plan: failed to initialize: failed to run terraform init",
-			expReporterClientReqs: []*reporter.Request{
+			expPlatformClientReqs: []*platform.Request{
 				{
 					Name:   "Status",
-					Params: []any{reporter.StatusFailure, &reporter.StatusParams{HasDiff: false, Details: "terraform init failed", Dir: "testdata", Operation: "plan"}},
+					Params: []any{platform.StatusFailure, &platform.StatusParams{HasDiff: false, Details: "terraform init failed", ErrorMessage: "failed to initialize: failed to run terraform init", Dir: "testdata", Operation: "plan"}},
 				},
 			},
 		},
@@ -232,19 +207,18 @@ func TestPlan_Process(t *testing.T) {
 			t.Parallel()
 
 			mockStorageClient := &storage.MockStorageClient{}
-			mockReporterClient := &reporter.MockReporter{}
+			mockPlatformClient := &platform.MockPlatform{}
 
 			c := &PlanCommand{
 				directory:                tc.directory,
 				childPath:                tc.directory,
 				storagePrefix:            tc.storagePrefix,
 				flagOutputDir:            t.TempDir(),
-				flagDestroy:              tc.flagDestroy,
 				flagAllowLockfileChanges: tc.flagAllowLockfileChanges,
 				flagLockTimeout:          tc.flagLockTimeout,
 				terraformClient:          tc.terraformClient,
 				storageClient:            mockStorageClient,
-				reporterClient:           mockReporterClient,
+				platformClient:           mockPlatformClient,
 			}
 
 			_, stdout, stderr := c.Pipe()
@@ -254,8 +228,8 @@ func TestPlan_Process(t *testing.T) {
 				t.Errorf(diff)
 			}
 
-			if diff := cmp.Diff(mockReporterClient.Reqs, tc.expReporterClientReqs); diff != "" {
-				t.Errorf("Reporter calls not as expected; (-got,+want): %s", diff)
+			if diff := cmp.Diff(mockPlatformClient.Reqs, tc.expPlatformClientReqs); diff != "" {
+				t.Errorf("Platform calls not as expected; (-got,+want): %s", diff)
 			}
 
 			if diff := cmp.Diff(mockStorageClient.Reqs, tc.expStorageClientReqs); diff != "" {

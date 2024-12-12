@@ -33,7 +33,6 @@ import (
 	"github.com/abcxyz/guardian/internal/metricswrap"
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/platform"
-	"github.com/abcxyz/guardian/pkg/reporter"
 	"github.com/abcxyz/guardian/pkg/storage"
 	"github.com/abcxyz/guardian/pkg/terraform"
 	"github.com/abcxyz/guardian/pkg/util"
@@ -72,14 +71,13 @@ type PlanCommand struct {
 	flags.CommonFlags
 
 	flagOutputDir            string
-	flagDestroy              bool
 	flagStorage              string
 	flagAllowLockfileChanges bool
 	flagLockTimeout          time.Duration
+	flagSkipReporting        bool
 
 	storageClient   storage.Storage
 	terraformClient terraform.Terraform
-	reporterClient  reporter.Reporter
 	platformClient  platform.Platform
 }
 
@@ -114,13 +112,6 @@ func (c *PlanCommand) Flags() *cli.FlagSet {
 	})
 
 	f.BoolVar(&cli.BoolVar{
-		Name:    "destroy",
-		Target:  &c.flagDestroy,
-		Example: "true",
-		Usage:   "Use the destroy flag to plan changes to destroy all infrastructure.",
-	})
-
-	f.BoolVar(&cli.BoolVar{
 		Name:    "allow-lockfile-changes",
 		Target:  &c.flagAllowLockfileChanges,
 		Example: "true",
@@ -140,6 +131,14 @@ func (c *PlanCommand) Flags() *cli.FlagSet {
 		Target:  &c.flagOutputDir,
 		Example: "./output/plan",
 		Usage:   "Write the plan binary and JSON file to a target local directory.",
+	})
+
+	f.BoolVar(&cli.BoolVar{
+		Name:    "skip-reporting",
+		Target:  &c.flagSkipReporting,
+		Default: false,
+		Example: "true",
+		Usage:   "Skips reporting of the plan status on the change request.",
 	})
 	return set
 }
@@ -210,12 +209,6 @@ func (c *PlanCommand) Run(ctx context.Context, args []string) error {
 	}
 	c.storageClient = sc
 
-	rc, err := reporter.NewReporter(ctx, c.platformConfig.Reporter, &reporter.Config{GitHub: c.platformConfig.GitHub})
-	if err != nil {
-		return fmt.Errorf("failed to create reporter client: %w", err)
-	}
-	c.reporterClient = rc
-
 	return c.Process(ctx)
 }
 
@@ -223,39 +216,40 @@ func (c *PlanCommand) Run(ctx context.Context, args []string) error {
 func (c *PlanCommand) Process(ctx context.Context) error {
 	logger := logging.FromContext(ctx)
 	logger.DebugContext(ctx, "starting guardian plan",
-		"platform", c.platformConfig.Type,
-		"reporter", c.platformConfig.Reporter)
+		"platform", c.platformConfig.Type)
 
 	var merr error
 
 	util.Headerf(c.Stdout(), ("Starting Guardian Plan"))
 
 	operation := "plan"
-	if c.flagDestroy {
-		operation = "plan (destroy)"
-	}
 
-	rp := &reporter.StatusParams{
+	sp := &platform.StatusParams{
 		Operation: operation,
 		Dir:       c.childPath,
 	}
 
-	status := reporter.StatusNoOperation
+	status := platform.StatusNoOperation
 
 	result, err := c.terraformPlan(ctx)
 	if err != nil {
 		merr = errors.Join(merr, fmt.Errorf("failed to run Guardian plan: %w", err))
-		status = reporter.StatusFailure
-		rp.Details = result.commentDetails
+		status = platform.StatusFailure
+		sp.ErrorMessage = err.Error()
+		sp.Details = result.commentDetails
 	}
 
 	if result.hasChanges && err == nil {
-		status = reporter.StatusSuccess
-		rp.Details = result.commentDetails
-		rp.HasDiff = true
+		status = platform.StatusSuccess
+		sp.Details = result.commentDetails
+		sp.HasDiff = true
 	}
 
-	if err := c.reporterClient.Status(ctx, status, rp); err != nil {
+	if c.flagSkipReporting {
+		return merr
+	}
+
+	if err := c.platformClient.ReportStatus(ctx, status, sp); err != nil {
 		merr = errors.Join(merr, fmt.Errorf("failed to report status: %w", err))
 	}
 
@@ -337,7 +331,6 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 		Out:              pointer.To(planAbsFilepath),
 		Input:            pointer.To(false),
 		NoColor:          pointer.To(true),
-		Destroy:          pointer.To(c.flagDestroy),
 		DetailedExitcode: pointer.To(true),
 		LockTimeout:      pointer.To(c.flagLockTimeout.String()),
 	})

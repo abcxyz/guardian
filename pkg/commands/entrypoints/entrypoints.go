@@ -29,7 +29,6 @@ import (
 	"github.com/abcxyz/guardian/internal/metricswrap"
 	"github.com/abcxyz/guardian/pkg/git"
 	"github.com/abcxyz/guardian/pkg/platform"
-	"github.com/abcxyz/guardian/pkg/reporter"
 	"github.com/abcxyz/guardian/pkg/terraform"
 	"github.com/abcxyz/guardian/pkg/util"
 	"github.com/abcxyz/pkg/cli"
@@ -49,11 +48,11 @@ type EntrypointsCommand struct {
 	flagDetectChanges           bool
 	flagFailUnresolvableModules bool
 	flagMaxDepth                int
+	flagSkipReporting           bool
 
 	parsedFlagMaxDepth *int
 
 	platformClient platform.Platform
-	reporterClient reporter.Reporter
 
 	newGitClient func(ctx context.Context, dir string) git.Git
 }
@@ -116,6 +115,14 @@ func (c *EntrypointsCommand) Flags() *cli.FlagSet {
 		Default: -1,
 	})
 
+	f.BoolVar(&cli.BoolVar{
+		Name:    "skip-reporting",
+		Target:  &c.flagSkipReporting,
+		Default: false,
+		Example: "true",
+		Usage:   "Skips reporting of the entrypoints status on the change request.",
+	})
+
 	// should come after command options in help output
 	c.platformConfig.RegisterFlags(set)
 
@@ -168,12 +175,6 @@ func (c *EntrypointsCommand) Run(ctx context.Context, args []string) error {
 	}
 	c.platformClient = platform
 
-	rc, err := reporter.NewReporter(ctx, c.platformConfig.Reporter, &reporter.Config{GitHub: c.platformConfig.GitHub})
-	if err != nil {
-		return fmt.Errorf("failed to create reporter client: %w", err)
-	}
-	c.reporterClient = rc
-
 	return c.Process(ctx)
 }
 
@@ -181,8 +182,7 @@ func (c *EntrypointsCommand) Run(ctx context.Context, args []string) error {
 func (c *EntrypointsCommand) Process(ctx context.Context) error {
 	logger := logging.FromContext(ctx)
 	logger.DebugContext(ctx, "starting entrypoints",
-		"platform", c.platformConfig.Type,
-		"reporter", c.platformConfig.Reporter)
+		"platform", c.platformConfig.Type)
 
 	cwd, err := c.WorkingDir()
 	if err != nil {
@@ -228,7 +228,11 @@ func (c *EntrypointsCommand) Process(ctx context.Context) error {
 		return fmt.Errorf("failed to write output: %w", err)
 	}
 
-	if err := c.reporterClient.EntrypointsSummary(ctx, &reporter.EntrypointsSummaryParams{
+	if c.flagSkipReporting {
+		return nil
+	}
+
+	if err := c.platformClient.ReportEntrypointsSummary(ctx, &platform.EntrypointsSummaryParams{
 		Message: "Guardian will run for the following directories",
 		Dirs:    modifiedEntrypoints,
 	}); err != nil {

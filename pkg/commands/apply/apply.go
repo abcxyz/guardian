@@ -33,7 +33,6 @@ import (
 	"github.com/abcxyz/guardian/pkg/commands/plan"
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/platform"
-	"github.com/abcxyz/guardian/pkg/reporter"
 	"github.com/abcxyz/guardian/pkg/storage"
 	"github.com/abcxyz/guardian/pkg/terraform"
 	"github.com/abcxyz/guardian/pkg/util"
@@ -68,13 +67,12 @@ type ApplyCommand struct {
 	flags.CommonFlags
 
 	flagStorage              string
-	flagDestroy              bool
 	flagAllowLockfileChanges bool
 	flagLockTimeout          time.Duration
+	flagSkipReporting        bool
 
 	storageClient   storage.Storage
 	terraformClient terraform.Terraform
-	reporterClient  reporter.Reporter
 	platformClient  platform.Platform
 }
 
@@ -112,13 +110,6 @@ func (c *ApplyCommand) Flags() *cli.FlagSet {
 	})
 
 	f.BoolVar(&cli.BoolVar{
-		Name:    "destroy",
-		Target:  &c.flagDestroy,
-		Example: "true",
-		Usage:   "Use the destroy flag to apply changes to destroy all infrastructure.",
-	})
-
-	f.BoolVar(&cli.BoolVar{
 		Name:    "allow-lockfile-changes",
 		Target:  &c.flagAllowLockfileChanges,
 		Example: "true",
@@ -131,6 +122,14 @@ func (c *ApplyCommand) Flags() *cli.FlagSet {
 		Default: 10 * time.Minute,
 		Example: "10m",
 		Usage:   "The duration Terraform should wait to obtain a lock when running commands that modify state.",
+	})
+
+	f.BoolVar(&cli.BoolVar{
+		Name:    "skip-reporting",
+		Target:  &c.flagSkipReporting,
+		Default: false,
+		Example: "true",
+		Usage:   "Skips reporting of the apply status on the change request.",
 	})
 
 	return set
@@ -195,12 +194,6 @@ func (c *ApplyCommand) Run(ctx context.Context, args []string) error {
 	}
 	c.storageClient = sc
 
-	rc, err := reporter.NewReporter(ctx, c.platformConfig.Reporter, &reporter.Config{GitHub: c.platformConfig.GitHub})
-	if err != nil {
-		return fmt.Errorf("failed to create reporter client: %w", err)
-	}
-	c.reporterClient = rc
-
 	return c.Process(ctx)
 }
 
@@ -208,8 +201,7 @@ func (c *ApplyCommand) Run(ctx context.Context, args []string) error {
 func (c *ApplyCommand) Process(ctx context.Context) (merr error) {
 	logger := logging.FromContext(ctx)
 	logger.DebugContext(ctx, "starting guardian apply",
-		"platform", c.platformConfig.Type,
-		"reporter", c.platformConfig.Reporter)
+		"platform", c.platformConfig.Type)
 
 	util.Headerf(c.Stdout(), "Starting Guardian Apply")
 
@@ -258,27 +250,28 @@ func (c *ApplyCommand) Process(ctx context.Context) (merr error) {
 	c.planFileLocalPath = planFileLocalPath
 
 	operation := "apply"
-	if c.flagDestroy {
-		operation = "apply (destroy)"
-	}
 
-	rp := &reporter.StatusParams{
+	sp := &platform.StatusParams{
 		Operation: operation,
 		Dir:       c.childPath,
 		HasDiff:   true,
 	}
 
-	status := reporter.StatusSuccess
+	status := platform.StatusSuccess
 
 	result, err := c.terraformApply(ctx)
 	if err != nil {
 		merr = errors.Join(merr, fmt.Errorf("failed to run Guardian apply: %w", err))
-		status = reporter.StatusFailure
+		status = platform.StatusFailure
 	}
 
-	rp.Details = result.commentDetails
+	sp.Details = result.commentDetails
 
-	if err := c.reporterClient.Status(ctx, status, rp); err != nil {
+	if c.flagSkipReporting {
+		return merr
+	}
+
+	if err := c.platformClient.ReportStatus(ctx, status, sp); err != nil {
 		merr = errors.Join(merr, fmt.Errorf("failed to report status: %w", err))
 	}
 

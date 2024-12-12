@@ -26,7 +26,6 @@ import (
 	"github.com/abcxyz/guardian/internal/metricswrap"
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/platform"
-	"github.com/abcxyz/guardian/pkg/reporter"
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
 )
@@ -58,7 +57,6 @@ type EnforceCommand struct {
 	flags          EnforceFlags
 	commonFlags    flags.CommonFlags
 	platform       platform.Platform
-	reporter       reporter.Reporter
 }
 
 // Desc implements cli.Command.
@@ -98,12 +96,6 @@ func (c *EnforceCommand) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("failed to create platform: %w", err)
 	}
 	c.platform = platform
-
-	reporter, err := reporter.NewReporter(ctx, c.platformConfig.Reporter, &reporter.Config{GitHub: c.platformConfig.GitHub})
-	if err != nil {
-		return fmt.Errorf("failed to create reporter: %w", err)
-	}
-	c.reporter = reporter
 
 	cwd, err := c.WorkingDir()
 	if err != nil {
@@ -159,8 +151,12 @@ func (c *EnforceCommand) Process(ctx context.Context) error {
 		}
 	}
 
+	if c.flags.SkipReporting {
+		return merr
+	}
+
 	if merr != nil {
-		if err := c.reporter.Status(ctx, reporter.StatusPolicyViolation, &reporter.StatusParams{
+		if err := c.platform.ReportStatus(ctx, platform.StatusPolicyViolation, &platform.StatusParams{
 			Operation: "Policy Violation",
 			Dir:       c.directory,
 			Message:   "The planned resource changes raised policy violations that will need to be addressed:",

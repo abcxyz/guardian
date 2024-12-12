@@ -96,8 +96,8 @@ func (c *Config) RegisterFlags(set *cli.FlagSet) {
 		EnvVar: "GUARDIAN_GITHUB_TOKEN",
 		Target: &c.GuardianGitHubToken,
 		Usage: `The GitHub access token for Guardian to make GitHub API calls.
-This is separate from GITHUB_TOKEN becuse Terraform uses GITHUB_TOKEN to authenticate
-to the GitHub APIs also. Splitting this up allows use to follow least privilege
+This is separate from GITHUB_TOKEN because Terraform uses GITHUB_TOKEN to authenticate
+to the GitHub APIs also. Splitting this up allows users to follow least privilege
 for the caller (e.g. Guardian vs Terraform). If not supplied this will default to
 GITHUB_TOKEN.`,
 	})

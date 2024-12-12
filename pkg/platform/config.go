@@ -23,14 +23,12 @@ import (
 	"github.com/posener/complete/v2"
 
 	gh "github.com/abcxyz/guardian/pkg/github"
-	"github.com/abcxyz/guardian/pkg/reporter"
 	"github.com/abcxyz/pkg/cli"
 )
 
 // Config is the configuration needed to generate different Platform types.
 type Config struct {
-	Type     string
-	Reporter string
+	Type string
 
 	GitHub gh.Config
 	GitLab gitLabConfig
@@ -54,16 +52,6 @@ func (c *Config) RegisterFlags(set *cli.FlagSet) {
 		}),
 	})
 
-	f.StringVar(&cli.StringVar{
-		Name:    "reporter",
-		Target:  &c.Reporter,
-		Example: "github",
-		Usage:   fmt.Sprintf("The reporting strategy for Guardian status updates. Allowed values are %q.", reporter.SortedReporterTypes),
-		Predict: complete.PredictFunc(func(prefix string) []string {
-			return reporter.SortedReporterTypes
-		}),
-	})
-
 	// leave last to put help under platform options
 	c.GitHub.RegisterFlags(set)
 
@@ -81,20 +69,6 @@ func (c *Config) RegisterFlags(set *cli.FlagSet) {
 			}
 		}
 
-		if c.Reporter == "" {
-			c.Reporter = defaultReporter(c.Type)
-		}
-
 		return merr
 	})
-}
-
-// default reporter returns the default reporter based on platform type.
-func defaultReporter(t string) string {
-	switch t {
-	case TypeGitHub:
-		return reporter.TypeGitHub
-	default:
-		return reporter.TypeNone
-	}
 }

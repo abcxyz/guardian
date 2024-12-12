@@ -24,7 +24,6 @@ import (
 	"github.com/abcxyz/guardian/internal/metricswrap"
 	"github.com/abcxyz/guardian/pkg/github"
 	"github.com/abcxyz/guardian/pkg/platform"
-	"github.com/abcxyz/guardian/pkg/reporter"
 	"github.com/abcxyz/guardian/pkg/util"
 	"github.com/abcxyz/pkg/cli"
 )
@@ -36,10 +35,11 @@ type PlanStatusCommentCommand struct {
 
 	platformConfig platform.Config
 
-	flagInitResult string
-	flagPlanResult []string
+	flagInitResult    string
+	flagPlanResult    []string
+	flagSkipReporting bool
 
-	reporterClient reporter.Reporter
+	platformClient platform.Platform
 }
 
 func (c *PlanStatusCommentCommand) Desc() string {
@@ -75,6 +75,14 @@ func (c *PlanStatusCommentCommand) Flags() *cli.FlagSet {
 		Usage:   "The Guardian plan job result status.",
 	})
 
+	f.BoolVar(&cli.BoolVar{
+		Name:    "skip-reporting",
+		Target:  &c.flagSkipReporting,
+		Default: false,
+		Example: "true",
+		Usage:   "Skips reporting of the plan status on the change request.",
+	})
+
 	set.AfterParse(func(existingErr error) (merr error) {
 		if c.flagInitResult == "" {
 			merr = errors.Join(merr, fmt.Errorf("missing flag: init-result is required"))
@@ -103,11 +111,11 @@ func (c *PlanStatusCommentCommand) Run(ctx context.Context, args []string) error
 		return flag.ErrHelp
 	}
 
-	rc, err := reporter.NewReporter(ctx, c.platformConfig.Reporter, &reporter.Config{GitHub: c.platformConfig.GitHub})
+	platform, err := platform.NewPlatform(ctx, &c.platformConfig)
 	if err != nil {
-		return fmt.Errorf("failed to create reporter client: %w", err)
+		return fmt.Errorf("failed to create platform: %w", err)
 	}
-	c.reporterClient = rc
+	c.platformClient = platform
 
 	return c.Process(ctx)
 }
@@ -120,11 +128,15 @@ func (c *PlanStatusCommentCommand) Process(ctx context.Context) error {
 		return fmt.Errorf("init or plan has one or more failures")
 	}
 
+	if c.flagSkipReporting {
+		return nil
+	}
+
 	// all plan runs were skipped, meaning there were no changes to plan
 	// no plans were run so there will be no comments, we can improve user experience
 	// by showing status that there were no changes to be planned
 	if c.flagInitResult == github.GitHubWorkflowResultSuccess && util.SliceContainsOnly(c.flagPlanResult, github.GitHubWorkflowResultSkipped) {
-		err := c.reporterClient.Status(ctx, reporter.StatusNoOperation, &reporter.StatusParams{Operation: "plan", Message: "No Terraform changes detected, planning skipped."})
+		err := c.platformClient.ReportStatus(ctx, platform.StatusNoOperation, &platform.StatusParams{Operation: "plan", Message: "No Terraform changes detected, planning skipped."})
 		if err != nil {
 			return fmt.Errorf("failed to create plan status comment: %w", err)
 		}
