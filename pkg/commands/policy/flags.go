@@ -49,7 +49,7 @@ func (e *EnforceFlags) Register(set *cli.FlagSet) {
 		Target:  &e.SkipReporting,
 		Default: false,
 		Example: "true",
-		Usage:   "Skips reporting of the plan status on the change request.",
+		Usage:   "Skips reporting of the status of any policy violations on the change request.",
 	})
 
 	set.AfterParse(func(existingError error) (merr error) {

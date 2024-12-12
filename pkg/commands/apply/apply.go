@@ -129,7 +129,7 @@ func (c *ApplyCommand) Flags() *cli.FlagSet {
 		Target:  &c.flagSkipReporting,
 		Default: false,
 		Example: "true",
-		Usage:   "Skips reporting of the plan status on the change request.",
+		Usage:   "Skips reporting of the apply status on the change request.",
 	})
 
 	return set
