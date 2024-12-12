@@ -69,6 +69,7 @@ type ApplyCommand struct {
 	flagStorage              string
 	flagAllowLockfileChanges bool
 	flagLockTimeout          time.Duration
+	flagSkipReporting        bool
 
 	storageClient   storage.Storage
 	terraformClient terraform.Terraform
@@ -121,6 +122,14 @@ func (c *ApplyCommand) Flags() *cli.FlagSet {
 		Default: 10 * time.Minute,
 		Example: "10m",
 		Usage:   "The duration Terraform should wait to obtain a lock when running commands that modify state.",
+	})
+
+	f.BoolVar(&cli.BoolVar{
+		Name:    "skip-reporting",
+		Target:  &c.flagSkipReporting,
+		Default: false,
+		Example: "true",
+		Usage:   "Skips reporting of the plan status on the change request.",
 	})
 
 	return set
@@ -257,6 +266,10 @@ func (c *ApplyCommand) Process(ctx context.Context) (merr error) {
 	}
 
 	sp.Details = result.commentDetails
+
+	if c.flagSkipReporting {
+		return merr
+	}
 
 	if err := c.platformClient.ReportStatus(ctx, status, sp); err != nil {
 		merr = errors.Join(merr, fmt.Errorf("failed to report status: %w", err))

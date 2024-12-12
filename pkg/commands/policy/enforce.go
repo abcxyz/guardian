@@ -151,6 +151,10 @@ func (c *EnforceCommand) Process(ctx context.Context) error {
 		}
 	}
 
+	if c.flags.SkipReporting {
+		return merr
+	}
+
 	if merr != nil {
 		if err := c.platform.ReportStatus(ctx, platform.StatusPolicyViolation, &platform.StatusParams{
 			Operation: "Policy Violation",

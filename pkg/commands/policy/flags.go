@@ -22,8 +22,9 @@ import (
 )
 
 type EnforceFlags struct {
-	Silent      bool
-	ResultsFile string
+	Silent        bool
+	ResultsFile   string
+	SkipReporting bool
 }
 
 func (e *EnforceFlags) Register(set *cli.FlagSet) {
@@ -41,6 +42,14 @@ func (e *EnforceFlags) Register(set *cli.FlagSet) {
 		Example: "results.json",
 		Target:  &e.ResultsFile,
 		Usage:   "The path to a JSON file containing the OPA eval result.",
+	})
+
+	f.BoolVar(&cli.BoolVar{
+		Name:    "skip-reporting",
+		Target:  &e.SkipReporting,
+		Default: false,
+		Example: "true",
+		Usage:   "Skips reporting of the plan status on the change request.",
 	})
 
 	set.AfterParse(func(existingError error) (merr error) {
