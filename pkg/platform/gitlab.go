@@ -198,7 +198,20 @@ func (g *GitLab) ReportStatus(ctx context.Context, st Status, p *StatusParams) e
 }
 
 // ReportEntrypointsSummary reports the summary for the entrypoints command.
-func (g *GitLab) ReportEntrypointsSummary(ctx context.Context, params *EntrypointsSummaryParams) error {
+func (g *GitLab) ReportEntrypointsSummary(ctx context.Context, p *EntrypointsSummaryParams) error {
+	if err := validateGitLabReporterInputs(g.cfg); err != nil {
+		return fmt.Errorf("failed to validate reporter inputs: %w", err)
+	}
+
+	msg, err := entrypointsSummaryMessage(p, g.logURL)
+	if err != nil {
+		return fmt.Errorf("failed to generate summary message: %w", err)
+	}
+
+	if err := g.createMergeRequestNote(ctx, msg.String()); err != nil {
+		return fmt.Errorf("failed to report entrypoints summary: %w", err)
+	}
+
 	return nil
 }
 
