@@ -131,6 +131,16 @@ func (c *gitLabConfig) RegisterFlags(set *cli.FlagSet) {
 
 // NewGitLab creates a new GitLab client.
 func NewGitLab(ctx context.Context, cfg *gitLabConfig) (*GitLab, error) {
+	if cfg.MaxRetries <= 0 {
+		cfg.MaxRetries = 3
+	}
+	if cfg.InitialRetryDelay <= 0 {
+		cfg.InitialRetryDelay = 1 * time.Second
+	}
+	if cfg.MaxRetryDelay <= 0 {
+		cfg.MaxRetryDelay = 20 * time.Second
+	}
+
 	if cfg.GitLabBaseURL == "" {
 		return nil, fmt.Errorf("gitlab base url is required")
 	}
