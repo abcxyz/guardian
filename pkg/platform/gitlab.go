@@ -33,7 +33,10 @@ import (
 var (
 	_ Platform = (*GitLab)(nil)
 
-	// gitLabIgnoredStatusCodes are status codes that should not be retried.
+	// gitLabIgnoredStatusCodes are status codes that should not be retried. This
+	// list is taken from the GitLab REST API documentation but may not contain
+	// the full set of status codes to ignore.
+	// See https://docs.gitlab.com/ee/api/rest/troubleshooting.html#status-codes.
 	gitLabIgnoredStatusCodes = map[int]struct{}{
 		403: {},
 		405: {},
