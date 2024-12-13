@@ -18,6 +18,7 @@ require (
 	github.com/sethvargo/go-githubactions v1.2.0
 	github.com/sethvargo/go-retry v0.2.4
 	github.com/shurcooL/githubv4 v0.0.0-20240727222349-48295856cce7
+	gitlab.com/gitlab-org/api/client-go v0.116.0
 	golang.org/x/exp v0.0.0-20240613232115-7f521ea00fb8
 	golang.org/x/oauth2 v0.21.0
 	google.golang.org/api v0.184.0
@@ -51,6 +52,8 @@ require (
 	github.com/google/s2a-go v0.1.7 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.2 // indirect
+	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
+	github.com/hashicorp/go-retryablehttp v0.7.7 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect

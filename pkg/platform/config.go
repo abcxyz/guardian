@@ -54,6 +54,7 @@ func (c *Config) RegisterFlags(set *cli.FlagSet) {
 
 	// leave last to put help under platform options
 	c.GitHub.RegisterFlags(set)
+	c.GitLab.RegisterFlags(set)
 
 	set.AfterParse(func(merr error) error {
 		c.Type = strings.ToLower(strings.TrimSpace(c.Type))
@@ -66,6 +67,9 @@ func (c *Config) RegisterFlags(set *cli.FlagSet) {
 			c.Type = TypeLocal
 			if v, _ := strconv.ParseBool(set.GetEnv("GITHUB_ACTIONS")); v {
 				c.Type = TypeGitHub
+			}
+			if v, _ := strconv.ParseBool(set.GetEnv("GITLAB_CI")); v {
+				c.Type = TypeGitLab
 			}
 		}
 
