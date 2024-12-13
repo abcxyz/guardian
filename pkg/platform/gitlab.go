@@ -94,7 +94,7 @@ func (c *gitLabConfig) RegisterFlags(set *cli.FlagSet) {
 
 	f.StringVar(&cli.StringVar{
 		Name:    "gitlab-base-url",
-		EnvVar:  "GITHUB_BASE_URL",
+		EnvVar:  "GITLAB_BASE_URL",
 		Target:  &c.GitLabBaseURL,
 		Example: "https://git.mydomain.com/api/v4",
 		Default: cfgDefaults.CIServerHost,
