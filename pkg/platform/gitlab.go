@@ -233,7 +233,7 @@ func validateGitLabReporterInputs(cfg *gitLabConfig) error {
 		merr = errors.Join(merr, fmt.Errorf("gitlab merge request id is required"))
 	}
 
-	if cfg.GitLabToken == "" {
+	if cfg.GuardianGitLabToken == "" {
 		merr = errors.Join(merr, fmt.Errorf("gitlab token is required"))
 	}
 
