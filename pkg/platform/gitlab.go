@@ -43,8 +43,8 @@ type GitLab struct {
 }
 
 type gitLabConfig struct {
-	GitLabToken   string
-	GitLabBaseURL string
+	GuardianGitLabToken string
+	GitLabBaseURL       string
 
 	GitLabProjectID      int
 	GitLabMergeRequestID int
@@ -84,9 +84,9 @@ func (c *gitLabConfig) RegisterFlags(set *cli.FlagSet) {
 	cfgDefaults.Load()
 
 	f.StringVar(&cli.StringVar{
-		Name:    "gitlab-token",
-		EnvVar:  "GITLAB_TOKEN",
-		Target:  &c.GitLabToken,
+		Name:    "guardian-gitlab-token",
+		EnvVar:  "GUARDIAN_GITLAB_TOKEN",
+		Target:  &c.GuardianGitLabToken,
 		Default: cfgDefaults.CIJobToken,
 		Usage:   "The GitLab access token to make GitLab API calls.",
 		Hidden:  true,
@@ -127,7 +127,7 @@ func NewGitLab(ctx context.Context, cfg *gitLabConfig) (*GitLab, error) {
 		return nil, fmt.Errorf("gitlab base url is required")
 	}
 
-	c, err := gitlab.NewClient(cfg.GitLabToken, gitlab.WithBaseURL(cfg.GitLabBaseURL))
+	c, err := gitlab.NewClient(cfg.GuardianGitLabToken, gitlab.WithBaseURL(cfg.GitLabBaseURL))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create gitlab client: %w", err)
 	}
