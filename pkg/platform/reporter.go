@@ -170,7 +170,10 @@ func entrypointsSummaryMessage(p *EntrypointsSummaryParams, logURL string) (stri
 	}
 
 	if len(p.Dirs) > 0 {
-		fmt.Fprintf(&msg, "\n\n**%s**\n%s", "Directories", strings.Join(p.Dirs, "\n"))
+		// GitLab does not wrap lines with a signle new line character. Instead, we
+		// can use a single backslash followed by a new line character, which is
+		// supported by both GitHub and GitLab.
+		fmt.Fprintf(&msg, "\n\n**%s** \\\n%s", "Directories", strings.Join(p.Dirs, "\\\n"))
 	}
 
 	return msg, nil
