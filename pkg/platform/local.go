@@ -75,7 +75,7 @@ func (l *Local) ListReports(ctx context.Context, opts *ListReportsOptions) (*Lis
 }
 
 // DeleteReport deletes an existing comment from an issue or change request.
-func (l *Local) DeleteReport(ctx context.Context, id int64) error {
+func (l *Local) DeleteReport(ctx context.Context, id any) error {
 	return nil
 }
 

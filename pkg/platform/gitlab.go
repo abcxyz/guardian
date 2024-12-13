@@ -192,7 +192,7 @@ func (g *GitLab) ListReports(ctx context.Context, opts *ListReportsOptions) (*Li
 			}
 		}
 		for _, n := range notes {
-			reports = append(reports, &Report{ID: int64(n.ID), Body: n.Body})
+			reports = append(reports, &Report{ID: n.ID, Body: n.Body})
 		}
 
 		if resp.NextPage != 0 {
@@ -208,7 +208,28 @@ func (g *GitLab) ListReports(ctx context.Context, opts *ListReportsOptions) (*Li
 }
 
 // DeleteReport deletes an existing comment from an issue or change request.
-func (g *GitLab) DeleteReport(ctx context.Context, id int64) error {
+func (g *GitLab) DeleteReport(ctx context.Context, id any) error {
+	noteID, ok := id.(int)
+	if !ok {
+		return fmt.Errorf("expected note id of type int")
+	}
+
+	if err := g.withRetries(ctx, func(ctx context.Context) error {
+		resp, err := g.client.Notes.DeleteMergeRequestNote(g.cfg.GitLabProjectID, g.cfg.GitLabMergeRequestID, noteID)
+		if err != nil {
+			if resp != nil {
+				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
+					return retry.RetryableError(err)
+				}
+			}
+			return fmt.Errorf("failed to delete merge request note: %w", err)
+		}
+
+		return nil
+	}); err != nil {
+		return fmt.Errorf("failed to delete report: %w", err)
+	}
+
 	return nil
 }
 

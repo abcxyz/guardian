@@ -595,9 +595,13 @@ func (g *GitHub) ListReports(ctx context.Context, opts *ListReportsOptions) (*Li
 }
 
 // DeleteReport deletes an existing comment from an issue or change request.
-func (g *GitHub) DeleteReport(ctx context.Context, id int64) error {
+func (g *GitHub) DeleteReport(ctx context.Context, id any) error {
+	commentID, ok := id.(int64)
+	if !ok {
+		return fmt.Errorf("expected comment id of type int64")
+	}
 	if err := g.withRetries(ctx, func(ctx context.Context) error {
-		resp, err := g.client.Issues.DeleteComment(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, id)
+		resp, err := g.client.Issues.DeleteComment(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, commentID)
 		if err != nil {
 			if resp != nil {
 				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
