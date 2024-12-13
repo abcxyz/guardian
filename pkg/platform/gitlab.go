@@ -30,7 +30,16 @@ import (
 	"github.com/sethvargo/go-retry"
 )
 
-var _ Platform = (*GitLab)(nil)
+var (
+	_ Platform = (*GitLab)(nil)
+
+	// gitLabIgnoredStatusCodes are status codes that should not be retried.
+	gitLabIgnoredStatusCodes = map[int]struct{}{
+		403: {},
+		405: {},
+		422: {},
+	}
+)
 
 // Based on https://docs.gitlab.com/ee/administration/instance_limits.html#size-of-comments-and-descriptions-of-issues-merge-requests-and-epics.
 const gitlabMaxCommentLength = 1000000
@@ -197,7 +206,7 @@ func (g *GitLab) ListReports(ctx context.Context, opts *ListReportsOptions) (*Li
 		notes, resp, err := g.client.Notes.ListMergeRequestNotes(g.cfg.GitLabProjectID, g.cfg.GitLabMergeRequestID, opts.GitLab)
 		if err != nil {
 			if resp != nil {
-				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
+				if _, ok := gitLabIgnoredStatusCodes[resp.StatusCode]; !ok {
 					return retry.RetryableError(err)
 				}
 			}
@@ -229,7 +238,7 @@ func (g *GitLab) DeleteReport(ctx context.Context, id any) error {
 		resp, err := g.client.Notes.DeleteMergeRequestNote(g.cfg.GitLabProjectID, g.cfg.GitLabMergeRequestID, noteID)
 		if err != nil {
 			if resp != nil {
-				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
+				if _, ok := gitLabIgnoredStatusCodes[resp.StatusCode]; !ok {
 					return retry.RetryableError(err)
 				}
 			}
