@@ -20,11 +20,13 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"time"
 
 	gitlab "gitlab.com/gitlab-org/api/client-go"
 
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
+	"github.com/sethvargo/go-retry"
 )
 
 var _ Platform = (*GitLab)(nil)
@@ -43,6 +45,11 @@ type GitLab struct {
 }
 
 type gitLabConfig struct {
+	// Retry
+	MaxRetries        uint64
+	InitialRetryDelay time.Duration
+	MaxRetryDelay     time.Duration
+
 	GuardianGitLabToken string
 	GitLabBaseURL       string
 
@@ -172,7 +179,32 @@ func (g *GitLab) StoragePrefix(ctx context.Context) (string, error) {
 
 // ListReports lists existing reports for an issue or change request.
 func (g *GitLab) ListReports(ctx context.Context, opts *ListReportsOptions) (*ListReportsResult, error) {
-	return nil, nil
+	var reports []*Report
+	var pagination *Pagination
+
+	if err := g.withRetries(ctx, func(ctx context.Context) error {
+		notes, resp, err := g.client.Notes.ListMergeRequestNotes(g.cfg.GitLabProjectID, g.cfg.GitLabMergeRequestID, opts.GitLab)
+		if err != nil {
+			if resp != nil {
+				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
+					return retry.RetryableError(err)
+				}
+			}
+		}
+		for _, n := range notes {
+			reports = append(reports, &Report{ID: int64(n.ID), Body: n.Body})
+		}
+
+		if resp.NextPage != 0 {
+			pagination = &Pagination{NextPage: resp.NextPage}
+		}
+
+		return nil
+	}); err != nil {
+		return nil, fmt.Errorf("failed to list reports: %w", err)
+	}
+
+	return &ListReportsResult{Reports: reports, Pagination: pagination}, nil
 }
 
 // DeleteReport deletes an existing comment from an issue or change request.
@@ -251,4 +283,15 @@ func validateGitLabReporterInputs(cfg *gitLabConfig) error {
 	}
 
 	return merr
+}
+
+func (g *GitLab) withRetries(ctx context.Context, retryFunc retry.RetryFunc) error {
+	backoff := retry.NewFibonacci(g.cfg.InitialRetryDelay)
+	backoff = retry.WithMaxRetries(g.cfg.MaxRetries, backoff)
+	backoff = retry.WithCappedDuration(g.cfg.MaxRetryDelay, backoff)
+
+	if err := retry.Do(ctx, backoff, retryFunc); err != nil {
+		return fmt.Errorf("failed to execute retriable function: %w", err)
+	}
+	return nil
 }

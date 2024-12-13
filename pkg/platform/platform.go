@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"github.com/google/go-github/v53/github"
+	gitlab "gitlab.com/gitlab-org/api/client-go"
 )
 
 const (
@@ -85,6 +86,7 @@ type Report struct {
 // ListReportsOptions contains the options for listing reports.
 type ListReportsOptions struct {
 	GitHub *github.IssueListCommentsOptions
+	GitLab *gitlab.ListMergeRequestNotesOptions
 }
 
 // ListReportsResults contains the results of listing reports.
