@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	gitlab "gitlab.com/gitlab-org/api/client-go"
@@ -270,7 +271,39 @@ func (g *GitLab) ReportEntrypointsSummary(ctx context.Context, p *EntrypointsSum
 
 // ClearReports clears any existing reports that can be removed.
 func (g *GitLab) ClearReports(ctx context.Context) error {
-	return nil
+	listOpts := &ListReportsOptions{
+		GitLab: &gitlab.ListMergeRequestNotesOptions{
+			ListOptions: gitlab.ListOptions{PerPage: 100},
+		},
+	}
+
+	for {
+		response, err := g.ListReports(ctx, listOpts)
+		if err != nil {
+			return fmt.Errorf("failed to list comments: %w", err)
+		}
+
+		if response.Reports == nil {
+			return nil
+		}
+
+		for _, note := range response.Reports {
+			// prefix is not found, skip
+			if !strings.HasPrefix(note.Body, commentPrefix) {
+				continue
+			}
+
+			// found the prefix, delete the comment
+			if err := g.DeleteReport(ctx, note.ID); err != nil {
+				return fmt.Errorf("failed to delete comment: %w", err)
+			}
+		}
+
+		if response.Pagination == nil {
+			return nil
+		}
+		listOpts.GitLab.Page = response.Pagination.NextPage
+	}
 }
 
 func (g *GitLab) createMergeRequestNote(ctx context.Context, msg string) error {
