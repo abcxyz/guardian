@@ -24,7 +24,6 @@ These options influence any command run with Guardian.
 These options sets the code review platform that Guardian should interact with.
 
 - **-platform="github"** - The code review platform for Guardian to integrate with. Allowed values are ["github", "local"].
-- **-reporter="github"** - The reporting strategy for Guardian status updates. Allowed values are ["github", "none"].
 
 ### GitHub Options
 
@@ -79,6 +78,8 @@ Also supports [Platform Options](#platform-options), [GitHub Options](#github-op
 * **-max-depth="int"** - How far to traverse the filesystem beneath the target
   directory for entrypoints. The default value is "-1".
 * **-source-ref="ref-name"** - The source GitHub ref name for finding file changes.
+* **--skip-reporting** - If true, then skips reporting the entrypoints in a comment/note on the platform's change request. Defaults to false.
+
 
 ## Apply
 
@@ -102,6 +103,7 @@ Also supports [Platform Options](#platform-options), [GitHub Options](#github-op
 * **-dir** - The Terraform directory to run the apply command. Defaults to the current working directory.
 * **-allow-lockfile-changes** - Allow modification of the Terraform lockfile. The default value is "false".
 * **-storage="URL"** - The storage strategy for saving Guardian plan files. Defaults to current working directory of the local filesystem.
+* **--skip-reporting** - If true, then skips reporting the status of the Apply in a comment/note on the platform's change request. Defaults to false.
 
   *Supported values:*
     - Local file storage - Format `file://my/absolute/path`
@@ -132,6 +134,7 @@ Also supports [Platform Options](#platform-options), [GitHub Options](#github-op
 * **-dir** - The Terraform directory to run the plan command. Defaults to the current working directory.
 * **-allow-lockfile-changes** - Allow modification of the Terraform lockfile. The default value is "false".
 * **-storage="URL"** - The storage strategy for saving Guardian plan files. Defaults to current working directory of the local filesystem.
+* **--skip-reporting** - If true, then skips reporting the status of the Plan in a comment/note on the platform's change request. Defaults to false.
 
   *Supported values:*
     - Local file storage - Format `file://my/absolute/path`
@@ -332,6 +335,7 @@ Also supports [Platform Options](#platform-options), [GitHub Options](#github-op
 
 * **-init-result="success"** - The Guardian init job result status.
 * **-plan-result="failure"** - The Guardian plan job result status.
+* **--skip-reporting** - If true, then skips reporting the Plan status in a comment/note on the platform's change request. Defaults to false.
 
 ## Workflows remove-guardian-comments
 
@@ -393,3 +397,4 @@ Supports [Platform Options](#platform-options), [GitHub Options](#github-options
 
 * **-results-file="results.json"** - The path to a JSON file containing the OPA eval result.
 * **-silent** - Skips any actions and only reports the violations found. The default value is "false".
+* **--skip-reporting** - If true, then skips reporting the policy violations in a comment/note on the platform's change request. Defaults to false.
