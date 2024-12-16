@@ -293,6 +293,10 @@ func (g *GitLab) ReportEntrypointsSummary(ctx context.Context, p *EntrypointsSum
 
 // ClearReports clears any existing reports that can be removed.
 func (g *GitLab) ClearReports(ctx context.Context) error {
+	if err := validateGitLabReporterInputs(g.cfg); err != nil {
+		return fmt.Errorf("failed to validate reporter inputs: %w", err)
+	}
+
 	listOpts := &ListReportsOptions{
 		GitLab: &gitlab.ListMergeRequestNotesOptions{
 			ListOptions: gitlab.ListOptions{PerPage: 100},
