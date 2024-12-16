@@ -20,14 +20,29 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
+	"time"
 
+	"github.com/sethvargo/go-retry"
 	gitlab "gitlab.com/gitlab-org/api/client-go"
 
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
 )
 
-var _ Platform = (*GitLab)(nil)
+var (
+	_ Platform = (*GitLab)(nil)
+
+	// gitLabIgnoredStatusCodes are status codes that should not be retried. This
+	// list is taken from the GitLab REST API documentation but may not contain
+	// the full set of status codes to ignore.
+	// See https://docs.gitlab.com/ee/api/rest/troubleshooting.html#status-codes.
+	gitLabIgnoredStatusCodes = map[int]struct{}{
+		403: {},
+		405: {},
+		422: {},
+	}
+)
 
 // Based on https://docs.gitlab.com/ee/administration/instance_limits.html#size-of-comments-and-descriptions-of-issues-merge-requests-and-epics.
 const gitlabMaxCommentLength = 1000000
@@ -43,6 +58,11 @@ type GitLab struct {
 }
 
 type gitLabConfig struct {
+	// Retry
+	MaxRetries        uint64
+	InitialRetryDelay time.Duration
+	MaxRetryDelay     time.Duration
+
 	GuardianGitLabToken string
 	GitLabBaseURL       string
 
@@ -123,6 +143,16 @@ func (c *gitLabConfig) RegisterFlags(set *cli.FlagSet) {
 
 // NewGitLab creates a new GitLab client.
 func NewGitLab(ctx context.Context, cfg *gitLabConfig) (*GitLab, error) {
+	if cfg.MaxRetries <= 0 {
+		cfg.MaxRetries = 3
+	}
+	if cfg.InitialRetryDelay <= 0 {
+		cfg.InitialRetryDelay = 1 * time.Second
+	}
+	if cfg.MaxRetryDelay <= 0 {
+		cfg.MaxRetryDelay = 20 * time.Second
+	}
+
 	if cfg.GitLabBaseURL == "" {
 		return nil, fmt.Errorf("gitlab base url is required")
 	}
@@ -172,11 +202,57 @@ func (g *GitLab) StoragePrefix(ctx context.Context) (string, error) {
 
 // ListReports lists existing reports for an issue or change request.
 func (g *GitLab) ListReports(ctx context.Context, opts *ListReportsOptions) (*ListReportsResult, error) {
-	return nil, nil
+	var reports []*Report
+	var pagination *Pagination
+
+	if err := g.withRetries(ctx, func(ctx context.Context) error {
+		notes, resp, err := g.client.Notes.ListMergeRequestNotes(g.cfg.GitLabProjectID, g.cfg.GitLabMergeRequestID, opts.GitLab)
+		if err != nil {
+			if resp != nil {
+				if _, ok := gitLabIgnoredStatusCodes[resp.StatusCode]; !ok {
+					return retry.RetryableError(err)
+				}
+			}
+		}
+		for _, n := range notes {
+			reports = append(reports, &Report{ID: n.ID, Body: n.Body})
+		}
+
+		if resp.NextPage != 0 {
+			pagination = &Pagination{NextPage: resp.NextPage}
+		}
+
+		return nil
+	}); err != nil {
+		return nil, fmt.Errorf("failed to list reports: %w", err)
+	}
+
+	return &ListReportsResult{Reports: reports, Pagination: pagination}, nil
 }
 
 // DeleteReport deletes an existing comment from an issue or change request.
-func (g *GitLab) DeleteReport(ctx context.Context, id int64) error {
+func (g *GitLab) DeleteReport(ctx context.Context, id any) error {
+	noteID, ok := id.(int)
+	if !ok {
+		return fmt.Errorf("expected note id of type int")
+	}
+
+	if err := g.withRetries(ctx, func(ctx context.Context) error {
+		resp, err := g.client.Notes.DeleteMergeRequestNote(g.cfg.GitLabProjectID, g.cfg.GitLabMergeRequestID, noteID)
+		if err != nil {
+			if resp != nil {
+				if _, ok := gitLabIgnoredStatusCodes[resp.StatusCode]; !ok {
+					return retry.RetryableError(err)
+				}
+			}
+			return fmt.Errorf("failed to delete merge request note: %w", err)
+		}
+
+		return nil
+	}); err != nil {
+		return fmt.Errorf("failed to delete report: %w", err)
+	}
+
 	return nil
 }
 
@@ -217,7 +293,39 @@ func (g *GitLab) ReportEntrypointsSummary(ctx context.Context, p *EntrypointsSum
 
 // ClearReports clears any existing reports that can be removed.
 func (g *GitLab) ClearReports(ctx context.Context) error {
-	return nil
+	listOpts := &ListReportsOptions{
+		GitLab: &gitlab.ListMergeRequestNotesOptions{
+			ListOptions: gitlab.ListOptions{PerPage: 100},
+		},
+	}
+
+	for {
+		response, err := g.ListReports(ctx, listOpts)
+		if err != nil {
+			return fmt.Errorf("failed to list comments: %w", err)
+		}
+
+		if response.Reports == nil {
+			return nil
+		}
+
+		for _, note := range response.Reports {
+			// prefix is not found, skip
+			if !strings.HasPrefix(note.Body, commentPrefix) {
+				continue
+			}
+
+			// found the prefix, delete the comment
+			if err := g.DeleteReport(ctx, note.ID); err != nil {
+				return fmt.Errorf("failed to delete comment: %w", err)
+			}
+		}
+
+		if response.Pagination == nil {
+			return nil
+		}
+		listOpts.GitLab.Page = response.Pagination.NextPage
+	}
 }
 
 func (g *GitLab) createMergeRequestNote(ctx context.Context, msg string) error {
@@ -251,4 +359,15 @@ func validateGitLabReporterInputs(cfg *gitLabConfig) error {
 	}
 
 	return merr
+}
+
+func (g *GitLab) withRetries(ctx context.Context, retryFunc retry.RetryFunc) error {
+	backoff := retry.NewFibonacci(g.cfg.InitialRetryDelay)
+	backoff = retry.WithMaxRetries(g.cfg.MaxRetries, backoff)
+	backoff = retry.WithCappedDuration(g.cfg.MaxRetryDelay, backoff)
+
+	if err := retry.Do(ctx, backoff, retryFunc); err != nil {
+		return fmt.Errorf("failed to execute retriable function: %w", err)
+	}
+	return nil
 }

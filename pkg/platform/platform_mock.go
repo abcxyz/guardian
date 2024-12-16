@@ -204,7 +204,7 @@ func (m *MockPlatform) ListReports(ctx context.Context, opts *ListReportsOptions
 }
 
 // DeleteReport deletes an existing comment from an issue or change request.
-func (m *MockPlatform) DeleteReport(ctx context.Context, id int64) error {
+func (m *MockPlatform) DeleteReport(ctx context.Context, id any) error {
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
 	m.Reqs = append(m.Reqs,

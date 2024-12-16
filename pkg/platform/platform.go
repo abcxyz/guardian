@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"github.com/google/go-github/v53/github"
+	gitlab "gitlab.com/gitlab-org/api/client-go"
 )
 
 const (
@@ -78,13 +79,14 @@ type GetPolicyDataResult struct {
 
 // Report is a comment/note on an issue or change request.
 type Report struct {
-	ID   int64
+	ID   any
 	Body string
 }
 
 // ListReportsOptions contains the options for listing reports.
 type ListReportsOptions struct {
 	GitHub *github.IssueListCommentsOptions
+	GitLab *gitlab.ListMergeRequestNotesOptions
 }
 
 // ListReportsResults contains the results of listing reports.
@@ -121,7 +123,7 @@ type Platform interface {
 	ListReports(ctx context.Context, opts *ListReportsOptions) (*ListReportsResult, error)
 
 	// DeleteReport deletes an existing comment from an issue or change request.
-	DeleteReport(ctx context.Context, id int64) error
+	DeleteReport(ctx context.Context, id any) error
 
 	// StoragePrefix generates the unique storage prefix for the platform type.
 	StoragePrefix(ctx context.Context) (string, error)
