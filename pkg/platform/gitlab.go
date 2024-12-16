@@ -202,6 +202,10 @@ func (g *GitLab) StoragePrefix(ctx context.Context) (string, error) {
 
 // ListReports lists existing reports for an issue or change request.
 func (g *GitLab) ListReports(ctx context.Context, opts *ListReportsOptions) (*ListReportsResult, error) {
+	if err := validateGitLabReporterInputs(g.cfg); err != nil {
+		return nil, fmt.Errorf("failed to validate reporter inputs: %w", err)
+	}
+
 	var reports []*Report
 	var pagination *Pagination
 
@@ -232,6 +236,10 @@ func (g *GitLab) ListReports(ctx context.Context, opts *ListReportsOptions) (*Li
 
 // DeleteReport deletes an existing comment from an issue or change request.
 func (g *GitLab) DeleteReport(ctx context.Context, id any) error {
+	if err := validateGitLabReporterInputs(g.cfg); err != nil {
+		return fmt.Errorf("failed to validate reporter inputs: %w", err)
+	}
+
 	noteID, ok := id.(int)
 	if !ok {
 		return fmt.Errorf("expected note id of type int")
