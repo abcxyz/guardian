@@ -201,12 +201,17 @@ func (g *GitLab) StoragePrefix(ctx context.Context) (string, error) {
 }
 
 // ListReports lists existing reports for an issue or change request.
-func (g *GitLab) ListReports(ctx context.Context, opts *ListReportsOptions) (*ListReportsResult, error) {
+func (g *GitLab) ListReports(ctx context.Context, id any, opts *ListReportsOptions) (*ListReportsResult, error) {
+	mrID, ok := id.(int)
+	if !ok {
+		return nil, fmt.Errorf("expected merge request id of type int")
+	}
+
 	var reports []*Report
 	var pagination *Pagination
 
 	if err := g.withRetries(ctx, func(ctx context.Context) error {
-		notes, resp, err := g.client.Notes.ListMergeRequestNotes(g.cfg.GitLabProjectID, g.cfg.GitLabMergeRequestID, opts.GitLab)
+		notes, resp, err := g.client.Notes.ListMergeRequestNotes(g.cfg.GitLabProjectID, mrID, opts.GitLab)
 		if err != nil {
 			if resp != nil {
 				if _, ok := gitLabIgnoredStatusCodes[resp.StatusCode]; !ok {
@@ -300,7 +305,7 @@ func (g *GitLab) ClearReports(ctx context.Context) error {
 	}
 
 	for {
-		response, err := g.ListReports(ctx, listOpts)
+		response, err := g.ListReports(ctx, g.cfg.GitLabMergeRequestID, listOpts)
 		if err != nil {
 			return fmt.Errorf("failed to list comments: %w", err)
 		}

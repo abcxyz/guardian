@@ -70,7 +70,7 @@ func (l *Local) StoragePrefix(ctx context.Context) (string, error) {
 }
 
 // ListReports lists existing reports for an issue or change request.
-func (l *Local) ListReports(ctx context.Context, opts *ListReportsOptions) (*ListReportsResult, error) {
+func (l *Local) ListReports(ctx context.Context, id any, opts *ListReportsOptions) (*ListReportsResult, error) {
 	return nil, nil
 }
 

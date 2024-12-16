@@ -120,7 +120,7 @@ type Platform interface {
 	GetPolicyData(ctx context.Context) (*GetPolicyDataResult, error)
 
 	// ListReports lists existing reports for an issue or change request.
-	ListReports(ctx context.Context, opts *ListReportsOptions) (*ListReportsResult, error)
+	ListReports(ctx context.Context, id any, opts *ListReportsOptions) (*ListReportsResult, error)
 
 	// DeleteReport deletes an existing comment from an issue or change request.
 	DeleteReport(ctx context.Context, id any) error

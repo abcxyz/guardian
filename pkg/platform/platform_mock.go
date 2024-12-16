@@ -187,7 +187,7 @@ func (m *MockPlatform) ReportStatus(ctx context.Context, s Status, p *StatusPara
 }
 
 // ListReports lists existing reports for an issue or change request.
-func (m *MockPlatform) ListReports(ctx context.Context, opts *ListReportsOptions) (*ListReportsResult, error) {
+func (m *MockPlatform) ListReports(ctx context.Context, id any, opts *ListReportsOptions) (*ListReportsResult, error) {
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
 	m.Reqs = append(m.Reqs,

@@ -534,7 +534,7 @@ func (g *GitHub) ClearReports(ctx context.Context) error {
 	}
 
 	for {
-		response, err := g.ListReports(ctx, listOpts)
+		response, err := g.ListReports(ctx, g.cfg.GitHubPullRequestNumber, listOpts)
 		if err != nil {
 			return fmt.Errorf("failed to list comments: %w", err)
 		}
@@ -563,12 +563,17 @@ func (g *GitHub) ClearReports(ctx context.Context) error {
 }
 
 // ListReports lists existing comments for an issue or change request.
-func (g *GitHub) ListReports(ctx context.Context, opts *ListReportsOptions) (*ListReportsResult, error) {
+func (g *GitHub) ListReports(ctx context.Context, id any, opts *ListReportsOptions) (*ListReportsResult, error) {
+	prID, ok := id.(int)
+	if !ok {
+		return nil, fmt.Errorf("expected pull request number of type int")
+	}
+
 	var comments []*Report
 	var pagination *Pagination
 
 	if err := g.withRetries(ctx, func(ctx context.Context) error {
-		ghComments, resp, err := g.client.Issues.ListComments(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, g.cfg.GitHubPullRequestNumber, opts.GitHub)
+		ghComments, resp, err := g.client.Issues.ListComments(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, prID, opts.GitHub)
 		if err != nil {
 			if resp != nil {
 				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
