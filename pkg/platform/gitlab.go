@@ -66,15 +66,15 @@ type gitLabConfig struct {
 	GuardianGitLabToken string
 	GitLabBaseURL       string
 
-	GitLabProjectID      int
-	GitLabMergeRequestID int
+	GitLabProjectID       int
+	GitLabMergeRequestIID int
 }
 
 type gitLabPredefinedConfig struct {
-	CIJobToken       string
-	CIServerHost     string
-	CIProjectID      int
-	CIMergeRequestID int
+	CIJobToken        string
+	CIServerHost      string
+	CIProjectID       int
+	CIMergeRequestIID int
 }
 
 // Load retrieves the predefined GitLab CI/CD variables from environment. See
@@ -92,8 +92,8 @@ func (c *gitLabPredefinedConfig) Load() {
 		c.CIProjectID = v
 	}
 
-	if v, err := strconv.Atoi(os.Getenv("CI_MERGE_REQUEST_ID")); err == nil {
-		c.CIMergeRequestID = v
+	if v, err := strconv.Atoi(os.Getenv("CI_MERGE_REQUEST_IID")); err == nil {
+		c.CIMergeRequestIID = v
 	}
 }
 
@@ -132,11 +132,11 @@ func (c *gitLabConfig) RegisterFlags(set *cli.FlagSet) {
 	})
 
 	f.IntVar(&cli.IntVar{
-		Name:    "gitlab-merge-request-id",
-		EnvVar:  "GITLAB_MERGE_REQUEST_ID",
-		Target:  &c.GitLabMergeRequestID,
-		Default: cfgDefaults.CIMergeRequestID,
-		Usage:   "The GitLab merge request ID.",
+		Name:    "gitlab-merge-request-iid",
+		EnvVar:  "GITLAB_MERGE_REQUEST_IID",
+		Target:  &c.GitLabMergeRequestIID,
+		Default: cfgDefaults.CIMergeRequestIID,
+		Usage:   "The GitLab project-level merge request internal ID.",
 		Hidden:  true,
 	})
 }
@@ -210,7 +210,7 @@ func (g *GitLab) ListReports(ctx context.Context, opts *ListReportsOptions) (*Li
 	var pagination *Pagination
 
 	if err := g.withRetries(ctx, func(ctx context.Context) error {
-		notes, resp, err := g.client.Notes.ListMergeRequestNotes(g.cfg.GitLabProjectID, g.cfg.GitLabMergeRequestID, opts.GitLab)
+		notes, resp, err := g.client.Notes.ListMergeRequestNotes(g.cfg.GitLabProjectID, g.cfg.GitLabMergeRequestIID, opts.GitLab)
 		if err != nil {
 			if resp != nil {
 				if _, ok := gitLabIgnoredStatusCodes[resp.StatusCode]; !ok {
@@ -246,7 +246,7 @@ func (g *GitLab) DeleteReport(ctx context.Context, id any) error {
 	}
 
 	if err := g.withRetries(ctx, func(ctx context.Context) error {
-		resp, err := g.client.Notes.DeleteMergeRequestNote(g.cfg.GitLabProjectID, g.cfg.GitLabMergeRequestID, noteID)
+		resp, err := g.client.Notes.DeleteMergeRequestNote(g.cfg.GitLabProjectID, g.cfg.GitLabMergeRequestIID, noteID)
 		if err != nil {
 			if resp != nil {
 				if _, ok := gitLabIgnoredStatusCodes[resp.StatusCode]; !ok {
@@ -345,9 +345,9 @@ func (g *GitLab) createMergeRequestNote(ctx context.Context, msg string) error {
 
 	logger.DebugContext(ctx, "creating merge request note",
 		"project", g.cfg.GitLabProjectID,
-		"merge_request", g.cfg.GitLabMergeRequestID)
+		"merge_request", g.cfg.GitLabMergeRequestIID)
 
-	if _, _, err := g.client.Notes.CreateMergeRequestNote(g.cfg.GitLabProjectID, g.cfg.GitLabMergeRequestID, &gitlab.CreateMergeRequestNoteOptions{
+	if _, _, err := g.client.Notes.CreateMergeRequestNote(g.cfg.GitLabProjectID, g.cfg.GitLabMergeRequestIID, &gitlab.CreateMergeRequestNoteOptions{
 		Body: &msg,
 	}); err != nil {
 		return fmt.Errorf("failed to create merge request note: %w", err)
@@ -362,7 +362,7 @@ func validateGitLabReporterInputs(cfg *gitLabConfig) error {
 		merr = errors.Join(merr, fmt.Errorf("gitlab project id is required"))
 	}
 
-	if cfg.GitLabMergeRequestID <= 0 {
+	if cfg.GitLabMergeRequestIID <= 0 {
 		merr = errors.Join(merr, fmt.Errorf("gitlab merge request id is required"))
 	}
 
