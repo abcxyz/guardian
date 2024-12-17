@@ -71,9 +71,11 @@ type gitLabConfig struct {
 }
 
 type gitLabPredefinedConfig struct {
-	CIJobToken        string
-	CIServerHost      string
-	CIProjectID       int
+	CIJobToken   string
+	CIServerHost string
+	CIProjectID  int
+	// The merge request IID is the number used in the GitLab API, and not ID.
+	// See https://docs.gitlab.com/ee/ci/variables/predefined_variables.html.
 	CIMergeRequestIID int
 }
 
