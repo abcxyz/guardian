@@ -387,6 +387,6 @@ func (g *GitLab) withRetries(ctx context.Context, retryFunc retry.RetryFunc) err
 }
 
 // ListChangeRequestsByCommit lists the merge requests associated with a commit SHA.
-func (g *GitLab) ListChangeRequestsByCommit(ctx context.Context, sha string) (any, error) {
+func (g *GitLab) ListChangeRequestsByCommit(ctx context.Context, sha string, opts *ListChangeRequestsByCommitOptions) (any, error) {
 	return nil, nil
 }

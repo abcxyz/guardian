@@ -95,6 +95,6 @@ func (l *Local) ClearReports(ctx context.Context) error {
 }
 
 // ListChangeRequestsByCommit is a no-op.
-func (l *Local) ListChangeRequestsByCommit(ctx context.Context, sha string) (any, error) {
+func (l *Local) ListChangeRequestsByCommit(ctx context.Context, sha string, opts *ListChangeRequestsByCommitOptions) (any, error) {
 	return nil, nil
 }
