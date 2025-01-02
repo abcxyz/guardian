@@ -244,3 +244,8 @@ func (m *MockPlatform) ClearReports(ctx context.Context) error {
 
 	return m.ClearReportsErr
 }
+
+// ListChangeRequestsByCommit lists the change requests associated with a commit SHA.
+func (m *MockPlatform) ListChangeRequestsByCommit(ctx context.Context, sha string) (any, error) {
+	return nil, nil
+}

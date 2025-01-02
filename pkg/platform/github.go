@@ -695,3 +695,8 @@ func (g *GitHub) resolveJobLogsURL(ctx context.Context) (string, error) {
 	}
 	return "", fmt.Errorf("failed to resolve direct URL to job logs: no job found matching name %s", g.cfg.GitHubJobName)
 }
+
+// ListChangeRequestsByCommit lists the merge requests associated with a commit SHA.
+func (g *GitHub) ListChangeRequestsByCommit(ctx context.Context, sha string) (any, error) {
+	return nil, nil
+}

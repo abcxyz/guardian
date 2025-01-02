@@ -93,3 +93,8 @@ func (l *Local) ReportEntrypointsSummary(ctx context.Context, params *Entrypoint
 func (l *Local) ClearReports(ctx context.Context) error {
 	return nil
 }
+
+// ListChangeRequestsByCommit is a no-op.
+func (l *Local) ListChangeRequestsByCommit(ctx context.Context, sha string) (any, error) {
+	return nil, nil
+}

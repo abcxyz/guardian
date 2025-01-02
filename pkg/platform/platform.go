@@ -122,6 +122,9 @@ type Platform interface {
 	// ListReports lists existing reports for an issue or change request.
 	ListReports(ctx context.Context, opts *ListReportsOptions) (*ListReportsResult, error)
 
+	// ListChangeRequestsByCommit lists the change requests associated with a commit SHA.
+	ListChangeRequestsByCommit(ctx context.Context, sha string) (any, error)
+
 	// DeleteReport deletes an existing comment from an issue or change request.
 	DeleteReport(ctx context.Context, id any) error
 
