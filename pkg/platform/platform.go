@@ -104,8 +104,7 @@ type ListChangeRequestsByCommitOptions struct {
 // ListChangeRequestsByCommitResponse contains the changes requests and
 // pagination options return by the platform.
 type ListChangeRequestsByCommitResponse struct {
-	PullRequests []*PullRequest
-	Pagination   *Pagination
+	Pagination *Pagination
 }
 
 // Pagination is the paging details for a list response.
