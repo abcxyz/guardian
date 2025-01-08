@@ -95,10 +95,14 @@ type ListReportsResult struct {
 	Pagination *Pagination
 }
 
+// ListChangeRequestsByCommitOptions contains embedded client options for each
+// platform.
 type ListChangeRequestsByCommitOptions struct {
 	GitHub *github.PullRequestListOptions
 }
 
+// ListChangeRequestsByCommitResponse contains the changes requests and
+// pagination options return by the platform.
 type ListChangeRequestsByCommitResponse struct {
 	PullRequests []*PullRequest
 	Pagination   *Pagination

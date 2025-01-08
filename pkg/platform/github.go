@@ -696,39 +696,7 @@ func (g *GitHub) resolveJobLogsURL(ctx context.Context) (string, error) {
 	return "", fmt.Errorf("failed to resolve direct URL to job logs: no job found matching name %s", g.cfg.GitHubJobName)
 }
 
-type PullRequest struct {
-	ID     int64
-	Number int
-}
-
 // ListChangeRequestsByCommit lists the merge requests associated with a commit SHA.
 func (g *GitHub) ListChangeRequestsByCommit(ctx context.Context, sha string, opts *ListChangeRequestsByCommitOptions) (any, error) {
-	var pullRequests []*PullRequest
-	var pagination *Pagination
-
-	if err := g.withRetries(ctx, func(ctx context.Context) error {
-		ghPullRequests, resp, err := g.client.PullRequests.ListPullRequestsWithCommit(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, sha, opts.GitHub)
-		if err != nil {
-			if resp != nil {
-				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
-					return retry.RetryableError(err)
-				}
-			}
-			return fmt.Errorf("failed to list pull request comments: %w", err)
-		}
-
-		for _, c := range ghPullRequests {
-			pullRequests = append(pullRequests, &PullRequest{ID: c.GetID(), Number: c.GetNumber()})
-		}
-
-		if resp.NextPage != 0 {
-			pagination = &Pagination{NextPage: resp.NextPage}
-		}
-
-		return nil
-	}); err != nil {
-		return nil, fmt.Errorf("failed to list pull request comments: %w", err)
-	}
-
-	return &ListChangeRequestsByCommitResponse{PullRequests: pullRequests, Pagination: pagination}, nil
+	return nil, nil
 }

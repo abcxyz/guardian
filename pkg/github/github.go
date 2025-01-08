@@ -139,6 +139,9 @@ type GitHub interface {
 	// ListIssueComments lists existing comments for an issue or pull request.
 	ListIssueComments(ctx context.Context, owner, repo string, number int, opts *github.IssueListCommentsOptions) (*IssueCommentResponse, error)
 
+	// ListPullRequestsForCommit lists the pull requests associated with a commit.
+	ListPullRequestsForCommit(ctx context.Context, owner, repo, sha string, opts *github.PullRequestListOptions) (*PullRequestResponse, error)
+
 	// RepoUserPermissionLevel gets the repository permission level for a user. The possible permissions values
 	// are admin, write, read, none.
 	RepoUserPermissionLevel(ctx context.Context, owner, repo, user string) (string, error)
@@ -463,6 +466,38 @@ func (g *GitHubClient) ListIssueComments(ctx context.Context, owner, repo string
 	}
 
 	return &IssueCommentResponse{Comments: comments, Pagination: pagination}, nil
+}
+
+// ListPullRequestsForCommit lists the pull requests associated with a commit.
+func (g *GitHubClient) ListPullRequestsForCommit(ctx context.Context, owner, repo, sha string, opts *github.PullRequestListOptions) (*PullRequestResponse, error) {
+	var pullRequests []*PullRequest
+	var pagination *Pagination
+
+	if err := g.withRetries(ctx, func(ctx context.Context) error {
+		ghPullRequests, resp, err := g.client.PullRequests.ListPullRequestsWithCommit(ctx, owner, repo, sha, opts)
+		if err != nil {
+			if resp != nil {
+				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
+					return retry.RetryableError(err)
+				}
+			}
+			return fmt.Errorf("failed to list pull request comments: %w", err)
+		}
+
+		for _, c := range ghPullRequests {
+			pullRequests = append(pullRequests, &PullRequest{ID: c.GetID(), Number: c.GetNumber()})
+		}
+
+		if resp.NextPage != 0 {
+			pagination = &Pagination{NextPage: resp.NextPage}
+		}
+
+		return nil
+	}); err != nil {
+		return nil, fmt.Errorf("failed to list pull request comments: %w", err)
+	}
+
+	return &PullRequestResponse{PullRequests: pullRequests, Pagination: pagination}, nil
 }
 
 // RepoUserPermissionLevel gets the repository permission level for a user. The possible permissions values
