@@ -104,7 +104,8 @@ type ListChangeRequestsByCommitOptions struct {
 // ListChangeRequestsByCommitResponse contains the changes requests and
 // pagination options return by the platform.
 type ListChangeRequestsByCommitResponse struct {
-	Pagination *Pagination
+	PullRequests []*PullRequest
+	Pagination   *Pagination
 }
 
 // Pagination is the paging details for a list response.
@@ -135,7 +136,7 @@ type Platform interface {
 	ListReports(ctx context.Context, opts *ListReportsOptions) (*ListReportsResult, error)
 
 	// ListChangeRequestsByCommit lists the change requests associated with a commit SHA.
-	ListChangeRequestsByCommit(ctx context.Context, sha string, opts *ListChangeRequestsByCommitOptions) (any, error)
+	ListChangeRequestsByCommit(ctx context.Context, sha string, opts *ListChangeRequestsByCommitOptions) (*ListChangeRequestsByCommitResponse, error)
 
 	// DeleteReport deletes an existing comment from an issue or change request.
 	DeleteReport(ctx context.Context, id any) error

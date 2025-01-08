@@ -483,6 +483,18 @@ func (g *GitHub) ReportStatus(ctx context.Context, st Status, p *StatusParams) e
 		return fmt.Errorf("failed to validate reporter inputs: %w", err)
 	}
 
+	if g.cfg.GitHubPullRequestNumber <= 0 {
+		result, err := g.ListChangeRequestsByCommit(ctx, g.cfg.GitHubSHA, nil)
+		if err != nil {
+			return fmt.Errorf("failed to get pull request number for commit sha: %s", g.cfg.GitHubSHA)
+		}
+
+		if len(result.PullRequests) == 0 {
+			return fmt.Errorf("no pull requests found for commit sha: %s", g.cfg.GitHubSHA)
+		}
+		g.cfg.GitHubPullRequestNumber = result.PullRequests[0].Number
+	}
+
 	msg, err := statusMessage(st, p, g.logURL, githubMaxCommentLength)
 	if err != nil {
 		return fmt.Errorf("failed to generate status message: %w", err)
@@ -505,6 +517,18 @@ func (g *GitHub) ReportStatus(ctx context.Context, st Status, p *StatusParams) e
 func (g *GitHub) ReportEntrypointsSummary(ctx context.Context, p *EntrypointsSummaryParams) error {
 	if err := validateGitHubReporterInputs(g.cfg); err != nil {
 		return fmt.Errorf("failed to validate reporter inputs: %w", err)
+	}
+
+	if g.cfg.GitHubPullRequestNumber <= 0 {
+		result, err := g.ListChangeRequestsByCommit(ctx, g.cfg.GitHubSHA, nil)
+		if err != nil {
+			return fmt.Errorf("failed to get pull request number for commit sha: %s", g.cfg.GitHubSHA)
+		}
+
+		if len(result.PullRequests) == 0 {
+			return fmt.Errorf("no pull requests found for commit sha: %s", g.cfg.GitHubSHA)
+		}
+		g.cfg.GitHubPullRequestNumber = result.PullRequests[0].Number
 	}
 
 	msg, err := entrypointsSummaryMessage(p, g.logURL)
@@ -696,7 +720,40 @@ func (g *GitHub) resolveJobLogsURL(ctx context.Context) (string, error) {
 	return "", fmt.Errorf("failed to resolve direct URL to job logs: no job found matching name %s", g.cfg.GitHubJobName)
 }
 
+// PullRequest is a GitHub pull request.
+type PullRequest struct {
+	ID     int64
+	Number int
+}
+
 // ListChangeRequestsByCommit lists the merge requests associated with a commit SHA.
-func (g *GitHub) ListChangeRequestsByCommit(ctx context.Context, sha string, opts *ListChangeRequestsByCommitOptions) (any, error) {
-	return nil, nil
+func (g *GitHub) ListChangeRequestsByCommit(ctx context.Context, sha string, opts *ListChangeRequestsByCommitOptions) (*ListChangeRequestsByCommitResponse, error) {
+	var pullRequests []*PullRequest
+	var pagination *Pagination
+
+	if err := g.withRetries(ctx, func(ctx context.Context) error {
+		ghPullRequests, resp, err := g.client.PullRequests.ListPullRequestsWithCommit(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, sha, opts.GitHub)
+		if err != nil {
+			if resp != nil {
+				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
+					return retry.RetryableError(err)
+				}
+			}
+			return fmt.Errorf("failed to list pull request comments: %w", err)
+		}
+
+		for _, c := range ghPullRequests {
+			pullRequests = append(pullRequests, &PullRequest{ID: c.GetID(), Number: c.GetNumber()})
+		}
+
+		if resp.NextPage != 0 {
+			pagination = &Pagination{NextPage: resp.NextPage}
+		}
+
+		return nil
+	}); err != nil {
+		return nil, fmt.Errorf("failed to list pull request comments: %w", err)
+	}
+
+	return &ListChangeRequestsByCommitResponse{PullRequests: pullRequests, Pagination: pagination}, nil
 }
