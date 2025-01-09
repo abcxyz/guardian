@@ -731,8 +731,13 @@ func (g *GitHub) ListChangeRequestsByCommit(ctx context.Context, sha string, opt
 	var pullRequests []*PullRequest
 	var pagination *Pagination
 
+	var ghOptions *github.PullRequestListOptions
+	if opts != nil {
+		ghOptions = opts.GitHub
+	}
+
 	if err := g.withRetries(ctx, func(ctx context.Context) error {
-		ghPullRequests, resp, err := g.client.PullRequests.ListPullRequestsWithCommit(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, sha, opts.GitHub)
+		ghPullRequests, resp, err := g.client.PullRequests.ListPullRequestsWithCommit(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, sha, ghOptions)
 		if err != nil {
 			if resp != nil {
 				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
