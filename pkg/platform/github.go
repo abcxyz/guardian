@@ -483,6 +483,8 @@ func (g *GitHub) ReportStatus(ctx context.Context, st Status, p *StatusParams) e
 		return fmt.Errorf("failed to validate reporter inputs: %w", err)
 	}
 
+	// Look up PR number if not provided by flag or environment, else status
+	// cannot be reported.
 	if g.cfg.GitHubPullRequestNumber <= 0 {
 		result, err := g.ListChangeRequestsByCommit(ctx, g.cfg.GitHubSHA, nil)
 		if err != nil {
@@ -519,6 +521,8 @@ func (g *GitHub) ReportEntrypointsSummary(ctx context.Context, p *EntrypointsSum
 		return fmt.Errorf("failed to validate reporter inputs: %w", err)
 	}
 
+	// Look up PR number if not provided by flag or environment, else status
+	// cannot be reported.
 	if g.cfg.GitHubPullRequestNumber <= 0 {
 		result, err := g.ListChangeRequestsByCommit(ctx, g.cfg.GitHubSHA, nil)
 		if err != nil {
