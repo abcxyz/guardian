@@ -743,10 +743,7 @@ func (g *GitHub) ListChangeRequestsByCommit(ctx context.Context, sha string, opt
 	if err := g.withRetries(ctx, func(ctx context.Context) error {
 		ghPullRequests, resp, err := g.client.PullRequests.ListPullRequestsWithCommit(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, sha, ghOptions)
 		if err != nil {
-			if rerr, ok := maybeRetryable(resp, err); ok {
-				return rerr
-			}
-			return fmt.Errorf("failed to list pull request comments: %w", err)
+			return maybeRetryable(resp, fmt.Errorf("failed to list pull request comments: %w", err))
 		}
 
 		for _, c := range ghPullRequests {
@@ -765,9 +762,9 @@ func (g *GitHub) ListChangeRequestsByCommit(ctx context.Context, sha string, opt
 	return &ListChangeRequestsByCommitResponse{PullRequests: pullRequests, Pagination: pagination}, nil
 }
 
-func maybeRetryable(resp *github.Response, err error) (error, bool) {
+func maybeRetryable(resp *github.Response, err error) error {
 	if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
-		return retry.RetryableError(err), true
+		return retry.RetryableError(err)
 	}
-	return nil, false
+	return err
 }
