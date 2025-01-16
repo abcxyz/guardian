@@ -89,14 +89,12 @@ func TestMakeCreateConfig(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
 			cfg := makeCreateConfig(tc.length, tc.opts)
 			if diff := cmp.Diff(cfg, tc.exp, cmp.Options{cmp.AllowUnexported(createConfig{})}); diff != "" {
-				t.Errorf(diff)
+				t.Error(diff)
 			}
 		})
 	}
