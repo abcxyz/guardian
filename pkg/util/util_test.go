@@ -57,8 +57,6 @@ func TestSliceContainsOnly(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -113,14 +111,12 @@ func TestChildPath(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
 			d, err := ChildPath(tc.base, tc.target)
 			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
-				t.Errorf(diff)
+				t.Error(diff)
 			}
 
 			if got, want := d, tc.exp; got != want {
@@ -162,14 +158,12 @@ func TestPathEvalAbs(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
 			dir, err := PathEvalAbs(tc.dir)
 			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
-				t.Errorf(diff)
+				t.Error(diff)
 			}
 
 			if got, want := dir, tc.exp; got != want {

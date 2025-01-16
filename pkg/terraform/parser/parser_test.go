@@ -64,8 +64,6 @@ func TestParser_StateFileURIs(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -211,8 +209,6 @@ func TestParser_ProcessStates(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -222,7 +218,7 @@ func TestParser_ProcessStates(t *testing.T) {
 			}
 			var downloadErr error
 			if tc.wantErr != "" {
-				downloadErr = fmt.Errorf(tc.wantErr)
+				downloadErr = fmt.Errorf("%s", tc.wantErr)
 			}
 
 			p := &TerraformParser{

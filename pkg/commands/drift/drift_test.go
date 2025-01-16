@@ -183,8 +183,6 @@ func TestDrift_DetectDrift(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -288,8 +286,6 @@ func TestDrift_driftMessage(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			got := driftMessage(tc.drift)

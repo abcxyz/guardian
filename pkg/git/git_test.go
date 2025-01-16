@@ -86,18 +86,16 @@ testdata/third`,
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
 			dirs, err := parseSortedDiffDirsAbs(context.Background(), tc.value)
 			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
-				t.Errorf(diff)
+				t.Error(diff)
 			}
 
 			if diff := cmp.Diff(dirs, tc.exp); diff != "" {
-				t.Errorf(diff)
+				t.Error(diff)
 			}
 		})
 	}

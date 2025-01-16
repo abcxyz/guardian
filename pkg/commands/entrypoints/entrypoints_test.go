@@ -185,8 +185,6 @@ func TestEntrypointsProcess(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -207,7 +205,7 @@ func TestEntrypointsProcess(t *testing.T) {
 
 			err := c.Process(ctx)
 			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
-				t.Errorf(diff)
+				t.Error(diff)
 			}
 
 			if got, want := strings.TrimSpace(stdout.String()), strings.TrimSpace(tc.expStdout); !strings.Contains(got, want) {
@@ -236,8 +234,6 @@ func TestAfterParse(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -246,7 +242,7 @@ func TestAfterParse(t *testing.T) {
 			f := c.Flags()
 			err := f.Parse(tc.args)
 			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
-				t.Errorf(diff)
+				t.Error(diff)
 			}
 		})
 	}
