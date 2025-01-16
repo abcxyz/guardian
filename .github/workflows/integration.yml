@@ -46,22 +46,22 @@ jobs:
       contents: 'read'
     steps:
       - name: 'Checkout'
-        uses: 'actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332' # ratchet:actions/checkout@v4
+        uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # ratchet:actions/checkout@v4
 
       - name: 'Setup Go'
-        uses: 'actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7' # ratchet:actions/setup-go@v5
+        uses: 'actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a' # ratchet:actions/setup-go@v5
         with:
           go-version-file: 'go.mod'
 
       - name: 'Build Guardian'
-        uses: 'goreleaser/goreleaser-action@286f3b13b1b49da4ac219696163fb8c1c93e1200' # ratchet:goreleaser/goreleaser-action@v6
+        uses: 'goreleaser/goreleaser-action@9ed2f89a662bf1735a48bc8557fd212fa902bebf' # ratchet:goreleaser/goreleaser-action@v6
         with:
           distribution: 'goreleaser'
           version: 'v1.18.2'
           args: 'build --snapshot --single-target --clean --id guardian --output dist/guardian'
 
       - name: 'Upload Guardian Binary'
-        uses: 'actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808' # ratchet:actions/upload-artifact@v4
+        uses: 'actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08' # ratchet:actions/upload-artifact@v4
         with:
           name: 'guardian'
           path: 'dist/guardian'
@@ -78,12 +78,12 @@ jobs:
       directories: '${{ steps.dirs.outputs.directories }}'
     steps:
       - name: 'Checkout'
-        uses: 'actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332' # ratchet:actions/checkout@v4
+        uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # ratchet:actions/checkout@v4
         with:
           fetch-depth: 0 # get everything so we can use git diff
 
       - name: 'Download Guardian'
-        uses: 'actions/download-artifact@65a9edc5881444af0b9093a5e628f2fe47ea3b2e' # ratchet:actions/download-artifact@v4
+        uses: 'actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16' # ratchet:actions/download-artifact@v4
         with:
           name: 'guardian'
           path: '${{ runner.temp }}/.guardian'
@@ -134,16 +134,16 @@ jobs:
       GITHUB_JOB_NAME: '${{ github.job }} (${{ matrix.working_directory }})'
     steps:
       - name: 'Checkout'
-        uses: 'actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332' # ratchet:actions/checkout@v4
+        uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # ratchet:actions/checkout@v4
 
       - name: 'Authenticate to Google Cloud'
-        uses: 'google-github-actions/auth@71fee32a0bb7e97b4d33d548e7d957010649d8fa' # ratchet:google-github-actions/auth@v2
+        uses: 'google-github-actions/auth@6fc4af4b145ae7821d527454aa9bd537d1f2dc5f' # ratchet:google-github-actions/auth@v2
         with:
           workload_identity_provider: '${{ env.GUARDIAN_WIF_PROVIDER }}'
           service_account: '${{ env.GUARDIAN_WIF_SERVICE_ACCOUNT }}'
 
       - name: 'Setup Terraform'
-        uses: 'abcxyz/secure-setup-terraform@fa5832adc577578c1dfb422d13722bdeb711cf29' # ratchet:abcxyz/secure-setup-terraform@main
+        uses: 'abcxyz/secure-setup-terraform@cab3a5382336eba4ae2557d640b7f1ca144ffffe' # ratchet:abcxyz/secure-setup-terraform@main
         with:
           terraform_version: '${{ env.GUARDIAN_TERRAFORM_VERSION }}'
           terraform_module_location: './${{ matrix.working_directory }}'
@@ -152,7 +152,7 @@ jobs:
           terraform_wrapper: false
 
       - name: 'Download Guardian'
-        uses: 'actions/download-artifact@65a9edc5881444af0b9093a5e628f2fe47ea3b2e' # ratchet:actions/download-artifact@v4
+        uses: 'actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16' # ratchet:actions/download-artifact@v4
         with:
           name: 'guardian'
           path: '${{ runner.temp }}/.guardian'
@@ -183,10 +183,10 @@ jobs:
       pull-requests: 'write'
     steps:
       - name: 'Checkout'
-        uses: 'actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332' # ratchet:actions/checkout@v4
+        uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # ratchet:actions/checkout@v4
 
       - name: 'Download Guardian'
-        uses: 'actions/download-artifact@65a9edc5881444af0b9093a5e628f2fe47ea3b2e' # ratchet:actions/download-artifact@v4
+        uses: 'actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16' # ratchet:actions/download-artifact@v4
         with:
           name: 'guardian'
           path: '${{ runner.temp }}/.guardian'
@@ -221,12 +221,12 @@ jobs:
       directories: '${{ steps.dirs.outputs.directories }}'
     steps:
       - name: 'Checkout'
-        uses: 'actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332' # ratchet:actions/checkout@v4
+        uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # ratchet:actions/checkout@v4
         with:
           fetch-depth: 0 # get everything so we can use git diff
 
       - name: 'Download Guardian'
-        uses: 'actions/download-artifact@65a9edc5881444af0b9093a5e628f2fe47ea3b2e' # ratchet:actions/download-artifact@v4
+        uses: 'actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16' # ratchet:actions/download-artifact@v4
         with:
           name: 'guardian'
           path: '${{ runner.temp }}/.guardian'
@@ -270,16 +270,16 @@ jobs:
       GITHUB_JOB_NAME: '${{ github.job }} (${{ matrix.working_directory }})'
     steps:
       - name: 'Checkout'
-        uses: 'actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332' # ratchet:actions/checkout@v4
+        uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # ratchet:actions/checkout@v4
 
       - name: 'Authenticate to Google Cloud'
-        uses: 'google-github-actions/auth@71fee32a0bb7e97b4d33d548e7d957010649d8fa' # ratchet:google-github-actions/auth@v2
+        uses: 'google-github-actions/auth@6fc4af4b145ae7821d527454aa9bd537d1f2dc5f' # ratchet:google-github-actions/auth@v2
         with:
           workload_identity_provider: '${{ env.GUARDIAN_WIF_PROVIDER }}'
           service_account: '${{ env.GUARDIAN_WIF_SERVICE_ACCOUNT }}'
 
       - name: 'Setup Terraform'
-        uses: 'abcxyz/secure-setup-terraform@fa5832adc577578c1dfb422d13722bdeb711cf29' # ratchet:abcxyz/secure-setup-terraform@main
+        uses: 'abcxyz/secure-setup-terraform@cab3a5382336eba4ae2557d640b7f1ca144ffffe' # ratchet:abcxyz/secure-setup-terraform@main
         with:
           terraform_version: '${{ env.GUARDIAN_TERRAFORM_VERSION }}'
           terraform_module_location: './${{ matrix.working_directory }}'
@@ -288,7 +288,7 @@ jobs:
           terraform_wrapper: false
 
       - name: 'Download Guardian'
-        uses: 'actions/download-artifact@65a9edc5881444af0b9093a5e628f2fe47ea3b2e' # ratchet:actions/download-artifact@v4
+        uses: 'actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16' # ratchet:actions/download-artifact@v4
         with:
           name: 'guardian'
           path: '${{ runner.temp }}/.guardian'
