@@ -38,12 +38,12 @@ jobs:
           fetch-depth: 0
 
       - name: 'Setup Go'
-        uses: 'actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a' # ratchet:actions/setup-go@v5
+        uses: 'actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34' # ratchet:actions/setup-go@v5
         with:
           go-version-file: 'go.mod'
 
       - name: 'Run GoReleaser'
-        uses: 'goreleaser/goreleaser-action@9ed2f89a662bf1735a48bc8557fd212fa902bebf' # ratchet:goreleaser/goreleaser-action@v6
+        uses: 'goreleaser/goreleaser-action@90a3faa9d0182683851fbfa97ca1a2cb983bfca3' # ratchet:goreleaser/goreleaser-action@v6
         with:
           distribution: 'goreleaser'
           version: 'v1.18.2'

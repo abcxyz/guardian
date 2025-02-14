@@ -77,7 +77,12 @@ func NewGitHub(ctx context.Context, cfg *gh.Config) (*GitHub, error) {
 			AccessToken: ghToken,
 		})
 	} else {
-		app, err := githubauth.NewApp(cfg.GitHubAppID, cfg.GitHubAppPrivateKeyPEM)
+		signer, err := githubauth.NewPrivateKeySigner(cfg.GitHubAppPrivateKeyPEM)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse private key: %w", err)
+		}
+
+		app, err := githubauth.NewApp(cfg.GitHubAppID, signer)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create github app token source: %w", err)
 		}

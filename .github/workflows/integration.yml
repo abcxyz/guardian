@@ -49,12 +49,12 @@ jobs:
         uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # ratchet:actions/checkout@v4
 
       - name: 'Setup Go'
-        uses: 'actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a' # ratchet:actions/setup-go@v5
+        uses: 'actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34' # ratchet:actions/setup-go@v5
         with:
           go-version-file: 'go.mod'
 
       - name: 'Build Guardian'
-        uses: 'goreleaser/goreleaser-action@9ed2f89a662bf1735a48bc8557fd212fa902bebf' # ratchet:goreleaser/goreleaser-action@v6
+        uses: 'goreleaser/goreleaser-action@90a3faa9d0182683851fbfa97ca1a2cb983bfca3' # ratchet:goreleaser/goreleaser-action@v6
         with:
           distribution: 'goreleaser'
           version: 'v1.18.2'
@@ -143,7 +143,7 @@ jobs:
           service_account: '${{ env.GUARDIAN_WIF_SERVICE_ACCOUNT }}'
 
       - name: 'Setup Terraform'
-        uses: 'abcxyz/secure-setup-terraform@cab3a5382336eba4ae2557d640b7f1ca144ffffe' # ratchet:abcxyz/secure-setup-terraform@main
+        uses: 'abcxyz/secure-setup-terraform@7f93ab7480b59d0b9c03d7128402eb7e19148b4d' # ratchet:abcxyz/secure-setup-terraform@main
         with:
           terraform_version: '${{ env.GUARDIAN_TERRAFORM_VERSION }}'
           terraform_module_location: './${{ matrix.working_directory }}'
@@ -279,7 +279,7 @@ jobs:
           service_account: '${{ env.GUARDIAN_WIF_SERVICE_ACCOUNT }}'
 
       - name: 'Setup Terraform'
-        uses: 'abcxyz/secure-setup-terraform@cab3a5382336eba4ae2557d640b7f1ca144ffffe' # ratchet:abcxyz/secure-setup-terraform@main
+        uses: 'abcxyz/secure-setup-terraform@7f93ab7480b59d0b9c03d7128402eb7e19148b4d' # ratchet:abcxyz/secure-setup-terraform@main
         with:
           terraform_version: '${{ env.GUARDIAN_TERRAFORM_VERSION }}'
           terraform_module_location: './${{ matrix.working_directory }}'
