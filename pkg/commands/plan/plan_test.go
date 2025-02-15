@@ -15,7 +15,6 @@
 package plan
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -119,7 +118,7 @@ var terraformErrorMock = &terraform.MockTerraformClient{
 func TestPlan_Process(t *testing.T) {
 	t.Parallel()
 
-	ctx := logging.WithLogger(context.Background(), logging.TestLogger(t))
+	ctx := logging.WithLogger(t.Context(), logging.TestLogger(t))
 
 	cases := []struct {
 		name                     string

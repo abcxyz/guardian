@@ -15,7 +15,6 @@
 package drift
 
 import (
-	"context"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -186,7 +185,7 @@ func TestDrift_DetectDrift(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			ctx := context.Background()
+			ctx := t.Context()
 			d := &IAMDriftDetector{
 				assetInventoryClient: tc.assetInventoryClient,
 				terraformParser: &parser.MockTerraformParser{

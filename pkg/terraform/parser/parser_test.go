@@ -73,7 +73,7 @@ func TestParser_StateFileURIs(t *testing.T) {
 				},
 			}
 
-			got, err := p.StateFileURIs(context.Background(), tc.gcsBuckets)
+			got, err := p.StateFileURIs(t.Context(), tc.gcsBuckets)
 			if tc.wantErr != "" && !strings.Contains(err.Error(), tc.wantErr) {
 				t.Errorf("StateFileURIs() failed to get error %s", tc.wantErr)
 			}
@@ -235,7 +235,7 @@ func TestParser_ProcessStates(t *testing.T) {
 				p.SetAssets(tc.knownFolders, tc.knownProjects)
 			}
 
-			got, err := p.ProcessStates(context.Background(), tc.gcsURIs)
+			got, err := p.ProcessStates(t.Context(), tc.gcsURIs)
 			if tc.wantErr == "" && err != nil {
 				t.Errorf("ProcessStates() got unexpected error %v", err)
 			}

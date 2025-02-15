@@ -31,7 +31,7 @@ import (
 func TestEntrypointsProcess(t *testing.T) {
 	t.Parallel()
 
-	ctx := logging.WithLogger(context.Background(), logging.TestLogger(t))
+	ctx := logging.WithLogger(t.Context(), logging.TestLogger(t))
 
 	cwd, err := os.Getwd()
 	if err != nil {
