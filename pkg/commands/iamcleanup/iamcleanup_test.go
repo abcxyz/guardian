@@ -15,7 +15,6 @@
 package iamcleanup
 
 import (
-	"context"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -59,7 +58,7 @@ func Test_evaluateIAMConditionExpression(t *testing.T) {
 			t.Parallel()
 
 			// Run test.
-			got, gotErr := evaluateIAMConditionExpression(context.Background(), tc.expression)
+			got, gotErr := evaluateIAMConditionExpression(t.Context(), tc.expression)
 			if diff := testutil.DiffErrString(gotErr, tc.wantErrSubstr); diff != "" {
 				t.Errorf("Process(%+v) got unexpected error substring: %v", tc.name, diff)
 			}
