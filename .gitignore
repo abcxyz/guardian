@@ -58,3 +58,6 @@ override.tf.json
 # Binary files
 bin/
 dist/
+
+# Ignore generated credentials from google-github-actions/auth
+gha-creds-*.json
