@@ -28,6 +28,7 @@ import (
 	"github.com/abcxyz/guardian/internal/version"
 	"github.com/abcxyz/guardian/pkg/commands/apply"
 	"github.com/abcxyz/guardian/pkg/commands/cleanup"
+	"github.com/abcxyz/guardian/pkg/commands/download"
 	"github.com/abcxyz/guardian/pkg/commands/drift"
 	"github.com/abcxyz/guardian/pkg/commands/drift/statefiles"
 	"github.com/abcxyz/guardian/pkg/commands/entrypoints"
@@ -116,6 +117,17 @@ var rootCmd = func() cli.Command {
 						},
 						"fetch-data": func() cli.Command {
 							return &policy.FetchDataCommand{}
+						},
+					},
+				}
+			},
+			"download": func() cli.Command {
+				return &cli.RootCommand{
+					Name:        "download",
+					Description: "Download guardian artifacts",
+					Commands: map[string]cli.CommandFactory{
+						"plan": func() cli.Command {
+							return &download.DownloadPlanCommand{}
 						},
 					},
 				}
