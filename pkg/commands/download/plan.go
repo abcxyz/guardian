@@ -42,11 +42,10 @@ var _ cli.Command = (*DownloadPlanCommand)(nil)
 type DownloadPlanCommand struct {
 	cli.BaseCommand
 
-	directory         string
-	childPath         string
-	planFilename      string
-	planFileLocalPath string
-	storagePrefix     string
+	directory     string
+	childPath     string
+	planFilename  string
+	storagePrefix string
 
 	platformConfig platform.Config
 
