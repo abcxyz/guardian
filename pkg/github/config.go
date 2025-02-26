@@ -16,13 +16,19 @@ package github
 
 import (
 	"encoding/json"
+	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/google/go-github/v53/github"
 	"github.com/sethvargo/go-githubactions"
 
 	"github.com/abcxyz/pkg/cli"
+	"github.com/abcxyz/pkg/logging"
 )
+
+// mergeGroupPullRequestNumberPattern is a Regex pattern used to parse the pull request number from the merge_group ref.
+var mergeGroupPullRequestNumberPattern = regexp.MustCompile(`refs\/heads\/gh-readonly-queue\/main\/pr-(\d*)`)
 
 // Config is the config values for the GitHub client.
 type Config struct {
@@ -79,6 +85,8 @@ func (c *Config) RegisterFlags(set *cli.FlagSet) {
 		if err := json.Unmarshal(data, &event); err == nil {
 			d.PullRequestNumber = event.GetNumber()
 			d.PullRequestBody = event.GetPullRequest().GetBody()
+		} else {
+			logging.DefaultLogger().Warn("parsing pull_request event context failed", "error", err)
 		}
 	}
 	if githubContext.EventName == "pull_request_target" {
@@ -86,6 +94,28 @@ func (c *Config) RegisterFlags(set *cli.FlagSet) {
 		if err := json.Unmarshal(data, &event); err == nil {
 			d.PullRequestNumber = event.GetNumber()
 			d.PullRequestBody = event.GetPullRequest().GetBody()
+		} else {
+			logging.DefaultLogger().Warn("parsing pull_request_target event context failed", "error", err)
+		}
+	}
+	if githubContext.EventName == "merge_group" {
+		var event github.MergeGroupEvent
+		if err := json.Unmarshal(data, &event); err == nil {
+			matches := mergeGroupPullRequestNumberPattern.FindStringSubmatch(event.GetMergeGroup().GetHeadRef())
+			if len(matches) == 2 {
+				if v, err := strconv.Atoi(matches[1]); err == nil {
+					d.PullRequestNumber = v
+				} else {
+					logging.DefaultLogger().Warn("parsing merge_group head_ref for pull request number failed",
+						"head_ref", event.GetMergeGroup().GetHeadRef(),
+						"error", err)
+				}
+			} else {
+				logging.DefaultLogger().Warn("parsing merge_group head_ref for pull request number failed", "head_ref", event.GetMergeGroup().GetHeadRef())
+			}
+			// Pull request body is not available on the merge_group event.
+		} else {
+			logging.DefaultLogger().Warn("parsing merge_group event context failed", "error", err)
 		}
 	}
 
