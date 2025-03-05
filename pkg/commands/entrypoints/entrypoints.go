@@ -231,7 +231,7 @@ func (c *EntrypointsCommand) Process(ctx context.Context) error {
 
 	metaPlanDirs, ok := metaValues[modifiers.MetaKeyGuardianDir]
 	if !ok {
-		metaPlanDirs = []string{}
+		metaPlanDirs = make([]string, 0)
 	}
 
 	for _, metaPlanDir := range metaPlanDirs {
