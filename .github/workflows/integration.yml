@@ -109,6 +109,8 @@ jobs:
         env:
           # used to create comments on pull requests (access to only this repo)
           GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
+          # force the value for pull request body to ensure modifiers work
+          GITHUB_PULL_REQUEST_BODY: 'GUARDIAN_DIR=./terraform/project3'
         run: |-
           DIRECTORIES=$(guardian entrypoints -dir=./terraform/project1 -dir=./terraform/project2)
           echo "entrypoints -> ${DIRECTORIES}"
@@ -243,6 +245,8 @@ jobs:
         shell: 'bash'
         env:
           GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
+          # force the value for pull request body to ensure modifiers work
+          GITHUB_PULL_REQUEST_BODY: 'GUARDIAN_DIR=./terraform/project3'
         run: |-
           DIRECTORIES=$(guardian entrypoints -dir=./terraform/project1 -dir=./terraform/project2)
           echo "entrypoints -> ${DIRECTORIES}"

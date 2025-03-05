@@ -59,9 +59,10 @@ func (l *Local) GetPolicyData(ctx context.Context) (*GetPolicyDataResult, error)
 	return &GetPolicyDataResult{}, nil
 }
 
-// ModifierContent returns the local modifier content flag or an empty string.
+// ModifierContent returns an empty string. Local runs would have more context and
+// users can pass in the necessary values instead of relying on modifiers.
 func (l *Local) ModifierContent(ctx context.Context) (string, error) {
-	return l.cfg.LocalModifierContent, nil
+	return "", nil
 }
 
 // StoragePrefix returns an empty string for the local platform type.
