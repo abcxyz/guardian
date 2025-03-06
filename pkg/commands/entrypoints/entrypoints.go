@@ -28,6 +28,7 @@ import (
 
 	"github.com/abcxyz/guardian/internal/metricswrap"
 	"github.com/abcxyz/guardian/pkg/git"
+	"github.com/abcxyz/guardian/pkg/modifiers"
 	"github.com/abcxyz/guardian/pkg/platform"
 	"github.com/abcxyz/guardian/pkg/terraform"
 	"github.com/abcxyz/guardian/pkg/util"
@@ -217,6 +218,30 @@ func (c *EntrypointsCommand) Process(ctx context.Context) error {
 			return fmt.Errorf("failed to find entrypoint directories: %w", err)
 		}
 		modifiedEntrypoints = append(modifiedEntrypoints, modifiedDirs...)
+	}
+
+	modifierContent, err := c.platformClient.ModifierContent(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to find modifier content: %w", err)
+	}
+	logger.DebugContext(ctx, "modifier content", "value", modifierContent)
+
+	metaValues := modifiers.ParseBodyMetaValues(ctx, modifierContent)
+	logger.DebugContext(ctx, "parsed body meta values", "values", metaValues)
+
+	metaPlanDirs, ok := metaValues[modifiers.MetaKeyGuardianDir]
+	if !ok {
+		metaPlanDirs = make([]string, 0)
+	}
+
+	for _, metaPlanDir := range metaPlanDirs {
+		metaPlanDirAbs, err := util.PathEvalAbs(metaPlanDir)
+		if err != nil {
+			return fmt.Errorf("failed to get absolute path for [%s]: %w", metaPlanDir, err)
+		}
+		if !slices.Contains(modifiedEntrypoints, metaPlanDirAbs) {
+			modifiedEntrypoints = append(modifiedEntrypoints, metaPlanDir)
+		}
 	}
 
 	// sort them for consistent results

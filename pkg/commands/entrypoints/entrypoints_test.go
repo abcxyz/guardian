@@ -45,6 +45,7 @@ func TestEntrypointsProcess(t *testing.T) {
 		flagSourceRef     string
 		flagDetectChanges bool
 		flagMaxDepth      int
+		modifierContent   string
 		newGitClient      func(ctx context.Context, dir string) git.Git
 		platformClient    *platform.MockPlatform
 		err               string
@@ -159,6 +160,55 @@ func TestEntrypointsProcess(t *testing.T) {
 			expStdout: `["testdata/entrypoint1/project1","testdata/entrypoint1/project2"]`,
 		},
 		{
+			name:              "no_changes_without_modifier",
+			flagDir:           []string{"testdata/entrypoint1"},
+			flagDestRef:       "main",
+			flagSourceRef:     "ldap/feature",
+			flagDetectChanges: true,
+			newGitClient: func(ctx context.Context, dir string) git.Git {
+				return &git.MockGitClient{
+					DiffResp: []string{
+						path.Join(cwd, "testdata/entrypoint1/project1/files"),
+					},
+				}
+			},
+			expStdout: `[]`,
+		},
+		{
+			name:              "changes_with_modifier",
+			flagDir:           []string{"testdata/entrypoint1"},
+			flagDestRef:       "main",
+			flagSourceRef:     "ldap/feature",
+			flagDetectChanges: true,
+			modifierContent:   "GUARDIAN_DIR=testdata/entrypoint1/project1",
+			newGitClient: func(ctx context.Context, dir string) git.Git {
+				return &git.MockGitClient{
+					DiffResp: []string{
+						path.Join(cwd, "testdata/entrypoint1/project1/files/test.txt"),
+					},
+				}
+			},
+			expStdout: `["testdata/entrypoint1/project1"]`,
+		},
+		{
+			name:              "multi_modifier",
+			flagDir:           []string{"testdata/entrypoint1"},
+			flagDestRef:       "main",
+			flagSourceRef:     "ldap/feature",
+			flagDetectChanges: true,
+			modifierContent: `GUARDIAN_DIR=testdata/entrypoint1/project1
+GUARDIAN_DIR=testdata/entrypoint1/project2`,
+			newGitClient: func(ctx context.Context, dir string) git.Git {
+				return &git.MockGitClient{
+					DiffResp: []string{
+						path.Join(cwd, "testdata/entrypoint1/project1/files/test.txt"),
+						path.Join(cwd, "testdata/entrypoint1/project2/files/test.txt"),
+					},
+				}
+			},
+			expStdout: `["testdata/entrypoint1/project1","testdata/entrypoint1/project2"]`,
+		},
+		{
 			name:              "skips_detect_changes",
 			flagDir:           []string{"testdata/entrypoint1"},
 			flagDestRef:       "main",
@@ -188,7 +238,9 @@ func TestEntrypointsProcess(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			mockPlatformClient := &platform.MockPlatform{}
+			mockPlatformClient := &platform.MockPlatform{
+				ModifierContentResp: tc.modifierContent,
+			}
 
 			c := &EntrypointsCommand{
 				flagDir:           tc.flagDir,
@@ -197,8 +249,7 @@ func TestEntrypointsProcess(t *testing.T) {
 				flagDetectChanges: tc.flagDetectChanges,
 				flagMaxDepth:      tc.flagMaxDepth,
 				platformClient:    mockPlatformClient,
-
-				newGitClient: tc.newGitClient,
+				newGitClient:      tc.newGitClient,
 			}
 
 			_, stdout, stderr := c.Pipe()
