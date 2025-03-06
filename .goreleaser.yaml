@@ -55,11 +55,3 @@ archives:
 checksum:
   name_template: 'guardian_{{ .Env.VERSION }}_SHA512SUMS'
   algorithm: 'sha512'
-
-changelog:
-  use: 'github'
-  sort: 'asc'
-
-# Release to github.
-release:
-  disable: true
