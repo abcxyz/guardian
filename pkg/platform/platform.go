@@ -123,6 +123,9 @@ type Platform interface {
 	// DeleteReport deletes an existing comment from an issue or change request.
 	DeleteReport(ctx context.Context, id int64) error
 
+	// ModifierContent returns the modifier content for parsing modifier flags.
+	ModifierContent(ctx context.Context) (string, error)
+
 	// StoragePrefix generates the unique storage prefix for the platform type.
 	StoragePrefix(ctx context.Context) (string, error)
 

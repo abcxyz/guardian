@@ -159,6 +159,16 @@ func (m *MockPlatform) GetPolicyData(ctx context.Context) (*GetPolicyDataResult,
 	}, nil
 }
 
+func (m *MockPlatform) ModifierContent(ctx context.Context) (string, error) {
+	m.reqMu.Lock()
+	defer m.reqMu.Unlock()
+	m.Reqs = append(m.Reqs, &Request{
+		Name: "ModifierContent",
+	})
+
+	return m.ModifierContentResp, m.ModifierContentErr
+}
+
 func (m *MockPlatform) StoragePrefix(ctx context.Context) (string, error) {
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
