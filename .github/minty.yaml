@@ -5,16 +5,28 @@ rule:
     assertion.iss == issuers.github &&
     assertion.repository_owner_id == '93787867' &&
     assertion.repository_id == '599811719' &&
-    assertion.ref == 'refs/heads/main'
+    assertion.ref == 'refs/heads/main' &&
+    assertion.workflow_ref == assertion.job_workflow_ref
 
 scope:
-  create-tag:
+  draft-release:
     rule:
       if: |-
-        assertion.job_workflow_ref == "abcxyz/pkg/.github/workflows/create-tag.yml@refs/heads/main" &&
-        assertion.workflow_ref.startsWith("abcxyz/guardian/.github/workflows/create-tag.yml") &&
+        assertion.workflow_ref.startsWith('abcxyz/guardian/.github/workflows/draft-release.yml') &&
         assertion.event_name == 'workflow_dispatch'
     repositories:
       - 'guardian'
     permissions:
       contents: 'write'
+      pull_requests: 'write'
+
+  release:
+    rule:
+      if: |-
+        assertion.workflow_ref.startsWith('abcxyz/guardian/.github/workflows/release.yml') &&
+        assertion.event_name == 'push'
+    repositories:
+      - 'guardian'
+    permissions:
+      contents: 'write'
+      workflows: 'write'
