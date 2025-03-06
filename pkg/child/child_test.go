@@ -30,7 +30,7 @@ import (
 func TestRun(t *testing.T) {
 	t.Parallel()
 
-	ctx := logging.WithLogger(context.Background(), logging.TestLogger(t))
+	ctx := logging.WithLogger(t.Context(), logging.TestLogger(t))
 
 	cases := []struct {
 		name        string
@@ -66,8 +66,6 @@ func TestRun(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -81,7 +79,7 @@ func TestRun(t *testing.T) {
 			})
 			if err != nil {
 				if diff := testutil.DiffErrString(err, tc.err); diff != "" {
-					t.Errorf(diff)
+					t.Errorf("%s", diff)
 				}
 				return
 			}
@@ -102,7 +100,7 @@ func TestRun(t *testing.T) {
 func TestRun_Cancel(t *testing.T) {
 	t.Parallel()
 
-	ctx := logging.WithLogger(context.Background(), logging.TestLogger(t))
+	ctx := logging.WithLogger(t.Context(), logging.TestLogger(t))
 
 	cases := []struct {
 		name         string
@@ -136,8 +134,6 @@ func TestRun_Cancel(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -159,7 +155,7 @@ func TestRun_Cancel(t *testing.T) {
 			})
 			if err != nil {
 				if diff := testutil.DiffErrString(err, tc.err); diff != "" {
-					t.Errorf(diff)
+					t.Errorf("%s", diff)
 				}
 				return
 			}
@@ -290,8 +286,6 @@ func TestEnviron(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 

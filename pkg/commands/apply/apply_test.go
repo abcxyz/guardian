@@ -15,7 +15,6 @@
 package apply
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -65,7 +64,7 @@ var terraformErrorMock = &terraform.MockTerraformClient{
 func TestApply_Process(t *testing.T) {
 	t.Parallel()
 
-	ctx := logging.WithLogger(context.Background(), logging.TestLogger(t))
+	ctx := logging.WithLogger(t.Context(), logging.TestLogger(t))
 
 	cases := []struct {
 		name                     string
@@ -174,8 +173,6 @@ func TestApply_Process(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -202,7 +199,7 @@ func TestApply_Process(t *testing.T) {
 
 			err := c.Process(ctx)
 			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
-				t.Errorf(diff)
+				t.Errorf("%s", diff)
 			}
 
 			if diff := cmp.Diff(mockPlatformClient.Reqs, tc.expPlatformClientReqs); diff != "" {

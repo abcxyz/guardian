@@ -33,17 +33,17 @@ jobs:
     needs: 'lint-test'
     steps:
       - name: 'Checkout'
-        uses: 'actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332' # ratchet:actions/checkout@v4
+        uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # ratchet:actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: 'Setup Go'
-        uses: 'actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7' # ratchet:actions/setup-go@v5
+        uses: 'actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34' # ratchet:actions/setup-go@v5
         with:
           go-version-file: 'go.mod'
 
       - name: 'Run GoReleaser'
-        uses: 'goreleaser/goreleaser-action@286f3b13b1b49da4ac219696163fb8c1c93e1200' # ratchet:goreleaser/goreleaser-action@v6
+        uses: 'goreleaser/goreleaser-action@90a3faa9d0182683851fbfa97ca1a2cb983bfca3' # ratchet:goreleaser/goreleaser-action@v6
         with:
           distribution: 'goreleaser'
           version: 'v1.18.2'

@@ -64,8 +64,6 @@ func TestParser_StateFileURIs(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -75,7 +73,7 @@ func TestParser_StateFileURIs(t *testing.T) {
 				},
 			}
 
-			got, err := p.StateFileURIs(context.Background(), tc.gcsBuckets)
+			got, err := p.StateFileURIs(t.Context(), tc.gcsBuckets)
 			if tc.wantErr != "" && !strings.Contains(err.Error(), tc.wantErr) {
 				t.Errorf("StateFileURIs() failed to get error %s", tc.wantErr)
 			}
@@ -211,8 +209,6 @@ func TestParser_ProcessStates(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -222,7 +218,7 @@ func TestParser_ProcessStates(t *testing.T) {
 			}
 			var downloadErr error
 			if tc.wantErr != "" {
-				downloadErr = fmt.Errorf(tc.wantErr)
+				downloadErr = fmt.Errorf("%s", tc.wantErr)
 			}
 
 			p := &TerraformParser{
@@ -239,7 +235,7 @@ func TestParser_ProcessStates(t *testing.T) {
 				p.SetAssets(tc.knownFolders, tc.knownProjects)
 			}
 
-			got, err := p.ProcessStates(context.Background(), tc.gcsURIs)
+			got, err := p.ProcessStates(t.Context(), tc.gcsURIs)
 			if tc.wantErr == "" && err != nil {
 				t.Errorf("ProcessStates() got unexpected error %v", err)
 			}
