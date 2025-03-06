@@ -57,7 +57,7 @@ jobs:
           service_url: '${{ vars.TOKEN_MINTER_SERVICE_URL }}'
           requested_permissions: |-
             {
-              "scope": "release"
+              "scope": "release",
               "repositories": ["${{ github.event.repository.name }}"],
               "permissions": {
                 "contents": "write"
