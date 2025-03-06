@@ -34,7 +34,7 @@ builds:
       - '-s'
       - '-w'
       - '-X={{ .ModulePath }}/internal/version.name=guardian'
-      - '-X={{ .ModulePath }}/internal/version.version={{ .Version }}'
+      - '-X={{ .ModulePath }}/internal/version.version={{ .Env.VERSION }}'
       - '-X={{ .ModulePath }}/internal/version.commit={{ .Commit }}'
       - '-extldflags=-static'
     goos:
@@ -47,13 +47,13 @@ builds:
 
 archives:
   - format: 'tar.gz'
-    name_template: 'guardian_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
+    name_template: 'guardian_{{ .Env.VERSION }}_{{ .Os }}_{{ .Arch }}'
     format_overrides:
       - goos: 'windows'
         format: 'zip'
 
 checksum:
-  name_template: 'guardian_{{ .Version }}_SHA512SUMS'
+  name_template: 'guardian_{{ .Env.VERSION }}_SHA512SUMS'
   algorithm: 'sha512'
 
 changelog:
@@ -62,5 +62,4 @@ changelog:
 
 # Release to github.
 release:
-  draft: false
-  mode: 'replace'
+  disable: true
