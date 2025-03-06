@@ -15,7 +15,6 @@
 package terraform
 
 import (
-	"context"
 	"os"
 	"path"
 	"strings"
@@ -85,8 +84,6 @@ first section !
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -155,14 +152,12 @@ func TestGetEntrypointDirectories(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
 			dirs, err := GetEntrypointDirectories(tc.dir, tc.maxDepth)
 			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
-				t.Errorf(diff)
+				t.Errorf("%s", diff)
 			}
 
 			if diff := cmp.Diff(dirs, tc.exp); diff != "" {
@@ -200,14 +195,12 @@ func TestHasBackendConfig(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
 			found, _, err := hasBackendConfig(tc.file)
 			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
-				t.Errorf(diff)
+				t.Errorf("%s", diff)
 			}
 
 			if got, want := found, tc.exp; got != want {
@@ -245,14 +238,12 @@ func TestExtractBackendConfig(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
 			got, _, err := ExtractBackendConfig(tc.file)
 			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
-				t.Errorf(diff)
+				t.Errorf("%s", diff)
 			}
 
 			if diff := cmp.Diff(tc.want, got); diff != "" {
@@ -295,14 +286,12 @@ func Test_extractBackendConfig(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
 			got, _, err := extractBackendConfig(tc.data, "filename.tf")
 			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
-				t.Errorf(diff)
+				t.Errorf("%s", diff)
 			}
 
 			if diff := cmp.Diff(tc.want, got); diff != "" {
@@ -368,14 +357,12 @@ func TestModules(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			dirs, err := modules(context.Background(), tc.dir, true)
+			dirs, err := modules(t.Context(), tc.dir, true)
 			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
-				t.Errorf(diff)
+				t.Errorf("%s", diff)
 			}
 
 			if diff := cmp.Diff(dirs, tc.exp); diff != "" {
@@ -470,14 +457,12 @@ func TestModuleUsage(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			graph, err := ModuleUsage(context.Background(), tc.dir, tc.maxDepth, true)
+			graph, err := ModuleUsage(t.Context(), tc.dir, tc.maxDepth, true)
 			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
-				t.Errorf(diff)
+				t.Errorf("%s", diff)
 			}
 
 			if diff := cmp.Diff(graph, tc.exp); diff != "" {

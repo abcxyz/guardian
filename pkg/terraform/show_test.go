@@ -65,14 +65,12 @@ func TestShowArgsFromOptions(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
 			args := showArgsFromOptions(tc.opts)
 			if diff := cmp.Diff(args, tc.exp); diff != "" {
-				t.Errorf(diff)
+				t.Errorf("%s", diff)
 			}
 		})
 	}

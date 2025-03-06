@@ -56,7 +56,7 @@ const (
 func TestEntrypointsProcess(t *testing.T) {
 	t.Parallel()
 
-	ctx := logging.WithLogger(context.Background(), logging.TestLogger(t))
+	ctx := logging.WithLogger(t.Context(), logging.TestLogger(t))
 
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -94,8 +94,6 @@ func TestEntrypointsProcess(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -117,7 +115,7 @@ func TestEntrypointsProcess(t *testing.T) {
 
 			err := c.Process(ctx)
 			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
-				t.Errorf(diff)
+				t.Errorf("%s", diff)
 			}
 			less := func(a, b *storage.Request) bool {
 				return fmt.Sprintf("%s-%s", a.Name, a.Params) < fmt.Sprintf("%s-%s", b.Name, b.Params)

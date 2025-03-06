@@ -15,7 +15,6 @@
 package policy
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
@@ -27,7 +26,7 @@ import (
 func TestEnforce_Process(t *testing.T) {
 	t.Parallel()
 
-	ctx := logging.WithLogger(context.Background(), logging.TestLogger(t))
+	ctx := logging.WithLogger(t.Context(), logging.TestLogger(t))
 
 	cases := []struct {
 		name               string
@@ -63,8 +62,6 @@ func TestEnforce_Process(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
