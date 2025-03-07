@@ -1,0 +1,111 @@
+# Copyright 2025 The Authors (see AUTHORS file)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: 'build'
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: 'Version information to inject into the binary'
+        type: 'string'
+        required: true
+
+    outputs:
+      matrix:
+        description: 'JSON-encoded build matrix'
+        value: '${{ jobs.compute-matrix.outputs.matrix }}'
+
+jobs:
+  compute-matrix:
+    runs-on: 'ubuntu-latest'
+    outputs:
+      matrix: '${{ steps.compute-matrix.outputs.matrix }}'
+    steps:
+      - name: 'Compute Matrix'
+        id: 'compute-matrix'
+        uses: 'actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea' # ratchet:actions/github-script@v7
+        with:
+          script: |-
+            const matrix = {
+              goarch: [
+                'amd64',
+                'arm64',
+              ],
+              goos: [
+                'darwin',
+                'linux',
+              ],
+              build: [
+                {
+                  name: 'guardian',
+                  package: './cmd/guardian',
+                },
+              ],
+            };
+
+            core.setOutput('matrix', JSON.stringify(matrix));
+
+  build-binaries:
+    runs-on: 'ubuntu-latest'
+    needs:
+      - 'compute-matrix'
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+    strategy:
+      fail-fast: false
+      matrix: '${{ fromJSON(needs.compute-matrix.outputs.matrix) }}'
+    name: 'build ${{ matrix.build.name }} (${{ matrix.goos }}/${{ matrix.goarch }})'
+    env:
+      GOARCH: '${{ matrix.goarch }}'
+      GOOS: '${{ matrix.goos }}'
+      PLATFORM: '${{ matrix.goos }}/${{ matrix.goarch }}'
+      BINARY_NAME: '${{ matrix.build.name }}'
+      BINARY_FILENAME: |-
+        ${{ matrix.build.name }}_${{ inputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}${{ (matrix.goos == 'windows' && '.exe') || '' }}
+      PACKAGE: '${{ matrix.build.package }}'
+      VERSION: '${{ inputs.version }}'
+    steps:
+      - name: 'Checkout'
+        uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # ratchet:actions/checkout@v4
+
+      - name: 'Setup go'
+        uses: 'actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34' # ratchet:actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+
+      - name: 'Build'
+        env:
+          GOPROXY: 'https://proxy.golang.org,direct'
+        run: |-
+          export MODULE="$(go list -m)"
+          export CGO_ENABLED=0
+
+          go build -a -trimpath -o "dist/${BINARY_FILENAME}" \
+            -ldflags="-s -w -extldflags=-static \
+              -X=${MODULE}/internal/version.name=${BINARY_NAME} \
+              -X=${MODULE}/internal/version.version=${VERSION} \
+              -X=${MODULE}/internal/version.commit=${GITHUB_SHA} \
+            " \
+            "${PACKAGE}"
+
+      - name: 'Upload artifacts'
+        uses: 'actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1' # ratchet:actions/upload-artifact@v4
+        with:
+          name: '${{ env.BINARY_FILENAME }}'
+          path: 'dist/'
+          if-no-files-found: 'error'
+          retention-days: 1
+          overwrite: true
