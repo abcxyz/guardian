@@ -15,38 +15,307 @@
 name: 'release'
 
 on:
-  workflow_dispatch:
-  workflow_call:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - 'main'
+      - 'release/**/*'
 
-permissions:
-  contents: 'write'
+concurrency:
+  group: '${{ github.workflow }}-${{ github.event_name}}-${{ github.head_ref || github.ref }}'
+  cancel-in-progress: false
 
 jobs:
-  # Double check that tests pass and lint is clean.
-  lint-test:
-    uses: './.github/workflows/lint-test.yml'
-  release:
+  create-release:
+    if: |-
+      ${{ startsWith(github.event.head_commit.message, 'Release: v') }}
     runs-on: 'ubuntu-latest'
-    needs: 'lint-test'
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+    outputs:
+      created: '${{ steps.create-release.outputs.created || false }}'
+      tag: '${{ steps.create-release.outputs.tag }}'
+      version: '${{ steps.create-release.outputs.version }}'
     steps:
-      - name: 'Checkout'
-        uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # ratchet:actions/checkout@v4
+      - id: 'auth'
+        name: 'Authenticate to Google Cloud'
+        uses: 'google-github-actions/auth@6fc4af4b145ae7821d527454aa9bd537d1f2dc5f' # ratchet:google-github-actions/auth@v2
         with:
-          fetch-depth: 0
+          create_credentials_file: false
+          export_environment_variables: false
+          workload_identity_provider: '${{ vars.TOKEN_MINTER_WIF_PROVIDER }}'
+          service_account: '${{ vars.TOKEN_MINTER_WIF_SERVICE_ACCOUNT }}'
+          token_format: 'id_token'
+          id_token_audience: '${{ vars.TOKEN_MINTER_SERVICE_AUDIENCE }}'
+          id_token_include_email: true
 
-      - name: 'Setup Go'
-        uses: 'actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34' # ratchet:actions/setup-go@v5
+      - name: 'Mint Token'
+        id: 'mint-token'
+        uses: 'abcxyz/github-token-minter/.github/actions/minty@main' # ratchet:exclude
         with:
-          go-version-file: 'go.mod'
+          id_token: '${{ steps.auth.outputs.id_token }}'
+          service_url: '${{ vars.TOKEN_MINTER_SERVICE_URL }}'
+          requested_permissions: |-
+            {
+              "scope": "release",
+              "repositories": ["${{ github.event.repository.name }}"],
+              "permissions": {
+                "contents": "write"
+              }
+            }
 
-      - name: 'Run GoReleaser'
-        uses: 'goreleaser/goreleaser-action@90a3faa9d0182683851fbfa97ca1a2cb983bfca3' # ratchet:goreleaser/goreleaser-action@v6
-        with:
-          distribution: 'goreleaser'
-          version: 'v1.18.2'
-          args: 'release --clean'
+      - uses: 'actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea' # ratchet:actions/github-script@v7
+        id: 'create-release'
         env:
-          GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+          EXPECTED_EMAIL: '${{ vars.TOKEN_MINTER_GITHUB_EMAIL }}'
+        with:
+          github-token: '${{ steps.mint-token.outputs.token }}'
+          script: |-
+            // Get the head commit from the API instead of the event, because
+            // signature status is not available in the webhook.
+            const headCommit = context.payload.head_commit;
+
+            // Ensure the commit is signed.
+            const commitResult = await github.rest.repos.getCommit({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: headCommit.id,
+            })
+
+            // Ensure the commit is a release commit.
+            const commitMessage = commitResult.data.commit.message;
+            const matches = commitMessage.match(/Release: v(?<version>[^\s]+)/i);
+            if (!matches || !matches.groups) {
+              core.setFailed(`❌ Commit "${commitMessage}" does not match version syntax`);
+              return;
+            }
+            let version = matches.groups.version;
+            while(version.charAt(0).toLowerCase() === 'v') {
+              version = version.substr(1);
+            }
+            core.info(`👾 Computed version as: "${version}"`)
+            core.setOutput('version', version)
+
+            // Set the tag (which has the leading "v") prefix.
+            const tag = `v${version}`;
+            core.info(`👾 Computed tag as: "${tag}"`)
+            core.setOutput('tag', tag)
+
+            // Verify the commit is signed.
+            if (!commitResult.data.commit.verification.verified) {
+              core.setFailed(`❌ Commit is not signed`)
+              return;
+            }
+
+            // Verify the email matches the expected committer.
+            const expectedEmail = process.env.EXPECTED_EMAIL;
+            const gotEmail = commitResult.data.commit.author.email;
+            if (gotEmail !== expectedEmail) {
+              core.setFailed(`❌ Commit author is "${gotEmail}", expected "${expectedEmail}"`);
+              return;
+            }
+
+            // Compute prerelase.
+            const prerelease = ['-', 'pre', 'alpha', 'beta', 'preview'].some((v) => version.includes(v));
+
+            // Create the release.
+            const response = await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: tag,
+              target_commitish: headCommit.id,
+              name: tag,
+              generate_release_notes: true,
+              prerelease: prerelease,
+              draft: true,
+              make_latest: 'legacy',
+            });
+            core.setOutput('created', true);
+            core.info(`✅ Created release "${response.data.name}" at ${response.data.html_url}`);
+
+  build:
+    uses: './.github/workflows/build.yml'
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+    needs:
+      - 'create-release'
+    with:
+      version: '${{ needs.create-release.outputs.version }}'
+
+  publish-binaries:
+    runs-on: 'ubuntu-latest'
+    needs:
+      - 'build'
+      - 'create-release'
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+    steps:
+      - id: 'auth'
+        name: 'Authenticate to Google Cloud'
+        uses: 'google-github-actions/auth@6fc4af4b145ae7821d527454aa9bd537d1f2dc5f' # ratchet:google-github-actions/auth@v2
+        with:
+          create_credentials_file: false
+          export_environment_variables: false
+          workload_identity_provider: '${{ vars.TOKEN_MINTER_WIF_PROVIDER }}'
+          service_account: '${{ vars.TOKEN_MINTER_WIF_SERVICE_ACCOUNT }}'
+          token_format: 'id_token'
+          id_token_audience: '${{ vars.TOKEN_MINTER_SERVICE_AUDIENCE }}'
+          id_token_include_email: true
+
+      - name: 'Mint Token'
+        id: 'mint-token'
+        uses: 'abcxyz/github-token-minter/.github/actions/minty@main' # ratchet:exclude
+        with:
+          id_token: '${{ steps.auth.outputs.id_token }}'
+          service_url: '${{ vars.TOKEN_MINTER_SERVICE_URL }}'
+          requested_permissions: |-
+            {
+              "scope": "release",
+              "repositories": ["${{ github.event.repository.name }}"],
+              "permissions": {
+                "contents": "write"
+              }
+            }
+
+      - uses: 'actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806' # ratchet:actions/download-artifact@v4
+        with:
+          pattern: '*'
+          path: 'dist/'
+          merge-multiple: true
+
+      - name: 'Compress and compute checksums'
+        run: |-
+          cd dist/
+
+          for BINARY in $(find * -type f); do
+            chmod +x "${BINARY}"
+
+            FOLDER="$(basename "${BINARY}" ".exe")"
+            NAME="${BINARY%%_*}"
+
+            # Windows - zip and follow Windows conventions with named subdirectory
+            if [ "${FOLDER}" != "${BINARY}" ]; then
+              NAME="${NAME}.exe"
+              mv "${BINARY}" "${BINARY}.tmp"
+              mkdir "${FOLDER}"
+              mv "${BINARY}.tmp" "${FOLDER}/${NAME}"
+
+              (zip -9 -o -m -r -q "${FOLDER}.zip" "${FOLDER}" && rm -rf "${FOLDER}") &
+
+            # Mac/Linux - tar and gZip the binary directly for non-windows style conventions
+            else
+              (tar -czvf "${FOLDER}.tar.gz" "${FOLDER}" && rm -rf "${FOLDER}") &
+            fi
+          done
+          wait
+
+          FILES="$(find * -name '*.tar.gz' -o -name '*.zip')"
+          sha256sum ${FILES} > SHA256SUMS
+          sha512sum ${FILES} > SHA512SUMS
+
+      - name: 'Upload binaries'
+        env:
+          GH_TOKEN: '${{ steps.mint-token.outputs.token }}'
+          RELEASE_VERSION: 'v${{ needs.create-release.outputs.version }}'
+          REPO: '${{ github.repository }}'
+        run: |-
+          FILES="$(find ./dist -type f)"
+          gh release upload "${RELEASE_VERSION}" ${FILES} \
+            --repo "${REPO}"
+
+  publish-release:
+    runs-on: 'ubuntu-latest'
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+    needs:
+      - 'create-release'
+      - 'publish-binaries'
+    steps:
+      - id: 'auth'
+        name: 'Authenticate to Google Cloud'
+        uses: 'google-github-actions/auth@6fc4af4b145ae7821d527454aa9bd537d1f2dc5f' # ratchet:google-github-actions/auth@v2
+        with:
+          create_credentials_file: false
+          export_environment_variables: false
+          workload_identity_provider: '${{ vars.TOKEN_MINTER_WIF_PROVIDER }}'
+          service_account: '${{ vars.TOKEN_MINTER_WIF_SERVICE_ACCOUNT }}'
+          token_format: 'id_token'
+          id_token_audience: '${{ vars.TOKEN_MINTER_SERVICE_AUDIENCE }}'
+          id_token_include_email: true
+
+      - name: 'Mint Token'
+        id: 'mint-token'
+        uses: 'abcxyz/github-token-minter/.github/actions/minty@main' # ratchet:exclude
+        with:
+          id_token: '${{ steps.auth.outputs.id_token }}'
+          service_url: '${{ vars.TOKEN_MINTER_SERVICE_URL }}'
+          requested_permissions: |-
+            {
+              "scope": "release",
+              "repositories": ["${{ github.event.repository.name }}"],
+              "permissions": {
+                "contents": "write"
+              }
+            }
+
+      - name: 'Publish release'
+        env:
+          GH_TOKEN: '${{ steps.mint-token.outputs.token }}'
+          RELEASE_VERSION: 'v${{ needs.create-release.outputs.version }}'
+          REPO: '${{ github.repository }}'
+        run: |-
+          gh release edit "${RELEASE_VERSION}" \
+            --repo "${REPO}" \
+            --draft=false
+
+  cleanup-failed-release:
+    if: |-
+      ${{ always() && needs.create-release.outputs.created == 'true' && contains(fromJSON('["failure", "cancelled", "skipped"]'), needs.publish-release.result) }}
+    runs-on: 'ubuntu-latest'
+    needs:
+      - 'create-release'
+      - 'publish-release'
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+    steps:
+      - name: 'Authenticate to Google Cloud'
+        id: 'auth'
+        uses: 'google-github-actions/auth@6fc4af4b145ae7821d527454aa9bd537d1f2dc5f' # ratchet:google-github-actions/auth@v2
+        with:
+          create_credentials_file: false
+          export_environment_variables: false
+          workload_identity_provider: '${{ vars.TOKEN_MINTER_WIF_PROVIDER }}'
+          service_account: '${{ vars.TOKEN_MINTER_WIF_SERVICE_ACCOUNT }}'
+          token_format: 'id_token'
+          id_token_audience: '${{ vars.TOKEN_MINTER_SERVICE_AUDIENCE }}'
+          id_token_include_email: true
+
+      - name: 'Mint Token'
+        id: 'mint-token'
+        uses: 'abcxyz/github-token-minter/.github/actions/minty@main' # ratchet:exclude
+        with:
+          id_token: '${{ steps.auth.outputs.id_token }}'
+          service_url: '${{ vars.TOKEN_MINTER_SERVICE_URL }}'
+          requested_permissions: |-
+            {
+              "scope": "release",
+              "repositories": ["${{ github.event.repository.name }}"],
+              "permissions": {
+                "contents": "write"
+              }
+            }
+
+      - name: 'Cleanup failed release'
+        env:
+          GH_TOKEN: '${{ steps.mint-token.outputs.token }}'
+          RELEASE_VERSION: 'v${{ needs.create-release.outputs.version }}'
+          REPO: '${{ github.repository }}'
+        run: |-
+          gh release delete "${RELEASE_VERSION}" \
+            --repo "${REPO}" \
+            --cleanup-tag \
+            --yes || true
