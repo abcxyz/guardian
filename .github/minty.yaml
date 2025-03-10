@@ -16,7 +16,7 @@ scope:
           "refs/heads/main",
           "refs/heads/release/v1",
           "refs/heads/release/v2",
-        ]
+        ] &&
         assertion.event_name == 'workflow_dispatch'
     repositories:
       - 'guardian'
