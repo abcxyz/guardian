@@ -38,36 +38,20 @@ env:
   GUARDIAN_WIF_SERVICE_ACCOUNT: 'guardian-automation-bot@ghg-guardian-ci-i-6ad437.iam.gserviceaccount.com'
   GUARDIAN_BUCKET_NAME: 'guardian-ci-i-guardian-state-c79e1f4759'
   GUARDIAN_TERRAFORM_VERSION: '1.7.1'
+  # we only care about the linux binary for integration testing in this workflow
+  GUARDIAN_LINUX_BINARY: 'guardian_${{ github.workflow }}-${{ github.run_id }}-${{ github.run_attempt }}_linux_amd64'
 
 jobs:
   build:
-    runs-on: 'ubuntu-latest'
+    uses: './.github/workflows/build.yml'
     permissions:
       contents: 'read'
-    steps:
-      - name: 'Checkout'
-        uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # ratchet:actions/checkout@v4
-
-      - name: 'Setup Go'
-        uses: 'actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34' # ratchet:actions/setup-go@v5
-        with:
-          go-version-file: 'go.mod'
-
-      - name: 'Build Guardian'
-        uses: 'goreleaser/goreleaser-action@90a3faa9d0182683851fbfa97ca1a2cb983bfca3' # ratchet:goreleaser/goreleaser-action@v6
-        env:
-          VERSION: '${{ github.workflow }}-${{ github.run_id }}-${{ github.run_attempt }}'
-        with:
-          distribution: 'goreleaser'
-          version: 'v1.18.2'
-          args: 'build --snapshot --single-target --clean --id guardian --output dist/guardian'
-
-      - name: 'Upload Guardian Binary'
-        uses: 'actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1' # ratchet:actions/upload-artifact@v4
-        with:
-          name: 'guardian'
-          path: 'dist/guardian'
-          retention-days: 1
+      id-token: 'write'
+    with:
+      # the "env" context is not availble in reusable workflows[1].
+      #
+      # [1]: https://github.com/orgs/community/discussions/26671
+      version: '${{ github.workflow }}-${{ github.run_id }}-${{ github.run_attempt }}'
 
   init-plan:
     needs:
@@ -87,13 +71,14 @@ jobs:
       - name: 'Download Guardian'
         uses: 'actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806' # ratchet:actions/download-artifact@v4
         with:
-          name: 'guardian'
+          name: '${{ env.GUARDIAN_LINUX_BINARY }}'
           path: '${{ runner.temp }}/.guardian'
 
       - name: 'Setup Guardian'
         env:
           INSTALL_PATH: '${{ runner.temp }}/.guardian'
         run: |-
+          mv "${INSTALL_PATH}/${GUARDIAN_LINUX_BINARY}" "${INSTALL_PATH}/guardian"
           chmod +x "${INSTALL_PATH}/guardian"
           echo "${INSTALL_PATH}" >> $GITHUB_PATH
 
@@ -158,13 +143,14 @@ jobs:
       - name: 'Download Guardian'
         uses: 'actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806' # ratchet:actions/download-artifact@v4
         with:
-          name: 'guardian'
+          name: '${{ env.GUARDIAN_LINUX_BINARY }}'
           path: '${{ runner.temp }}/.guardian'
 
       - name: 'Setup Guardian'
         env:
           INSTALL_PATH: '${{ runner.temp }}/.guardian'
         run: |-
+          mv "${INSTALL_PATH}/${GUARDIAN_LINUX_BINARY}" "${INSTALL_PATH}/guardian"
           chmod +x "${INSTALL_PATH}/guardian"
           echo "${INSTALL_PATH}" >> $GITHUB_PATH
 
@@ -192,13 +178,14 @@ jobs:
       - name: 'Download Guardian'
         uses: 'actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806' # ratchet:actions/download-artifact@v4
         with:
-          name: 'guardian'
+          name: '${{ env.GUARDIAN_LINUX_BINARY }}'
           path: '${{ runner.temp }}/.guardian'
 
       - name: 'Setup Guardian'
         env:
           INSTALL_PATH: '${{ runner.temp }}/.guardian'
         run: |-
+          mv "${INSTALL_PATH}/${GUARDIAN_LINUX_BINARY}" "${INSTALL_PATH}/guardian"
           chmod +x "${INSTALL_PATH}/guardian"
           echo "${INSTALL_PATH}" >> $GITHUB_PATH
 
@@ -232,13 +219,14 @@ jobs:
       - name: 'Download Guardian'
         uses: 'actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806' # ratchet:actions/download-artifact@v4
         with:
-          name: 'guardian'
+          name: '${{ env.GUARDIAN_LINUX_BINARY }}'
           path: '${{ runner.temp }}/.guardian'
 
       - name: 'Setup Guardian'
         env:
           INSTALL_PATH: '${{ runner.temp }}/.guardian'
         run: |-
+          mv "${INSTALL_PATH}/${GUARDIAN_LINUX_BINARY}" "${INSTALL_PATH}/guardian"
           chmod +x "${INSTALL_PATH}/guardian"
           echo "${INSTALL_PATH}" >> $GITHUB_PATH
 
@@ -296,13 +284,14 @@ jobs:
       - name: 'Download Guardian'
         uses: 'actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806' # ratchet:actions/download-artifact@v4
         with:
-          name: 'guardian'
+          name: '${{ env.GUARDIAN_LINUX_BINARY }}'
           path: '${{ runner.temp }}/.guardian'
 
       - name: 'Setup Guardian'
         env:
           INSTALL_PATH: '${{ runner.temp }}/.guardian'
         run: |-
+          mv "${INSTALL_PATH}/${GUARDIAN_LINUX_BINARY}" "${INSTALL_PATH}/guardian"
           chmod +x "${INSTALL_PATH}/guardian"
           echo "${INSTALL_PATH}" >> $GITHUB_PATH
 
