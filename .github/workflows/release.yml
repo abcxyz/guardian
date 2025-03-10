@@ -195,20 +195,23 @@ jobs:
             FOLDER="$(basename "${BINARY}" ".exe")"
             NAME="${BINARY%%_*}"
 
+            # Windows - zip and follow Windows conventions with named subdirectory
             if [ "${FOLDER}" != "${BINARY}" ]; then
               NAME="${NAME}.exe"
+              mv "${BINARY}" "${BINARY}.tmp"
+              mkdir "${FOLDER}"
+              mv "${BINARY}.tmp" "${FOLDER}/${NAME}"
+
+              (zip -9 -o -m -r -q "${FOLDER}.zip" "${FOLDER}" && rm -rf "${FOLDER}") &
+
+            # Mac/Linux - tar and gZip the binary directly for non-windows style conventions
+            else
+              (tar -czvf "${FOLDER}.tar.gz" "${FOLDER}" && rm -rf "${FOLDER}") &
             fi
-
-            mv "${BINARY}" "${BINARY}.tmp"
-            mkdir "${FOLDER}"
-            mv "${BINARY}.tmp" "${FOLDER}/${NAME}"
-
-            (zip -9 -o -m -r -q "${FOLDER}.zip" "${FOLDER}" && \
-              rm -rf "${FOLDER}") &
           done
           wait
 
-          FILES="$(find * -name '*.zip')"
+          FILES="$(find * -name '*.tar.gz' -o -name '*.zip')"
           sha256sum ${FILES} > SHA256SUMS
           sha512sum ${FILES} > SHA512SUMS
 
