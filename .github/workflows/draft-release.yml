@@ -85,6 +85,7 @@ jobs:
             const releaseNotesResponse = await github.rest.repos.generateReleaseNotes({
               owner: context.repo.owner,
               repo: context.repo.repo,
+              target_commitish: context.sha
               tag_name: `v${process.env.NEXT_VERSION}`,
               previous_tag_name: `v${process.env.CURRENT_VERSION}`,
             });
