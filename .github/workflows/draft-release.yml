@@ -1,0 +1,102 @@
+# Copyright 2025 The Authors (see AUTHORS file)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: 'draft-release'
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_strategy:
+        description: |-
+          Update strategy
+        default: 'patch'
+        type: 'choice'
+        options:
+          - 'major'
+          - 'minor'
+          - 'patch'
+          - 'prerelease'
+        required: true
+
+env:
+  PR_BRANCH: 'automation/draft-release-${{ github.ref_name }}'
+
+jobs:
+  draft-release:
+    runs-on: 'ubuntu-latest'
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+    steps:
+      - name: 'Increment version'
+        id: 'increment-version'
+        uses: 'abcxyz/pkg/.github/actions/increment-version@main' # ratchet:exclude
+        with:
+          version_strategy: '${{ inputs.version_strategy }}'
+
+      - name: 'Authenticate to Google Cloud'
+        id: 'auth'
+        uses: 'google-github-actions/auth@6fc4af4b145ae7821d527454aa9bd537d1f2dc5f' # ratchet:google-github-actions/auth@v2
+        with:
+          create_credentials_file: false
+          export_environment_variables: false
+          workload_identity_provider: '${{ vars.TOKEN_MINTER_WIF_PROVIDER }}'
+          service_account: '${{ vars.TOKEN_MINTER_WIF_SERVICE_ACCOUNT }}'
+          token_format: 'id_token'
+          id_token_audience: '${{ vars.TOKEN_MINTER_SERVICE_AUDIENCE }}'
+          id_token_include_email: true
+
+      - name: 'Mint Token'
+        id: 'mint-token'
+        uses: 'abcxyz/github-token-minter/.github/actions/minty@main' # ratchet:exclude
+        with:
+          id_token: '${{ steps.auth.outputs.id_token }}'
+          service_url: '${{ vars.TOKEN_MINTER_SERVICE_URL }}'
+          requested_permissions: |-
+            {
+              "scope": "draft-release",
+              "repositories": ["${{ github.event.repository.name }}"],
+              "permissions": {
+                "pull_requests": "write",
+                "contents": "write"
+              }
+            }
+
+      - name: 'Generate Release Notes'
+        id: 'generate-release-notes'
+        uses: 'actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea' # ratchet:actions/github-script@v7
+        env:
+          CURRENT_VERSION: '${{ steps.increment-version.outputs.current_version }}'
+          NEXT_VERSION: '${{ steps.increment-version.outputs.next_version }}'
+        with:
+          github-token: '${{ steps.mint-token.outputs.token }}'
+          script: |-
+            const releaseNotesResponse = await github.rest.repos.generateReleaseNotes({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: `v${process.env.NEXT_VERSION}`,
+              previous_tag_name: `v${process.env.CURRENT_VERSION}`,
+            });
+            core.setOutput('release-notes', releaseNotesResponse.data.body)
+
+      - name: 'Update Pull Request'
+        uses: 'abcxyz/pkg/.github/actions/create-pull-request@main' # ratchet:exclude
+        with:
+          token: '${{ steps.mint-token.outputs.token }}'
+          base_branch: '${{ github.ref_name }}'
+          head_branch: '${{ env.PR_BRANCH }}'
+          title: 'Release: v${{ steps.increment-version.outputs.next_version }}'
+          body: '${{ steps.generate-release-notes.outputs.release-notes }}'
+          changed_paths: |-
+            ["VERSION"]
