@@ -28,7 +28,11 @@ scope:
     rule:
       if: |-
         assertion.workflow_ref.startsWith('abcxyz/guardian/.github/workflows/release.yml') &&
-        assertion.ref == 'refs/heads/main' &&
+        assertion.ref in [
+          "refs/heads/main",
+          "refs/heads/release/v1",
+          "refs/heads/release/v2",
+        ] &&
         assertion.event_name == 'push'
     repositories:
       - 'guardian'

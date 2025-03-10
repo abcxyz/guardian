@@ -78,7 +78,6 @@ jobs:
         uses: 'actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea' # ratchet:actions/github-script@v7
         env:
           CURRENT_VERSION: '${{ steps.increment-version.outputs.current_version }}'
-          NEXT_VERSION: '${{ steps.increment-version.outputs.next_version }}'
         with:
           github-token: '${{ steps.mint-token.outputs.token }}'
           script: |-
@@ -86,7 +85,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               target_commitish: context.sha,
-              tag_name: `v${process.env.NEXT_VERSION}`,
+              tag_name: context.sha,
               previous_tag_name: `v${process.env.CURRENT_VERSION}`,
             });
             core.setOutput('release-notes', releaseNotesResponse.data.body)
