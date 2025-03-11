@@ -206,7 +206,8 @@ jobs:
 
             # Mac/Linux - tar and gZip the binary directly for non-windows style conventions
             else
-              (tar -czvf "${FOLDER}.tar.gz" "${FOLDER}" && rm -rf "${FOLDER}") &
+              mv "${BINARY}" "${NAME}"
+              (tar -czvf "${FOLDER}.tar.gz" "${NAME}" && rm -rf "${NAME}") &
             fi
           done
           wait
