@@ -424,35 +424,21 @@ func (g *GitHub) ModifierContent(ctx context.Context) (string, error) {
 			"commit_sha", g.cfg.GitHubSHA)
 
 		var body strings.Builder
-		if err := g.withRetries(ctx, func(ctx context.Context) error {
-			ghPullRequests, resp, err := g.client.PullRequests.ListPullRequestsWithCommit(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, g.cfg.GitHubSHA, &github.PullRequestListOptions{
-				ListOptions: github.ListOptions{
-					PerPage: 100,
-				},
-			})
-			if err != nil {
-				if resp != nil {
-					if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
-						return retry.RetryableError(err)
-					}
-				}
-				if resp.StatusCode == http.StatusNotFound {
-					return nil
-				}
-				return fmt.Errorf("failed to list pull request comments: %w", err)
-			}
+		ghPullRequests, err := g.getPullRequestsForCommit(ctx, g.cfg.GitHubSHA, &github.PullRequestListOptions{ListOptions: github.ListOptions{PerPage: 100}})
+		if err != nil {
+			return "", fmt.Errorf("failed to get pull requests for commit sha: %s", g.cfg.GitHubSHA)
+		}
 
-			for _, v := range ghPullRequests {
-				logger.DebugContext(ctx, "found pull request for sha",
-					"pull_request_number", v.GetNumber(),
-					"pull_request_body", v.GetBody())
+		if len(ghPullRequests) == 0 {
+			return "", fmt.Errorf("no pull requests found for commit sha: %s", g.cfg.GitHubSHA)
+		}
 
-				body.WriteString(v.GetBody())
-			}
+		for _, v := range ghPullRequests {
+			logger.DebugContext(ctx, "found pull request for sha",
+				"pull_request_number", v.GetNumber(),
+				"pull_request_body", v.GetBody())
 
-			return nil
-		}); err != nil {
-			return "", fmt.Errorf("failed to list pull request comments: %w", err)
+			body.WriteString(v.GetBody())
 		}
 
 		logger.DebugContext(ctx, "modifier content from commit pull requests",
@@ -501,38 +487,15 @@ func (g *GitHub) StoragePrefix(ctx context.Context) (string, error) {
 			"commit_sha", g.cfg.GitHubSHA)
 
 		var prData *github.PullRequest
-		if err := g.withRetries(ctx, func(ctx context.Context) error {
-			ghPullRequests, resp, err := g.client.PullRequests.ListPullRequestsWithCommit(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, g.cfg.GitHubSHA, &github.PullRequestListOptions{
-				ListOptions: github.ListOptions{
-					PerPage: 100,
-				},
-			})
-			if err != nil {
-				if resp != nil {
-					if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
-						return retry.RetryableError(err)
-					}
-				}
-				if resp.StatusCode == http.StatusNotFound {
-					return nil
-				}
-				return fmt.Errorf("failed to list pull requests for commit sha [%s]: %w", g.cfg.GitHubSHA, err)
-			}
-
-			if len(ghPullRequests) == 0 {
-				return fmt.Errorf("no pull requests found for commit sha: %s", g.cfg.GitHubSHA)
-			}
-
-			prData = ghPullRequests[0]
-
-			return nil
-		}); err != nil {
-			return "", fmt.Errorf("failed to list pull request : %w", err)
+		result, err := g.getPullRequestsForCommit(ctx, g.cfg.GitHubSHA, &github.PullRequestListOptions{ListOptions: github.ListOptions{PerPage: 100}})
+		if err != nil {
+			return "", fmt.Errorf("failed to get pull requests for commit sha: %s", g.cfg.GitHubSHA)
 		}
 
-		if prData == nil {
+		if len(result) == 0 {
 			return "", fmt.Errorf("no pull requests found for commit sha: %s", g.cfg.GitHubSHA)
 		}
+		prData = result[0]
 
 		logger.DebugContext(ctx, "computed pull request number from commit sha",
 			"github_pull_request_number", prData.GetNumber())
@@ -548,6 +511,21 @@ func (g *GitHub) StoragePrefix(ctx context.Context) (string, error) {
 func (g *GitHub) ReportStatus(ctx context.Context, st Status, p *StatusParams) error {
 	if err := validateGitHubReporterInputs(g.cfg); err != nil {
 		return fmt.Errorf("failed to validate reporter inputs: %w", err)
+	}
+
+	// Look up PR number if not provided by flag or environment, else status
+	// cannot be reported.
+	if g.cfg.GitHubPullRequestNumber <= 0 {
+		result, err := g.getPullRequestsForCommit(ctx, g.cfg.GitHubSHA, &github.PullRequestListOptions{ListOptions: github.ListOptions{PerPage: 100}})
+		if err != nil {
+			return fmt.Errorf("failed to get pull request number for commit sha: %s", g.cfg.GitHubSHA)
+		}
+
+		if len(result) == 0 {
+			return fmt.Errorf("no pull requests found for commit sha: %s", g.cfg.GitHubSHA)
+		}
+
+		g.cfg.GitHubPullRequestNumber = result[0].GetNumber()
 	}
 
 	msg, err := statusMessage(st, p, g.logURL, githubMaxCommentLength)
@@ -572,6 +550,21 @@ func (g *GitHub) ReportStatus(ctx context.Context, st Status, p *StatusParams) e
 func (g *GitHub) ReportEntrypointsSummary(ctx context.Context, p *EntrypointsSummaryParams) error {
 	if err := validateGitHubReporterInputs(g.cfg); err != nil {
 		return fmt.Errorf("failed to validate reporter inputs: %w", err)
+	}
+
+	// Look up PR number if not provided by flag or environment, else status
+	// cannot be reported.
+	if g.cfg.GitHubPullRequestNumber <= 0 {
+		result, err := g.getPullRequestsForCommit(ctx, g.cfg.GitHubSHA, &github.PullRequestListOptions{ListOptions: github.ListOptions{PerPage: 100}})
+		if err != nil {
+			return fmt.Errorf("failed to get pull request number for commit sha: %s", g.cfg.GitHubSHA)
+		}
+
+		if len(result) == 0 {
+			return fmt.Errorf("no pull requests found for commit sha: %s", g.cfg.GitHubSHA)
+		}
+
+		g.cfg.GitHubPullRequestNumber = result[0].GetNumber()
 	}
 
 	msg, err := entrypointsSummaryMessage(p, g.logURL)
@@ -757,4 +750,46 @@ func (g *GitHub) resolveJobLogsURL(ctx context.Context) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("failed to resolve direct URL to job logs: no job found matching name %s", g.cfg.GitHubJobName)
+}
+
+// getPullRequestsForCommit lists the pull requests associated with a commit SHA.
+func (g *GitHub) getPullRequestsForCommit(ctx context.Context, sha string, opts *github.PullRequestListOptions) ([]*github.PullRequest, error) {
+	logger := logging.FromContext(ctx)
+	logger.DebugContext(ctx, "looking up pull request from commit sha",
+		"owner", g.cfg.GitHubOwner,
+		"repo", g.cfg.GitHubRepo,
+		"commit_sha", g.cfg.GitHubSHA)
+
+	var ghOpts *github.PullRequestListOptions
+	if opts != nil {
+		ghOpts = &github.PullRequestListOptions{
+			ListOptions: github.ListOptions{
+				PerPage: 100,
+			},
+		}
+	}
+
+	pullRequests := make([]*github.PullRequest, 0)
+	if err := g.withRetries(ctx, func(ctx context.Context) error {
+		ghPullRequests, resp, err := g.client.PullRequests.ListPullRequestsWithCommit(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, sha, ghOpts)
+		if err != nil {
+			if resp != nil {
+				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
+					return retry.RetryableError(err)
+				}
+			}
+			if resp.StatusCode == http.StatusNotFound {
+				return nil
+			}
+			return fmt.Errorf("failed to list pull request comments: %w", err)
+		}
+
+		pullRequests = append(pullRequests, ghPullRequests...)
+
+		return nil
+	}); err != nil {
+		return nil, fmt.Errorf("failed to list pull request comments: %w", err)
+	}
+
+	return pullRequests, nil
 }
