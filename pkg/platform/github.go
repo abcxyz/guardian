@@ -455,7 +455,7 @@ func (g *GitHub) ModifierContent(ctx context.Context) (string, error) {
 func (g *GitHub) StoragePrefix(ctx context.Context) (string, error) {
 	logger := logging.FromContext(ctx)
 
-	pullRequestEvents := []string{"pull_request", "pull_request_target"}
+	pullRequestEvents := []string{"pull_request", "pull_request_target", "merge_group"}
 	if slices.Contains(pullRequestEvents, g.cfg.GitHubEventName) {
 		var merr error
 		if g.cfg.GitHubOwner == "" {
