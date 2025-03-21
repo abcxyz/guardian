@@ -43,14 +43,14 @@ type PlanStatusCommentCommand struct {
 }
 
 func (c *PlanStatusCommentCommand) Desc() string {
-	return `Remove previous Guardian plan comments from a pull request`
+	return `Report the status of a guardian plan`
 }
 
 func (c *PlanStatusCommentCommand) Help() string {
 	return `
 Usage: {{ COMMAND }} [options]
 
-	Remove previous Guardian plan comments from a pull request.
+	Report the status of a guardian plan.
 `
 }
 
@@ -120,7 +120,7 @@ func (c *PlanStatusCommentCommand) Run(ctx context.Context, args []string) error
 	return c.Process(ctx)
 }
 
-// Process handles the main logic for the Guardian remove plan comments process.
+// Process handles the main logic for the Guardian plan status comments process.
 func (c *PlanStatusCommentCommand) Process(ctx context.Context) error {
 	// there was at least one failure, we should return an error to fail the job
 	// no comments as each plan run will comment their failure status
