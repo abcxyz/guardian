@@ -78,13 +78,16 @@ jobs:
         env:
           # used to create comments on pull requests (access to only this repo)
           GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
-          SOURCE_REF: '${{ github.event.pull_request.base.sha }}'
-          DEST_REF: '${{ github.event.pull_request.head.sha }}'
+          BASE_REF: '${{ github.event.pull_request.base.sha }}'
+          PR_REF: '${{ github.event.pull_request.head.sha }}'
         run: |-
-          DIRECTORIES=$(guardian entrypoints -dir="REPLACE_TERRAFORM_DIRECTORY" -detect-changes -source-ref="${SOURCE_REF}" -dest-ref="${DEST_REF}")
+          # The BASE_REF on github is sometimes only in the main branch.
+          # We can use git merge-base to find the intersection between the
+          # main branch and PR (feature) branch.
+          FEATURE_BRANCH_BASE_REF=$(git merge-base $PR_REF $BASE_REF)
+          DIRECTORIES=$(guardian entrypoints -dir="REPLACE_TERRAFORM_DIRECTORY" -detect-changes -source-ref="${FEATURE_BRANCH_BASE_REF}" -dest-ref="${PR_REF}")
           echo "entrypoints -> ${DIRECTORIES}"
           echo "directories=${DIRECTORIES}" >> $GITHUB_OUTPUT
-
 
   plan:
     if: |
