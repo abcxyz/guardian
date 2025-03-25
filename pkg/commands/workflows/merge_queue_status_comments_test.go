@@ -20,6 +20,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
+	"github.com/abcxyz/guardian/pkg/github"
 	"github.com/abcxyz/guardian/pkg/platform"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/testutil"
@@ -32,7 +33,7 @@ func TestMergeQueueStatusCommentsProcess(t *testing.T) {
 
 	cases := []struct {
 		name                  string
-		flagFailed            bool
+		flagResult            string
 		flagTargetBranch      string
 		createStatusErr       error
 		err                   string
@@ -40,11 +41,11 @@ func TestMergeQueueStatusCommentsProcess(t *testing.T) {
 	}{
 		{
 			name:       "success",
-			flagFailed: false,
+			flagResult: github.GitHubWorkflowResultSuccess,
 		},
 		{
 			name:             "failed_status",
-			flagFailed:       true,
+			flagResult:       github.GitHubWorkflowResultFailure,
 			flagTargetBranch: "main",
 			expPlatformClientReqs: []*platform.Request{
 				{
@@ -55,7 +56,7 @@ func TestMergeQueueStatusCommentsProcess(t *testing.T) {
 		},
 		{
 			name:             "handles_errors",
-			flagFailed:       true,
+			flagResult:       github.GitHubWorkflowResultFailure,
 			flagTargetBranch: "main",
 			expPlatformClientReqs: []*platform.Request{
 				{
@@ -77,7 +78,7 @@ func TestMergeQueueStatusCommentsProcess(t *testing.T) {
 			}
 
 			c := &MergeQueueStatusCommentCommand{
-				flagFailed:       tc.flagFailed,
+				flagResult:       tc.flagResult,
 				flagTargetBranch: tc.flagTargetBranch,
 				platformClient:   mockPlatformClient,
 			}

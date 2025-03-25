@@ -16,10 +16,12 @@ package workflows
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 
 	"github.com/abcxyz/guardian/internal/metricswrap"
+	"github.com/abcxyz/guardian/pkg/github"
 	"github.com/abcxyz/guardian/pkg/platform"
 	"github.com/abcxyz/pkg/cli"
 )
@@ -31,7 +33,7 @@ type MergeQueueStatusCommentCommand struct {
 
 	platformConfig platform.Config
 
-	flagFailed        bool
+	flagResult        string
 	flagTargetBranch  string
 	flagSkipReporting bool
 
@@ -57,12 +59,11 @@ func (c *MergeQueueStatusCommentCommand) Flags() *cli.FlagSet {
 
 	f := set.NewSection("COMMAND OPTIONS")
 
-	f.BoolVar(&cli.BoolVar{
-		Name:    "failed",
-		Target:  &c.flagFailed,
-		Default: false,
-		Example: "true",
-		Usage:   "Whether or not the merge queue status failed.",
+	f.StringVar(&cli.StringVar{
+		Name:    "result",
+		Target:  &c.flagResult,
+		Example: "success",
+		Usage:   "The Guardian merge queue check result status.",
 	})
 
 	f.StringVar(&cli.StringVar{
@@ -78,6 +79,14 @@ func (c *MergeQueueStatusCommentCommand) Flags() *cli.FlagSet {
 		Default: false,
 		Example: "true",
 		Usage:   "Skips reporting of the merge queue status on the change request.",
+	})
+
+	set.AfterParse(func(existingErr error) (merr error) {
+		if c.flagResult == "" {
+			merr = errors.Join(merr, fmt.Errorf("missing flag: result is required"))
+		}
+
+		return merr
 	})
 
 	return set
@@ -111,7 +120,7 @@ func (c *MergeQueueStatusCommentCommand) Process(ctx context.Context) error {
 		return nil
 	}
 
-	if c.flagFailed {
+	if c.flagResult == github.GitHubWorkflowResultFailure {
 		err := c.platformClient.ReportStatus(ctx, platform.StatusFailure, &platform.StatusParams{Operation: "merge-check", Message: fmt.Sprintf("Your pull request is out of date, please rebase against `%s` and resubmit to the merge queue.", c.flagTargetBranch)})
 		if err != nil {
 			return fmt.Errorf("failed to create merge queue status comment: %w", err)
