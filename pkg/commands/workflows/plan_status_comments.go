@@ -43,14 +43,14 @@ type PlanStatusCommentCommand struct {
 }
 
 func (c *PlanStatusCommentCommand) Desc() string {
-	return `Report the status of a guardian plan`
+	return `Report the status of a Guardian plan`
 }
 
 func (c *PlanStatusCommentCommand) Help() string {
 	return `
 Usage: {{ COMMAND }} [options]
 
-	Report the status of a guardian plan.
+	Report the status of a Guardian plan.
 `
 }
 
