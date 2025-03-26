@@ -59,6 +59,57 @@ CLI doc:
 You can get started with using Guardian for terraform actuation by
 [Creating the Terraform Actuation GitHub Workflows](#creating-terraform-actuation-workflows).
 
+### Merge Check
+
+See [rulesets](#rulesets) for more info on enabling the merge check.
+
+**The Problem:** When multiple Terraform PRs are active, a PR's
+`terraform plan` can become **stale** if other relevant changes merge first.
+Applying a stale plan risks errors or unexpected infrastructure state.
+
+**Default Solution (Inefficient for repositories with many entrypoints):
+Require Rebase Before Merge**
+
+Requiring developers to rebase their PR onto the latest target branch before
+merging is safe but can have downsides:
+
+* **High Friction:** Frequent, often unnecessary, rebasing slows developers
+  down.
+* **Wasted Effort:** Rebasing and regenerating plans takes time, even if merged
+  changes were unrelated.
+* **Imprecise:** Treats all code changes equally, regardless of impact on the
+  Terraform plan.
+
+**Better Solution: The `guardian_merge_check` Workflow**
+
+This GitHub Action workflow provides a smarter safety net:
+
+1. **Simulates Merge:** Uses the `merge_group` trigger to create a temporary,
+   prospective merge commit.
+2. **Checks Precisely:** Runs `guardian entrypoints -detect-changes` on this
+   simulated merge state.
+3. **Identifies Real Conflicts:** It specifically checks if:
+  * The Terraform entrypoints modified by the PR...
+  * ...have *also* been modified on the target branch since the PR was
+    created/updated.
+
+**Why `guardian_merge_check` is Better:**
+
+* **Reduces Unnecessary Rebases:** Only blocks PRs where *relevant*
+  infrastructure changes have occurred concurrently. No need to rebase for
+  unrelated updates.
+* **Saves Time & CI Resources:** Avoids manual rebasing and plan regeneration
+  when there's no actual risk to the plan's validity.
+* **Provides Targeted Warnings:** If it fails, it signals a high probability of
+  a stale plan, indicating a rebase is genuinely needed *before* merging.
+* **Automated Safety:** Acts as an intelligent, automated pre-merge check
+  specifically for IaC risks.
+
+**In Short:** The `guardian_merge_check` replaces the need for a strict
+"always rebase" policy with a precise, automated check that focuses only on
+potential Terraform plan conflicts. This improves merge safety *and* developer
+velocity by avoiding unnecessary work.
+
 ### IAM Drift Detection
 
 * Compatible with Google Cloud Platform.
@@ -386,21 +437,42 @@ $ curl https://api.github.com/repos/$OWNER_NAME/$REPO_NAME | jq '. | {"id": .id,
 
 Rulesets are required to enable a safe and secure process. Ensuring
 these values are set properly prevents multiple pull requests from stepping on
-each other. By enabling `Require branches to be up to date before merging`, pull
-requests merged at the same time will cause one to fail and be forced to pull
-the changes from the default branch. This will kick of the planning process to
-ensure the latest changes are always merged.
+each other. There are two strategies for preventing terraform plan and apply conflicts: 
+
+1. By enabling `Require branches to be up to date before merging`, pull
+   requests merged at the same time will cause one to fail and be forced to pull
+   the changes from the default branch. This will kick of the planning process to
+   ensure the latest changes are always merged.
+2. By enabling the [merge queue check](#merge-check) in the GitHub merge queue
+   we enable developers to simultaneously work on different terraform
+   entrypoints and only require rebasing if there are changes that impact the
+   same entrypoints modified in your pull request.
+   * Note: This is the recommended approach for repositories with many terraform
+     entrypoints.
+
+**Regardless of your choice of strategy, you will need to setup a ruleset with
+the following rules:**
 
 - [x] Require a pull request before merging
   - [x] Required approvals: minimum 1, suggested 2
   - [x] Require review from Code Owners
   - [x] Require conversation resolution before merging
 - [x] Require status checks to pass before merging
-  - [x] Require branches to be up to date before merging
+  - [x] [optional] Require branches to be up to date before merging. You should
+    remove this rule if you use the [merge queue check](#merge-check).
+    Otherwise it is required.
   - After you create your first PR, make sure you require the `plan_success` job
     status check, this is required to ensure the
-    `Require branches to be up to date before merging` is enforced.
-- [x] Require signed commits (optional)
+    `Require branches to be up to date before merging` is enforced. It is also
+    required when using the merge queue.
+  - If you are using the [merge queue check](#merge-check) you will also need
+    to require the `merge_check` job status check, this is required to
+    correctly block merging if a PR needs to be rebased.
+- [x] [optional] Require merge queue. This is required if you want to use the
+  [Merge Check](#merge-check).
+  - [x] Require all queue entries to pass the merge check. (Required if
+    enabling the merge queue).
+- [x] [optional] Require signed commits
 - [x] Require linear history
 
 ### Using Private Repositories as Modules
