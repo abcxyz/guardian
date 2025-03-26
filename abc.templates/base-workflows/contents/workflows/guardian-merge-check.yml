@@ -14,7 +14,7 @@
 
 # Guardian merge check is used to determine if a PR conflicts with another recent PR
 # directories after a pull request has been created.
-# 
+#
 # NOTE: That this workflow is included by default but only is enabled if you
 # also enable the merge queue in your ruleset. For more details, see:
 # https://github.com/abcxyz/guardian?tab=readme-ov-file#merge-check
@@ -41,7 +41,8 @@ jobs:
   merge_check:
     # Only runs in the merge queue. Shows a `skipped` status on the
     # `pull_request`.
-    if: ${{ github.event_name == 'merge_group' }}
+    if: |
+      github.event_name == 'merge_group'
     runs-on: 'ubuntu-latest'
     permissions:
       contents: 'read'
@@ -130,7 +131,8 @@ jobs:
           fi
 
       - name: 'Comment Status'
-        if: always()
+        if: |
+          always()
         shell: 'bash'
         env:
           RESULT: '${{ steps.check.outcome }}'
