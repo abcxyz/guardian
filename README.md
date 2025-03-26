@@ -437,7 +437,7 @@ $ curl https://api.github.com/repos/$OWNER_NAME/$REPO_NAME | jq '. | {"id": .id,
 
 Rulesets are required to enable a safe and secure process. Ensuring
 these values are set properly prevents multiple pull requests from stepping on
-each other. There are two strategies for preventing terraform plan and apply conflicts: 
+each other. There are two strategies for preventing terraform plan and apply conflicts:
 
 1. By enabling `Require branches to be up to date before merging`, pull
    requests merged at the same time will cause one to fail and be forced to pull
@@ -447,8 +447,14 @@ each other. There are two strategies for preventing terraform plan and apply con
    we enable developers to simultaneously work on different terraform
    entrypoints and only require rebasing if there are changes that impact the
    same entrypoints modified in your pull request.
-   * Note: This is the recommended approach for repositories with many terraform
-     entrypoints.
+
+> [!NOTE]
+> The [merge queue check](#merge-check) is the recommended approach for
+> repositories with many terraform entrypoints.
+
+> [!IMPORTANT]
+> You must choose and implement one of either of the above strategies. You
+> cannot implement both.
 
 **Regardless of your choice of strategy, you will need to setup a ruleset with
 the following rules:**
