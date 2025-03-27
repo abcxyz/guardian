@@ -26,6 +26,9 @@ on:
       - 'ready_for_review'
     branches:
       - 'main'
+  # Only used if you are using the merge group for the guardian merge check.
+  # https://github.com/abcxyz/guardian?tab=readme-ov-file#merge-check
+  merge_group:
 
 # only one plan, per pr should run at a time
 concurrency:
@@ -40,6 +43,11 @@ env:
 
 jobs:
   init:
+    # We do not run any plan jobs in the merge queue. But these jobs are still
+    # required to run (in a skipped state) in order to block adding to the
+    # merge queue until a plan has been created.
+    if: |
+      github.event_name == 'pull_request_target'
     runs-on: 'ubuntu-latest'
 
     permissions:
@@ -91,7 +99,7 @@ jobs:
 
   plan:
     if: |
-      needs.init.outputs.directories != '[]'
+      github.event_name == 'pull_request_target' && needs.init.outputs.directories != '[]'
     needs:
       - 'init'
     runs-on: 'ubuntu-latest'
@@ -149,7 +157,8 @@ jobs:
           guardian plan -dir="${DIRECTORY}" -storage="gcs://${GUARDIAN_BUCKET_NAME}"
 
   plan_success:
-    if: '${{ always() }}'
+    if: |
+      always() && github.event_name == 'pull_request_target'
     runs-on: 'ubuntu-latest'
     needs:
       - 'init'
