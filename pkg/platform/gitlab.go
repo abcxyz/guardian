@@ -197,12 +197,6 @@ func (g *GitLab) GetPolicyData(ctx context.Context) (*GetPolicyDataResult, error
 	return &GetPolicyDataResult{}, nil
 }
 
-// ModifierContent returns the merge request body as the content to parse modifiers
-// from.
-func (g *GitLab) ModifierContent(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 // StoragePrefix generates the unique storage prefix for the GitLab platform type.
 func (g *GitLab) StoragePrefix(ctx context.Context) (string, error) {
 	return "", nil

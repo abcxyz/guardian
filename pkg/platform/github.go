@@ -403,54 +403,6 @@ func (g *GitHub) withRetries(ctx context.Context, retryFunc retry.RetryFunc) err
 	return nil
 }
 
-// ModifierContent returns the pull request body as the content to parse modifiers
-// from.
-func (g *GitHub) ModifierContent(ctx context.Context) (string, error) {
-	logger := logging.FromContext(ctx)
-
-	pullRequestEvents := []string{"pull_request", "pull_request_target"}
-	if slices.Contains(pullRequestEvents, g.cfg.GitHubEventName) {
-		logger.DebugContext(ctx, "modifier content from pull request",
-			"github_pull_request_number", g.cfg.GitHubPullRequestNumber,
-			"github_pull_request_body", g.cfg.GitHubPullRequestBody)
-		return g.cfg.GitHubPullRequestBody, nil
-	}
-
-	pullRequestFromCommitEvents := []string{"push"}
-	if slices.Contains(pullRequestFromCommitEvents, g.cfg.GitHubEventName) {
-		logger.DebugContext(ctx, "looking up pull request from commit sha",
-			"owner", g.cfg.GitHubOwner,
-			"repo", g.cfg.GitHubRepo,
-			"commit_sha", g.cfg.GitHubSHA)
-
-		result, err := g.ListChangeRequestsByCommit(ctx, g.cfg.GitHubSHA, nil)
-		if err != nil {
-			return "", fmt.Errorf("failed to get pull request number for commit sha: %s", g.cfg.GitHubSHA)
-		}
-
-		if len(result.PullRequests) == 0 {
-			return "", fmt.Errorf("no pull requests found for commit sha: %s", g.cfg.GitHubSHA)
-		}
-
-		var body strings.Builder
-		for _, v := range result.PullRequests {
-			logger.DebugContext(ctx, "found pull request for sha",
-				"pull_request_number", v.Number,
-				"pull_request_body", v.Body)
-
-			body.WriteString(v.Body)
-		}
-
-		logger.DebugContext(ctx, "modifier content from commit pull requests",
-			"modifier_content", body.String())
-
-		return body.String(), nil
-	}
-
-	logger.DebugContext(ctx, "returning no modifier content")
-	return "", nil
-}
-
 // StoragePrefix generates the unique storage prefix for the github platform type.
 func (g *GitHub) StoragePrefix(ctx context.Context) (string, error) {
 	logger := logging.FromContext(ctx)
