@@ -33,20 +33,18 @@ type MockPlatform struct {
 	IsPullRequest bool
 	IncludeTeams  bool
 
-	AssignReviewersErr  error
-	ActorUsername       string
-	GetPolicyDataErr    error
-	DeleteReportErr     error
-	ListReportsErr      error
-	ModifierContentResp string
-	ModifierContentErr  error
-	Reports             []*Report
-	StoragePrefixResp   string
-	StoragePrefixErr    error
-	TeamApprovers       []string
-	UserApprovers       []string
-	UserAccessLevel     string
-	UserTeams           []string
+	AssignReviewersErr error
+	ActorUsername      string
+	GetPolicyDataErr   error
+	DeleteReportErr    error
+	ListReportsErr     error
+	Reports            []*Report
+	StoragePrefixResp  string
+	StoragePrefixErr   error
+	TeamApprovers      []string
+	UserApprovers      []string
+	UserAccessLevel    string
+	UserTeams          []string
 
 	ReportStatusErr             error
 	ReportEntrypointsSummaryErr error
@@ -157,16 +155,6 @@ func (m *MockPlatform) GetPolicyData(ctx context.Context) (*GetPolicyDataResult,
 			},
 		},
 	}, nil
-}
-
-func (m *MockPlatform) ModifierContent(ctx context.Context) (string, error) {
-	m.reqMu.Lock()
-	defer m.reqMu.Unlock()
-	m.Reqs = append(m.Reqs, &Request{
-		Name: "ModifierContent",
-	})
-
-	return m.ModifierContentResp, m.ModifierContentErr
 }
 
 func (m *MockPlatform) StoragePrefix(ctx context.Context) (string, error) {

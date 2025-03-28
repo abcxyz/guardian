@@ -41,11 +41,11 @@ func TestEntrypointsProcess(t *testing.T) {
 	cases := []struct {
 		name              string
 		flagDir           []string
+		flagAddEntrypoint []string
 		flagDestRef       string
 		flagSourceRef     string
 		flagDetectChanges bool
 		flagMaxDepth      int
-		modifierContent   string
 		newGitClient      func(ctx context.Context, dir string) git.Git
 		platformClient    *platform.MockPlatform
 		err               string
@@ -160,7 +160,7 @@ func TestEntrypointsProcess(t *testing.T) {
 			expStdout: `["testdata/entrypoint1/project1","testdata/entrypoint1/project2"]`,
 		},
 		{
-			name:              "no_changes_without_modifier",
+			name:              "no_changes_without_add_entrypoint",
 			flagDir:           []string{"testdata/entrypoint1"},
 			flagDestRef:       "main",
 			flagSourceRef:     "ldap/feature",
@@ -175,12 +175,12 @@ func TestEntrypointsProcess(t *testing.T) {
 			expStdout: `[]`,
 		},
 		{
-			name:              "changes_with_modifier",
+			name:              "changes_with_add_entrypoint",
 			flagDir:           []string{"testdata/entrypoint1"},
+			flagAddEntrypoint: []string{"testdata/entrypoint1/project1"},
 			flagDestRef:       "main",
 			flagSourceRef:     "ldap/feature",
 			flagDetectChanges: true,
-			modifierContent:   "GUARDIAN_DIR=testdata/entrypoint1/project1",
 			newGitClient: func(ctx context.Context, dir string) git.Git {
 				return &git.MockGitClient{
 					DiffResp: []string{
@@ -191,13 +191,12 @@ func TestEntrypointsProcess(t *testing.T) {
 			expStdout: `["testdata/entrypoint1/project1"]`,
 		},
 		{
-			name:              "multi_modifier",
+			name:              "multi_add_entrypoint",
 			flagDir:           []string{"testdata/entrypoint1"},
+			flagAddEntrypoint: []string{"testdata/entrypoint1/project1", "testdata/entrypoint1/project2"},
 			flagDestRef:       "main",
 			flagSourceRef:     "ldap/feature",
 			flagDetectChanges: true,
-			modifierContent: `GUARDIAN_DIR=testdata/entrypoint1/project1
-GUARDIAN_DIR=testdata/entrypoint1/project2`,
 			newGitClient: func(ctx context.Context, dir string) git.Git {
 				return &git.MockGitClient{
 					DiffResp: []string{
@@ -238,12 +237,11 @@ GUARDIAN_DIR=testdata/entrypoint1/project2`,
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			mockPlatformClient := &platform.MockPlatform{
-				ModifierContentResp: tc.modifierContent,
-			}
+			mockPlatformClient := &platform.MockPlatform{}
 
 			c := &EntrypointsCommand{
 				flagDir:           tc.flagDir,
+				flagAddEntrypoint: tc.flagAddEntrypoint,
 				flagDestRef:       tc.flagDestRef,
 				flagSourceRef:     tc.flagSourceRef,
 				flagDetectChanges: tc.flagDetectChanges,
