@@ -28,7 +28,6 @@ import (
 
 	"github.com/abcxyz/guardian/internal/metricswrap"
 	"github.com/abcxyz/guardian/pkg/git"
-	"github.com/abcxyz/guardian/pkg/modifiers"
 	"github.com/abcxyz/guardian/pkg/platform"
 	"github.com/abcxyz/guardian/pkg/terraform"
 	"github.com/abcxyz/guardian/pkg/util"
@@ -44,6 +43,7 @@ type EntrypointsCommand struct {
 	platformConfig platform.Config
 
 	flagDir                     []string
+	flagGuardianDirs            []string
 	flagDestRef                 string
 	flagSourceRef               string
 	flagDetectChanges           bool
@@ -80,6 +80,14 @@ func (c *EntrypointsCommand) Flags() *cli.FlagSet {
 		Target:  &c.flagDir,
 		Example: "./terraform",
 		Usage:   "The location of the terraform directory to search in. This flag can be repeated. Defaults to the current working directory.",
+	})
+
+	f.StringSliceVar(&cli.StringSliceVar{
+		Name:    "guardian-dirs",
+		EnvVar:  "GUARDIAN_DIRS",
+		Target:  &c.flagGuardianDirs,
+		Example: "./terraform",
+		Usage:   "Additional entrypoints to add to the output. Entrypoints are de-duplicated if they would already have been outputted.",
 	})
 
 	f.StringVar(&cli.StringVar{
@@ -220,21 +228,7 @@ func (c *EntrypointsCommand) Process(ctx context.Context) error {
 		modifiedEntrypoints = append(modifiedEntrypoints, modifiedDirs...)
 	}
 
-	modifierContent, err := c.platformClient.ModifierContent(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to find modifier content: %w", err)
-	}
-	logger.DebugContext(ctx, "modifier content", "value", modifierContent)
-
-	metaValues := modifiers.ParseBodyMetaValues(ctx, modifierContent)
-	logger.DebugContext(ctx, "parsed body meta values", "values", metaValues)
-
-	metaPlanDirs, ok := metaValues[modifiers.MetaKeyGuardianDir]
-	if !ok {
-		metaPlanDirs = make([]string, 0)
-	}
-
-	for _, metaPlanDir := range metaPlanDirs {
+	for _, metaPlanDir := range c.flagGuardianDirs {
 		metaPlanDirAbs, err := util.PathEvalAbs(metaPlanDir)
 		if err != nil {
 			return fmt.Errorf("failed to get absolute path for [%s]: %w", metaPlanDir, err)
