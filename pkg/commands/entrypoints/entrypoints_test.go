@@ -41,7 +41,7 @@ func TestEntrypointsProcess(t *testing.T) {
 	cases := []struct {
 		name              string
 		flagDir           []string
-		flagAddEntrypoint []string
+		flagGuardianDirs  []string
 		flagDestRef       string
 		flagSourceRef     string
 		flagDetectChanges bool
@@ -177,7 +177,7 @@ func TestEntrypointsProcess(t *testing.T) {
 		{
 			name:              "changes_with_add_entrypoint",
 			flagDir:           []string{"testdata/entrypoint1"},
-			flagAddEntrypoint: []string{"testdata/entrypoint1/project1"},
+			flagGuardianDirs:  []string{"testdata/entrypoint1/project1"},
 			flagDestRef:       "main",
 			flagSourceRef:     "ldap/feature",
 			flagDetectChanges: true,
@@ -193,7 +193,7 @@ func TestEntrypointsProcess(t *testing.T) {
 		{
 			name:              "multi_add_entrypoint",
 			flagDir:           []string{"testdata/entrypoint1"},
-			flagAddEntrypoint: []string{"testdata/entrypoint1/project1", "testdata/entrypoint1/project2"},
+			flagGuardianDirs:  []string{"testdata/entrypoint1/project1", "testdata/entrypoint1/project2"},
 			flagDestRef:       "main",
 			flagSourceRef:     "ldap/feature",
 			flagDetectChanges: true,
@@ -241,7 +241,7 @@ func TestEntrypointsProcess(t *testing.T) {
 
 			c := &EntrypointsCommand{
 				flagDir:           tc.flagDir,
-				flagAddEntrypoint: tc.flagAddEntrypoint,
+				flagGuardianDirs:  tc.flagGuardianDirs,
 				flagDestRef:       tc.flagDestRef,
 				flagSourceRef:     tc.flagSourceRef,
 				flagDetectChanges: tc.flagDetectChanges,

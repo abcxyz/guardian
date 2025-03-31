@@ -43,7 +43,7 @@ type EntrypointsCommand struct {
 	platformConfig platform.Config
 
 	flagDir                     []string
-	flagAddEntrypoint           []string
+	flagGuardianDirs            []string
 	flagDestRef                 string
 	flagSourceRef               string
 	flagDetectChanges           bool
@@ -83,8 +83,9 @@ func (c *EntrypointsCommand) Flags() *cli.FlagSet {
 	})
 
 	f.StringSliceVar(&cli.StringSliceVar{
-		Name:    "add-entrypoint",
-		Target:  &c.flagAddEntrypoint,
+		Name:    "guardian-dirs",
+		EnvVar:  "GUARDIAN_DIRS",
+		Target:  &c.flagGuardianDirs,
 		Example: "./terraform",
 		Usage:   "Additional entrypoints to add to the output. Entrypoints are de-duplicated if they would already have been outputted.",
 	})
@@ -227,7 +228,7 @@ func (c *EntrypointsCommand) Process(ctx context.Context) error {
 		modifiedEntrypoints = append(modifiedEntrypoints, modifiedDirs...)
 	}
 
-	for _, metaPlanDir := range c.flagAddEntrypoint {
+	for _, metaPlanDir := range c.flagGuardianDirs {
 		metaPlanDirAbs, err := util.PathEvalAbs(metaPlanDir)
 		if err != nil {
 			return fmt.Errorf("failed to get absolute path for [%s]: %w", metaPlanDir, err)
