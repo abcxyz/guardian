@@ -8,7 +8,7 @@ require (
 	cloud.google.com/go/asset v1.20.4
 	cloud.google.com/go/storage v1.50.0
 	github.com/abcxyz/abc-updater v0.4.0
-	github.com/abcxyz/pkg v1.4.0
+	github.com/abcxyz/pkg v1.5.1
 	github.com/google/cel-go v0.23.2
 	github.com/google/go-cmp v0.6.0
 	github.com/google/go-github/v53 v53.2.0
@@ -79,9 +79,9 @@ require (
 	go.opentelemetry.io/otel/sdk v1.34.0 // indirect
 	go.opentelemetry.io/otel/sdk/metric v1.34.0 // indirect
 	go.opentelemetry.io/otel/trace v1.34.0 // indirect
-	golang.org/x/crypto v0.33.0 // indirect
+	golang.org/x/crypto v0.35.0 // indirect
 	golang.org/x/mod v0.23.0 // indirect
-	golang.org/x/net v0.35.0 // indirect
+	golang.org/x/net v0.36.0 // indirect
 	golang.org/x/sync v0.11.0 // indirect
 	golang.org/x/sys v0.30.0 // indirect
 	golang.org/x/text v0.22.0 // indirect
