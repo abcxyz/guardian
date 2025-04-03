@@ -144,6 +144,7 @@ func setupMetricsClient(ctx context.Context) context.Context {
 }
 
 func realMain(ctx context.Context) error {
+	start := time.Now()
 	logger := logging.NewFromEnv("GUARDIAN_",
 		logging.WithDefaultLevel(logging.LevelWarning),
 		logging.WithDefaultFormat(logging.FormatJSON),
