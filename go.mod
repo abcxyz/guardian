@@ -8,7 +8,7 @@ require (
 	cloud.google.com/go/asset v1.20.4
 	cloud.google.com/go/storage v1.50.0
 	github.com/abcxyz/abc-updater v0.4.0
-	github.com/abcxyz/pkg v1.5.1
+	github.com/abcxyz/pkg v1.5.4
 	github.com/google/cel-go v0.23.2
 	github.com/google/go-cmp v0.6.0
 	github.com/google/go-github/v53 v53.2.0

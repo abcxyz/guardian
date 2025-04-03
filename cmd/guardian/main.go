@@ -40,12 +40,6 @@ import (
 	"github.com/abcxyz/pkg/logging"
 )
 
-const (
-	defaultLogLevel  = "warn"
-	defaultLogFormat = "json"
-	defaultLogDebug  = "false"
-)
-
 // rootCmd defines the starting command structure.
 var rootCmd = func() cli.Command {
 	return &cli.RootCommand{
@@ -151,8 +145,12 @@ func setupMetricsClient(ctx context.Context) context.Context {
 
 func realMain(ctx context.Context) error {
 	start := time.Now()
-	setLogEnvVars()
-	ctx = logging.WithLogger(ctx, logging.NewFromEnv("GUARDIAN_"))
+	logger := logging.NewFromEnv("GUARDIAN_",
+		logging.WithDefaultLevel(logging.LevelWarning),
+		logging.WithDefaultFormat(logging.FormatJSON),
+		logging.WithDefaultDebug(false),
+		logging.WithDefaultTarget(os.Stdout))
+	ctx = logging.WithLogger(ctx, logger)
 
 	ctx = setupMetricsClient(ctx)
 	defer func() {
@@ -169,20 +167,4 @@ func realMain(ctx context.Context) error {
 	}()
 
 	return rootCmd().Run(ctx, os.Args[1:]) //nolint:wrapcheck // Want passthrough
-}
-
-// setLogEnvVars set the logging environment variables to their default
-// values if not provided.
-func setLogEnvVars() {
-	if os.Getenv("GUARDIAN_LOG_FORMAT") == "" {
-		os.Setenv("GUARDIAN_LOG_FORMAT", defaultLogFormat)
-	}
-
-	if os.Getenv("GUARDIAN_LOG_LEVEL") == "" {
-		os.Setenv("GUARDIAN_LOG_LEVEL", defaultLogLevel)
-	}
-
-	if os.Getenv("GUARDIAN_LOG_DEBUG") == "" {
-		os.Setenv("GUARDIAN_LOG_DEBUG", defaultLogDebug)
-	}
 }
