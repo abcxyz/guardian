@@ -40,8 +40,8 @@ github.com/ProtonMail/go-crypto v1.1.5 h1:eoAQfK2dwL+tFSFpr7TbOaPNUbPiJj4fLYwwGE
 github.com/ProtonMail/go-crypto v1.1.5/go.mod h1:rA3QumHc/FZ8pAHreoekgiAbzpNsfQAosU5td4SnOrE=
 github.com/abcxyz/abc-updater v0.4.0 h1:bPEqkc77fm4zRRa0LW4PrJvKuLZCmNF2u/kIc6RZYUc=
 github.com/abcxyz/abc-updater v0.4.0/go.mod h1:t8QKGyq682NiuXeNGfbXaMl1jisYrSd7wV55nMm9uvM=
-github.com/abcxyz/pkg v1.5.1 h1:OnSM9LiMw7XufEiHrlrvPagf3K16n68zJ4/hPUFM6mk=
-github.com/abcxyz/pkg v1.5.1/go.mod h1:d7A2dr7+DKp/H6OxKN/0XN2pdb797DokqFfPNSjrRDs=
+github.com/abcxyz/pkg v1.5.3 h1:n4eSOQhzdMXXPSGGZJW7M4J6+ESaWeUZuD7TOkHSgLA=
+github.com/abcxyz/pkg v1.5.3/go.mod h1:d7A2dr7+DKp/H6OxKN/0XN2pdb797DokqFfPNSjrRDs=
 github.com/agext/levenshtein v1.2.3 h1:YB2fHEn0UJagG8T1rrWknE3ZQzWM06O8AMAatNn7lmo=
 github.com/agext/levenshtein v1.2.3/go.mod h1:JEDfjyjHDjOF/1e4FlBE/PkbqA9OfWu2ki2W0IB5558=
 github.com/antlr4-go/antlr/v4 v4.13.1 h1:SqQKkuVZ+zWkMMNkjy5FZe5mr5WURWnlpmOuzYWrPrQ=

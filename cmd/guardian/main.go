@@ -44,6 +44,7 @@ const (
 	defaultLogLevel  = "warn"
 	defaultLogFormat = "json"
 	defaultLogDebug  = "false"
+	defaultLogTarget = "STDOUT"
 )
 
 // rootCmd defines the starting command structure.
@@ -174,15 +175,19 @@ func realMain(ctx context.Context) error {
 // setLogEnvVars set the logging environment variables to their default
 // values if not provided.
 func setLogEnvVars() {
-	if os.Getenv("GUARDIAN_LOG_FORMAT") == "" {
-		os.Setenv("GUARDIAN_LOG_FORMAT", defaultLogFormat)
+	if os.Getenv("LOG_FORMAT") == "" {
+		os.Setenv("LOG_FORMAT", defaultLogFormat)
 	}
 
-	if os.Getenv("GUARDIAN_LOG_LEVEL") == "" {
-		os.Setenv("GUARDIAN_LOG_LEVEL", defaultLogLevel)
+	if os.Getenv("LOG_LEVEL") == "" {
+		os.Setenv("LOG_LEVEL", defaultLogLevel)
 	}
 
-	if os.Getenv("GUARDIAN_LOG_DEBUG") == "" {
-		os.Setenv("GUARDIAN_LOG_DEBUG", defaultLogDebug)
+	if os.Getenv("LOG_DEBUG") == "" {
+		os.Setenv("LOG_DEBUG", defaultLogDebug)
+	}
+
+	if os.Getenv("LOG_TARGET") == "" {
+		os.Setenv("LOG_TARGET", defaultLogTarget)
 	}
 }
