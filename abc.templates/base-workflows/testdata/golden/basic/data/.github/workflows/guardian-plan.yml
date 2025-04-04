@@ -40,6 +40,7 @@ env:
   GUARDIAN_WIF_SERVICE_ACCOUNT: 'my-guardian-service-account@abcxyz-my-project.iam.gserviceaccount.com'
   GUARDIAN_BUCKET_NAME: 'my-guardian-state-bucket'
   GUARDIAN_TERRAFORM_VERSION: '1.7.4'
+  TAGREP_VERSION: '0.0.5'
 
 jobs:
   init:
@@ -72,6 +73,15 @@ jobs:
           cache_key: '${{ runner.os }}_${{ runner.arch }}_guardian_${{ env.GUARDIAN_VERSION }}'
           add_to_path: true
 
+      - name: 'Setup Tagrep'
+        uses: 'abcxyz/pkg/.github/actions/setup-binary@90acbb7e25e72c3c7ae2c040244d8468f74f8d96' # ratchet:abcxyz/pkg/.github/actions/setup-binary@main
+        with:
+          download_url: 'https://github.com/abcxyz/tagrep/releases/download/v${{ env.TAGREP_VERSION }}/tagrep_${{ env.TAGREP_VERSION }}_linux_amd64.tar.gz'
+          install_path: '${{ runner.temp }}/.tagrep'
+          binary_subpath: 'tagrep'
+          cache_key: '${{ runner.os }}_${{ runner.arch }}_tagrep_${{ env.TAGREP_VERSION }}'
+          add_to_path: true
+
       - name: 'Guardian Remove Previous Plan Comments'
         shell: 'bash'
         env:
@@ -79,6 +89,18 @@ jobs:
           GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
         run: |-
           guardian workflows remove-guardian-comments
+
+      - name: 'Tagrep PR vars'
+        id: 'tagrep'
+        shell: 'bash'
+        env:
+          GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+          TAGREP_LOG_TARGET: 'STDERR'
+        run: |
+          tags="$(tagrep parse -type=request -format=raw -duplicate-key-strategy=array -array-fields=GUARDIAN_DIRS 2> tagrep.log)"
+          cat tagrep.log
+          echo "tags -> $tags"
+          echo "$tags" >> "$GITHUB_ENV"
 
       - name: 'Guardian Directories'
         id: 'dirs'
