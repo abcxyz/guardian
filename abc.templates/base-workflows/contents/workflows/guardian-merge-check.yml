@@ -36,6 +36,7 @@ concurrency:
 env:
   GUARDIAN_VERSION: 'REPLACE_GUARDIAN_VERSION_TAG'
   GUARDIAN_TERRAFORM_VERSION: 'REPLACE_TERRAFORM_VERSION'
+  TAGREP_VERSION: 'REPLACE_TAGREP_VERSION'
 
 jobs:
   merge_check:
@@ -62,6 +63,27 @@ jobs:
           binary_subpath: 'guardian'
           cache_key: '${{ runner.os }}_${{ runner.arch }}_guardian_${{ env.GUARDIAN_VERSION }}'
           add_to_path: true
+
+      - name: 'Setup Tagrep'
+        uses: 'abcxyz/pkg/.github/actions/setup-binary@90acbb7e25e72c3c7ae2c040244d8468f74f8d96' # ratchet:abcxyz/pkg/.github/actions/setup-binary@main
+        with:
+          download_url: 'https://github.com/abcxyz/tagrep/releases/download/v${{ env.TAGREP_VERSION }}/tagrep_${{ env.TAGREP_VERSION }}_linux_amd64.tar.gz'
+          install_path: '${{ runner.temp }}/.tagrep'
+          binary_subpath: 'tagrep'
+          cache_key: '${{ runner.os }}_${{ runner.arch }}_tagrep_${{ env.TAGREP_VERSION }}'
+          add_to_path: true
+
+      - name: 'Tagrep PR vars'
+        id: 'tagrep'
+        shell: 'bash'
+        env:
+          GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+          TAGREP_LOG_TARGET: 'STDERR'
+        run: |
+          tags="$(tagrep parse -type=request -format=raw -duplicate-key-strategy=array -array-fields=GUARDIAN_DIRS 2> tagrep.log)"
+          cat tagrep.log
+          echo "tags -> $tags"
+          echo "$tags" >> "$GITHUB_ENV"
 
       - name: 'Guardian Changed Entrypoints in Current PR'
         id: 'entrypoints-changed-in-pr'
@@ -107,6 +129,7 @@ jobs:
           BASE_REF: '${{ github.event.merge_group.base_sha }}'
           PR_REF: '${{ steps.pr-info.outputs.pr_branch_ref }}'
           EVENT: '${{ github.event_name }}'
+          GUARDIAN_DIRS: '' # Explicitly reset
         run: |-
           # We want to know the intersection between the merge queue base ref
           # and the PR base ref. This will be the commit on main at the time

@@ -21,6 +21,8 @@ inputs:
     value: '.'
   - name: 'terraform_version'
     value: '1.7.4'
+  - name: 'tagrep_version'
+    value: '0.0.5'
   - name: 'guardian_wif_provider'
     value: 'my-guardian-wif-provider'
   - name: 'guardian_service_account'
