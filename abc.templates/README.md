@@ -13,11 +13,16 @@ actuation in the current directory.
 ```shell
 abc templates render \
   -input=terraform_version=<TERRAFORM_VERSION> \
+  -input=tagrep_version=<TAGREP_VERSION> \
   -input=guardian_wif_provider=<WIF_PROVIDER> \
   -input=guardian_service_account=<SERVICE_ACCOUNT> \
   -input=guardian_state_bucket=<GUARDIAN_STATE_BUCKET> \
   github.com/abcxyz/guardian/abc.templates/base-workflows@latest
 ```
+
+> [!TIP]
+> You can find the latest version of tagrep at
+> https://github.com/abcxyz/tagrep/releases
 
 #### Optional inputs:
 

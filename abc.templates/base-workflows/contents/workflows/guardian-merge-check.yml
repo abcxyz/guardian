@@ -80,7 +80,7 @@ jobs:
           GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
           TAGREP_LOG_TARGET: 'STDERR'
         run: |
-          tags="$(tagrep parse -type=request -format=raw -duplicate-key-strategy=array -array-fields=GUARDIAN_DIRS 2> tagrep.log)"
+          tags="$(tagrep parse -type=request -format=raw -array-tags=GUARDIAN_DIRS 2> tagrep.log)"
           cat tagrep.log
           echo "tags -> $tags"
           echo "$tags" >> "$GITHUB_ENV"
