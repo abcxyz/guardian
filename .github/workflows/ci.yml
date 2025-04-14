@@ -31,7 +31,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Unit tests - go
   go_test:
     uses: 'abcxyz/pkg/.github/workflows/go-test.yml@main' # ratchet:exclude
 
