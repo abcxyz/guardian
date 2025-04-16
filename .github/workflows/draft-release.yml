@@ -41,7 +41,7 @@ jobs:
     steps:
       - name: 'Increment version'
         id: 'increment-version'
-        uses: 'abcxyz/pkg/.github/actions/increment-version@main' # ratchet:exclude
+        uses: 'abcxyz/actions/.github/actions/increment-version@main' # ratchet:exclude
         with:
           version_strategy: '${{ inputs.version_strategy }}'
 
@@ -91,7 +91,7 @@ jobs:
             core.setOutput('release-notes', releaseNotesResponse.data.body)
 
       - name: 'Update Pull Request'
-        uses: 'abcxyz/pkg/.github/actions/create-pull-request@main' # ratchet:exclude
+        uses: 'abcxyz/actions/.github/actions/create-pull-request@main' # ratchet:exclude
         with:
           token: '${{ steps.mint-token.outputs.token }}'
           base_branch: '${{ github.ref_name }}'
