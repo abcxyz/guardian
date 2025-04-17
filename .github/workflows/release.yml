@@ -189,7 +189,7 @@ jobs:
         run: |-
           cd dist/
 
-          while IFS= read -r -d '' BINARY
+          while IFS= read -r -d '' BINARY; do
             chmod +x "${BINARY}"
 
             FOLDER="$(basename "${BINARY}" ".exe")"
