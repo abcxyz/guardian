@@ -31,6 +31,11 @@ type Config struct {
 	InitialRetryDelay time.Duration
 	MaxRetryDelay     time.Duration
 
+	// Enterprise
+	GitHubAPIURL     string
+	GitHubGraphQLURL string
+	GitHubServerURL  string
+
 	// Auth
 	GuardianGitHubToken     string
 	GitHubToken             string
@@ -42,7 +47,6 @@ type Config struct {
 	Permissions             map[string]string
 
 	GitHubEventName         string
-	GitHubServerURL         string
 	GitHubRunID             int64
 	GitHubRunAttempt        int64
 	GitHubJob               string
@@ -111,6 +115,24 @@ GITHUB_TOKEN.`,
 	})
 
 	f.StringVar(&cli.StringVar{
+		Name:    "github-api-url",
+		EnvVar:  "GITHUB_API_URL",
+		Target:  &c.GitHubAPIURL,
+		Usage:   "The API URL of the GitHub instance.",
+		Default: "https://api.github.com/",
+		Hidden:  true,
+	})
+
+	f.StringVar(&cli.StringVar{
+		Name:    "github-graphql-url",
+		EnvVar:  "GITHUB_GRAPHQL_URL",
+		Target:  &c.GitHubGraphQLURL,
+		Default: "https://api.github.com/graphql/",
+		Usage:   "The GraphQL API URL of the GitHub instance.",
+		Hidden:  true,
+	})
+
+	f.StringVar(&cli.StringVar{
 		Name:    "github-owner",
 		Target:  &c.GitHubOwner,
 		Default: d.Owner,
@@ -153,11 +175,12 @@ GITHUB_TOKEN.`,
 	})
 
 	f.StringVar(&cli.StringVar{
-		Name:   "github-server-url",
-		EnvVar: "GITHUB_SERVER_URL",
-		Target: &c.GitHubServerURL,
-		Usage:  "The GitHub server URL.",
-		Hidden: true,
+		Name:    "github-server-url",
+		EnvVar:  "GITHUB_SERVER_URL",
+		Target:  &c.GitHubServerURL,
+		Usage:   "The GitHub server URL.",
+		Default: "https://github.com",
+		Hidden:  true,
 	})
 
 	f.Int64Var(&cli.Int64Var{
