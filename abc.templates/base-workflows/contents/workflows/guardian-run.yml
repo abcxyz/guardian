@@ -43,7 +43,7 @@ on:
     inputs:
       command:
         description: 'COMMAND - The Terraform command to run.'
-        required: true
+        required: false
         type: 'string'
         default: 'plan'
       entrypoint:
@@ -161,7 +161,7 @@ jobs:
           DETAILED_EXITCODE: '${{ inputs.detailed-exitcode }}'
         shell: 'bash'
         run: |-
-          guardian run -dir="${DIRECTORY}" -- plan -input=false -detailed-exitcode=${DETAILED_EXITCODE}
+          guardian run -dir="${DIRECTORY}" -- plan -input=false -detailed-exitcode="${DETAILED_EXITCODE}"
 
       - name: 'Guardian Apply'
         if: |
