@@ -27,8 +27,9 @@ jobs:
     name: 'Guardian run plan'
     uses: './.github/workflows/guardian-run.yml'
     with:
-      command: 'plan --detailed-exitcode'
+      command: 'plan'
       entrypoint: '.'
+      detailed-exitcode: true
 
   nightly-plan:
     runs-on: 'ubuntu-latest'
@@ -46,11 +47,11 @@ jobs:
           LABEL="bug"
 
           # Check for existing issues with the given title
-          existing_issue=$(gh issue list -R $GITHUB_REPOSITORY --search "$TITLE in:title" --state open --limit 1)
+          existing_issue=$(gh issue list -R "${GITHUB_REPOSITORY}" --search "${TITLE} in:title" --state open --limit 1)
 
           # Create a new issue if no existing issue matches the title
-          if [[ -z "$existing_issue" ]]; then
-              gh issue create -R $GITHUB_REPOSITORY -t "$TITLE" -b "$BODY" -l "$LABEL"
+          if [[ -z "${existing_issue}" ]]; then
+              gh issue create -R "${GITHUB_REPOSITORY}" -t "${TITLE}" -b "${BODY}" -l "${LABEL}"
           else
               echo "An issue already exists. No new issue created."
           fi

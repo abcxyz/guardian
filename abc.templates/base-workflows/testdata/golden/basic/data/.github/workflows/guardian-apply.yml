@@ -67,7 +67,7 @@ jobs:
         run: |-
           DIRECTORIES=$(guardian entrypoints -dir="." -detect-changes -source-ref=HEAD~1 -dest-ref=HEAD)
           echo "entrypoints -> ${DIRECTORIES}"
-          echo "directories=${DIRECTORIES}" >> $GITHUB_OUTPUT
+          echo "directories=${DIRECTORIES}" >> "${GITHUB_OUTPUT}"
 
   apply:
     if: |
@@ -86,6 +86,11 @@ jobs:
       max-parallel: 100
       matrix:
         working_directory: '${{ fromJSON(needs.init.outputs.directories) }}'
+
+    env:
+      DIRECTORY: '${{ matrix.working_directory }}'
+      GITHUB_JOB_NAME: '${{ github.job }} (${{ matrix.working_directory }})'
+
     steps:
       - name: 'Checkout'
         uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # ratchet:actions/checkout@v4
@@ -119,6 +124,5 @@ jobs:
         env:
           # used to create comments on pull requests (access to only this repo)
           GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
-          DIRECTORY: '${{ matrix.working_directory }}'
         run: |-
           guardian apply -dir="${DIRECTORY}" -storage="gcs://${GUARDIAN_BUCKET_NAME}"

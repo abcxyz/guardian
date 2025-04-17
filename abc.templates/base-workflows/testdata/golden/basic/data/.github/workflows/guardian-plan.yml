@@ -99,8 +99,8 @@ jobs:
         run: |
           tags="$(tagrep parse -type=request -format=raw -array-tags=GUARDIAN_DIRS 2> tagrep.log)"
           cat tagrep.log
-          echo "tags -> $tags"
-          echo "$tags" >> "$GITHUB_ENV"
+          echo "tags -> ${tags}"
+          echo "${tags}" >> "${GITHUB_ENV}"
 
       - name: 'Guardian Directories'
         id: 'dirs'
@@ -114,10 +114,10 @@ jobs:
           # The BASE_REF on github is sometimes only in the main branch.
           # We can use git merge-base to find the intersection between the
           # main branch and PR (feature) branch.
-          FEATURE_BRANCH_BASE_REF=$(git merge-base $PR_REF $BASE_REF)
+          FEATURE_BRANCH_BASE_REF="$(git merge-base "${PR_REF}" "${BASE_REF}")"
           DIRECTORIES=$(guardian entrypoints -dir="." -detect-changes -source-ref="${FEATURE_BRANCH_BASE_REF}" -dest-ref="${PR_REF}")
           echo "entrypoints -> ${DIRECTORIES}"
-          echo "directories=${DIRECTORIES}" >> $GITHUB_OUTPUT
+          echo "directories=${DIRECTORIES}" >> "${GITHUB_OUTPUT}"
 
   plan:
     if: |
@@ -139,6 +139,7 @@ jobs:
 
     env:
       DIRECTORY: '${{ matrix.working_directory }}'
+      GITHUB_JOB_NAME: '${{ github.job }} (${{ matrix.working_directory }})'
 
     steps:
       - name: 'Checkout'

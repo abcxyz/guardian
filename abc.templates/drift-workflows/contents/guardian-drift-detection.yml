@@ -67,13 +67,13 @@ jobs:
         run: |
           DRIFTIGNORE_FILE="$(pwd)/.driftignore"
           guardian iam detect-drift \
-            -organization-id="$ORGANIZATION_ID" \
+            -organization-id="${ORGANIZATION_ID}" \
             -gcs-bucket-query="labels:terraform" \
-            -github-token="$REPO_TOKEN" \
-            -github-owner="$GITHUB_OWNER_NAME" \
-            -github-repo="$GITHUB_REPO_NAME" \
+            -github-token="${REPO_TOKEN}" \
+            -github-owner="${GITHUB_OWNER_NAME}" \
+            -github-repo="${GITHUB_REPO_NAME}" \
             -github-issue-labels="guardian-iam-drift,security" \
-            -driftignore-file="$DRIFTIGNORE_FILE"
+            -driftignore-file="${DRIFTIGNORE_FILE}"
 
   statefile_drift:
     name: 'Statefile drift detection'
@@ -104,11 +104,11 @@ jobs:
         run: |
           guardian drift statefiles \
             -dir="./" \
-            -organization-id="$ORGANIZATION_ID" \
+            -organization-id="${ORGANIZATION_ID}" \
             -gcs-bucket-query="labels:terraform" \
-            -github-token="$GITHUB_TOKEN" \
-            -github-owner="$GITHUB_OWNER_NAME" \
-            -github-repo="$GITHUB_REPO_NAME" \
+            -github-token="${GITHUB_TOKEN}" \
+            -github-owner="${GITHUB_OWNER_NAME}" \
+            -github-repo="${GITHUB_REPO_NAME}" \
             -github-issue-labels="guardian-statefile-drift,security" \
             -github-repo-terraform-topics="terraform,guardian" \
             -ignore-dir-patterns="REPLACE_GUARDIAN_IGNORE_DIR_PATTERNS"
