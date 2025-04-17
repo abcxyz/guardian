@@ -179,7 +179,7 @@ jobs:
               }
             }
 
-      - uses: 'actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806' # ratchet:actions/download-artifact@v4
+      - uses: 'actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e' # ratchet:actions/download-artifact@v4
         with:
           pattern: '*'
           path: 'dist/'
@@ -189,7 +189,7 @@ jobs:
         run: |-
           cd dist/
 
-          for BINARY in $(find * -type f); do
+          while IFS= read -r -d '' BINARY; do
             chmod +x "${BINARY}"
 
             FOLDER="$(basename "${BINARY}" ".exe")"
@@ -209,12 +209,12 @@ jobs:
               mv "${BINARY}" "${NAME}"
               (tar -czvf "${FOLDER}.tar.gz" "${NAME}" && rm -rf "${NAME}") &
             fi
-          done
+          done <   <(find ./* -type f)
           wait
 
-          FILES="$(find * -name '*.tar.gz' -o -name '*.zip')"
-          sha256sum ${FILES} > SHA256SUMS
-          sha512sum ${FILES} > SHA512SUMS
+          FILES="$(find ./* -name '*.tar.gz' -o -name '*.zip')"
+          sha256sum "${FILES}" > SHA256SUMS
+          sha512sum "${FILES}" > SHA512SUMS
 
       - name: 'Upload binaries'
         env:
@@ -223,6 +223,7 @@ jobs:
           REPO: '${{ github.repository }}'
         run: |-
           FILES="$(find ./dist -type f)"
+          # shellcheck disable=SC2086
           gh release upload "${RELEASE_VERSION}" ${FILES} \
             --repo "${REPO}"
 

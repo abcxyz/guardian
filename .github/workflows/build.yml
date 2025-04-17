@@ -82,7 +82,7 @@ jobs:
         uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # ratchet:actions/checkout@v4
 
       - name: 'Setup go'
-        uses: 'actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34' # ratchet:actions/setup-go@v5
+        uses: 'actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b' # ratchet:actions/setup-go@v5
         with:
           go-version-file: 'go.mod'
 
@@ -90,7 +90,8 @@ jobs:
         env:
           GOPROXY: 'https://proxy.golang.org,direct'
         run: |-
-          export MODULE="$(go list -m)"
+          module="$(go list -m)"
+          export MODULE="${module}"
           export CGO_ENABLED=0
 
           go build -a -trimpath -o "dist/${BINARY_FILENAME}" \
@@ -102,7 +103,7 @@ jobs:
             "${PACKAGE}"
 
       - name: 'Upload artifacts'
-        uses: 'actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1' # ratchet:actions/upload-artifact@v4
+        uses: 'actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02' # ratchet:actions/upload-artifact@v4
         with:
           name: '${{ env.BINARY_FILENAME }}'
           path: 'dist/'

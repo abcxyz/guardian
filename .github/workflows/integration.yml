@@ -69,7 +69,7 @@ jobs:
           fetch-depth: 0 # get everything so we can use git diff
 
       - name: 'Download Guardian'
-        uses: 'actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806' # ratchet:actions/download-artifact@v4
+        uses: 'actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e' # ratchet:actions/download-artifact@v4
         with:
           name: '${{ env.GUARDIAN_LINUX_BINARY }}'
           path: '${{ runner.temp }}/.guardian'
@@ -80,7 +80,7 @@ jobs:
         run: |-
           mv "${INSTALL_PATH}/${GUARDIAN_LINUX_BINARY}" "${INSTALL_PATH}/guardian"
           chmod +x "${INSTALL_PATH}/guardian"
-          echo "${INSTALL_PATH}" >> $GITHUB_PATH
+          echo "${INSTALL_PATH}" >> "${GITHUB_PATH}"
 
       - name: 'Guardian Remove Previous Comments'
         shell: 'bash'
@@ -101,7 +101,7 @@ jobs:
         run: |-
           DIRECTORIES=$(guardian entrypoints -dir=./terraform/project1 -dir=./terraform/project2)
           echo "entrypoints -> ${DIRECTORIES}"
-          echo "directories=${DIRECTORIES}" >> $GITHUB_OUTPUT
+          echo "directories=${DIRECTORIES}" >> "${GITHUB_OUTPUT}"
 
   plan:
     if: |
@@ -132,7 +132,7 @@ jobs:
           service_account: '${{ env.GUARDIAN_WIF_SERVICE_ACCOUNT }}'
 
       - name: 'Setup Terraform'
-        uses: 'abcxyz/secure-setup-terraform@665bd6de7cd6349a887d3dd52e7d031697d0717f' # ratchet:abcxyz/secure-setup-terraform@main
+        uses: 'abcxyz/secure-setup-terraform@15205916f66ec6469e5cf6c8df40304f3b291898' # ratchet:abcxyz/secure-setup-terraform@main
         with:
           terraform_version: '${{ env.GUARDIAN_TERRAFORM_VERSION }}'
           terraform_module_location: './${{ matrix.working_directory }}'
@@ -141,7 +141,7 @@ jobs:
           terraform_wrapper: false
 
       - name: 'Download Guardian'
-        uses: 'actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806' # ratchet:actions/download-artifact@v4
+        uses: 'actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e' # ratchet:actions/download-artifact@v4
         with:
           name: '${{ env.GUARDIAN_LINUX_BINARY }}'
           path: '${{ runner.temp }}/.guardian'
@@ -152,7 +152,7 @@ jobs:
         run: |-
           mv "${INSTALL_PATH}/${GUARDIAN_LINUX_BINARY}" "${INSTALL_PATH}/guardian"
           chmod +x "${INSTALL_PATH}/guardian"
-          echo "${INSTALL_PATH}" >> $GITHUB_PATH
+          echo "${INSTALL_PATH}" >> "${GITHUB_PATH}"
 
       - name: 'Guardian Plan'
         shell: 'bash'
@@ -176,7 +176,7 @@ jobs:
         uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # ratchet:actions/checkout@v4
 
       - name: 'Download Guardian'
-        uses: 'actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806' # ratchet:actions/download-artifact@v4
+        uses: 'actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e' # ratchet:actions/download-artifact@v4
         with:
           name: '${{ env.GUARDIAN_LINUX_BINARY }}'
           path: '${{ runner.temp }}/.guardian'
@@ -187,7 +187,7 @@ jobs:
         run: |-
           mv "${INSTALL_PATH}/${GUARDIAN_LINUX_BINARY}" "${INSTALL_PATH}/guardian"
           chmod +x "${INSTALL_PATH}/guardian"
-          echo "${INSTALL_PATH}" >> $GITHUB_PATH
+          echo "${INSTALL_PATH}" >> "${GITHUB_PATH}"
 
       - name: 'Guardian Post Plan Status'
         shell: 'bash'
@@ -217,7 +217,7 @@ jobs:
           fetch-depth: 0 # get everything so we can use git diff
 
       - name: 'Download Guardian'
-        uses: 'actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806' # ratchet:actions/download-artifact@v4
+        uses: 'actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e' # ratchet:actions/download-artifact@v4
         with:
           name: '${{ env.GUARDIAN_LINUX_BINARY }}'
           path: '${{ runner.temp }}/.guardian'
@@ -228,7 +228,7 @@ jobs:
         run: |-
           mv "${INSTALL_PATH}/${GUARDIAN_LINUX_BINARY}" "${INSTALL_PATH}/guardian"
           chmod +x "${INSTALL_PATH}/guardian"
-          echo "${INSTALL_PATH}" >> $GITHUB_PATH
+          echo "${INSTALL_PATH}" >> "${GITHUB_PATH}"
 
       - name: 'Guardian Directories'
         id: 'dirs'
@@ -240,7 +240,7 @@ jobs:
         run: |-
           DIRECTORIES=$(guardian entrypoints -dir=./terraform/project1 -dir=./terraform/project2)
           echo "entrypoints -> ${DIRECTORIES}"
-          echo "directories=${DIRECTORIES}" >> $GITHUB_OUTPUT
+          echo "directories=${DIRECTORIES}" >> "${GITHUB_OUTPUT}"
 
   apply:
     if: |
@@ -273,7 +273,7 @@ jobs:
           service_account: '${{ env.GUARDIAN_WIF_SERVICE_ACCOUNT }}'
 
       - name: 'Setup Terraform'
-        uses: 'abcxyz/secure-setup-terraform@665bd6de7cd6349a887d3dd52e7d031697d0717f' # ratchet:abcxyz/secure-setup-terraform@main
+        uses: 'abcxyz/secure-setup-terraform@15205916f66ec6469e5cf6c8df40304f3b291898' # ratchet:abcxyz/secure-setup-terraform@main
         with:
           terraform_version: '${{ env.GUARDIAN_TERRAFORM_VERSION }}'
           terraform_module_location: './${{ matrix.working_directory }}'
@@ -282,7 +282,7 @@ jobs:
           terraform_wrapper: false
 
       - name: 'Download Guardian'
-        uses: 'actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806' # ratchet:actions/download-artifact@v4
+        uses: 'actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e' # ratchet:actions/download-artifact@v4
         with:
           name: '${{ env.GUARDIAN_LINUX_BINARY }}'
           path: '${{ runner.temp }}/.guardian'
@@ -293,7 +293,7 @@ jobs:
         run: |-
           mv "${INSTALL_PATH}/${GUARDIAN_LINUX_BINARY}" "${INSTALL_PATH}/guardian"
           chmod +x "${INSTALL_PATH}/guardian"
-          echo "${INSTALL_PATH}" >> $GITHUB_PATH
+          echo "${INSTALL_PATH}" >> "${GITHUB_PATH}"
 
       - name: 'Guardian Apply'
         shell: 'bash'
