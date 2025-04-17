@@ -34,6 +34,7 @@ type Config struct {
 	// Enterprise
 	GitHubAPIURL     string
 	GitHubGraphQLURL string
+	GitHubServerURL  string
 
 	// Auth
 	GuardianGitHubToken     string
@@ -46,7 +47,6 @@ type Config struct {
 	Permissions             map[string]string
 
 	GitHubEventName         string
-	GitHubServerURL         string
 	GitHubRunID             int64
 	GitHubRunAttempt        int64
 	GitHubJob               string
