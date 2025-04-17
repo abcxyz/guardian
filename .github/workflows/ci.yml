@@ -57,5 +57,3 @@ jobs:
 
       - name: '[GITHUB] lint actions'
         uses: 'abcxyz/actions/.github/actions/lint-github-actions@main' # ratchet:exclude
-        with:
-          actionlint_version: '${{ env.ACTIONS_LINT_ACTIONLINT_VERSION }}'
