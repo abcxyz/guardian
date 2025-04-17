@@ -33,3 +33,33 @@ concurrency:
 jobs:
   go_test:
     uses: 'abcxyz/actions/.github/workflows/go-test.yml@main' # ratchet:exclude
+
+  ratchet_lint:
+    runs-on: 'ubuntu-latest'
+    steps:
+      - name: 'Checkout'
+        uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # ratchet:actions/checkout@v4
+        with:
+          fetch-depth: 1 # shallow clone
+
+      - name: '[GITHUB] lint ratchet'
+        if: |
+          matrix.lint-target == 'ratchet'
+        uses: 'sethvargo/ratchet@main' # ratchet:exclude
+        with:
+          files: './.github/actions/**/*.yml ./.github/workflows/*.yml'
+
+  actions_lint:
+    runs-on: 'ubuntu-latest'
+    steps:
+      - name: 'Checkout'
+        uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # ratchet:actions/checkout@v4
+        with:
+          fetch-depth: 1 # shallow clone
+
+      - name: '[GITHUB] lint actions'
+        if: |
+          matrix.lint-target == 'github'
+        uses: 'abcxyz/actions/.github/actions/lint-github-actions@main' # ratchet:exclude
+        with:
+          actionlint_version: '${{ env.ACTIONS_LINT_ACTIONLINT_VERSION }}'
