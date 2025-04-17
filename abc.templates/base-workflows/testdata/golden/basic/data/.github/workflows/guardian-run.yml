@@ -98,13 +98,13 @@ jobs:
         id: 'opa_eval'
         shell: 'bash'
         run: |-
-          DECISION=$(opa eval \
+          DECISION="$(opa eval \
             --format raw \
             --input ./workflow_dispatch_inputs.json \
             --data ./policy/guardian/run \
             --data ./guardian_policy_context.json \
-            "data.guardian.run")
-          echo "$DECISION" > policy_results.json
+            "data.guardian.run")"
+          echo "${DECISION}" > policy_results.json
 
       - name: 'Enforce Policy'
         shell: 'bash'
@@ -125,7 +125,7 @@ jobs:
         run: |-
           DIRECTORIES=$(guardian entrypoints -dir="${ENTRYPOINT}" -reporter=none)
           echo "entrypoints -> ${DIRECTORIES}"
-          echo "directories=${DIRECTORIES}" >> $GITHUB_OUTPUT
+          echo "directories=${DIRECTORIES}" >> "${GITHUB_OUTPUT}"
 
   run:
     if: |

@@ -82,8 +82,8 @@ jobs:
         run: |
           tags="$(tagrep parse -type=request -format=raw -array-tags=GUARDIAN_DIRS 2> tagrep.log)"
           cat tagrep.log
-          echo "tags -> $tags"
-          echo "$tags" >> "$GITHUB_ENV"
+          echo "tags -> ${tags}"
+          echo "${tags}" >> "${GITHUB_ENV}"
 
       - name: 'Guardian Changed Entrypoints in Current PR'
         id: 'entrypoints-changed-in-pr'
@@ -96,7 +96,7 @@ jobs:
         run: |-
           DIRECTORIES=$(guardian entrypoints -skip-reporting -dir="." -detect-changes -source-ref="${SOURCE_REF}" -dest-ref="${DEST_REF}")
           echo "entrypoints -> ${DIRECTORIES}"
-          echo "directories=${DIRECTORIES}" >> $GITHUB_OUTPUT
+          echo "directories=${DIRECTORIES}" >> "${GITHUB_OUTPUT}"
 
       - name: 'PR info'
         id: 'pr-info'
@@ -104,12 +104,14 @@ jobs:
         env:
           GH_TOKEN: '${{ github.token }}'
         run: |-
-          PR_NUM="$(echo "$GITHUB_REF" | grep -Po 'refs\/heads\/gh-readonly-queue\/(?:.+)\/pr-\K(\d*)')"
-          PR_TARGET_BRANCH_NAME="$(echo "$GITHUB_REF" | grep -Po 'refs\/heads\/gh-readonly-queue\/\K((?!\/pr-)(.))+')"
-          PR_BRANCH_REF="$(gh pr --repo="$GITHUB_REPOSITORY" view "$PR_NUM" --json headRefOid --jq '.headRefOid')"
-          echo "pr_branch_ref=${PR_BRANCH_REF}" >> $GITHUB_OUTPUT
-          echo "pr_number=${PR_NUM}" >> $GITHUB_OUTPUT
-          echo "pr_target_branch_name=${PR_TARGET_BRANCH_NAME}" >> $GITHUB_OUTPUT
+          PR_NUM="$(echo "${GITHUB_REF}" | grep -Po 'refs\/heads\/gh-readonly-queue\/(?:.+)\/pr-\K(\d*)')"
+          PR_TARGET_BRANCH_NAME="$(echo "${GITHUB_REF}" | grep -Po 'refs\/heads\/gh-readonly-queue\/\K((?!\/pr-)(.))+')"
+          PR_BRANCH_REF="$(gh pr --repo="${GITHUB_REPOSITORY}" view "${PR_NUM}" --json headRefOid --jq '.headRefOid')"
+          {
+            echo "pr_branch_ref=${PR_BRANCH_REF}"
+            echo "pr_number=${PR_NUM}"
+            echo "pr_target_branch_name=${PR_TARGET_BRANCH_NAME}"
+          } >> "${GITHUB_OUTPUT}"
 
       - name: 'Checkout'
         uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # ratchet:actions/checkout@v4
@@ -134,10 +136,10 @@ jobs:
           # We want to know the intersection between the merge queue base ref
           # and the PR base ref. This will be the commit on main at the time
           # of the PR plan.
-          FEATURE_BRANCH_BASE_REF=$(git merge-base $PR_REF $BASE_REF)
+          FEATURE_BRANCH_BASE_REF="$(git merge-base "${PR_REF}" "${BASE_REF}")"
           DIRECTORIES=$(guardian entrypoints -skip-reporting -dir="." -detect-changes -source-ref="${FEATURE_BRANCH_BASE_REF}" -dest-ref="${BASE_REF}")
           echo "entrypoints -> ${DIRECTORIES}"
-          echo "directories=${DIRECTORIES}" >> $GITHUB_OUTPUT
+          echo "directories=${DIRECTORIES}" >> "${GITHUB_OUTPUT}"
 
       - name: 'Check'
         id: 'check'
@@ -146,10 +148,10 @@ jobs:
           CHANGED_IN_PR: '${{ steps.entrypoints-changed-in-pr.outputs.directories }}'
           CHANGED_SINCE_PR: '${{ steps.entrypoints-changed-since-pr.outputs.directories }}'
         run: |-
-          modified_in_both="$(join <(echo "$CHANGED_IN_PR" | jq '.[]') <(echo "$CHANGED_SINCE_PR" | jq '.[]'))"
-          if [[ "$modified_in_both" != "" ]]; then
+          modified_in_both="$(join <(echo "${CHANGED_IN_PR}" | jq '.[]') <(echo "${CHANGED_SINCE_PR}" | jq '.[]'))"
+          if [[ "${modified_in_both}" != "" ]]; then
             echo "[ERROR] Found entrypoints that have been modified since the plan was created. Please rebase and recreate your plan."
-            echo "$modified_in_both"
+            echo "${modified_in_both}"
             exit 1
           fi
 
@@ -163,4 +165,4 @@ jobs:
           GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
           PR_NUMBER: '${{ steps.pr-info.outputs.pr_number }}'
         run: |-
-          guardian workflows merge-queue-comment -result="$RESULT" -target-branch="$TARGET_BRANCH" -github-pull-request-number="$PR_NUMBER"
+          guardian workflows merge-queue-comment -result="${RESULT}" -target-branch="${TARGET_BRANCH}" -github-pull-request-number="${PR_NUMBER}"

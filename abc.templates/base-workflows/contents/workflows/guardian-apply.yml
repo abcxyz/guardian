@@ -67,7 +67,7 @@ jobs:
         run: |-
           DIRECTORIES=$(guardian entrypoints -dir="REPLACE_TERRAFORM_DIRECTORY" -detect-changes -source-ref=HEAD~1 -dest-ref=HEAD)
           echo "entrypoints -> ${DIRECTORIES}"
-          echo "directories=${DIRECTORIES}" >> $GITHUB_OUTPUT
+          echo "directories=${DIRECTORIES}" >> "${GITHUB_OUTPUT}"
 
   apply:
     if: |
