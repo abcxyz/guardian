@@ -42,7 +42,7 @@ jobs:
         with:
           fetch-depth: 1 # shallow clone
 
-      - name: '[GITHUB] lint ratchet'
+      - name: 'lint ratchet'
         uses: 'sethvargo/ratchet@main' # ratchet:exclude
         with:
           files: './.github/actions/**/*.yml ./.github/workflows/*.yml'
@@ -55,5 +55,5 @@ jobs:
         with:
           fetch-depth: 1 # shallow clone
 
-      - name: '[GITHUB] lint actions'
+      - name: 'lint actions'
         uses: 'abcxyz/actions/.github/actions/lint-github-actions@main' # ratchet:exclude
