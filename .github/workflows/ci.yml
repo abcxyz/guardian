@@ -61,6 +61,8 @@ jobs:
 
       - name: 'render templates'
         shell: 'bash'
+        env:
+          REF: '${{ github.sha }}'
         run: |
           rm -f ./.github/workflow/*
           abc templates render \
@@ -70,13 +72,13 @@ jobs:
             -input=guardian_service_account="${{ env.GUARDIAN_WIF_SERVICE_ACCOUNT }}" \
             -input=guardian_state_bucket="${{ env.GUARDIAN_BUCKET_NAME }}" \
             -accept-defaults \
-            github.com/abcxyz/guardian/abc.templates/base-workflows@latest
+            "github.com/abcxyz/guardian/abc.templates/base-workflows@${REF}"
           abc templates render \
             -input=gcp_organization_id="00000000" \
             -input=guardian_wif_provider="${{ env.GUARDIAN_WIF_PROVIDER }}" \
             -input=guardian_service_account="${{ env.GUARDIAN_WIF_SERVICE_ACCOUNT }}" \
             -accept-defaults \
-            github.com/abcxyz/guardian/abc.templates/drift-workflows@latest
+            "github.com/abcxyz/guardian/abc.templates/drift-workflows@${REF}"
 
       - name: 'lint ratchet'
         uses: 'sethvargo/ratchet@main' # ratchet:exclude
@@ -102,6 +104,8 @@ jobs:
 
       - name: 'render templates'
         shell: 'bash'
+        env:
+          REF: '${{ github.sha }}'
         run: |
           rm -f ./.github/workflow/*
           abc templates render \
@@ -111,13 +115,13 @@ jobs:
             -input=guardian_service_account="${{ env.GUARDIAN_WIF_SERVICE_ACCOUNT }}" \
             -input=guardian_state_bucket="${{ env.GUARDIAN_BUCKET_NAME }}" \
             -accept-defaults \
-            github.com/abcxyz/guardian/abc.templates/base-workflows@latest
+            "github.com/abcxyz/guardian/abc.templates/base-workflows@${REF}"
           abc templates render \
             -input=gcp_organization_id="00000000" \
             -input=guardian_wif_provider="${{ env.GUARDIAN_WIF_PROVIDER }}" \
             -input=guardian_service_account="${{ env.GUARDIAN_WIF_SERVICE_ACCOUNT }}" \
             -accept-defaults \
-            github.com/abcxyz/guardian/abc.templates/drift-workflows@latest
+            "github.com/abcxyz/guardian/abc.templates/drift-workflows@${REF}"
 
       - name: 'lint actions'
         uses: 'abcxyz/actions/.github/actions/lint-github-actions@main' # ratchet:exclude
