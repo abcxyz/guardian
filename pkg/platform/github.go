@@ -97,8 +97,11 @@ func NewGitHub(ctx context.Context, cfg *gh.Config) (*GitHub, error) {
 
 	tc := oauth2.NewClient(ctx, ts)
 
-	client := github.NewClient(tc)
-	graphqlClient := githubv4.NewClient(tc)
+	client, err := github.NewEnterpriseClient(cfg.GitHubAPIURL, cfg.GitHubServerURL, tc)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create GitHub client: %w", err)
+	}
+	graphqlClient := githubv4.NewEnterpriseClient(cfg.GitHubGraphQLURL, tc)
 
 	g := &GitHub{
 		cfg:           cfg,

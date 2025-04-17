@@ -31,6 +31,10 @@ type Config struct {
 	InitialRetryDelay time.Duration
 	MaxRetryDelay     time.Duration
 
+	// Enterprise
+	GitHubAPIURL     string
+	GitHubGraphQLURL string
+
 	// Auth
 	GuardianGitHubToken     string
 	GitHubToken             string
@@ -108,6 +112,24 @@ GITHUB_TOKEN.`,
 		Target: &c.GitHubToken,
 		Usage:  "The GitHub access token to make GitHub API calls.",
 		Hidden: true,
+	})
+
+	f.StringVar(&cli.StringVar{
+		Name:    "github-api-url",
+		EnvVar:  "GITHUB_API_URL",
+		Target:  &c.GitHubAPIURL,
+		Usage:   "The API URL of the GitHub instance.",
+		Default: "https://api.github.com/",
+		Hidden:  true,
+	})
+
+	f.StringVar(&cli.StringVar{
+		Name:    "github-graphql-url",
+		EnvVar:  "GITHUB_GRAPHQL_URL",
+		Target:  &c.GitHubGraphQLURL,
+		Default: "https://api.github.com/graphql/",
+		Usage:   "The GraphQL API URL of the GitHub instance.",
+		Hidden:  true,
 	})
 
 	f.StringVar(&cli.StringVar{
