@@ -51,7 +51,7 @@ jobs:
           fetch-depth: 1 # shallow clone
 
       - name: 'Setup abc'
-        uses: 'abcxyz/pkg/.github/actions/setup-binary@90acbb7e25e72c3c7ae2c040244d8468f74f8d96' # ratchet:abcxyz/pkg/.github/actions/setup-binary@main
+        uses: 'abcxyz/pkg/.github/actions/setup-binary@1d1cedf7768d17dde23bb2cda24bc1fb950e9f92' # ratchet:abcxyz/pkg/.github/actions/setup-binary@main
         with:
           download_url: 'https://github.com/abcxyz/abc/releases/download/v${{ env.ABC_CLI_VERSION }}/abc_${{ env.ABC_CLI_VERSION }}_linux_amd64.tar.gz'
           install_path: '${{ runner.temp }}/.abc'
@@ -82,7 +82,7 @@ jobs:
         uses: 'sethvargo/ratchet@main' # ratchet:exclude
         with:
           files: './.github/workflows/*.yml'
- 
+
   actions_lint_templates:
     runs-on: 'ubuntu-latest'
     steps:
@@ -92,7 +92,7 @@ jobs:
           fetch-depth: 1 # shallow clone
 
       - name: 'Setup abc'
-        uses: 'abcxyz/pkg/.github/actions/setup-binary@90acbb7e25e72c3c7ae2c040244d8468f74f8d96' # ratchet:abcxyz/pkg/.github/actions/setup-binary@main
+        uses: 'abcxyz/pkg/.github/actions/setup-binary@1d1cedf7768d17dde23bb2cda24bc1fb950e9f92' # ratchet:abcxyz/pkg/.github/actions/setup-binary@main
         with:
           download_url: 'https://github.com/abcxyz/abc/releases/download/v${{ env.ABC_CLI_VERSION }}/abc_${{ env.ABC_CLI_VERSION }}_linux_amd64.tar.gz'
           install_path: '${{ runner.temp }}/.abc'
