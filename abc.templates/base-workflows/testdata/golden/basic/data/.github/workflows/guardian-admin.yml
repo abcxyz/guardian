@@ -12,51 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Guardian run is used to run Terraform commands that are most often used
-# to fix state after a failed workflow or get outputs for a given module
-# directory. Any user with write permissions on the repo can run this workflow.
-name: 'guardian_run'
-run-name: 'guardian_run - [${{ inputs.command }}] [${{ inputs.entrypoint }}]'
+# Guardian admin is used to run Terraform commands as the privileged service account.
+# Due to the sensitive nature of the access this account has, this workflow is restricted
+# to only repository administrators to prevent misuse.
+name: 'guardian_admin'
+run-name: 'guardian_admin - [${{ inputs.command }}] [${{ inputs.entrypoint }}]'
 
 on:
   workflow_dispatch:
     inputs:
       command:
-        description: 'COMMAND - The Terraform command to run.'
+        description: 'COMMAND - The Terraform command to run along with any arguments, e.g. plan -input=false, apply -auto-approve, etc.'
         required: true
-        type: 'choice'
-        default: 'plan'
-        options:
-          - 'plan'
-          - 'apply'
-          - 'output'
       entrypoint:
         description: 'ENTRYPOINT - The directory to search for all child directories containing Terraform configurations. If left blank, the Terraform command will run for all configured directories.'
         default: '.'
         type: 'string'
-      detailed-exitcode:
-        description: 'DETAILED-EXITCODE (usually false) - The value of the -detailed-exitcode flag for "terraform plan", which causes a nonempty diff to return a status code of 2; ignored for other commands besides "plan".'
-        type: 'boolean'
-        default: false
-        required: false
-  workflow_call:
-    inputs:
-      command:
-        description: 'COMMAND - The Terraform command to run.'
-        required: false
-        type: 'string'
-        default: 'plan'
-      entrypoint:
-        description: 'ENTRYPOINT - The directory to search for all child directories containing Terraform configurations. If left blank, the Terraform command will run for all configured directories.'
-        default: '.'
-        type: 'string'
-      detailed-exitcode:
-        description: 'DETAILED-EXITCODE (usually false) - The value of the -detailed-exitcode flag for "terraform plan", which causes a nonempty diff to return a status code of 2; ignored for other commands besides "plan".'
-        type: 'boolean'
-        default: false
-        required: false
 
-# only one fix should run at a time
+# only one admin should run at a time
 concurrency:
   group: '${{ github.workflow }}'
 
@@ -88,6 +61,51 @@ jobs:
           cache_key: '${{ runner.os }}_${{ runner.arch }}_guardian_${{ env.GUARDIAN_VERSION }}'
           add_to_path: true
 
+      - name: 'Create Inputs File'
+        shell: 'bash'
+        run: |-
+          cat << EOF > workflow_dispatch_inputs.json
+          {
+            "command": "${{ inputs.command }}",
+            "entrypoint": "${{ inputs.entrypoint }}"
+          }
+          EOF
+
+      - name: 'Aggregate Policy Data'
+        shell: 'bash'
+        env:
+          # used to call GitHub API's for data aggregation
+          GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
+        run: |-
+          guardian policy fetch-data
+
+      - name: 'Setup OPA'
+        uses: 'open-policy-agent/setup-opa@34a30e8a924d1b03ce2cf7abe97250bbb1f332b5' # ratchet:open-policy-agent/setup-opa@v2
+        with:
+          version: 'latest'
+
+      - name: 'Evaluate Policy'
+        id: 'opa_eval'
+        shell: 'bash'
+        run: |-
+          DECISION="$(opa eval \
+            --format raw \
+            --input ./workflow_dispatch_inputs.json \
+            --data ./policy/guardian/admin \
+            --data ./guardian_policy_context.json \
+            "data.guardian.admin")"
+          echo "${DECISION}" > policy_results.json
+
+      - name: 'Enforce Policy'
+        shell: 'bash'
+        env:
+          GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
+        run: |-
+          guardian policy enforce \
+            -reporter=none \
+            -dir="${DIRECTORY}" \
+            -results-file=policy_results.json
+
       - name: 'Guardian Directories'
         id: 'dirs'
         shell: 'bash'
@@ -99,7 +117,7 @@ jobs:
           echo "entrypoints -> ${DIRECTORIES}"
           echo "directories=${DIRECTORIES}" >> "${GITHUB_OUTPUT}"
 
-  run:
+  admin:
     if: |
       needs.init.outputs.directories != '[]'
     needs:
@@ -115,10 +133,6 @@ jobs:
       max-parallel: 100
       matrix:
         working_directory: '${{ fromJSON(needs.init.outputs.directories) }}'
-
-    env:
-      DIRECTORY: '${{ matrix.working_directory }}'
-
     steps:
       - name: 'Checkout'
         uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # ratchet:actions/checkout@v4
@@ -147,25 +161,9 @@ jobs:
           cache_key: '${{ runner.os }}_${{ runner.arch }}_guardian_${{ env.GUARDIAN_VERSION }}'
           add_to_path: true
 
-      - name: 'Guardian Output'
-        if: |
-          inputs.command == 'output'
-        shell: 'bash'
-        run: |-
-          guardian run -dir="${DIRECTORY}" -- output
-
-      - name: 'Guardian Plan'
-        if: |
-          inputs.command == 'plan'
+      - name: 'Guardian Admin'
         env:
-          DETAILED_EXITCODE: '${{ inputs.detailed-exitcode }}'
+          DIRECTORY: '${{ matrix.working_directory }}'
         shell: 'bash'
         run: |-
-          guardian run -dir="${DIRECTORY}" -- plan -input=false -detailed-exitcode="${DETAILED_EXITCODE}"
-
-      - name: 'Guardian Apply'
-        if: |
-          inputs.command == 'apply'
-        shell: 'bash'
-        run: |-
-          guardian run -dir="${DIRECTORY}" -- apply -input=false -auto-approve
+          guardian run -dir="${DIRECTORY}" -- ${{ inputs.command }}
