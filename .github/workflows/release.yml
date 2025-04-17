@@ -223,6 +223,7 @@ jobs:
           REPO: '${{ github.repository }}'
         run: |-
           FILES="$(find ./dist -type f)"
+          # shellcheck disable=SC2086
           gh release upload "${RELEASE_VERSION}" ${FILES} \
             --repo "${REPO}"
 
