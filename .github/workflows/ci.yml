@@ -30,6 +30,94 @@ concurrency:
   group: '${{ github.workflow }}-${{ github.head_ref || github.ref }}'
   cancel-in-progress: true
 
+env:
+  ABC_CLI_VERSION: ''
+  GUARDIAN_WIF_PROVIDER: 'projects/1098665030124/locations/global/workloadIdentityPools/guardian-automation/providers/guardian-ci-i'
+  GUARDIAN_WIF_SERVICE_ACCOUNT: 'guardian-automation-bot@ghg-guardian-ci-i-6ad437.iam.gserviceaccount.com'
+  GUARDIAN_BUCKET_NAME: 'guardian-ci-i-guardian-state-c79e1f4759'
+  GUARDIAN_TERRAFORM_VERSION: '1.7.1'
+  GUARDIAN_TAGREP_VERSION: '0.0.7'
+
 jobs:
   go_test:
     uses: 'abcxyz/actions/.github/workflows/go-test.yml@main' # ratchet:exclude
+
+  ratchet_lint_templates:
+    runs-on: 'ubuntu-latest'
+    steps:
+      - name: 'Checkout'
+        uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # ratchet:actions/checkout@v4
+        with:
+          fetch-depth: 1 # shallow clone
+
+      - name: 'Setup abc'
+        uses: 'abcxyz/pkg/.github/actions/setup-binary@90acbb7e25e72c3c7ae2c040244d8468f74f8d96' # ratchet:abcxyz/pkg/.github/actions/setup-binary@main
+        with:
+          download_url: 'https://github.com/abcxyz/abc/releases/download/v${{ env.ABC_CLI_VERSION }}/abc_${{ env.ABC_CLI_VERSION }}_linux_amd64.tar.gz'
+          install_path: '${{ runner.temp }}/.abc'
+          binary_subpath: 'abc'
+          cache_key: '${{ runner.os }}_${{ runner.arch }}_abc_${{ env.ABC_CLI_VERSION }}'
+          add_to_path: true
+
+      - name: 'render templates'
+        shell: 'bash'
+        run: |
+          rm -f ./.github/workflow/*
+          abc templates render \
+            -input=terraform_version="${{ env.GUARDIAN_TERRAFORM_VERSION }}" \
+            -input=tagrep_version="${{ env.GUARDIAN_TAGREP_VERSION }}" \
+            -input=guardian_wif_provider="${{ env.GUARDIAN_WIF_PROVIDER }}" \
+            -input=guardian_service_account="${{ env.GUARDIAN_WIF_SERVICE_ACCOUNT }}" \
+            -input=guardian_state_bucket="${{ env.GUARDIAN_BUCKET_NAME }}" \
+            -accept-defaults \
+            github.com/abcxyz/guardian/abc.templates/base-workflows@latest
+          abc templates render \
+            -input=gcp_organization_id="00000000" \
+            -input=guardian_wif_provider="${{ env.GUARDIAN_WIF_PROVIDER }}" \
+            -input=guardian_service_account="${{ env.GUARDIAN_WIF_SERVICE_ACCOUNT }}" \
+            -accept-defaults \
+            github.com/abcxyz/guardian/abc.templates/drift-workflows@latest
+
+      - name: 'lint ratchet'
+        uses: 'sethvargo/ratchet@main' # ratchet:exclude
+        with:
+          files: './.github/workflows/*.yml'
+ 
+  actions_lint_templates:
+    runs-on: 'ubuntu-latest'
+    steps:
+      - name: 'Checkout'
+        uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # ratchet:actions/checkout@v4
+        with:
+          fetch-depth: 1 # shallow clone
+
+      - name: 'Setup abc'
+        uses: 'abcxyz/pkg/.github/actions/setup-binary@90acbb7e25e72c3c7ae2c040244d8468f74f8d96' # ratchet:abcxyz/pkg/.github/actions/setup-binary@main
+        with:
+          download_url: 'https://github.com/abcxyz/abc/releases/download/v${{ env.ABC_CLI_VERSION }}/abc_${{ env.ABC_CLI_VERSION }}_linux_amd64.tar.gz'
+          install_path: '${{ runner.temp }}/.abc'
+          binary_subpath: 'abc'
+          cache_key: '${{ runner.os }}_${{ runner.arch }}_abc_${{ env.ABC_CLI_VERSION }}'
+          add_to_path: true
+
+      - name: 'render templates'
+        shell: 'bash'
+        run: |
+          rm -f ./.github/workflow/*
+          abc templates render \
+            -input=terraform_version="${{ env.GUARDIAN_TERRAFORM_VERSION }}" \
+            -input=tagrep_version="${{ env.GUARDIAN_TAGREP_VERSION }}" \
+            -input=guardian_wif_provider="${{ env.GUARDIAN_WIF_PROVIDER }}" \
+            -input=guardian_service_account="${{ env.GUARDIAN_WIF_SERVICE_ACCOUNT }}" \
+            -input=guardian_state_bucket="${{ env.GUARDIAN_BUCKET_NAME }}" \
+            -accept-defaults \
+            github.com/abcxyz/guardian/abc.templates/base-workflows@latest
+          abc templates render \
+            -input=gcp_organization_id="00000000" \
+            -input=guardian_wif_provider="${{ env.GUARDIAN_WIF_PROVIDER }}" \
+            -input=guardian_service_account="${{ env.GUARDIAN_WIF_SERVICE_ACCOUNT }}" \
+            -accept-defaults \
+            github.com/abcxyz/guardian/abc.templates/drift-workflows@latest
+
+      - name: 'lint actions'
+        uses: 'abcxyz/actions/.github/actions/lint-github-actions@main' # ratchet:exclude
