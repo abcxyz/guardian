@@ -43,8 +43,6 @@ jobs:
           fetch-depth: 1 # shallow clone
 
       - name: '[GITHUB] lint ratchet'
-        if: |
-          matrix.lint-target == 'ratchet'
         uses: 'sethvargo/ratchet@main' # ratchet:exclude
         with:
           files: './.github/actions/**/*.yml ./.github/workflows/*.yml'
@@ -58,8 +56,6 @@ jobs:
           fetch-depth: 1 # shallow clone
 
       - name: '[GITHUB] lint actions'
-        if: |
-          matrix.lint-target == 'github'
         uses: 'abcxyz/actions/.github/actions/lint-github-actions@main' # ratchet:exclude
         with:
           actionlint_version: '${{ env.ACTIONS_LINT_ACTIONLINT_VERSION }}'
