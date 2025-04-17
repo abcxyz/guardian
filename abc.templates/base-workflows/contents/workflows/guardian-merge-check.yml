@@ -110,7 +110,7 @@ jobs:
           {
             echo "pr_branch_ref=${PR_BRANCH_REF}"
             echo "pr_number=${PR_NUM}"
-            echo "pr_target_branch_name=${PR_TARGET_BRANCH_NAME}" 
+            echo "pr_target_branch_name=${PR_TARGET_BRANCH_NAME}"
           } >> "${GITHUB_OUTPUT}"
 
       - name: 'Checkout'
