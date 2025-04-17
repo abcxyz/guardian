@@ -212,9 +212,9 @@ jobs:
           done <   <(find ./* -type f)
           wait
 
-          FILES="$(find * -name '*.tar.gz' -o -name '*.zip')"
-          sha256sum ${FILES} > SHA256SUMS
-          sha512sum ${FILES} > SHA512SUMS
+          FILES="$(find ./* -name '*.tar.gz' -o -name '*.zip')"
+          sha256sum "${FILES}" > SHA256SUMS
+          sha512sum "${FILES}" > SHA512SUMS
 
       - name: 'Upload binaries'
         env:
