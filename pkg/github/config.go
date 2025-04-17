@@ -175,11 +175,12 @@ GITHUB_TOKEN.`,
 	})
 
 	f.StringVar(&cli.StringVar{
-		Name:   "github-server-url",
-		EnvVar: "GITHUB_SERVER_URL",
-		Target: &c.GitHubServerURL,
-		Usage:  "The GitHub server URL.",
-		Hidden: true,
+		Name:    "github-server-url",
+		EnvVar:  "GITHUB_SERVER_URL",
+		Target:  &c.GitHubServerURL,
+		Usage:   "The GitHub server URL.",
+		Default: "https://github.com",
+		Hidden:  true,
 	})
 
 	f.Int64Var(&cli.Int64Var{
