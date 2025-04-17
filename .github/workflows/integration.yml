@@ -80,7 +80,7 @@ jobs:
         run: |-
           mv "${INSTALL_PATH}/${GUARDIAN_LINUX_BINARY}" "${INSTALL_PATH}/guardian"
           chmod +x "${INSTALL_PATH}/guardian"
-          echo "${INSTALL_PATH}" >> $GITHUB_PATH
+          echo "${INSTALL_PATH}" >> "${GITHUB_PATH}"
 
       - name: 'Guardian Remove Previous Comments'
         shell: 'bash'
@@ -101,7 +101,7 @@ jobs:
         run: |-
           DIRECTORIES=$(guardian entrypoints -dir=./terraform/project1 -dir=./terraform/project2)
           echo "entrypoints -> ${DIRECTORIES}"
-          echo "directories=${DIRECTORIES}" >> $GITHUB_OUTPUT
+          echo "directories=${DIRECTORIES}" >> "${GITHUB_OUTPUT}"
 
   plan:
     if: |
@@ -152,7 +152,7 @@ jobs:
         run: |-
           mv "${INSTALL_PATH}/${GUARDIAN_LINUX_BINARY}" "${INSTALL_PATH}/guardian"
           chmod +x "${INSTALL_PATH}/guardian"
-          echo "${INSTALL_PATH}" >> $GITHUB_PATH
+          echo "${INSTALL_PATH}" >> "${GITHUB_PATH}"
 
       - name: 'Guardian Plan'
         shell: 'bash'
@@ -187,7 +187,7 @@ jobs:
         run: |-
           mv "${INSTALL_PATH}/${GUARDIAN_LINUX_BINARY}" "${INSTALL_PATH}/guardian"
           chmod +x "${INSTALL_PATH}/guardian"
-          echo "${INSTALL_PATH}" >> $GITHUB_PATH
+          echo "${INSTALL_PATH}" >> "${GITHUB_PATH}"
 
       - name: 'Guardian Post Plan Status'
         shell: 'bash'
@@ -228,7 +228,7 @@ jobs:
         run: |-
           mv "${INSTALL_PATH}/${GUARDIAN_LINUX_BINARY}" "${INSTALL_PATH}/guardian"
           chmod +x "${INSTALL_PATH}/guardian"
-          echo "${INSTALL_PATH}" >> $GITHUB_PATH
+          echo "${INSTALL_PATH}" >> "${GITHUB_PATH}"
 
       - name: 'Guardian Directories'
         id: 'dirs'
@@ -240,7 +240,7 @@ jobs:
         run: |-
           DIRECTORIES=$(guardian entrypoints -dir=./terraform/project1 -dir=./terraform/project2)
           echo "entrypoints -> ${DIRECTORIES}"
-          echo "directories=${DIRECTORIES}" >> $GITHUB_OUTPUT
+          echo "directories=${DIRECTORIES}" >> "${GITHUB_OUTPUT}"
 
   apply:
     if: |
@@ -293,7 +293,7 @@ jobs:
         run: |-
           mv "${INSTALL_PATH}/${GUARDIAN_LINUX_BINARY}" "${INSTALL_PATH}/guardian"
           chmod +x "${INSTALL_PATH}/guardian"
-          echo "${INSTALL_PATH}" >> $GITHUB_PATH
+          echo "${INSTALL_PATH}" >> "${GITHUB_PATH}"
 
       - name: 'Guardian Apply'
         shell: 'bash'

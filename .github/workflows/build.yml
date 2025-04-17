@@ -90,7 +90,8 @@ jobs:
         env:
           GOPROXY: 'https://proxy.golang.org,direct'
         run: |-
-          export MODULE="$(go list -m)"
+          module="$(go list -m)"
+          export MODULE="${module}"
           export CGO_ENABLED=0
 
           go build -a -trimpath -o "dist/${BINARY_FILENAME}" \

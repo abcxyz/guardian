@@ -189,7 +189,7 @@ jobs:
         run: |-
           cd dist/
 
-          for BINARY in $(find * -type f); do
+          while IFS= read -r -d '' BINARY
             chmod +x "${BINARY}"
 
             FOLDER="$(basename "${BINARY}" ".exe")"
@@ -209,7 +209,7 @@ jobs:
               mv "${BINARY}" "${NAME}"
               (tar -czvf "${FOLDER}.tar.gz" "${NAME}" && rm -rf "${NAME}") &
             fi
-          done
+          done <   <(find ./* -type f)
           wait
 
           FILES="$(find * -name '*.tar.gz' -o -name '*.zip')"
