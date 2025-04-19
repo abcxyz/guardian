@@ -189,12 +189,12 @@ jobs:
         run: |-
           cd dist/
 
-          while IFS= read -r BINARY; do
+          while IFS= read -r -d '' BINARY; do
             chmod +x "${BINARY}"
-
+            echo $BINARY
             FOLDER="$(basename "${BINARY}" ".exe")"
             NAME="${BINARY%%_*}"
-
+            echo $NAME
             # Windows - zip and follow Windows conventions with named subdirectory
             if [ "${FOLDER}" != "${BINARY}" ]; then
               NAME="${NAME}.exe"
@@ -209,11 +209,11 @@ jobs:
               mv "${BINARY}" "${NAME}"
               (tar -czvf "${FOLDER}.tar.gz" "${NAME}" && rm -rf "${NAME}") &
             fi
-          done <   <(find * -type f)
+          done <   <(find . -type f -printf '%P\0')
           wait
 
-          sha256sum $(find * -name '*.tar.gz' -o -name '*.zip') > SHA256SUMS
-          sha512sum $(find * -name '*.tar.gz' -o -name '*.zip') > SHA512SUMS
+          find . \( -name '*.tar.gz' -o -name '*.zip' \) -type f -printf '%P\0' | xargs -0 sha256sum > SHA256SUMS
+          find . \( -name '*.tar.gz' -o -name '*.zip' \) -type f -printf '%P\0' | xargs -0 sha512sum > SHA512SUMS
 
       - name: 'Upload binaries'
         env:
@@ -320,3 +320,6 @@ jobs:
             --repo "${REPO}" \
             --cleanup-tag \
             --yes || true
+
+
+
