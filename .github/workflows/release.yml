@@ -209,12 +209,11 @@ jobs:
               mv "${BINARY}" "${NAME}"
               (tar -czvf "${FOLDER}.tar.gz" "${NAME}" && rm -rf "${NAME}") &
             fi
-          done <   <(find ./* -type f)
+          done <   <(find . -type f -printf '%P\0')
           wait
 
-          FILES="$(find ./* -name '*.tar.gz' -o -name '*.zip')"
-          sha256sum "${FILES}" > SHA256SUMS
-          sha512sum "${FILES}" > SHA512SUMS
+          find . \( -name '*.tar.gz' -o -name '*.zip' \) -type f -printf '%P\0' | xargs -0 sha256sum > SHA256SUMS
+          find . \( -name '*.tar.gz' -o -name '*.zip' \) -type f -printf '%P\0' | xargs -0 sha512sum > SHA512SUMS
 
       - name: 'Upload binaries'
         env:
