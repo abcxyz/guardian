@@ -191,10 +191,10 @@ jobs:
 
           while IFS= read -r -d '' BINARY; do
             chmod +x "${BINARY}"
-            echo $BINARY
+
             FOLDER="$(basename "${BINARY}" ".exe")"
             NAME="${BINARY%%_*}"
-            echo $NAME
+
             # Windows - zip and follow Windows conventions with named subdirectory
             if [ "${FOLDER}" != "${BINARY}" ]; then
               NAME="${NAME}.exe"
