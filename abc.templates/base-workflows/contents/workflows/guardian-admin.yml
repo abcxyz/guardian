@@ -164,6 +164,8 @@ jobs:
       - name: 'Guardian Admin'
         env:
           DIRECTORY: '${{ matrix.working_directory }}'
+          TERRAFORM_CMD: '${{ inputs.command }}'
         shell: 'bash'
         run: |-
-          guardian run -dir="${DIRECTORY}" -- ${{ inputs.command }}
+          read -a -r CLI_ARGS <<< "${TERRAFORM_CMD}"
+          guardian run -dir="${DIRECTORY}" -- "${CLI_ARGS[@]}"
