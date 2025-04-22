@@ -221,9 +221,8 @@ jobs:
           RELEASE_VERSION: 'v${{ needs.create-release.outputs.version }}'
           REPO: '${{ github.repository }}'
         run: |-
-          FILES="$(find ./dist -type f)"
-          # shellcheck disable=SC2086
-          gh release upload "${RELEASE_VERSION}" ${FILES} \
+          mapfile -t FILES < <(find ./dist -type f)
+          gh release upload "${RELEASE_VERSION}" "${FILES[@]}" \
             --repo "${REPO}"
 
   publish-release:
