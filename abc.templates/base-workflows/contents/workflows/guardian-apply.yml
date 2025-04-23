@@ -50,7 +50,7 @@ jobs:
           fetch-depth: 2 # required to get diff between HEAD and HEAD-1
 
       - name: 'Setup Guardian'
-        uses: 'abcxyz/pkg/.github/actions/setup-binary@90acbb7e25e72c3c7ae2c040244d8468f74f8d96' # ratchet:abcxyz/pkg/.github/actions/setup-binary@main
+        uses: 'abcxyz/actions/.github/actions/setup-binary@4354d52e96a232b28734c3a0cc39266ecc3d52e8' # ratchet:abcxyz/actions/.github/actions/setup-binary@main
         with:
           download_url: 'https://github.com/abcxyz/guardian/releases/download/v${{ env.GUARDIAN_VERSION }}/guardian_${{ env.GUARDIAN_VERSION }}_linux_amd64.tar.gz'
           install_path: '${{ runner.temp }}/.guardian'
@@ -102,7 +102,7 @@ jobs:
           service_account: '${{ env.GUARDIAN_WIF_SERVICE_ACCOUNT }}'
 
       - name: 'Setup Terraform'
-        uses: 'abcxyz/secure-setup-terraform@cedf5136321da85745811c74c063c19675bfa904' # ratchet:abcxyz/secure-setup-terraform@main
+        uses: 'abcxyz/secure-setup-terraform@07e27af2369be8a26b858cdc2ab16c432c4b23ed' # ratchet:abcxyz/secure-setup-terraform@main
         with:
           terraform_version: '${{ env.GUARDIAN_TERRAFORM_VERSION }}'
           terraform_module_location: './${{ matrix.working_directory }}'
@@ -111,7 +111,7 @@ jobs:
           terraform_wrapper: false
 
       - name: 'Setup Guardian'
-        uses: 'abcxyz/pkg/.github/actions/setup-binary@90acbb7e25e72c3c7ae2c040244d8468f74f8d96' # ratchet:abcxyz/pkg/.github/actions/setup-binary@main
+        uses: 'abcxyz/actions/.github/actions/setup-binary@4354d52e96a232b28734c3a0cc39266ecc3d52e8' # ratchet:abcxyz/actions/.github/actions/setup-binary@main
         with:
           download_url: 'https://github.com/abcxyz/guardian/releases/download/v${{ env.GUARDIAN_VERSION }}/guardian_${{ env.GUARDIAN_VERSION }}_linux_amd64.tar.gz'
           install_path: '${{ runner.temp }}/.guardian'
