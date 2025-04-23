@@ -102,7 +102,7 @@ jobs:
           GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
         run: |-
           guardian policy enforce \
-            -reporter=none \
+            -skip-reporting \
             -dir="${DIRECTORY}" \
             -results-file=policy_results.json
 
@@ -113,7 +113,7 @@ jobs:
           ENTRYPOINT: '${{ inputs.entrypoint }}'
           GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
         run: |-
-          DIRECTORIES=$(guardian entrypoints -dir="${ENTRYPOINT}" -reporter=none)
+          DIRECTORIES=$(guardian entrypoints -dir="${ENTRYPOINT}" -skip-reporting)
           echo "entrypoints -> ${DIRECTORIES}"
           echo "directories=${DIRECTORIES}" >> "${GITHUB_OUTPUT}"
 
