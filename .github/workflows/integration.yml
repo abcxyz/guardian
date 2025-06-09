@@ -69,7 +69,7 @@ jobs:
           fetch-depth: 0 # get everything so we can use git diff
 
       - name: 'Download Guardian'
-        uses: 'actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e' # ratchet:actions/download-artifact@v4
+        uses: 'actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093' # ratchet:actions/download-artifact@v4
         with:
           name: '${{ env.GUARDIAN_LINUX_BINARY }}'
           path: '${{ runner.temp }}/.guardian'
@@ -126,13 +126,13 @@ jobs:
         uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # ratchet:actions/checkout@v4
 
       - name: 'Authenticate to Google Cloud'
-        uses: 'google-github-actions/auth@6fc4af4b145ae7821d527454aa9bd537d1f2dc5f' # ratchet:google-github-actions/auth@v2
+        uses: 'google-github-actions/auth@ba79af03959ebeac9769e648f473a284504d9193' # ratchet:google-github-actions/auth@v2
         with:
           workload_identity_provider: '${{ env.GUARDIAN_WIF_PROVIDER }}'
           service_account: '${{ env.GUARDIAN_WIF_SERVICE_ACCOUNT }}'
 
       - name: 'Setup Terraform'
-        uses: 'abcxyz/secure-setup-terraform@15205916f66ec6469e5cf6c8df40304f3b291898' # ratchet:abcxyz/secure-setup-terraform@main
+        uses: 'abcxyz/secure-setup-terraform@33b70dbb8f7f47d80e3195ac2d1d63efe0212d62' # ratchet:abcxyz/secure-setup-terraform@main
         with:
           terraform_version: '${{ env.GUARDIAN_TERRAFORM_VERSION }}'
           terraform_module_location: './${{ matrix.working_directory }}'
@@ -141,7 +141,7 @@ jobs:
           terraform_wrapper: false
 
       - name: 'Download Guardian'
-        uses: 'actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e' # ratchet:actions/download-artifact@v4
+        uses: 'actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093' # ratchet:actions/download-artifact@v4
         with:
           name: '${{ env.GUARDIAN_LINUX_BINARY }}'
           path: '${{ runner.temp }}/.guardian'
@@ -176,7 +176,7 @@ jobs:
         uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # ratchet:actions/checkout@v4
 
       - name: 'Download Guardian'
-        uses: 'actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e' # ratchet:actions/download-artifact@v4
+        uses: 'actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093' # ratchet:actions/download-artifact@v4
         with:
           name: '${{ env.GUARDIAN_LINUX_BINARY }}'
           path: '${{ runner.temp }}/.guardian'
@@ -217,7 +217,7 @@ jobs:
           fetch-depth: 0 # get everything so we can use git diff
 
       - name: 'Download Guardian'
-        uses: 'actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e' # ratchet:actions/download-artifact@v4
+        uses: 'actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093' # ratchet:actions/download-artifact@v4
         with:
           name: '${{ env.GUARDIAN_LINUX_BINARY }}'
           path: '${{ runner.temp }}/.guardian'
@@ -267,13 +267,13 @@ jobs:
         uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # ratchet:actions/checkout@v4
 
       - name: 'Authenticate to Google Cloud'
-        uses: 'google-github-actions/auth@6fc4af4b145ae7821d527454aa9bd537d1f2dc5f' # ratchet:google-github-actions/auth@v2
+        uses: 'google-github-actions/auth@ba79af03959ebeac9769e648f473a284504d9193' # ratchet:google-github-actions/auth@v2
         with:
           workload_identity_provider: '${{ env.GUARDIAN_WIF_PROVIDER }}'
           service_account: '${{ env.GUARDIAN_WIF_SERVICE_ACCOUNT }}'
 
       - name: 'Setup Terraform'
-        uses: 'abcxyz/secure-setup-terraform@15205916f66ec6469e5cf6c8df40304f3b291898' # ratchet:abcxyz/secure-setup-terraform@main
+        uses: 'abcxyz/secure-setup-terraform@33b70dbb8f7f47d80e3195ac2d1d63efe0212d62' # ratchet:abcxyz/secure-setup-terraform@main
         with:
           terraform_version: '${{ env.GUARDIAN_TERRAFORM_VERSION }}'
           terraform_module_location: './${{ matrix.working_directory }}'
@@ -282,7 +282,7 @@ jobs:
           terraform_wrapper: false
 
       - name: 'Download Guardian'
-        uses: 'actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e' # ratchet:actions/download-artifact@v4
+        uses: 'actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093' # ratchet:actions/download-artifact@v4
         with:
           name: '${{ env.GUARDIAN_LINUX_BINARY }}'
           path: '${{ runner.temp }}/.guardian'
