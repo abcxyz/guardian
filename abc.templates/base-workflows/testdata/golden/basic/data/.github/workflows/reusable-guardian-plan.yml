@@ -12,43 +12,34 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Guardian plan is used to run the Terraform plan commands for a set of
+# Reusable Guardian Plan is used to run the Terraform plan commands for a set of
 # directories after a pull request has been created.
-name: 'guardian_plan'
-run-name: 'guardian_plan - [PR #${{ github.event.pull_request.number }}]'
+name: 'reusable_guardian_plan'
+run-name: 'reusable_guardian_plan - [PR #${{ github.event.pull_request.number }}]'
 
 on:
-  pull_request_target:
-    types:
-      - 'opened'
-      - 'synchronize'
-      - 'reopened'
-      - 'ready_for_review'
-    branches:
-      - 'main'
-  # Only used if you are using the merge group for the guardian merge check.
-  # https://github.com/abcxyz/guardian?tab=readme-ov-file#merge-check
-  merge_group:
+  workflow_call:
+    outputs:
+      directories:
+        value: '${{ jobs.init.outputs.directories }}'
 
 # only one plan, per pr should run at a time
 concurrency:
   group: '${{ github.workflow }}-${{ github.event.pull_request.number }}-${{ github.head_ref || github.ref }}'
 
 env:
-  GUARDIAN_VERSION: 'REPLACE_GUARDIAN_VERSION_TAG'
-  GUARDIAN_WIF_PROVIDER: 'REPLACE_GUARDIAN_WIF_PROVIDER'
-  GUARDIAN_WIF_SERVICE_ACCOUNT: 'REPLACE_GUARDIAN_WIF_SERVICE_ACCOUNT'
-  GUARDIAN_BUCKET_NAME: 'REPLACE_GUARDIAN_STATE_BUCKET'
-  GUARDIAN_TERRAFORM_VERSION: 'REPLACE_TERRAFORM_VERSION'
-  TAGREP_VERSION: 'REPLACE_TAGREP_VERSION'
+  GUARDIAN_VERSION: '1.0.0'
+  GUARDIAN_WIF_PROVIDER: 'my-guardian-wif-provider'
+  GUARDIAN_WIF_SERVICE_ACCOUNT: 'my-guardian-service-account@abcxyz-my-project.iam.gserviceaccount.com'
+  GUARDIAN_BUCKET_NAME: 'my-guardian-state-bucket'
+  GUARDIAN_TERRAFORM_VERSION: '1.7.4'
+  TAGREP_VERSION: '0.0.7'
 
 jobs:
   init:
     # We do not run any plan jobs in the merge queue. But these jobs are still
     # required to run (in a skipped state) in order to block adding to the
     # merge queue until a plan has been created.
-    if: |
-      github.event_name == 'pull_request_target'
     runs-on: 'ubuntu-latest'
 
     permissions:
@@ -115,13 +106,13 @@ jobs:
           # We can use git merge-base to find the intersection between the
           # main branch and PR (feature) branch.
           FEATURE_BRANCH_BASE_REF="$(git merge-base "${PR_REF}" "${BASE_REF}")"
-          DIRECTORIES=$(guardian entrypoints -dir="REPLACE_TERRAFORM_DIRECTORY" -detect-changes -source-ref="${FEATURE_BRANCH_BASE_REF}" -dest-ref="${PR_REF}")
+          DIRECTORIES=$(guardian entrypoints -dir="." -detect-changes -source-ref="${FEATURE_BRANCH_BASE_REF}" -dest-ref="${PR_REF}")
           echo "entrypoints -> ${DIRECTORIES}"
           echo "directories=${DIRECTORIES}" >> "${GITHUB_OUTPUT}"
 
   plan:
     if: |
-      github.event_name == 'pull_request_target' && needs.init.outputs.directories != '[]'
+      needs.init.outputs.directories != '[]'
     needs:
       - 'init'
     runs-on: 'ubuntu-latest'
@@ -181,7 +172,7 @@ jobs:
 
   plan_success:
     if: |
-      always() && github.event_name == 'pull_request_target'
+      always()
     runs-on: 'ubuntu-latest'
     needs:
       - 'init'

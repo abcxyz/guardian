@@ -1,0 +1,37 @@
+# Copyright 2023 The Authors (see AUTHORS file)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Call Guardian Plan is used to call Reusable Guardian Plan workflow
+name: 'call_guardian_plan'
+on:
+  pull_request:
+    types:
+      - 'opened'
+      - 'synchronize'
+      - 'reopened'
+      - 'ready_for_review'
+    branches:
+      - 'main'
+  # Only used if you are using the merge group for the guardian merge check.
+  # https://github.com/abcxyz/guardian?tab=readme-ov-file#merge-check
+  merge_group:
+
+jobs:
+  call_guardian_plan:
+    permissions:
+      contents: 'read'
+      pull-requests: 'write'
+      id-token: 'write'
+    name: 'Call reusable guardian plan'
+    uses: 'abcxyz/guardian-staging/.github/workflows/reusable-guardian-plan.yml@main' # ratchet:exclude
