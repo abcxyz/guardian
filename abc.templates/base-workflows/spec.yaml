@@ -33,6 +33,8 @@ inputs:
       - rule: 'gcp_matches_service_account(guardian_service_account)'
   - name: 'guardian_state_bucket'
     desc: 'The Google Cloud storage bucket for Guardian state'
+  - name: 'github_repository'
+    desc: 'The owner and repository name. For example, octocat/Hello-World.'
 
 steps:
   - desc: 'Include required files and directories'
@@ -65,6 +67,8 @@ steps:
           with: '{{.guardian_state_bucket}}'
         - to_replace: 'REPLACE_GUARDIAN_VERSION_TAG'
           with: '{{ trimPrefix ._git_tag "v" }}'
+        - to_replace: 'REPLACE_GITHUB_REPOSITORY'
+          with: '{{.github_repository}}'
 
   # TODO: once https://github.com/abcxyz/abc/pull/423 is available, switch to a rule requiring a '_git_tag' value
   - desc: 'Print warning if rendered without git tag'

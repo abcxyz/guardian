@@ -34,4 +34,4 @@ jobs:
       pull-requests: 'write'
       id-token: 'write'
     name: 'Call reusable guardian plan'
-    uses: './.github/workflows/reusable-guardian-plan.yml@main' # ratchet:exclude
+    uses: 'REPLACE_GITHUB_REPOSITORY/.github/workflows/reusable-guardian-plan.yml@main' # ratchet:exclude
