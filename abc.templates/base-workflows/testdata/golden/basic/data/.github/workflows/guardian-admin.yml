@@ -167,5 +167,5 @@ jobs:
           TERRAFORM_CMD: '${{ inputs.command }}'
         shell: 'bash'
         run: |-
-          read -a -r CLI_ARGS <<< "${TERRAFORM_CMD}"
+          read -r -a CLI_ARGS <<< "${TERRAFORM_CMD}"
           guardian run -dir="${DIRECTORY}" -- "${CLI_ARGS[@]}"
