@@ -51,7 +51,7 @@ jobs:
           fetch-depth: 1 # shallow clone
 
       - name: 'Setup abc'
-        uses: 'abcxyz/pkg/.github/actions/setup-binary@1d1cedf7768d17dde23bb2cda24bc1fb950e9f92' # ratchet:abcxyz/pkg/.github/actions/setup-binary@main
+        uses: 'abcxyz/pkg/.github/actions/setup-binary@49fe9f44ebd76215a145bf0b4e2faf2163b0bfcc' # ratchet:abcxyz/pkg/.github/actions/setup-binary@main
         with:
           download_url: 'https://github.com/abcxyz/abc/releases/download/v${{ env.ABC_CLI_VERSION }}/abc_${{ env.ABC_CLI_VERSION }}_linux_amd64.tar.gz'
           install_path: '${{ runner.temp }}/.abc'
