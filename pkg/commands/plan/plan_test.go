@@ -127,6 +127,7 @@ func TestPlan_Process(t *testing.T) {
 		storagePrefix            string
 		flagAllowLockfileChanges bool
 		flagLockTimeout          time.Duration
+		flagReportStdout         bool
 		terraformClient          *terraform.MockTerraformClient
 		err                      string
 		expPlatformClientReqs    []*platform.Request
@@ -156,6 +157,31 @@ func TestPlan_Process(t *testing.T) {
 					},
 				},
 			},
+		},
+		{
+			name:                     "success_with_no_diff",
+			directory:                "testdata",
+			storagePrefix:            "",
+			flagReportStdout:         true,
+			flagAllowLockfileChanges: true,
+			flagLockTimeout:          10 * time.Minute,
+			terraformClient:          terraformNoDiffMock,
+			expPlatformClientReqs: []*platform.Request{
+				{
+					Name:   "Status",
+					Params: []any{platform.StatusNoOperation, &platform.StatusParams{HasDiff: false, Dir: "testdata", Operation: "plan"}},
+				},
+			},
+			expStorageClientReqs: []*storage.Request{
+				{
+					Name: "CreateObject",
+					Params: []any{
+						"testdata/tfplan.binary",
+						"this is a plan binary",
+					},
+				},
+			},
+			expStdout: "terraform plan success - no diff",
 		},
 		{
 			name:                     "success_with_no_diff",

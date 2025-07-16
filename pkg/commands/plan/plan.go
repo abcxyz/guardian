@@ -75,6 +75,7 @@ type PlanCommand struct {
 	flagAllowLockfileChanges bool
 	flagLockTimeout          time.Duration
 	flagSkipReporting        bool
+	flagReportStdout         bool
 
 	storageClient   storage.Storage
 	terraformClient terraform.Terraform
@@ -139,6 +140,14 @@ func (c *PlanCommand) Flags() *cli.FlagSet {
 		Default: false,
 		Example: "true",
 		Usage:   "Skips reporting of the plan status on the change request.",
+	})
+
+	f.BoolVar(&cli.BoolVar{
+		Name:    "report-stdout",
+		Target:  &c.flagReportStdout,
+		Default: false,
+		Example: "true",
+		Usage:   "Report the stdout to the comment details.",
 	})
 	return set
 }
@@ -348,6 +357,7 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 		return &RunResult{commentDetails: commentDetails}, fmt.Errorf("failed to plan: %w", err)
 	}
 
+	planOutOriginal := planOut
 	planOut.Reset()
 	stderr.Reset()
 
@@ -404,6 +414,13 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 	}
 
 	stderr.Reset()
+
+	if c.flagReportStdout {
+		return &RunResult{
+			commentDetails: planOutOriginal.String(),
+			hasChanges:     hasChanges,
+		}, nil
+	}
 
 	return &RunResult{
 		commentDetails: planOut.String(),
