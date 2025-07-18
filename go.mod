@@ -20,7 +20,7 @@ require (
 	github.com/shurcooL/githubv4 v0.0.0-20240727222349-48295856cce7
 	gitlab.com/gitlab-org/api/client-go v0.122.0
 	golang.org/x/exp v0.0.0-20250210185358-939b2ce775ac
-	golang.org/x/oauth2 v0.26.0
+	golang.org/x/oauth2 v0.27.0
 	google.golang.org/api v0.221.0
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250212204824-5a70512c5d8b
 	google.golang.org/grpc v1.70.0
