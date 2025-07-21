@@ -265,12 +265,15 @@ func (c *AssetInventoryClient) HierarchyAssets(ctx context.Context, organization
 		var id string
 		// Example value: "cloudresourcemanager.googleapis.com/Folder"
 		assetType := strings.TrimPrefix(resource.GetAssetType(), "cloudresourcemanager.googleapis.com/")
-		if assetType == Folder {
-			// Example value: "folders/123542345234"
+		switch assetType {
+		// Example value: "folders/123542345234"
+		case Folder:
 			id = strings.TrimPrefix(resource.GetFolders()[0], "folders/")
-		} else if assetType == Project {
-			// Example value: "projects/45234234234"
+		// Example value: "projects/45234234234"
+		case Project:
 			id = strings.TrimPrefix(resource.GetProject(), "projects/")
+		default:
+			return nil, fmt.Errorf("unsupported resource type: %s", assetType)
 		}
 		// Example value: "//cloudresourcemanager.googleapis.com/projects/my-project-name"
 		name, err := extractNameFromResourceName(resource.GetName())
