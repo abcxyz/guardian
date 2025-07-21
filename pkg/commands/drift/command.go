@@ -75,7 +75,7 @@ func (c *DetectIamDriftCommand) Flags() *cli.FlagSet {
 	set := c.NewFlagSet()
 
 	c.githubConfig.RegisterFlags(set)
-	c.DriftIssueFlags.Register(set)
+	c.Register(set)
 
 	// Command options
 	f := set.NewSection("COMMAND OPTIONS")
@@ -111,8 +111,8 @@ func (c *DetectIamDriftCommand) Flags() *cli.FlagSet {
 	})
 
 	set.AfterParse(func(existingErr error) (merr error) {
-		if len(c.DriftIssueFlags.FlagGitHubIssueLabels) == 0 {
-			c.DriftIssueFlags.FlagGitHubIssueLabels = []string{"guardian-iam-drift"}
+		if len(c.FlagGitHubIssueLabels) == 0 {
+			c.FlagGitHubIssueLabels = []string{"guardian-iam-drift"}
 		}
 		return merr
 	})
@@ -161,11 +161,11 @@ func (c *DetectIamDriftCommand) Run(ctx context.Context, args []string) error {
 		c.Outf(m)
 	}
 
-	if c.DriftIssueFlags.FlagSkipGitHubIssue {
+	if c.FlagSkipGitHubIssue {
 		return nil
 	}
-	if c.DriftIssueFlags.FlagGitHubCommentMessageAppend != "" {
-		m = strings.Join([]string{m, c.DriftIssueFlags.FlagGitHubCommentMessageAppend}, "\n\n")
+	if c.FlagGitHubCommentMessageAppend != "" {
+		m = strings.Join([]string{m, c.FlagGitHubCommentMessageAppend}, "\n\n")
 	}
 	githubClient, err := github.NewGitHubClient(ctx, &c.githubConfig)
 	if err != nil {
@@ -180,11 +180,11 @@ func (c *DetectIamDriftCommand) Run(ctx context.Context, args []string) error {
 		issueBody,
 	)
 	if changesDetected {
-		if err := issueService.CreateOrUpdateIssue(ctx, c.DriftIssueFlags.FlagGitHubIssueAssignees, c.DriftIssueFlags.FlagGitHubIssueLabels, m); err != nil {
+		if err := issueService.CreateOrUpdateIssue(ctx, c.FlagGitHubIssueAssignees, c.FlagGitHubIssueLabels, m); err != nil {
 			return fmt.Errorf("failed to create or update GitHub Issue: %w", err)
 		}
 	} else {
-		if err := issueService.CloseIssues(ctx, c.DriftIssueFlags.FlagGitHubIssueLabels); err != nil {
+		if err := issueService.CloseIssues(ctx, c.FlagGitHubIssueLabels); err != nil {
 			return fmt.Errorf("failed to close GitHub Issues: %w", err)
 		}
 	}
@@ -216,7 +216,7 @@ func driftMessage(drift *IAMDrift) string {
 		msg.WriteString("|----|---------------|-------------|--------|------|\n")
 		for _, k := range mtKeys {
 			mtChange := drift.MissingTerraformChanges[k]
-			msg.WriteString(fmt.Sprintf("|%s|%s|%s|%s|%s|\n", k, mtChange.StateFileURI, ResourceURI(mtChange.AssetIAM), mtChange.AssetIAM.Member, mtChange.AssetIAM.Role))
+			msg.WriteString(fmt.Sprintf("|%s|%s|%s|%s|%s|\n", k, mtChange.StateFileURI, ResourceURI(mtChange.AssetIAM), mtChange.Member, mtChange.Role))
 		}
 	}
 	return msg.String()

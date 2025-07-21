@@ -153,8 +153,8 @@ func (c *DriftStatefilesCommand) Flags() *cli.FlagSet {
 				c.parsedFlagIgnoreDirPatters = append(c.parsedFlagIgnoreDirPatters, r)
 			}
 		}
-		if len(c.DriftIssueFlags.FlagGitHubIssueLabels) == 0 {
-			c.DriftIssueFlags.FlagGitHubIssueLabels = []string{"guardian-statefile-drift"}
+		if len(c.FlagGitHubIssueLabels) == 0 {
+			c.FlagGitHubIssueLabels = []string{"guardian-statefile-drift"}
 		}
 		return merr
 	})
@@ -269,18 +269,18 @@ func (c *DriftStatefilesCommand) Process(ctx context.Context) error {
 		c.Outf(m)
 	}
 
-	if c.DriftIssueFlags.FlagSkipGitHubIssue {
+	if c.FlagSkipGitHubIssue {
 		return nil
 	}
-	if c.DriftIssueFlags.FlagGitHubCommentMessageAppend != "" {
-		m = strings.Join([]string{m, c.DriftIssueFlags.FlagGitHubCommentMessageAppend}, "\n\n")
+	if c.FlagGitHubCommentMessageAppend != "" {
+		m = strings.Join([]string{m, c.FlagGitHubCommentMessageAppend}, "\n\n")
 	}
 	if changesDetected {
-		if err := c.issueService.CreateOrUpdateIssue(ctx, c.DriftIssueFlags.FlagGitHubIssueAssignees, c.DriftIssueFlags.FlagGitHubIssueLabels, m); err != nil {
+		if err := c.issueService.CreateOrUpdateIssue(ctx, c.FlagGitHubIssueAssignees, c.FlagGitHubIssueLabels, m); err != nil {
 			return fmt.Errorf("failed to create or update GitHub Issue: %w", err)
 		}
 	} else {
-		if err := c.issueService.CloseIssues(ctx, c.DriftIssueFlags.FlagGitHubIssueLabels); err != nil {
+		if err := c.issueService.CloseIssues(ctx, c.FlagGitHubIssueLabels); err != nil {
 			return fmt.Errorf("failed to close GitHub Issues: %w", err)
 		}
 	}

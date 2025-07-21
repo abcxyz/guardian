@@ -57,7 +57,7 @@ Usage: {{ COMMAND }} [options]
 func (c *IAMCleanupCommand) Flags() *cli.FlagSet {
 	set := c.NewFlagSet()
 
-	c.RetryFlags.Register(set)
+	c.Register(set)
 
 	// Command options
 	f := set.NewSection("COMMAND OPTIONS")
@@ -130,9 +130,9 @@ func (c *IAMCleanupCommand) Run(ctx context.Context, args []string) error {
 
 	iamClient, err := iam.NewClient(
 		ctx,
-		iam.WithRetryInitialDelay(c.RetryFlags.FlagRetryInitialDelay),
-		iam.WithRetryMaxAttempts(c.RetryFlags.FlagRetryMaxAttempts),
-		iam.WithRetryMaxDelay(c.RetryFlags.FlagRetryMaxDelay))
+		iam.WithRetryInitialDelay(c.FlagRetryInitialDelay),
+		iam.WithRetryMaxAttempts(c.FlagRetryMaxAttempts),
+		iam.WithRetryMaxDelay(c.FlagRetryMaxDelay))
 	if err != nil {
 		return fmt.Errorf("failed to initialize iam client: %w", err)
 	}
