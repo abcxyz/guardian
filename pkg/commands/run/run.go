@@ -65,7 +65,7 @@ Usage: {{ COMMAND }} [options]
 func (c *RunCommand) Flags() *cli.FlagSet {
 	set := c.NewFlagSet()
 
-	c.CommonFlags.Register(set)
+	c.Register(set)
 
 	f := set.NewSection("COMMAND OPTIONS")
 

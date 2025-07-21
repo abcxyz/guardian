@@ -98,7 +98,7 @@ func (c *PlanCommand) Flags() *cli.FlagSet {
 	set := c.NewFlagSet()
 
 	c.platformConfig.RegisterFlags(set)
-	c.CommonFlags.Register(set)
+	c.Register(set)
 
 	f := set.NewSection("COMMAND OPTIONS")
 

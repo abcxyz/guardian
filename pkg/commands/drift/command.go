@@ -216,7 +216,7 @@ func driftMessage(drift *IAMDrift) string {
 		msg.WriteString("|----|---------------|-------------|--------|------|\n")
 		for _, k := range mtKeys {
 			mtChange := drift.MissingTerraformChanges[k]
-			msg.WriteString(fmt.Sprintf("|%s|%s|%s|%s|%s|\n", k, mtChange.StateFileURI, ResourceURI(mtChange.AssetIAM), mtChange.Member, mtChange.AssetIAM.Role))
+			msg.WriteString(fmt.Sprintf("|%s|%s|%s|%s|%s|\n", k, mtChange.StateFileURI, ResourceURI(mtChange.AssetIAM), mtChange.Member, mtChange.Role))
 		}
 	}
 	return msg.String()

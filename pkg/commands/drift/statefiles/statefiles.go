@@ -276,7 +276,7 @@ func (c *DriftStatefilesCommand) Process(ctx context.Context) error {
 		m = strings.Join([]string{m, c.FlagGitHubCommentMessageAppend}, "\n\n")
 	}
 	if changesDetected {
-		if err := c.issueService.CreateOrUpdateIssue(ctx, c.FlagGitHubIssueAssignees, c.DriftIssueFlags.FlagGitHubIssueLabels, m); err != nil {
+		if err := c.issueService.CreateOrUpdateIssue(ctx, c.FlagGitHubIssueAssignees, c.FlagGitHubIssueLabels, m); err != nil {
 			return fmt.Errorf("failed to create or update GitHub Issue: %w", err)
 		}
 	} else {
