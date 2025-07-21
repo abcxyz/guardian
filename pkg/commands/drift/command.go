@@ -180,7 +180,7 @@ func (c *DetectIamDriftCommand) Run(ctx context.Context, args []string) error {
 		issueBody,
 	)
 	if changesDetected {
-		if err := issueService.CreateOrUpdateIssue(ctx, c.FlagGitHubIssueAssignees, c.DriftIssueFlags.FlagGitHubIssueLabels, m); err != nil {
+		if err := issueService.CreateOrUpdateIssue(ctx, c.FlagGitHubIssueAssignees, c.FlagGitHubIssueLabels, m); err != nil {
 			return fmt.Errorf("failed to create or update GitHub Issue: %w", err)
 		}
 	} else {
@@ -216,7 +216,7 @@ func driftMessage(drift *IAMDrift) string {
 		msg.WriteString("|----|---------------|-------------|--------|------|\n")
 		for _, k := range mtKeys {
 			mtChange := drift.MissingTerraformChanges[k]
-			msg.WriteString(fmt.Sprintf("|%s|%s|%s|%s|%s|\n", k, mtChange.StateFileURI, ResourceURI(mtChange.AssetIAM), mtChange.AssetIAM.Member, mtChange.AssetIAM.Role))
+			msg.WriteString(fmt.Sprintf("|%s|%s|%s|%s|%s|\n", k, mtChange.StateFileURI, ResourceURI(mtChange.AssetIAM), mtChange.Member, mtChange.AssetIAM.Role))
 		}
 	}
 	return msg.String()
