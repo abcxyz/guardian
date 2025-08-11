@@ -224,12 +224,22 @@ func driftignore(
 	fname string,
 	gcpFolders map[string]*assetinventory.HierarchyNode,
 	gcpProjects map[string]*assetinventory.HierarchyNode,
+	deletedGCPFolders map[string]*assetinventory.HierarchyNode,
+	deletedGCPProjects map[string]*assetinventory.HierarchyNode,
 ) (*ignoredAssets, error) {
 	logger := logging.FromContext(ctx)
 	iamAssets := make(map[string]struct{})
 	projects := make(map[string]struct{})
 	folders := make(map[string]struct{})
 	roles := make(map[string]struct{})
+
+	for id := range deletedGCPFolders {
+		folders[id] = struct{}{}
+	}
+	for id := range deletedGCPProjects {
+		projects[id] = struct{}{}
+	}
+
 	f, err := os.Open(fname)
 	if err != nil {
 		if os.IsNotExist(err) {
