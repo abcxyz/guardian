@@ -26,13 +26,15 @@ type Request struct {
 }
 
 type MockAssetInventoryClient struct {
-	IAMData          []*AssetIAM
-	IAMErr           error
-	BucketsData      []string
-	BucketsErr       error
-	AssetFolderData  []*HierarchyNode
-	AssetProjectData []*HierarchyNode
-	AssetErr         error
+	IAMData                 []*AssetIAM
+	IAMErr                  error
+	BucketsData             []string
+	BucketsErr              error
+	AssetFolderData         []*HierarchyNode
+	AssetProjectData        []*HierarchyNode
+	AssetDeletedFolderData  []*HierarchyNode
+	AssetDeletedProjectData []*HierarchyNode
+	AssetErr                error
 }
 
 func (m *MockAssetInventoryClient) IAM(ctx context.Context, opts *IAMOptions) ([]*AssetIAM, error) {
@@ -49,15 +51,21 @@ func (m *MockAssetInventoryClient) Buckets(ctx context.Context, organizationID, 
 	return m.BucketsData, nil
 }
 
-func (m *MockAssetInventoryClient) HierarchyAssets(ctx context.Context, organizationID, assetType string) ([]*HierarchyNode, error) {
+func (m *MockAssetInventoryClient) HierarchyAssets(ctx context.Context, organizationID, assetType, query string) ([]*HierarchyNode, error) {
 	if m.AssetErr != nil {
 		return nil, m.BucketsErr
 	}
-	if assetType == FolderAssetType {
+	if assetType == FolderAssetType && query == QueryNil {
 		return m.AssetFolderData, nil
 	}
-	if assetType == ProjectAssetType {
+	if assetType == FolderAssetType && query == QueryNotActiveResources {
+		return m.AssetDeletedFolderData, nil
+	}
+	if assetType == ProjectAssetType && query == QueryNil {
 		return m.AssetProjectData, nil
+	}
+	if assetType == ProjectAssetType && query == QueryNotActiveResources {
+		return m.AssetDeletedProjectData, nil
 	}
 	return nil, nil
 }

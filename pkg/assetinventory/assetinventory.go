@@ -53,6 +53,12 @@ const (
 
 	// BucketAssetType represent the bucket asset type used in the cloud resource manager api.
 	BucketAssetType = "storage.googleapis.com/Bucket"
+
+	// QueryNil is the query that returns all resources.
+	QueryNil = ""
+
+	// QueryNotActiveResources is the query that returns resources that have been requested for deletion or are otherwise inactive.
+	QueryNotActiveResources = "NOT state:ACTIVE"
 )
 
 // resourceNameIDPattern is a Regex pattern used to parse ID from the resource ParentFullResourceName.
@@ -135,7 +141,7 @@ type AssetInventory interface {
 	Buckets(ctx context.Context, organizationID, query string) ([]string, error)
 
 	// HierarchyAssets returns the projects or folders in a given organization.
-	HierarchyAssets(ctx context.Context, organizationID, assetType string) ([]*HierarchyNode, error)
+	HierarchyAssets(ctx context.Context, organizationID, assetType, query string) ([]*HierarchyNode, error)
 
 	// IAM returns all IAM that matches the given query.
 	IAM(ctx context.Context, opts *IAMOptions) ([]*AssetIAM, error)
@@ -246,12 +252,12 @@ func (c *AssetInventoryClient) Buckets(ctx context.Context, organizationID, quer
 }
 
 // HierarchyAssets returns all GCP Hierarchy Nodes (Folders or Projects) for the given organization.
-func (c *AssetInventoryClient) HierarchyAssets(ctx context.Context, organizationID, assetType string) ([]*HierarchyNode, error) {
+func (c *AssetInventoryClient) HierarchyAssets(ctx context.Context, organizationID, assetType, query string) ([]*HierarchyNode, error) {
 	var f []*HierarchyNode
 	req := &assetpb.SearchAllResourcesRequest{
 		Scope:      fmt.Sprintf("organizations/%s", organizationID),
 		AssetTypes: []string{assetType},
-		Query:      "state:ACTIVE",
+		Query:      query,
 	}
 	it := c.assetClient.SearchAllResources(ctx, req)
 	for {

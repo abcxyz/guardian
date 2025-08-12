@@ -50,6 +50,8 @@ type IAMDriftDetector struct {
 	maxConcurrentRequests int64
 	foldersByID           map[string]*assetinventory.HierarchyNode
 	projectsByID          map[string]*assetinventory.HierarchyNode
+	deletedProjectsByID   map[string]*assetinventory.HierarchyNode
+	deletedFoldersByID    map[string]*assetinventory.HierarchyNode
 }
 
 // NewIAMDriftDetector constructs a new instance of a IAMDriftDetector.
@@ -66,6 +68,8 @@ func NewIAMDriftDetector(ctx context.Context, organizationID string, maxConcurre
 
 	foldersByID := make(map[string]*assetinventory.HierarchyNode)
 	projectsByID := make(map[string]*assetinventory.HierarchyNode)
+	deletedProjectsByID := make(map[string]*assetinventory.HierarchyNode)
+	deletedFoldersByID := make(map[string]*assetinventory.HierarchyNode)
 
 	return &IAMDriftDetector{
 		assetInventoryClient,
@@ -74,6 +78,8 @@ func NewIAMDriftDetector(ctx context.Context, organizationID string, maxConcurre
 		maxConcurrentRequests,
 		foldersByID,
 		projectsByID,
+		deletedProjectsByID,
+		deletedFoldersByID,
 	}, nil
 }
 
@@ -92,10 +98,12 @@ func (d *IAMDriftDetector) DetectDrift(
 	// downstream operations.
 	var folders []*assetinventory.HierarchyNode
 	var projects []*assetinventory.HierarchyNode
+	var deletedFolders []*assetinventory.HierarchyNode
+	var deletedProjects []*assetinventory.HierarchyNode
 	var buckets []string
 	var err error
 	if err := w.Do(ctx, func() (*workerpool.Void, error) {
-		folders, err = d.assetInventoryClient.HierarchyAssets(ctx, d.organizationID, assetinventory.FolderAssetType)
+		folders, err = d.assetInventoryClient.HierarchyAssets(ctx, d.organizationID, assetinventory.FolderAssetType, assetinventory.QueryNil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get folders: %w", err)
 		}
@@ -104,13 +112,31 @@ func (d *IAMDriftDetector) DetectDrift(
 		return nil, fmt.Errorf("failed to execute folder list task: %w", err)
 	}
 	if err := w.Do(ctx, func() (*workerpool.Void, error) {
-		projects, err = d.assetInventoryClient.HierarchyAssets(ctx, d.organizationID, assetinventory.ProjectAssetType)
+		deletedFolders, err = d.assetInventoryClient.HierarchyAssets(ctx, d.organizationID, assetinventory.FolderAssetType, assetinventory.QueryNotActiveResources)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get projects: %w", err)
+			return nil, fmt.Errorf("failed to get deleted folders: %w", err)
+		}
+		return nil, nil
+	}); err != nil {
+		return nil, fmt.Errorf("failed to execute deleted folder list task: %w", err)
+	}
+	if err := w.Do(ctx, func() (*workerpool.Void, error) {
+		projects, err = d.assetInventoryClient.HierarchyAssets(ctx, d.organizationID, assetinventory.ProjectAssetType, assetinventory.QueryNil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get active projects: %w", err)
 		}
 		return nil, nil
 	}); err != nil {
 		return nil, fmt.Errorf("failed to execute project list task: %w", err)
+	}
+	if err := w.Do(ctx, func() (*workerpool.Void, error) {
+		deletedProjects, err = d.assetInventoryClient.HierarchyAssets(ctx, d.organizationID, assetinventory.ProjectAssetType, assetinventory.QueryNotActiveResources)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get deleted projects: %w", err)
+		}
+		return nil, nil
+	}); err != nil {
+		return nil, fmt.Errorf("failed to execute deleted project list task: %w", err)
 	}
 	if err := w.Do(ctx, func() (*workerpool.Void, error) {
 		buckets, err = d.assetInventoryClient.Buckets(ctx, d.organizationID, bucketQuery)
@@ -130,13 +156,19 @@ func (d *IAMDriftDetector) DetectDrift(
 	for _, project := range projects {
 		d.projectsByID[project.ID] = project
 	}
+	for _, folder := range deletedFolders {
+		d.deletedFoldersByID[folder.ID] = folder
+	}
+	for _, project := range deletedProjects {
+		d.deletedProjectsByID[project.ID] = project
+	}
 
 	gcpHierarchyGraph, err := assetinventory.NewHierarchyGraph(d.organizationID, d.foldersByID, d.projectsByID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct graph from GCP assets: %w", err)
 	}
 
-	ignored, err := driftignore(ctx, driftignoreFile, d.foldersByID, d.projectsByID)
+	ignored, err := driftignore(ctx, driftignoreFile, d.foldersByID, d.projectsByID, d.deletedFoldersByID, d.deletedProjectsByID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse driftignore file: %w", err)
 	}

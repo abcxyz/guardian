@@ -137,6 +137,56 @@ func TestDrift_DetectDrift(t *testing.T) {
 			},
 		},
 		{
+			name: "ignores_deleted_projects",
+			assetInventoryClient: &assetinventory.MockAssetInventoryClient{
+				IAMData: []*assetinventory.AssetIAM{
+					orgSABrowser,
+					orgGroupBrowser,
+					orgUserBrowser,
+					folderViewer,
+					projectAdmin,
+				},
+				AssetFolderData:         []*assetinventory.HierarchyNode{folder},
+				AssetProjectData:        []*assetinventory.HierarchyNode{project},
+				AssetDeletedProjectData: []*assetinventory.HierarchyNode{project},
+				BucketsData:             []string{bucket},
+			},
+			want: &IAMDrift{
+				ClickOpsChanges: map[string]*assetinventory.AssetIAM{
+					"/organizations/1231231/folders/123123123123/roles/viewer/group:my-group@google.com":                        folderViewer,
+					"/organizations/1231231/roles/browser/group:my-group@google.com":                                            orgGroupBrowser,
+					"/organizations/1231231/roles/browser/serviceAccount:my-service-account@my-project.iam.gserviceaccount.com": orgSABrowser,
+					"/organizations/1231231/roles/browser/user:dcreey@google.com":                                               orgUserBrowser,
+				},
+				MissingTerraformChanges: map[string]*TerraformStateIAMSource{},
+			},
+		},
+		{
+			name: "ignores_deleted_folders",
+			assetInventoryClient: &assetinventory.MockAssetInventoryClient{
+				IAMData: []*assetinventory.AssetIAM{
+					orgSABrowser,
+					orgGroupBrowser,
+					orgUserBrowser,
+					folderViewer,
+					projectAdmin,
+				},
+				AssetFolderData:         []*assetinventory.HierarchyNode{folder},
+				AssetProjectData:        []*assetinventory.HierarchyNode{project},
+				AssetDeletedFolderData:  []*assetinventory.HierarchyNode{folder},
+				AssetDeletedProjectData: []*assetinventory.HierarchyNode{project},
+				BucketsData:             []string{bucket},
+			},
+			want: &IAMDrift{
+				ClickOpsChanges: map[string]*assetinventory.AssetIAM{
+					"/organizations/1231231/roles/browser/group:my-group@google.com":                                            orgGroupBrowser,
+					"/organizations/1231231/roles/browser/serviceAccount:my-service-account@my-project.iam.gserviceaccount.com": orgSABrowser,
+					"/organizations/1231231/roles/browser/user:dcreey@google.com":                                               orgUserBrowser,
+				},
+				MissingTerraformChanges: map[string]*TerraformStateIAMSource{},
+			},
+		},
+		{
 			name: "success_all_missing_terraform_drift",
 			assetInventoryClient: &assetinventory.MockAssetInventoryClient{
 				IAMData:          []*assetinventory.AssetIAM{},
@@ -195,6 +245,8 @@ func TestDrift_DetectDrift(t *testing.T) {
 				maxConcurrentRequests: 1,
 				foldersByID:           make(map[string]*assetinventory.HierarchyNode),
 				projectsByID:          make(map[string]*assetinventory.HierarchyNode),
+				deletedProjectsByID:   make(map[string]*assetinventory.HierarchyNode),
+				deletedFoldersByID:    make(map[string]*assetinventory.HierarchyNode),
 			}
 
 			got, err := d.DetectDrift(ctx, "bucket-query", ".driftignore-not-exist")
