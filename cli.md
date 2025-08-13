@@ -73,8 +73,6 @@ Also supports [Platform Options](#platform-options), [GitHub Options](#github-op
   and run for all entrypoint directories. The default value is "false".
 * **-fail-unresolvable-modules** - Whether or not to error if a module cannot be
   resolved. The default value is "false".
-* **-format="json"** - The format to print the output directories. The supported
-  formats are: [json text]. The default value is "text".
 * **-max-depth="int"** - How far to traverse the filesystem beneath the target
   directory for entrypoints. The default value is "-1".
 * **-source-ref="ref-name"** - The source GitHub ref name for finding file changes.
