@@ -27,8 +27,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/posener/complete/v2"
-
 	"github.com/abcxyz/guardian/internal/metricswrap"
 	"github.com/abcxyz/guardian/pkg/commands/plan"
 	"github.com/abcxyz/guardian/pkg/flags"
@@ -39,6 +37,7 @@ import (
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/pointer"
+	"github.com/posener/complete/v2"
 )
 
 const (
@@ -228,7 +227,7 @@ func (c *ApplyCommand) Process(ctx context.Context) (merr error) {
 	if planExitCode == "0" {
 		logger.DebugContext(ctx, "plan file has no diff, exiting", "plan_exit_code", planExitCode)
 		c.Outf("Guardian plan file has no diff, exiting")
-		return
+		return merr
 	}
 
 	tempDir, err := os.MkdirTemp("", "guardian-plans-*")
