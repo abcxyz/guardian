@@ -17,10 +17,9 @@ package iam
 import (
 	"testing"
 
+	"github.com/abcxyz/guardian/pkg/assetinventory"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/api/cloudresourcemanager/v3"
-
-	"github.com/abcxyz/guardian/pkg/assetinventory"
 )
 
 func Test_removeFromPolicy(t *testing.T) {

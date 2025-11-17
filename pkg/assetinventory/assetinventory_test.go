@@ -18,10 +18,9 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/abcxyz/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-
-	"github.com/abcxyz/pkg/testutil"
 )
 
 const (

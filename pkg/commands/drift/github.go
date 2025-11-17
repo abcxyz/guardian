@@ -18,9 +18,8 @@ import (
 	"context"
 	"fmt"
 
-	githubAPI "github.com/google/go-github/v53/github"
-
 	"github.com/abcxyz/guardian/pkg/github"
+	githubAPI "github.com/google/go-github/v53/github"
 )
 
 type GitHubDriftIssueService struct {

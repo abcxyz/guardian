@@ -23,11 +23,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sethvargo/go-retry"
-	gitlab "gitlab.com/gitlab-org/api/client-go"
-
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
+	"github.com/sethvargo/go-retry"
+	gitlab "gitlab.com/gitlab-org/api/client-go"
 )
 
 var (

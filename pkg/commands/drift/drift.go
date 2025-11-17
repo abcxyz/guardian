@@ -20,13 +20,12 @@ import (
 	"fmt"
 	"strings"
 
-	"golang.org/x/exp/maps"
-
 	"github.com/abcxyz/guardian/pkg/assetinventory"
 	"github.com/abcxyz/guardian/pkg/terraform/parser"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/sets"
 	"github.com/abcxyz/pkg/workerpool"
+	"golang.org/x/exp/maps"
 )
 
 // TerraformStateIAMSource is a wrapper around AssetIAM with extra metadata about terraform state.

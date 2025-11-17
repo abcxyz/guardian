@@ -27,13 +27,12 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/abcxyz/guardian/pkg/util"
+	"github.com/abcxyz/pkg/logging"
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/gohcl"
 	"github.com/hashicorp/hcl/v2/hclparse"
 	"golang.org/x/exp/maps"
-
-	"github.com/abcxyz/guardian/pkg/util"
-	"github.com/abcxyz/pkg/logging"
 )
 
 var (

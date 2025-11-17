@@ -21,10 +21,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
-
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/testutil"
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestRun(t *testing.T) {

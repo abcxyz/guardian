@@ -17,9 +17,8 @@ package terraform
 import (
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
-
 	"github.com/abcxyz/pkg/pointer"
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestApplyArgsFromOptions(t *testing.T) {

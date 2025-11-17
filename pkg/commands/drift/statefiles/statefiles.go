@@ -26,8 +26,6 @@ import (
 	"sort"
 	"strings"
 
-	githubAPI "github.com/google/go-github/v53/github"
-
 	"github.com/abcxyz/guardian/internal/metricswrap"
 	"github.com/abcxyz/guardian/pkg/assetinventory"
 	"github.com/abcxyz/guardian/pkg/commands/drift"
@@ -43,6 +41,7 @@ import (
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/sets"
 	"github.com/abcxyz/pkg/workerpool"
+	githubAPI "github.com/google/go-github/v53/github"
 )
 
 var _ cli.Command = (*DriftStatefilesCommand)(nil)
