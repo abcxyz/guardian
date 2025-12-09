@@ -58,13 +58,19 @@ func TestPlanStatusCommentsProcess(t *testing.T) {
 			name:           "multi_failure",
 			flagInitResult: "success",
 			flagPlanResult: []string{"success", "failure"},
-			err:            "init or plan has one or more failures",
+			err:            "some plans were not successful",
+		},
+		{
+			name:           "multi_failure_cancelled",
+			flagInitResult: "success",
+			flagPlanResult: []string{"success", "cancelled"},
+			err:            "some plans were not successful",
 		},
 		{
 			name:           "failure",
 			flagInitResult: "failure",
 			flagPlanResult: []string{"success"},
-			err:            "init or plan has one or more failures",
+			err:            "init was not successful",
 		},
 		{
 			name:           "handles_errors",

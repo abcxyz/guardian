@@ -122,10 +122,27 @@ func (c *PlanStatusCommentCommand) Run(ctx context.Context, args []string) error
 
 // Process handles the main logic for the Guardian plan status comments process.
 func (c *PlanStatusCommentCommand) Process(ctx context.Context) error {
+	failureResultCodes := []github.GitHubWorkflowResult{
+		github.GitHubWorkflowResultCancelled,
+		github.GitHubWorkflowResultFailure,
+	}
+
 	// there was at least one failure, we should return an error to fail the job
 	// no comments as each plan run will comment their failure status
-	if c.flagInitResult == github.GitHubWorkflowResultFailure || slices.Contains(c.flagPlanResult, github.GitHubWorkflowResultFailure) {
-		return fmt.Errorf("init or plan has one or more failures")
+	if slices.Contains(failureResultCodes, github.GitHubWorkflowResult(c.flagInitResult)) {
+		return fmt.Errorf("init was not successful, status: %s", c.flagInitResult)
+	}
+	var failures, cancellations int
+	for _, result := range c.flagPlanResult {
+		switch github.GitHubWorkflowResult(result) {
+		case github.GitHubWorkflowResultCancelled:
+			cancellations++
+		case github.GitHubWorkflowResultFailure:
+			failures++
+		}
+	}
+	if failures > 0 || cancellations > 0 {
+		return fmt.Errorf("some plans were not successful: %d failed, %d were cancelled", failures, cancellations)
 	}
 
 	if c.flagSkipReporting {
