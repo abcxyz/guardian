@@ -23,13 +23,14 @@ import (
 	"strings"
 	"time"
 
-	gh "github.com/abcxyz/guardian/pkg/github"
-	"github.com/abcxyz/pkg/githubauth"
-	"github.com/abcxyz/pkg/logging"
 	"github.com/google/go-github/v53/github"
 	"github.com/sethvargo/go-retry"
 	"github.com/shurcooL/githubv4"
 	"golang.org/x/oauth2"
+
+	gh "github.com/abcxyz/guardian/pkg/github"
+	"github.com/abcxyz/pkg/githubauth"
+	"github.com/abcxyz/pkg/logging"
 )
 
 const githubMaxCommentLength = 65536

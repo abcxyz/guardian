@@ -18,13 +18,14 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/google/cel-go/cel"
+	rpcpb "google.golang.org/genproto/googleapis/rpc/context/attribute_context"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
 	"github.com/abcxyz/guardian/pkg/assetinventory"
 	"github.com/abcxyz/guardian/pkg/iam"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/workerpool"
-	"github.com/google/cel-go/cel"
-	rpcpb "google.golang.org/genproto/googleapis/rpc/context/attribute_context"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type IAMCleaner struct {

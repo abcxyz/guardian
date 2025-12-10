@@ -23,9 +23,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+
 	"github.com/abcxyz/guardian/pkg/assetinventory"
 	"github.com/abcxyz/guardian/pkg/storage"
-	"github.com/google/go-cmp/cmp"
 )
 
 func TestParser_StateFileURIs(t *testing.T) {
