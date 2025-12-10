@@ -24,6 +24,8 @@ import (
 	"io/fs"
 	"slices"
 
+	"golang.org/x/exp/maps"
+
 	"github.com/abcxyz/guardian/internal/metricswrap"
 	"github.com/abcxyz/guardian/pkg/git"
 	"github.com/abcxyz/guardian/pkg/platform"
@@ -31,7 +33,6 @@ import (
 	"github.com/abcxyz/guardian/pkg/util"
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
-	"golang.org/x/exp/maps"
 )
 
 var _ cli.Command = (*EntrypointsCommand)(nil)

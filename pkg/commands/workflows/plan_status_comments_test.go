@@ -18,10 +18,11 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+
 	"github.com/abcxyz/guardian/pkg/platform"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/testutil"
-	"github.com/google/go-cmp/cmp"
 )
 
 func TestPlanStatusCommentsProcess(t *testing.T) {

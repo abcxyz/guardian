@@ -20,9 +20,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+
 	"github.com/abcxyz/pkg/pointer"
 	"github.com/abcxyz/pkg/testutil"
-	"github.com/google/go-cmp/cmp"
 )
 
 func TestFormatOutputForGitHubDiff(t *testing.T) {

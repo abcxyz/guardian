@@ -25,10 +25,11 @@ import (
 	"regexp"
 	"sort"
 
+	"golang.org/x/exp/maps"
+
 	"github.com/abcxyz/guardian/pkg/child"
 	"github.com/abcxyz/guardian/pkg/util"
 	"github.com/abcxyz/pkg/logging"
-	"golang.org/x/exp/maps"
 )
 
 var _ Git = (*GitClient)(nil)

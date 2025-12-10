@@ -21,13 +21,14 @@ import (
 	"sort"
 	"time"
 
+	"golang.org/x/exp/slices"
+
 	"github.com/abcxyz/guardian/internal/metricswrap"
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/terraform"
 	"github.com/abcxyz/guardian/pkg/util"
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/pointer"
-	"golang.org/x/exp/slices"
 )
 
 var _ cli.Command = (*RunCommand)(nil)

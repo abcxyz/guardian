@@ -28,6 +28,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/posener/complete/v2"
+
 	"github.com/abcxyz/guardian/internal/metricswrap"
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/platform"
@@ -37,7 +39,6 @@ import (
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/pointer"
-	"github.com/posener/complete/v2"
 )
 
 const (

@@ -20,9 +20,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/posener/complete/v2"
+
 	gh "github.com/abcxyz/guardian/pkg/github"
 	"github.com/abcxyz/pkg/cli"
-	"github.com/posener/complete/v2"
 )
 
 // Config is the configuration needed to generate different Platform types.

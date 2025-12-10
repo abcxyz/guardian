@@ -18,9 +18,10 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/abcxyz/pkg/cli"
 	"github.com/google/go-github/v53/github"
 	"github.com/sethvargo/go-githubactions"
+
+	"github.com/abcxyz/pkg/cli"
 )
 
 // Config is the config values for the GitHub client.

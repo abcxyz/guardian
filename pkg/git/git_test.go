@@ -19,8 +19,9 @@ import (
 	"path"
 	"testing"
 
-	"github.com/abcxyz/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
+
+	"github.com/abcxyz/pkg/testutil"
 )
 
 func TestParseSortedDiffDirsAbs(t *testing.T) {
