@@ -1,0 +1,28 @@
+{
+    "missing_approval_policy": {
+        "missing_approvals": [
+            {
+                "assign_team_reviewers": [
+                    "test-team-name"
+                ],
+                "msg": "violation 2"
+            },
+            {
+                "assign_user_reviewers": [
+                    "test-user-name"
+                ],
+                "msg": "violation 4"
+            }
+        ]
+    },
+    "deny_policy": {
+        "deny": [
+            {
+                "msg": "violation 1"
+            },
+            {
+                "msg": "violation 3"
+            }
+        ]
+    }
+}
