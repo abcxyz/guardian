@@ -59,6 +59,11 @@ func TestEnforce_Process(t *testing.T) {
 			resultsFile: "testdata/deny.json",
 			wantErr:     "test-error-message",
 		},
+		{
+			name:        "fails_with_deny_and_missing_approvals",
+			resultsFile: "testdata/deny_and_missing_approvals.json",
+			wantErr:     "failed: \"missing_approval_policy\" - violation 2\nfailed: \"missing_approval_policy\" - violation 4\nfailed: \"deny_policy\" - violation 1\nfailed: \"deny_policy\" - violation 3",
+		},
 	}
 
 	for _, tc := range cases {
