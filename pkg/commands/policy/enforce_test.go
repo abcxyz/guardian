@@ -32,7 +32,7 @@ func TestEnforce_Process(t *testing.T) {
 		name               string
 		resultsFile        string
 		assignReviewersErr error
-		wantErr            string
+		wantErrs           []string
 	}{
 		{
 			name:        "succeeds_with_sufficient_approvals",
@@ -41,23 +41,33 @@ func TestEnforce_Process(t *testing.T) {
 		{
 			name:        "fails_with_missing_team_approvals",
 			resultsFile: "testdata/missing_team_approval.json",
-			wantErr:     "failed: \"test_policy_name\" - test-error-message",
+			wantErrs:    []string{"failed: \"test_policy_name\" - test-error-message"},
 		},
 		{
 			name:        "fails_with_missing_user_approvals",
 			resultsFile: "testdata/missing_user_approval.json",
-			wantErr:     "failed: \"test_policy_name\" - test-error-message",
+			wantErrs:    []string{"failed: \"test_policy_name\" - test-error-message"},
 		},
 		{
 			name:               "fails_with_platform_api_error",
 			resultsFile:        "testdata/missing_user_approval.json",
 			assignReviewersErr: fmt.Errorf("failed to assign reviewers"),
-			wantErr:            "failed to assign reviewers",
+			wantErrs:           []string{"failed to assign reviewers"},
 		},
 		{
 			name:        "fails_with_deny",
 			resultsFile: "testdata/deny.json",
-			wantErr:     "test-error-message",
+			wantErrs:    []string{"test-error-message"},
+		},
+		{
+			name:        "fails_with_deny_and_missing_approvals",
+			resultsFile: "testdata/deny_and_missing_approvals.json",
+			wantErrs: []string{
+				"failed: \"missing_approval_policy\" - violation 2",
+				"failed: \"missing_approval_policy\" - violation 4",
+				"failed: \"deny_policy\" - violation 1",
+				"failed: \"deny_policy\" - violation 3",
+			},
 		},
 	}
 
@@ -75,8 +85,10 @@ func TestEnforce_Process(t *testing.T) {
 			}
 
 			err := c.Process(ctx)
-			if diff := testutil.DiffErrString(err, tc.wantErr); diff != "" {
-				t.Errorf("unexpected result; (-got,+want): %s", diff)
+			for _, wantErr := range tc.wantErrs {
+				if diff := testutil.DiffErrString(err, wantErr); diff != "" {
+					t.Errorf("Process() %s", diff)
+				}
 			}
 		})
 	}

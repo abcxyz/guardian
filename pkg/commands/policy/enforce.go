@@ -28,6 +28,7 @@ import (
 	"github.com/abcxyz/guardian/pkg/platform"
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
+	"github.com/abcxyz/pkg/sets"
 )
 
 // Result defines the expected structure of the OPA policy evaluation result.
@@ -159,8 +160,7 @@ func (c *EnforceCommand) Process(ctx context.Context) error {
 		if err := c.platform.ReportStatus(ctx, platform.StatusPolicyViolation, &platform.StatusParams{
 			Operation: "Policy Violation",
 			Dir:       c.directory,
-			Message:   "The planned resource changes raised policy violations that will need to be addressed:",
-			Details:   b.String(),
+			Message:   fmt.Sprintf("The planned resource changes raised policy violations that will need to be addressed:\n\n%s", b.String()),
 		}); err != nil {
 			return fmt.Errorf("failed to report status: %w", err)
 		}
@@ -181,11 +181,14 @@ func (c *EnforceCommand) EnforceMissingApprovals(ctx context.Context, b *strings
 
 	var merr error
 	var teams, users []string
+
+	fmt.Fprint(b, "- **Action(s) requiring approval**:\n")
 	for _, m := range r.MissingApprovals {
-		teams = append(teams, m.AssignTeams...)
-		users = append(users, m.AssignUsers...)
+		teams = sets.Union(teams, m.AssignTeams)
+		users = sets.Union(users, m.AssignUsers)
 
 		merr = errors.Join(merr, fmt.Errorf("failed: \"%s\" - %s", policyName, m.Message))
+		fmt.Fprintf(b, "\t - Reason: %s\n", m.Message)
 	}
 
 	// Skips assigning reviewers but returns any errors found. This is possible if
@@ -200,12 +203,12 @@ func (c *EnforceCommand) EnforceMissingApprovals(ctx context.Context, b *strings
 		"users", users,
 	)
 
-	fmt.Fprint(b, "- **Missing approvals from one of**:\n")
+	fmt.Fprint(b, "\t - **Missing approvals from**:\n")
 	if len(users) > 0 {
-		fmt.Fprintf(b, "\t - Users: %s\n", strings.Join(users, ", "))
+		fmt.Fprintf(b, "\t\t - Users: %s\n", strings.Join(users, ", "))
 	}
 	if len(teams) > 0 {
-		fmt.Fprintf(b, "\t - Teams: %s\n", strings.Join(teams, ", "))
+		fmt.Fprintf(b, "\t\t - Teams: %s\n", strings.Join(teams, ", "))
 	}
 
 	if c.flags.Silent {
@@ -240,10 +243,11 @@ func (c *EnforceCommand) EnforceDeny(ctx context.Context, b *strings.Builder, po
 		return nil
 	}
 
-	fmt.Fprint(b, "- **Action not allowed**:\n")
+	fmt.Fprint(b, "- **Action(s) not allowed**:\n")
+	var merr error
 	for _, m := range r.Deny {
 		fmt.Fprintf(b, "\t - Reason: %s\n", m.Message)
-		return fmt.Errorf("failed: \"%s\" - %s", policyName, m.Message)
+		merr = errors.Join(merr, fmt.Errorf("failed: \"%s\" - %s", policyName, m.Message))
 	}
-	return nil
+	return merr
 }
