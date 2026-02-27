@@ -19,19 +19,24 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/abcxyz/guardian/pkg/checkterraform"
 	"github.com/abcxyz/pkg/pointer"
 )
 
 // PlanOptions are the set of options for running a terraform plan.
 type PlanOptions struct {
-	CompactWarnings  *bool
-	Destroy          *bool
-	DetailedExitcode *bool
-	NoColor          *bool
-	Input            *bool
-	Lock             *bool
-	LockTimeout      *string
-	Out              *string
+	CompactWarnings        *bool
+	Destroy                *bool
+	DetailedExitcode       *bool
+	NoColor                *bool
+	Input                  *bool
+	Lock                   *bool
+	LockTimeout            *string
+	Out                    *string
+	DisallowedProviders    []string
+	DisallowedProvisioners []string
+	AllowedProviders       []string
+	AllowedProvisioners    []string
 }
 
 // planArgsFromOptions generated the terrafrom plan arguments from the provided options.
@@ -79,5 +84,11 @@ func planArgsFromOptions(opts *PlanOptions) []string {
 
 // Plan runs the Terraform plan command.
 func (t *TerraformClient) Plan(ctx context.Context, stdout, stderr io.Writer, opts *PlanOptions) (int, error) {
+	// Check that the Terraform we plan contains only allowed providers and provisioners.
+	_, err := checkterraform.CheckProvidersProvisioners(ctx, t.workingDir, opts.DisallowedProviders, opts.DisallowedProvisioners, opts.AllowedProviders, opts.AllowedProvisioners)
+	if err != nil {
+		return 0, fmt.Errorf("encountered an error while checking terraform: %w", err)
+	}
+
 	return t.Run(ctx, stdout, stderr, "plan", planArgsFromOptions(opts)...)
 }

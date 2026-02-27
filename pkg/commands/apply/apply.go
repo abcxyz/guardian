@@ -30,6 +30,7 @@ import (
 	"github.com/posener/complete/v2"
 
 	"github.com/abcxyz/guardian/internal/metricswrap"
+	"github.com/abcxyz/guardian/pkg/checkterraform"
 	"github.com/abcxyz/guardian/pkg/commands/plan"
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/platform"
@@ -66,10 +67,14 @@ type ApplyCommand struct {
 
 	flags.CommonFlags
 
-	flagStorage              string
-	flagAllowLockfileChanges bool
-	flagLockTimeout          time.Duration
-	flagSkipReporting        bool
+	flagStorage                string
+	flagAllowLockfileChanges   bool
+	flagLockTimeout            time.Duration
+	flagSkipReporting          bool
+	flagDisallowedProviders    []string
+	flagDisallowedProvisioners []string
+	flagAllowedProviders       []string
+	flagAllowedProvisioners    []string
 
 	storageClient   storage.Storage
 	terraformClient terraform.Terraform
@@ -130,6 +135,38 @@ func (c *ApplyCommand) Flags() *cli.FlagSet {
 		Default: false,
 		Example: "true",
 		Usage:   "Skips reporting of the apply status on the change request.",
+	})
+
+	f.StringSliceVar(&cli.StringSliceVar{
+		Name:    "disallowed-providers",
+		Target:  &c.flagDisallowedProviders,
+		Default: strings.Split(checkterraform.DefaultDisallowedProviders, ","),
+		Example: "external",
+		Usage:   "The list of disallowed Terraform providers.",
+	})
+
+	f.StringSliceVar(&cli.StringSliceVar{
+		Name:    "disallowed-provisioners",
+		Target:  &c.flagDisallowedProvisioners,
+		Default: strings.Split(checkterraform.DefaultDisallowedProvisioners, ","),
+		Example: "local-exec,remote-exec",
+		Usage:   "The list of disallowed Terraform provisioners.",
+	})
+
+	f.StringSliceVar(&cli.StringSliceVar{
+		Name:    "allowed-providers",
+		Target:  &c.flagAllowedProviders,
+		Default: []string{},
+		Example: "google,github",
+		Usage:   "The list of allowed Terraform providers. Setting this will override disallowed providers.",
+	})
+
+	f.StringSliceVar(&cli.StringSliceVar{
+		Name:    "allowed-provisioners",
+		Target:  &c.flagAllowedProvisioners,
+		Default: []string{},
+		Example: "allowed-provisioner,another-allowed-provisioner",
+		Usage:   "The list of allowed Terraform provisioners. Setting this will override disallowed provisioners.",
 	})
 
 	return set
@@ -313,11 +350,15 @@ func (c *ApplyCommand) terraformApply(ctx context.Context) (*RunResult, error) {
 
 	util.Headerf(c.Stdout(), "Applying Terraform")
 	if _, err := c.terraformClient.Apply(ctx, multiStdout, multiStderr, &terraform.ApplyOptions{
-		File:            pointer.To(c.planFileLocalPath),
-		CompactWarnings: pointer.To(true),
-		Input:           pointer.To(false),
-		NoColor:         pointer.To(true),
-		LockTimeout:     pointer.To(c.flagLockTimeout.String()),
+		File:                   pointer.To(c.planFileLocalPath),
+		CompactWarnings:        pointer.To(true),
+		Input:                  pointer.To(false),
+		NoColor:                pointer.To(true),
+		LockTimeout:            pointer.To(c.flagLockTimeout.String()),
+		DisallowedProviders:    c.flagDisallowedProviders,
+		DisallowedProvisioners: c.flagDisallowedProvisioners,
+		AllowedProviders:       c.flagAllowedProviders,
+		AllowedProvisioners:    c.flagAllowedProvisioners,
 	}); err != nil {
 		return &RunResult{commentDetails: stderr.String()}, fmt.Errorf("failed to apply: %w", err)
 	}

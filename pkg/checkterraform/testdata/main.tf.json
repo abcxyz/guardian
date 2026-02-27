@@ -1,0 +1,38 @@
+{
+  "terraform": {
+    "required_providers": {
+      "aws": {
+        "source": "hashicorp/aws",
+        "version": "~> 3.0"
+      },
+      "random": {
+        "source": "hashicorp/random"
+      }
+    }
+  },
+  "provider": {
+    "google": [
+      {
+        "project": "my-project"
+      }
+    ]
+  },
+  "resource": {
+    "disallowed_instance": {
+      "default": {
+        "name": "test"
+      }
+    },
+    "azurerm_resource_group": {
+      "example": {
+        "name": "example-resources",
+        "location": "West Europe"
+      }
+    },
+    "google_compute_instance": {
+      "default": {
+        "name": "test"
+      }
+    }
+  }
+}
