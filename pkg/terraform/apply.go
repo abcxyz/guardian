@@ -19,18 +19,23 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/abcxyz/guardian/pkg/checkterraform"
 	"github.com/abcxyz/pkg/pointer"
 )
 
 // ApplyOptions are the set of options for running a terraform apply.
 type ApplyOptions struct {
-	File            *string
-	AutoApprove     *bool
-	CompactWarnings *bool
-	Lock            *bool
-	LockTimeout     *string
-	Input           *bool
-	NoColor         *bool
+	File                   *string
+	AutoApprove            *bool
+	CompactWarnings        *bool
+	Lock                   *bool
+	LockTimeout            *string
+	Input                  *bool
+	NoColor                *bool
+	DisallowedProviders    []string
+	DisallowedProvisioners []string
+	AllowedProviders       []string
+	AllowedProvisioners    []string
 }
 
 // applyArgsFromOptions generated the terrafrom apply arguments from the provided options.
@@ -74,5 +79,11 @@ func applyArgsFromOptions(opts *ApplyOptions) []string {
 
 // Apply runs the Terraform apply command.
 func (t *TerraformClient) Apply(ctx context.Context, stdout, stderr io.Writer, opts *ApplyOptions) (int, error) {
+	// Check that the Terraform we plan contains only allowed providers and provisioners.
+	_, err := checkterraform.CheckProvidersProvisioners(ctx, t.workingDir, opts.DisallowedProviders, opts.DisallowedProvisioners, opts.AllowedProviders, opts.AllowedProvisioners)
+	if err != nil {
+		return 0, fmt.Errorf("encountered an error while checking terraform: %w", err)
+	}
+
 	return t.Run(ctx, stdout, stderr, "apply", applyArgsFromOptions(opts)...)
 }

@@ -31,6 +31,7 @@ import (
 	"github.com/posener/complete/v2"
 
 	"github.com/abcxyz/guardian/internal/metricswrap"
+	"github.com/abcxyz/guardian/pkg/checkterraform"
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/platform"
 	"github.com/abcxyz/guardian/pkg/storage"
@@ -70,12 +71,16 @@ type PlanCommand struct {
 
 	flags.CommonFlags
 
-	flagOutputDir            string
-	flagStorage              string
-	flagAllowLockfileChanges bool
-	flagLockTimeout          time.Duration
-	flagSkipReporting        bool
-	flagReportStdout         bool
+	flagOutputDir              string
+	flagStorage                string
+	flagAllowLockfileChanges   bool
+	flagLockTimeout            time.Duration
+	flagSkipReporting          bool
+	flagReportStdout           bool
+	flagDisallowedProviders    []string
+	flagDisallowedProvisioners []string
+	flagAllowedProviders       []string
+	flagAllowedProvisioners    []string
 
 	storageClient   storage.Storage
 	terraformClient terraform.Terraform
@@ -148,6 +153,38 @@ func (c *PlanCommand) Flags() *cli.FlagSet {
 		Default: false,
 		Example: "true",
 		Usage:   "Report the stdout to the comment details.",
+	})
+
+	f.StringSliceVar(&cli.StringSliceVar{
+		Name:    "disallowed-providers",
+		Target:  &c.flagDisallowedProviders,
+		Default: strings.Split(checkterraform.DefaultDisallowedProviders, ","),
+		Example: "external",
+		Usage:   "The list of disallowed Terraform providers.",
+	})
+
+	f.StringSliceVar(&cli.StringSliceVar{
+		Name:    "disallowed-provisioners",
+		Target:  &c.flagDisallowedProvisioners,
+		Default: []string{},
+		Example: "local-exec,remote-exec",
+		Usage:   "The list of disallowed Terraform provisioners.",
+	})
+
+	f.StringSliceVar(&cli.StringSliceVar{
+		Name:    "allowed-providers",
+		Target:  &c.flagAllowedProviders,
+		Default: []string{},
+		Example: "google,github",
+		Usage:   "The list of allowed Terraform providers. Setting this will override disallowed providers.",
+	})
+
+	f.StringSliceVar(&cli.StringSliceVar{
+		Name:    "allowed-provisioners",
+		Target:  &c.flagAllowedProvisioners,
+		Default: []string{},
+		Example: "allowed-provisioner,another-allowed-provisioner",
+		Usage:   "The list of allowed Terraform provisioners. Setting this will override disallowed provisioners.",
 	})
 	return set
 }
@@ -337,11 +374,15 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 
 	planAbsFilepath := path.Join(c.flagOutputDir, planFilename)
 	exitCode, err := c.terraformClient.Plan(ctx, multiPlanOut, multiStderr, &terraform.PlanOptions{
-		Out:              pointer.To(planAbsFilepath),
-		Input:            pointer.To(false),
-		NoColor:          pointer.To(true),
-		DetailedExitcode: pointer.To(true),
-		LockTimeout:      pointer.To(c.flagLockTimeout.String()),
+		Out:                    pointer.To(planAbsFilepath),
+		Input:                  pointer.To(false),
+		NoColor:                pointer.To(true),
+		DetailedExitcode:       pointer.To(true),
+		LockTimeout:            pointer.To(c.flagLockTimeout.String()),
+		DisallowedProviders:    c.flagDisallowedProviders,
+		DisallowedProvisioners: c.flagDisallowedProvisioners,
+		AllowedProviders:       c.flagAllowedProviders,
+		AllowedProvisioners:    c.flagAllowedProvisioners,
 	})
 
 	planExitCode = exitCode
