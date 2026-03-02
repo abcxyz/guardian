@@ -33,9 +33,6 @@ import (
 const (
 	// DefaultDisallowedProviders is the default list of disallowed providers.
 	DefaultDisallowedProviders = "external"
-
-	// DefaultDisallowedProvisioners is the default list of disallowed provisioners.
-	DefaultDisallowedProvisioners = ""
 )
 
 type ScanResult struct {

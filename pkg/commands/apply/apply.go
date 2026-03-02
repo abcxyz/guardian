@@ -148,7 +148,7 @@ func (c *ApplyCommand) Flags() *cli.FlagSet {
 	f.StringSliceVar(&cli.StringSliceVar{
 		Name:    "disallowed-provisioners",
 		Target:  &c.flagDisallowedProvisioners,
-		Default: strings.Split(checkterraform.DefaultDisallowedProvisioners, ","),
+		Default: []string{},
 		Example: "local-exec,remote-exec",
 		Usage:   "The list of disallowed Terraform provisioners.",
 	})
