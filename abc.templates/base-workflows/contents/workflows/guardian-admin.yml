@@ -63,13 +63,14 @@ jobs:
 
       - name: 'Create Inputs File'
         shell: 'bash'
+        env:
+          INPUT_COMMAND: '${{ inputs.command }}'
+          INPUT_ENTRYPOINT: '${{ inputs.entrypoint }}'
         run: |-
-          cat << EOF > workflow_dispatch_inputs.json
-          {
-            "command": "${{ inputs.command }}",
-            "entrypoint": "${{ inputs.entrypoint }}"
-          }
-          EOF
+          jq -n \
+            --arg command "$INPUT_COMMAND" \
+            --arg entrypoint "$INPUT_ENTRYPOINT" \
+            '{command: $command, entrypoint: $entrypoint}' > workflow_dispatch_inputs.json
 
       - name: 'Aggregate Policy Data'
         shell: 'bash'
