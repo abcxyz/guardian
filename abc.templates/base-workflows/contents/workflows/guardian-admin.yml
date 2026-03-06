@@ -100,6 +100,7 @@ jobs:
       - name: 'Enforce Policy'
         shell: 'bash'
         env:
+          DIRECTORY: '${{ inputs.entrypoint }}'
           GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
         run: |-
           guardian policy enforce \
