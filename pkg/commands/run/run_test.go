@@ -16,6 +16,8 @@ package run
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -46,6 +48,9 @@ func TestPlan_Process(t *testing.T) {
 
 	ctx := logging.WithLogger(t.Context(), logging.TestLogger(t))
 
+	testDir := t.TempDir()
+	writeTestFile(t, testDir, "disallowed_provider.tf", `resource "disallowed_provider" "example" {}`)
+
 	cases := []struct {
 		name                         string
 		directory                    string
@@ -57,6 +62,10 @@ func TestPlan_Process(t *testing.T) {
 		flagTerraformArgs            []string
 		flagAllowLockfileChanges     bool
 		flagLockTimeout              time.Duration
+		flagDisallowedProviders      []string
+		flagDisallowedProvisioners   []string
+		flagAllowedProviders         []string
+		flagAllowedProvisioners      []string
 		terraformClient              *terraform.MockTerraformClient
 		err                          string
 		expStdout                    string
@@ -64,7 +73,7 @@ func TestPlan_Process(t *testing.T) {
 	}{
 		{
 			name:                         "success",
-			directory:                    "testdata",
+			directory:                    testDir,
 			flagIsGitHubActions:          true,
 			flagGitHubOwner:              "owner",
 			flagGitHubRepo:               "repo",
@@ -77,7 +86,7 @@ func TestPlan_Process(t *testing.T) {
 		},
 		{
 			name:                         "retricts_allowed_commands",
-			directory:                    "testdata",
+			directory:                    testDir,
 			flagIsGitHubActions:          true,
 			flagGitHubOwner:              "owner",
 			flagGitHubRepo:               "repo",
@@ -91,7 +100,7 @@ func TestPlan_Process(t *testing.T) {
 		},
 		{
 			name:                         "handles_errors",
-			directory:                    "testdata",
+			directory:                    testDir,
 			flagIsGitHubActions:          true,
 			flagGitHubOwner:              "owner",
 			flagGitHubRepo:               "repo",
@@ -105,6 +114,21 @@ func TestPlan_Process(t *testing.T) {
 			expStderr:                    "terraform run failed",
 			err:                          "failed to run command: failed to run terraform run",
 		},
+		{
+			name:                         "calls_provider_check",
+			directory:                    testDir,
+			flagIsGitHubActions:          true,
+			flagGitHubOwner:              "owner",
+			flagGitHubRepo:               "repo",
+			flagAllowedTerraformCommands: []string{},
+			flagTerraformCommand:         "apply",
+			flagTerraformArgs:            []string{"-no-color", "-input=false"},
+			flagAllowLockfileChanges:     true,
+			flagLockTimeout:              10 * time.Minute,
+			flagDisallowedProviders:      []string{"disallowed"},
+			terraformClient:              terraformMock,
+			err:                          "terraform provider/provisioner check failed",
+		},
 	}
 
 	for _, tc := range cases {
@@ -112,7 +136,7 @@ func TestPlan_Process(t *testing.T) {
 			t.Parallel()
 
 			c := &RunCommand{
-				directory: "testdir",
+				directory: tc.directory,
 				childPath: "testdir",
 
 				flagAllowedTerraformCommands: tc.flagAllowedTerraformCommands,
@@ -120,6 +144,10 @@ func TestPlan_Process(t *testing.T) {
 				terraformArgs:                tc.flagTerraformArgs,
 				flagAllowLockfileChanges:     tc.flagAllowLockfileChanges,
 				flagLockTimeout:              tc.flagLockTimeout,
+				flagDisallowedProviders:      tc.flagDisallowedProviders,
+				flagDisallowedProvisioners:   tc.flagDisallowedProvisioners,
+				flagAllowedProviders:         tc.flagAllowedProviders,
+				flagAllowedProvisioners:      tc.flagAllowedProvisioners,
 				terraformClient:              tc.terraformClient,
 			}
 
@@ -137,5 +165,13 @@ func TestPlan_Process(t *testing.T) {
 				t.Errorf("expected stderr\n\n%s\n\nto contain\n\n%s\n\n", got, want)
 			}
 		})
+	}
+}
+
+func writeTestFile(t *testing.T, dir, name, content string) {
+	t.Helper()
+	path := filepath.Join(dir, name)
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatalf("failed to write test file: %v", err)
 	}
 }
