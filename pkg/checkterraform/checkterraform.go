@@ -17,9 +17,11 @@ package checkterraform
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"maps"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -40,6 +42,15 @@ type ScanResult struct {
 	Provisioners        []string
 	InvalidProviders    []string
 	InvalidProvisioners []string
+}
+
+// moduleJSON is the structure of the .terraform/modules/modules.json file.
+type moduleJSON struct {
+	Modules []struct {
+		Key    string `json:"Key"`
+		Source string `json:"Source"`
+		Dir    string `json:"Dir"`
+	} `json:"Modules"`
 }
 
 // findInvalid returns the list of items in actual that are not in allowed, or if allowed is empty,
@@ -86,38 +97,42 @@ func analyzeDir(ctx context.Context, dir string) ([]string, []string, error) {
 	providerSet := make(map[string]struct{})
 	provisionerSet := make(map[string]struct{})
 
-	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
+	pathsToWalk := extractPathsFromModulesJSON(ctx, dir)
 
-		var f *hcl.File
-		var diags hcl.Diagnostics
-		if strings.HasSuffix(path, ".tf.json") {
-			f, diags = parser.ParseJSONFile(path)
-		} else if strings.HasSuffix(path, ".tf") {
-			f, diags = parser.ParseHCLFile(path)
-		} else {
-			// Not a recognized Terraform file, skip.
+	for _, path := range pathsToWalk {
+		err := filepath.WalkDir(path, func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+
+			var f *hcl.File
+			var diags hcl.Diagnostics
+			if strings.HasSuffix(path, ".tf.json") {
+				f, diags = parser.ParseJSONFile(path)
+			} else if strings.HasSuffix(path, ".tf") {
+				f, diags = parser.ParseHCLFile(path)
+			} else {
+				// Not a recognized Terraform file, skip.
+				return nil
+			}
+
+			if diags.HasErrors() {
+				// we encounter errors parsing, we can't extract further data.
+				logger.ErrorContext(
+					ctx,
+					"failed to parse terraform file",
+					"path", path,
+					"diagnostics", diags.Error(),
+				)
+				return nil // Continue to next file despite errors
+			}
+
+			extractFromBody(f.Body, providerSet, provisionerSet)
 			return nil
+		})
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to walk directory %q: %w", dir, err)
 		}
-
-		if diags.HasErrors() {
-			// we encounter errors parsing, we can't extract further data.
-			logger.ErrorContext(
-				ctx,
-				"failed to parse terraform file",
-				"path", path,
-				"diagnostics", diags.Error(),
-			)
-			return nil // Continue to next file despite errors
-		}
-
-		extractFromBody(f.Body, providerSet, provisionerSet)
-		return nil
-	})
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to walk directory %q: %w", dir, err)
 	}
 
 	providerResults := slices.Sorted(maps.Keys(providerSet))
@@ -222,4 +237,46 @@ func extractRequiredProviders(body hcl.Body, providerSet map[string]struct{}) {
 			}
 		}
 	}
+}
+
+// extractPathsFromModulesJSON extracts the paths to walk from modules.json if present.
+func extractPathsFromModulesJSON(ctx context.Context, dir string) []string {
+	logger := logging.FromContext(ctx)
+	pathsToWalk := []string{dir}
+
+	modulesJSONPath := filepath.Join(dir, ".terraform", "modules", "modules.json")
+	content, err := os.ReadFile(modulesJSONPath)
+	if err != nil {
+		logger.WarnContext(
+			ctx,
+			"failed to read modules.json",
+			"path",
+			modulesJSONPath,
+			"error",
+			err,
+		)
+	}
+
+	var modules moduleJSON
+	if err := json.Unmarshal(content, &modules); err != nil {
+		logger.WarnContext(
+			ctx,
+			"failed to parse modules.json",
+			"path",
+			modulesJSONPath,
+			"error",
+			err)
+		return pathsToWalk
+	}
+
+	for _, m := range modules.Modules {
+		if m.Dir != "" && m.Dir != "." {
+			fullPath := filepath.Join(dir, m.Dir)
+			if !slices.Contains(pathsToWalk, fullPath) {
+				pathsToWalk = append(pathsToWalk, fullPath)
+			}
+		}
+	}
+
+	return pathsToWalk
 }
