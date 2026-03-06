@@ -194,3 +194,71 @@ func TestScan(t *testing.T) {
 		})
 	}
 }
+
+/*
+	`{
+			"Modules": [
+				{"Key": "", "Source": "", "Dir": "."},
+				{"Key": "child", "Source": "./modules/child", "Dir": "modules/child"}
+			]
+		}`,
+*/
+func TestExtractPathsFromModulesJSON(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name        string
+		modulesJSON string
+		expResult   []string
+	}{
+		{
+			name:        "Empty JSON results in just basedir.",
+			modulesJSON: "",
+			expResult:   []string{""},
+		},
+		{
+			name:        "Should fail gracefully if file invalid, still returning the basedir.",
+			modulesJSON: `not json`,
+			expResult:   []string{""},
+		},
+		{
+			name:        "Should discover all directories.",
+			modulesJSON: `{
+				"Modules": [
+					{"Key": "", "Source": "", "Dir": "."},
+					{"Key": "child", "Source": "./modules/child", "Dir": "modules/child"}
+				]
+			}`,
+			expResult:   []string{".", "modules/child"},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			rootDir := t.TempDir()
+			modulesDir := filepath.Join(rootDir, ".terraform", "modules")
+			if err := os.MkdirAll(modulesDir, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(modulesDir, "modules.json"), []byte(tc.modulesJSON), 0o600); err != nil {
+				t.Fatal(err)
+			}
+
+			result := extractPathsFromModulesJSON(context.Background(), rootDir)
+			if result == nil {
+				t.Fatal("expected result, got nil")
+			}
+
+			expResult := tc.expResult
+			for i, path := range expResult {
+				expResult[i] = filepath.Join(rootDir, path)
+			}
+			if diff := cmp.Diff(expResult, result); diff != "" {
+				t.Errorf("extractPathsFromModulesJSON() mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+

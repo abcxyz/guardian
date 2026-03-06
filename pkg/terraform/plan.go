@@ -90,5 +90,50 @@ func (t *TerraformClient) Plan(ctx context.Context, stdout, stderr io.Writer, op
 		return 0, fmt.Errorf("encountered an error while checking terraform: %w", err)
 	}
 
+	// check for modules.json, created by init.
+	// jq "." .terraform/modules/modules.json
+	/*
+	   $ jq "." .terraform/modules/modules.json
+	   {
+	     "Modules": [
+	       {
+	         "Key": "",
+	         "Source": "",
+	         "Dir": "."
+	       },
+	       {
+	         "Key": "deployment",
+	         "Source": "../../modules/deployment",
+	         "Dir": "../../modules/deployment"
+	       },
+	       {
+	         "Key": "deployment.environments_iam_members",
+	         "Source": "./folder-iam-members",
+	         "Dir": "../../modules/deployment/folder-iam-members"
+	       },
+	       {
+	         "Key": "deployment.imports",
+	         "Source": "../imports-gcs",
+	         "Dir": "../../modules/imports-gcs"
+	       },
+	       {
+	         "Key": "imports",
+	         "Source": "../../modules/imports-gcs",
+	         "Dir": "../../modules/imports-gcs"
+	       },
+	       {
+	         "Key": "runner",
+	         "Source": "../../modules/project",
+	         "Dir": "../../modules/project"
+	       },
+	       {
+	         "Key": "webhook",
+	         "Source": "../../modules/project",
+	         "Dir": "../../modules/project"
+	       }
+	     ]
+	   }
+	*/
+
 	return t.Run(ctx, stdout, stderr, "plan", planArgsFromOptions(opts)...)
 }
