@@ -41,6 +41,7 @@ env:
 
 jobs:
   init:
+    if: github.ref == 'refs/heads/main'
     runs-on: 'ubuntu-latest'
 
     permissions:
@@ -100,6 +101,7 @@ jobs:
       - name: 'Enforce Policy'
         shell: 'bash'
         env:
+          DIRECTORY: '${{ inputs.entrypoint }}'
           GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
         run: |-
           guardian policy enforce \
