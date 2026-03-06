@@ -18,12 +18,13 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"slices"
 	"sort"
+	"strings"
 	"time"
 
-	"golang.org/x/exp/slices"
-
 	"github.com/abcxyz/guardian/internal/metricswrap"
+	"github.com/abcxyz/guardian/pkg/checkterraform"
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/terraform"
 	"github.com/abcxyz/guardian/pkg/util"
@@ -46,6 +47,10 @@ type RunCommand struct {
 	flagAllowedTerraformCommands []string
 	flagAllowLockfileChanges     bool
 	flagLockTimeout              time.Duration
+	flagDisallowedProviders      []string
+	flagDisallowedProvisioners   []string
+	flagAllowedProviders         []string
+	flagAllowedProvisioners      []string
 
 	terraformClient terraform.Terraform
 }
@@ -91,6 +96,38 @@ func (c *RunCommand) Flags() *cli.FlagSet {
 		Usage:   "The duration Terraform should wait to obtain a lock when running commands that modify state.",
 	})
 
+	f.StringSliceVar(&cli.StringSliceVar{
+		Name:    "disallowed-providers",
+		Target:  &c.flagDisallowedProviders,
+		Default: strings.Split(checkterraform.DefaultDisallowedProviders, ","),
+		Example: "external",
+		Usage:   "The list of disallowed Terraform providers.",
+	})
+
+	f.StringSliceVar(&cli.StringSliceVar{
+		Name:    "disallowed-provisioners",
+		Target:  &c.flagDisallowedProvisioners,
+		Default: []string{},
+		Example: "local-exec,remote-exec",
+		Usage:   "The list of disallowed Terraform provisioners.",
+	})
+
+	f.StringSliceVar(&cli.StringSliceVar{
+		Name:    "allowed-providers",
+		Target:  &c.flagAllowedProviders,
+		Default: []string{},
+		Example: "google,github",
+		Usage:   "The list of allowed Terraform providers. Setting this will override disallowed providers.",
+	})
+
+	f.StringSliceVar(&cli.StringSliceVar{
+		Name:    "allowed-provisioners",
+		Target:  &c.flagAllowedProvisioners,
+		Default: []string{},
+		Example: "allowed-provisioner,another-allowed-provisioner",
+		Usage:   "The list of allowed Terraform provisioners. Setting this will override disallowed provisioners.",
+	})
+
 	return set
 }
 
@@ -133,13 +170,21 @@ func (c *RunCommand) Run(ctx context.Context, args []string) error {
 
 // Process handles the main logic for the Guardian admin run process.
 func (c *RunCommand) Process(ctx context.Context) error {
-	var merr error
-
 	util.Headerf(c.Stdout(), "Starting Guardian Run")
 
 	if len(c.flagAllowedTerraformCommands) > 0 && !slices.Contains(c.flagAllowedTerraformCommands, c.terraformCommand) {
 		sort.Strings(c.flagAllowedTerraformCommands)
 		return fmt.Errorf("%s is not an allowed Terraform command.\n\nAllowed commands are %q", c.terraformCommand, c.flagAllowedTerraformCommands)
+	}
+
+	if _, err := checkterraform.CheckProvidersProvisioners(ctx,
+		c.directory,
+		c.flagDisallowedProviders,
+		c.flagDisallowedProvisioners,
+		c.flagAllowedProviders,
+		c.flagAllowedProvisioners,
+	); err != nil {
+		return fmt.Errorf("terraform provider/provisioner check failed: %w", err)
 	}
 
 	if _, ok := terraform.InitRequiredCommands[c.terraformCommand]; ok {
@@ -165,5 +210,5 @@ func (c *RunCommand) Process(ctx context.Context) error {
 		return fmt.Errorf("failed to run command: %w", err)
 	}
 
-	return merr
+	return nil
 }
