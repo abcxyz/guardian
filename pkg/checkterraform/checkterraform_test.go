@@ -222,14 +222,14 @@ func TestExtractPathsFromModulesJSON(t *testing.T) {
 			expResult:   []string{""},
 		},
 		{
-			name:        "Should discover all directories.",
+			name: "Should discover all directories.",
 			modulesJSON: `{
 				"Modules": [
 					{"Key": "", "Source": "", "Dir": "."},
 					{"Key": "child", "Source": "./modules/child", "Dir": "modules/child"}
 				]
 			}`,
-			expResult:   []string{".", "modules/child"},
+			expResult: []string{".", "modules/child"},
 		},
 	}
 
@@ -261,4 +261,3 @@ func TestExtractPathsFromModulesJSON(t *testing.T) {
 		})
 	}
 }
-
