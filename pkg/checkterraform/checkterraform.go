@@ -245,24 +245,35 @@ func extractPathsFromModulesJSON(ctx context.Context, dir string) []string {
 	pathsToWalk := []string{dir}
 
 	modulesJSONPath := filepath.Join(dir, ".terraform", "modules", "modules.json")
-	if content, err := os.ReadFile(modulesJSONPath); err == nil {
-		var modules moduleJSON
-		if err := json.Unmarshal(content, &modules); err != nil {
-			logger.WarnContext(
-				ctx,
-				"failed to parse modules.json",
-				"path",
-				modulesJSONPath,
-				"error",
-				err)
-		} else {
-			for _, m := range modules.Modules {
-				if m.Dir != "" && m.Dir != "." {
-					fullPath := filepath.Join(dir, m.Dir)
-					if !slices.Contains(pathsToWalk, fullPath) {
-						pathsToWalk = append(pathsToWalk, fullPath)
-					}
-				}
+	content, err := os.ReadFile(modulesJSONPath)
+	if err != nil {
+		logger.WarnContext(
+			ctx,
+			"failed to read modules.json",
+			"path",
+			modulesJSONPath,
+			"error",
+			err,
+		)
+	}
+
+	var modules moduleJSON
+	if err := json.Unmarshal(content, &modules); err != nil {
+		logger.WarnContext(
+			ctx,
+			"failed to parse modules.json",
+			"path",
+			modulesJSONPath,
+			"error",
+			err)
+		return pathsToWalk
+	}
+
+	for _, m := range modules.Modules {
+		if m.Dir != "" && m.Dir != "." {
+			fullPath := filepath.Join(dir, m.Dir)
+			if !slices.Contains(pathsToWalk, fullPath) {
+				pathsToWalk = append(pathsToWalk, fullPath)
 			}
 		}
 	}
