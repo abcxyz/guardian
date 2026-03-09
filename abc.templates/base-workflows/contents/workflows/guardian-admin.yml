@@ -38,6 +38,7 @@ env:
   GUARDIAN_WIF_PROVIDER: 'REPLACE_GUARDIAN_WIF_PROVIDER'
   GUARDIAN_WIF_SERVICE_ACCOUNT: 'REPLACE_GUARDIAN_WIF_SERVICE_ACCOUNT'
   GUARDIAN_TERRAFORM_VERSION: 'REPLACE_TERRAFORM_VERSION'
+  GUARDIAN_ALLOWED_PROVIDERS: 'REPLACE_GUARDIAN_ALLOWED_PROVIDERS'
 
 jobs:
   init:
@@ -170,4 +171,4 @@ jobs:
         shell: 'bash'
         run: |-
           read -r -a CLI_ARGS <<< "${TERRAFORM_CMD}"
-          guardian run -dir="${DIRECTORY}" -- "${CLI_ARGS[@]}"
+          guardian run -dir="${DIRECTORY}" -allowed-providers="${GUARDIAN_ALLOWED_PROVIDERS}" -- "${CLI_ARGS[@]}"

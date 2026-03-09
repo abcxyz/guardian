@@ -32,6 +32,7 @@ env:
   GUARDIAN_WIF_SERVICE_ACCOUNT: 'REPLACE_GUARDIAN_WIF_SERVICE_ACCOUNT'
   GUARDIAN_BUCKET_NAME: 'REPLACE_GUARDIAN_STATE_BUCKET'
   GUARDIAN_TERRAFORM_VERSION: 'REPLACE_TERRAFORM_VERSION'
+  GUARDIAN_ALLOWED_PROVIDERS: 'REPLACE_GUARDIAN_ALLOWED_PROVIDERS'
 
 jobs:
   init:
@@ -125,4 +126,4 @@ jobs:
           # used to create comments on pull requests (access to only this repo)
           GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
         run: |-
-          guardian apply -dir="${DIRECTORY}" -storage="gcs://${GUARDIAN_BUCKET_NAME}"
+          guardian apply -dir="${DIRECTORY}" -storage="gcs://${GUARDIAN_BUCKET_NAME}" -allowed-providers="${GUARDIAN_ALLOWED_PROVIDERS}"
