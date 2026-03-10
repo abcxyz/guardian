@@ -33,6 +33,8 @@ inputs:
       - rule: 'gcp_matches_service_account(guardian_service_account)'
   - name: 'guardian_state_bucket'
     desc: 'The Google Cloud storage bucket for Guardian state'
+  - name: 'guardian_allowed_providers'
+    desc: 'The comma separated list of allowed providers for Guardian. If left blank, all providers will be allowed.'
 
 steps:
   - desc: 'Include required files and directories'
@@ -63,6 +65,8 @@ steps:
           with: '{{.guardian_service_account}}'
         - to_replace: 'REPLACE_GUARDIAN_STATE_BUCKET'
           with: '{{.guardian_state_bucket}}'
+        - to_replace: 'REPLACE_GUARDIAN_ALLOWED_PROVIDERS'
+          with: '{{.guardian_allowed_providers}}'
         - to_replace: 'REPLACE_GUARDIAN_VERSION_TAG'
           with: '{{ trimPrefix ._git_tag "v" }}'
 

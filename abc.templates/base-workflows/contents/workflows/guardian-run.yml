@@ -65,6 +65,7 @@ env:
   GUARDIAN_WIF_PROVIDER: 'REPLACE_GUARDIAN_WIF_PROVIDER'
   GUARDIAN_WIF_SERVICE_ACCOUNT: 'REPLACE_GUARDIAN_WIF_SERVICE_ACCOUNT'
   GUARDIAN_TERRAFORM_VERSION: 'REPLACE_TERRAFORM_VERSION'
+  GUARDIAN_ALLOWED_PROVIDERS: 'REPLACE_GUARDIAN_ALLOWED_PROVIDERS'
 
 jobs:
   init:
@@ -161,11 +162,11 @@ jobs:
           DETAILED_EXITCODE: '${{ inputs.detailed-exitcode }}'
         shell: 'bash'
         run: |-
-          guardian run -dir="${DIRECTORY}" -- plan -input=false -detailed-exitcode="${DETAILED_EXITCODE}"
+          guardian run -dir="${DIRECTORY}" -allowed-providers="${GUARDIAN_ALLOWED_PROVIDERS}" -- plan -input=false -detailed-exitcode="${DETAILED_EXITCODE}"
 
       - name: 'Guardian Apply'
         if: |
           inputs.command == 'apply'
         shell: 'bash'
         run: |-
-          guardian run -dir="${DIRECTORY}" -- apply -input=false -auto-approve
+          guardian run -dir="${DIRECTORY}" -allowed-providers="${GUARDIAN_ALLOWED_PROVIDERS}" -- apply -input=false -auto-approve

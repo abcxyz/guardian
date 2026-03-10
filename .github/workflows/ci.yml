@@ -37,6 +37,7 @@ env:
   GUARDIAN_BUCKET_NAME: 'guardian-ci-i-guardian-state-c79e1f4759'
   GUARDIAN_TERRAFORM_VERSION: '1.7.1'
   GUARDIAN_TAGREP_VERSION: '0.0.7'
+  GUARDIAN_ALLOWED_PROVIDERS: 'google,google-beta'
 
 jobs:
   go_test:
@@ -65,18 +66,19 @@ jobs:
           rm -f ./.github/workflow/*
           abc templates render \
             -skip-manifest \
-            -input=terraform_version="${{ env.GUARDIAN_TERRAFORM_VERSION }}" \
-            -input=tagrep_version="${{ env.GUARDIAN_TAGREP_VERSION }}" \
-            -input=guardian_wif_provider="${{ env.GUARDIAN_WIF_PROVIDER }}" \
-            -input=guardian_service_account="${{ env.GUARDIAN_WIF_SERVICE_ACCOUNT }}" \
-            -input=guardian_state_bucket="${{ env.GUARDIAN_BUCKET_NAME }}" \
+            -input=terraform_version="${GUARDIAN_TERRAFORM_VERSION}" \
+            -input=tagrep_version="${GUARDIAN_TAGREP_VERSION}" \
+            -input=guardian_wif_provider="${GUARDIAN_WIF_PROVIDER}" \
+            -input=guardian_service_account="${GUARDIAN_WIF_SERVICE_ACCOUNT}" \
+            -input=guardian_state_bucket="${GUARDIAN_BUCKET_NAME}" \
+            -input=guardian_allowed_providers="${GUARDIAN_ALLOWED_PROVIDERS}" \
             -accept-defaults \
             ./abc.templates/base-workflows
           abc templates render \
             -skip-manifest \
             -input=gcp_organization_id="00000000" \
-            -input=guardian_wif_provider="${{ env.GUARDIAN_WIF_PROVIDER }}" \
-            -input=guardian_service_account="${{ env.GUARDIAN_WIF_SERVICE_ACCOUNT }}" \
+            -input=guardian_wif_provider="${GUARDIAN_WIF_PROVIDER}" \
+            -input=guardian_service_account="${GUARDIAN_WIF_SERVICE_ACCOUNT}" \
             -accept-defaults \
             ./abc.templates/drift-workflows
 
