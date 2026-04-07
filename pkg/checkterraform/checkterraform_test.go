@@ -165,6 +165,18 @@ func TestScan(t *testing.T) {
 			},
 			expError: "terraform contains invalid providers: [random], invalid provisioners: [safe-provisioner]",
 		},
+		{
+			name:                "Empty strings in allowed providers/provisioners should be ignored",
+			filepath:            "testdata/valid.tf",
+			allowedProviders:    []string{""},
+			allowedProvisioners: []string{""},
+			expResult: ScanResult{
+				Providers:           []string{"google", "random"},
+				Provisioners:        []string{"safe-provisioner"},
+				InvalidProviders:    []string{},
+				InvalidProvisioners: []string{},
+			},
+		},
 	}
 
 	cwd, err := os.Getwd()
