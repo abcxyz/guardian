@@ -66,6 +66,12 @@ func findInvalid(allowed, disallowed, actual []string) []string {
 	return slices.DeleteFunc(result, func(s string) bool { return !slices.Contains(disallowed, s) })
 }
 
+func removeBlankStrings(s []string) []string {
+	return slices.DeleteFunc(slices.Clone(s), func(s string) bool {
+		return strings.TrimSpace(s) == ""
+	})
+}
+
 // CheckProvidersProvisioners returns the result of parsing the terraform content in the given directory (or file).
 // The usual case is to provide disallowed providers and provisioners. This is more permissive, only
 // erroring if those specifically denied matches occur. If allowedProviders or allowedProvisioners is set,
@@ -76,6 +82,11 @@ func CheckProvidersProvisioners(ctx context.Context, dir string, disallowedProvi
 	if err != nil {
 		return ScanResult{}, fmt.Errorf("failed to analyze directory %q: %w", dir, err)
 	}
+
+	allowedProviders = removeBlankStrings(allowedProviders)
+	disallowedProviders = removeBlankStrings(disallowedProviders)
+	allowedProvisioners = removeBlankStrings(allowedProvisioners)
+	disallowedProvisioners = removeBlankStrings(disallowedProvisioners)
 
 	result := ScanResult{
 		Providers:           providers,
