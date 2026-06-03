@@ -63,6 +63,9 @@ var rootCmd = func() cli.Command {
 						"merge-queue-comment": func() cli.Command {
 							return &workflows.MergeQueueStatusCommentCommand{}
 						},
+						"report": func() cli.Command {
+							return &workflows.ReportCommand{}
+						},
 					},
 				}
 			},
