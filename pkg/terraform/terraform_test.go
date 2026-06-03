@@ -17,6 +17,7 @@ package terraform
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -213,6 +214,13 @@ func TestHasBackendConfig(t *testing.T) {
 func TestExtractBackendConfig(t *testing.T) {
 	t.Parallel()
 
+	var missingFileErr string
+	if runtime.GOOS == "windows" {
+		missingFileErr = "failed to read file: open testdata/missing.tf: The system cannot find the file specified"
+	} else {
+		missingFileErr = "failed to read file: open testdata/missing.tf: no such file or directory"
+	}
+
 	cases := []struct {
 		name string
 		file string
@@ -233,7 +241,7 @@ func TestExtractBackendConfig(t *testing.T) {
 			name: "missing_file",
 			file: "testdata/missing.tf", // depend on test data in [REPO_ROOT]/terraform
 			want: nil,
-			err:  "failed to read file: open testdata/missing.tf: no such file or directory",
+			err:  missingFileErr,
 		},
 	}
 
@@ -309,6 +317,16 @@ func TestModules(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	var noSuchFileOrDirErr string
+	var noSuchPathErr string
+	if runtime.GOOS == "windows" {
+		noSuchFileOrDirErr = "The system cannot find the file specified"
+		noSuchPathErr = "The system cannot find the path specified"
+	} else {
+		noSuchFileOrDirErr = "no such file or directory"
+		noSuchPathErr = "no such file or directory"
+	}
+
 	cases := []struct {
 		name string
 		dir  string
@@ -347,12 +365,12 @@ func TestModules(t *testing.T) {
 			name: "missing_directory",
 			dir:  "testdata/missing",
 			exp:  nil,
-			err:  "no such file or directory",
+			err:  noSuchFileOrDirErr,
 		},
 		{
 			name: "empty",
 			dir:  "",
-			err:  "no such file or directory",
+			err:  noSuchPathErr,
 		},
 	}
 
@@ -378,6 +396,16 @@ func TestModuleUsage(t *testing.T) {
 	cwd, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	var noSuchFileOrDirErr string
+	var noSuchPathErr string
+	if runtime.GOOS == "windows" {
+		noSuchFileOrDirErr = "The system cannot find the file specified"
+		noSuchPathErr = "The system cannot find the path specified"
+	} else {
+		noSuchFileOrDirErr = "no such file or directory"
+		noSuchPathErr = "no such file or directory"
 	}
 
 	cases := []struct {
@@ -447,12 +475,12 @@ func TestModuleUsage(t *testing.T) {
 			name: "missing_directory",
 			dir:  "testdata/missing",
 			exp:  nil,
-			err:  "no such file or directory",
+			err:  noSuchFileOrDirErr,
 		},
 		{
 			name: "empty",
 			dir:  "",
-			err:  "no such file or directory",
+			err:  noSuchPathErr,
 		},
 	}
 

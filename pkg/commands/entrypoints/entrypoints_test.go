@@ -94,14 +94,14 @@ func TestEntrypointsProcess(t *testing.T) {
 			newGitClient: func(ctx context.Context, dir string) git.Git {
 				var diffResp []string
 
-				if strings.HasSuffix(dir, "testdata/entrypoint1") {
+				if strings.HasSuffix(filepath.ToSlash(dir), "testdata/entrypoint1") {
 					diffResp = []string{
 						filepath.Join(cwd, "testdata/entrypoint1/project1"),
 						filepath.Join(cwd, "testdata/entrypoint1/project2"),
 					}
 				}
 
-				if strings.HasSuffix(dir, "testdata/entrypoint2") {
+				if strings.HasSuffix(filepath.ToSlash(dir), "testdata/entrypoint2") {
 					diffResp = []string{
 						filepath.Join(cwd, "testdata/entrypoint2/project3"),
 						filepath.Join(cwd, "testdata/entrypoint2/project4"),
@@ -123,14 +123,14 @@ func TestEntrypointsProcess(t *testing.T) {
 			newGitClient: func(ctx context.Context, dir string) git.Git {
 				var diffResp []string
 
-				if strings.HasSuffix(dir, "testdata/entrypoint1") {
+				if strings.HasSuffix(filepath.ToSlash(dir), "testdata/entrypoint1") {
 					diffResp = []string{
 						filepath.Join(cwd, "testdata/entrypoint1/project1"),
 						filepath.Join(cwd, "testdata/entrypoint1/project3"),
 					}
 				}
 
-				if strings.HasSuffix(dir, "testdata/entrypoint2") {
+				if strings.HasSuffix(filepath.ToSlash(dir), "testdata/entrypoint2") {
 					diffResp = []string{
 						filepath.Join(cwd, "testdata/entrypoint2/project4"),
 						filepath.Join(cwd, "testdata/entrypoint2/project5"),
