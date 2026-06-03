@@ -108,7 +108,7 @@ jobs:
       needs.init-plan.outputs.directories != '[]'
     needs:
       - 'init-plan'
-    runs-on: 'ubuntu-latest'
+    runs-on: '${{ matrix.platform.os }}'
     permissions:
       contents: 'read'
       id-token: 'write'
@@ -117,6 +117,16 @@ jobs:
       fail-fast: false
       max-parallel: 100
       matrix:
+        platform:
+          - os: 'ubuntu-latest'
+            binary_suffix: 'linux_amd64'
+            binary_name: 'guardian'
+          - os: 'windows-latest'
+            binary_suffix: 'windows_amd64.exe'
+            binary_name: 'guardian.exe'
+          - os: 'macos-latest'
+            binary_suffix: 'darwin_amd64'
+            binary_name: 'guardian'
         working_directory: '${{ fromJSON(needs.init-plan.outputs.directories) }}'
     env:
       DIRECTORY: '${{ matrix.working_directory }}'
@@ -143,15 +153,18 @@ jobs:
       - name: 'Download Guardian'
         uses: 'actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e' # ratchet:actions/download-artifact@v4
         with:
-          name: '${{ env.GUARDIAN_LINUX_BINARY }}'
+          name: 'guardian_${{ github.workflow }}-${{ github.run_id }}-${{ github.run_attempt }}_${{ matrix.platform.binary_suffix }}'
           path: '${{ runner.temp }}/.guardian'
 
       - name: 'Setup Guardian'
+        shell: 'bash'
         env:
           INSTALL_PATH: '${{ runner.temp }}/.guardian'
+          BINARY_NAME: 'guardian_${{ github.workflow }}-${{ github.run_id }}-${{ github.run_attempt }}_${{ matrix.platform.binary_suffix }}'
+          TARGET_NAME: '${{ matrix.platform.binary_name }}'
         run: |-
-          mv "${INSTALL_PATH}/${GUARDIAN_LINUX_BINARY}" "${INSTALL_PATH}/guardian"
-          chmod +x "${INSTALL_PATH}/guardian"
+          mv "${INSTALL_PATH}/${BINARY_NAME}" "${INSTALL_PATH}/${TARGET_NAME}"
+          chmod +x "${INSTALL_PATH}/${TARGET_NAME}"
           echo "${INSTALL_PATH}" >> "${GITHUB_PATH}"
 
       - name: 'Guardian Plan'
@@ -249,7 +262,7 @@ jobs:
       - 'init-apply'
       - 'plan'
       - 'plan_success'
-    runs-on: 'ubuntu-latest'
+    runs-on: '${{ matrix.platform.os }}'
     permissions:
       contents: 'read'
       id-token: 'write'
@@ -258,6 +271,16 @@ jobs:
       fail-fast: false
       max-parallel: 100
       matrix:
+        platform:
+          - os: 'ubuntu-latest'
+            binary_suffix: 'linux_amd64'
+            binary_name: 'guardian'
+          - os: 'windows-latest'
+            binary_suffix: 'windows_amd64.exe'
+            binary_name: 'guardian.exe'
+          - os: 'macos-latest'
+            binary_suffix: 'darwin_amd64'
+            binary_name: 'guardian'
         working_directory: '${{ fromJSON(needs.init-apply.outputs.directories) }}'
     env:
       DIRECTORY: '${{ matrix.working_directory }}'
@@ -284,15 +307,18 @@ jobs:
       - name: 'Download Guardian'
         uses: 'actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e' # ratchet:actions/download-artifact@v4
         with:
-          name: '${{ env.GUARDIAN_LINUX_BINARY }}'
+          name: 'guardian_${{ github.workflow }}-${{ github.run_id }}-${{ github.run_attempt }}_${{ matrix.platform.binary_suffix }}'
           path: '${{ runner.temp }}/.guardian'
 
       - name: 'Setup Guardian'
+        shell: 'bash'
         env:
           INSTALL_PATH: '${{ runner.temp }}/.guardian'
+          BINARY_NAME: 'guardian_${{ github.workflow }}-${{ github.run_id }}-${{ github.run_attempt }}_${{ matrix.platform.binary_suffix }}'
+          TARGET_NAME: '${{ matrix.platform.binary_name }}'
         run: |-
-          mv "${INSTALL_PATH}/${GUARDIAN_LINUX_BINARY}" "${INSTALL_PATH}/guardian"
-          chmod +x "${INSTALL_PATH}/guardian"
+          mv "${INSTALL_PATH}/${BINARY_NAME}" "${INSTALL_PATH}/${TARGET_NAME}"
+          chmod +x "${INSTALL_PATH}/${TARGET_NAME}"
           echo "${INSTALL_PATH}" >> "${GITHUB_PATH}"
 
       - name: 'Guardian Apply'

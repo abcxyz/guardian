@@ -46,6 +46,7 @@ jobs:
               goos: [
                 'darwin',
                 'linux',
+                'windows',
               ],
               build: [
                 {

@@ -41,7 +41,16 @@ env:
 
 jobs:
   go_test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - 'ubuntu-latest'
+          - 'windows-latest'
+          - 'macos-latest'
     uses: 'abcxyz/actions/.github/workflows/go-test.yml@main' # ratchet:exclude
+    with:
+      runs-on: '"${{ matrix.os }}"'
 
   lint_templates:
     runs-on: 'ubuntu-latest'

@@ -17,6 +17,7 @@ package child
 import (
 	"bytes"
 	"context"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -154,7 +155,11 @@ func TestRun_Cancel(t *testing.T) {
 				Args:    tc.args,
 			})
 			if err != nil {
-				if diff := testutil.DiffErrString(err, tc.err); diff != "" {
+				errStr := tc.err
+				if tc.name == "cancels_context_after_2s" && runtime.GOOS == "windows" {
+					errStr = "failed to run command: exit status"
+				}
+				if diff := testutil.DiffErrString(err, errStr); diff != "" {
 					t.Error(diff)
 				}
 				return
