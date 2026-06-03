@@ -250,6 +250,9 @@ func modules(ctx context.Context, rootDir string, skipUnresolvableModules bool) 
 // GetEntrypointDirectories gets all the directories that have Terraform config
 // files containing a backend block to be used as an entrypoint module.
 func GetEntrypointDirectories(rootDir string, maxDepth *int) ([]*TerraformEntrypoint, error) {
+	if rootDir != "" {
+		rootDir = filepath.Clean(rootDir)
+	}
 	matches := make(map[string]*TerraformEntrypoint)
 	startPathSeparatorCount := strings.Count(rootDir, string(os.PathSeparator))
 	if err := filepath.WalkDir(rootDir, func(path string, d fs.DirEntry, err error) error {

@@ -104,6 +104,16 @@ func TestGetEntrypointDirectories(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	var noSuchFileOrDirErr string
+	var noSuchPathErr string
+	if runtime.GOOS == "windows" {
+		noSuchFileOrDirErr = "The system cannot find the file specified"
+		noSuchPathErr = "The system cannot find the path specified"
+	} else {
+		noSuchFileOrDirErr = "no such file or directory"
+		noSuchPathErr = "no such file or directory"
+	}
+
 	cases := []struct {
 		name     string
 		dir      string
@@ -143,12 +153,12 @@ func TestGetEntrypointDirectories(t *testing.T) {
 			name: "missing_directory",
 			dir:  "testdata/missing",
 			exp:  nil,
-			err:  "no such file or directory",
+			err:  noSuchFileOrDirErr,
 		},
 		{
 			name: "empty",
 			dir:  "",
-			err:  "no such file or directory",
+			err:  noSuchPathErr,
 		},
 	}
 
