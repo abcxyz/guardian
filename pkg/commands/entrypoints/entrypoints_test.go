@@ -18,7 +18,7 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -61,8 +61,8 @@ func TestEntrypointsProcess(t *testing.T) {
 			newGitClient: func(ctx context.Context, dir string) git.Git {
 				return &git.MockGitClient{
 					DiffResp: []string{
-						path.Join(cwd, "testdata/entrypoint1/project1"),
-						path.Join(cwd, "testdata/entrypoint1/project2"),
+						filepath.Join(cwd, "testdata/entrypoint1/project1"),
+						filepath.Join(cwd, "testdata/entrypoint1/project2"),
 					},
 				}
 			},
@@ -77,9 +77,9 @@ func TestEntrypointsProcess(t *testing.T) {
 			newGitClient: func(ctx context.Context, dir string) git.Git {
 				return &git.MockGitClient{
 					DiffResp: []string{
-						path.Join(cwd, "testdata/entrypoint1/project1"),
-						path.Join(cwd, "testdata/entrypoint1/project2"),
-						path.Join(cwd, "testdata/entrypoint1/project3"),
+						filepath.Join(cwd, "testdata/entrypoint1/project1"),
+						filepath.Join(cwd, "testdata/entrypoint1/project2"),
+						filepath.Join(cwd, "testdata/entrypoint1/project3"),
 					},
 				}
 			},
@@ -96,15 +96,15 @@ func TestEntrypointsProcess(t *testing.T) {
 
 				if strings.HasSuffix(dir, "testdata/entrypoint1") {
 					diffResp = []string{
-						path.Join(cwd, "testdata/entrypoint1/project1"),
-						path.Join(cwd, "testdata/entrypoint1/project2"),
+						filepath.Join(cwd, "testdata/entrypoint1/project1"),
+						filepath.Join(cwd, "testdata/entrypoint1/project2"),
 					}
 				}
 
 				if strings.HasSuffix(dir, "testdata/entrypoint2") {
 					diffResp = []string{
-						path.Join(cwd, "testdata/entrypoint2/project3"),
-						path.Join(cwd, "testdata/entrypoint2/project4"),
+						filepath.Join(cwd, "testdata/entrypoint2/project3"),
+						filepath.Join(cwd, "testdata/entrypoint2/project4"),
 					}
 				}
 
@@ -125,15 +125,15 @@ func TestEntrypointsProcess(t *testing.T) {
 
 				if strings.HasSuffix(dir, "testdata/entrypoint1") {
 					diffResp = []string{
-						path.Join(cwd, "testdata/entrypoint1/project1"),
-						path.Join(cwd, "testdata/entrypoint1/project3"),
+						filepath.Join(cwd, "testdata/entrypoint1/project1"),
+						filepath.Join(cwd, "testdata/entrypoint1/project3"),
 					}
 				}
 
 				if strings.HasSuffix(dir, "testdata/entrypoint2") {
 					diffResp = []string{
-						path.Join(cwd, "testdata/entrypoint2/project4"),
-						path.Join(cwd, "testdata/entrypoint2/project5"),
+						filepath.Join(cwd, "testdata/entrypoint2/project4"),
+						filepath.Join(cwd, "testdata/entrypoint2/project5"),
 					}
 				}
 
@@ -152,8 +152,8 @@ func TestEntrypointsProcess(t *testing.T) {
 			newGitClient: func(ctx context.Context, dir string) git.Git {
 				return &git.MockGitClient{
 					DiffResp: []string{
-						path.Join(cwd, "testdata/entrypoint1/project1"),
-						path.Join(cwd, "testdata/entrypoint1/project2"),
+						filepath.Join(cwd, "testdata/entrypoint1/project1"),
+						filepath.Join(cwd, "testdata/entrypoint1/project2"),
 					},
 				}
 			},
@@ -168,7 +168,7 @@ func TestEntrypointsProcess(t *testing.T) {
 			newGitClient: func(ctx context.Context, dir string) git.Git {
 				return &git.MockGitClient{
 					DiffResp: []string{
-						path.Join(cwd, "testdata/entrypoint1/project1/files"),
+						filepath.Join(cwd, "testdata/entrypoint1/project1/files"),
 					},
 				}
 			},
@@ -184,7 +184,7 @@ func TestEntrypointsProcess(t *testing.T) {
 			newGitClient: func(ctx context.Context, dir string) git.Git {
 				return &git.MockGitClient{
 					DiffResp: []string{
-						path.Join(cwd, "testdata/entrypoint1/project1/files/test.txt"),
+						filepath.Join(cwd, "testdata/entrypoint1/project1/files/test.txt"),
 					},
 				}
 			},
@@ -200,8 +200,8 @@ func TestEntrypointsProcess(t *testing.T) {
 			newGitClient: func(ctx context.Context, dir string) git.Git {
 				return &git.MockGitClient{
 					DiffResp: []string{
-						path.Join(cwd, "testdata/entrypoint1/project1/files/test.txt"),
-						path.Join(cwd, "testdata/entrypoint1/project2/files/test.txt"),
+						filepath.Join(cwd, "testdata/entrypoint1/project1/files/test.txt"),
+						filepath.Join(cwd, "testdata/entrypoint1/project2/files/test.txt"),
 					},
 				}
 			},

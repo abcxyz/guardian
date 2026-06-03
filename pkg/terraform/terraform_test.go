@@ -16,7 +16,7 @@ package terraform
 
 import (
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -114,8 +114,8 @@ func TestGetEntrypointDirectories(t *testing.T) {
 			name: "has_backend",
 			dir:  "testdata/backends",
 			exp: []*TerraformEntrypoint{
-				{Path: path.Join(cwd, "testdata/backends/project1"), BackendFile: path.Join(cwd, "testdata/backends/project1/main.tf")},
-				{Path: path.Join(cwd, "testdata/backends/project2"), BackendFile: path.Join(cwd, "testdata/backends/project2/main.tf")},
+				{Path: filepath.Join(cwd, "testdata/backends/project1"), BackendFile: filepath.Join(cwd, "testdata/backends/project1/main.tf")},
+				{Path: filepath.Join(cwd, "testdata/backends/project2"), BackendFile: filepath.Join(cwd, "testdata/backends/project2/main.tf")},
 			},
 		},
 		{
@@ -123,8 +123,8 @@ func TestGetEntrypointDirectories(t *testing.T) {
 			dir:      "testdata/backends",
 			maxDepth: pointer.To(1),
 			exp: []*TerraformEntrypoint{
-				{Path: path.Join(cwd, "testdata/backends/project1"), BackendFile: path.Join(cwd, "testdata/backends/project1/main.tf")},
-				{Path: path.Join(cwd, "testdata/backends/project2"), BackendFile: path.Join(cwd, "testdata/backends/project2/main.tf")},
+				{Path: filepath.Join(cwd, "testdata/backends/project1"), BackendFile: filepath.Join(cwd, "testdata/backends/project1/main.tf")},
+				{Path: filepath.Join(cwd, "testdata/backends/project2"), BackendFile: filepath.Join(cwd, "testdata/backends/project2/main.tf")},
 			},
 		},
 		{
@@ -319,28 +319,28 @@ func TestModules(t *testing.T) {
 			name: "has_modules",
 			dir:  "testdata/with-modules",
 			exp: map[string]*Modules{
-				path.Join(cwd, "testdata/with-modules/modules/module-a"): {ModulePaths: map[string]struct{}{}},
-				path.Join(cwd, "testdata/with-modules/modules/module-b-using-a"): {
-					ModulePaths: map[string]struct{}{path.Join(cwd, "testdata/with-modules/modules/module-a"): {}},
+				filepath.Join(cwd, "testdata/with-modules/modules/module-a"): {ModulePaths: map[string]struct{}{}},
+				filepath.Join(cwd, "testdata/with-modules/modules/module-b-using-a"): {
+					ModulePaths: map[string]struct{}{filepath.Join(cwd, "testdata/with-modules/modules/module-a"): {}},
 				},
-				path.Join(cwd, "testdata/with-modules/project1"): {
+				filepath.Join(cwd, "testdata/with-modules/project1"): {
 					ModulePaths: map[string]struct{}{
-						path.Join(cwd, "testdata/with-modules/modules/module-a"):         {},
-						path.Join(cwd, "testdata/with-modules/modules/module-b-using-a"): {},
+						filepath.Join(cwd, "testdata/with-modules/modules/module-a"):         {},
+						filepath.Join(cwd, "testdata/with-modules/modules/module-b-using-a"): {},
 					},
 				},
-				path.Join(cwd, "testdata/with-modules/project2"): {
-					ModulePaths: map[string]struct{}{path.Join(cwd, "testdata/with-modules/modules/module-b-using-a"): {}},
+				filepath.Join(cwd, "testdata/with-modules/project2"): {
+					ModulePaths: map[string]struct{}{filepath.Join(cwd, "testdata/with-modules/modules/module-b-using-a"): {}},
 				},
-				path.Join(cwd, "testdata/with-modules/project3"): {ModulePaths: map[string]struct{}{}},
+				filepath.Join(cwd, "testdata/with-modules/project3"): {ModulePaths: map[string]struct{}{}},
 			},
 		},
 		{
 			name: "no_modules",
 			dir:  "testdata/no-backends",
 			exp: map[string]*Modules{
-				path.Join(cwd, "/testdata/no-backends/project1"): {ModulePaths: map[string]struct{}{}},
-				path.Join(cwd, "/testdata/no-backends/project2"): {ModulePaths: map[string]struct{}{}},
+				filepath.Join(cwd, "/testdata/no-backends/project1"): {ModulePaths: map[string]struct{}{}},
+				filepath.Join(cwd, "/testdata/no-backends/project2"): {ModulePaths: map[string]struct{}{}},
 			},
 		},
 		{
@@ -392,24 +392,24 @@ func TestModuleUsage(t *testing.T) {
 			dir:  "testdata/with-modules",
 			exp: &ModuleUsageGraph{
 				EntrypointToModules: map[string]map[string]struct{}{
-					path.Join(cwd, "testdata/with-modules/project1"): {
-						path.Join(cwd, "testdata/with-modules/modules/module-a"):         struct{}{},
-						path.Join(cwd, "testdata/with-modules/modules/module-b-using-a"): struct{}{},
+					filepath.Join(cwd, "testdata/with-modules/project1"): {
+						filepath.Join(cwd, "testdata/with-modules/modules/module-a"):         struct{}{},
+						filepath.Join(cwd, "testdata/with-modules/modules/module-b-using-a"): struct{}{},
 					},
-					path.Join(cwd, "testdata/with-modules/project2"): {
-						path.Join(cwd, "testdata/with-modules/modules/module-a"):         struct{}{},
-						path.Join(cwd, "testdata/with-modules/modules/module-b-using-a"): struct{}{},
+					filepath.Join(cwd, "testdata/with-modules/project2"): {
+						filepath.Join(cwd, "testdata/with-modules/modules/module-a"):         struct{}{},
+						filepath.Join(cwd, "testdata/with-modules/modules/module-b-using-a"): struct{}{},
 					},
-					path.Join(cwd, "testdata/with-modules/project3"): {},
+					filepath.Join(cwd, "testdata/with-modules/project3"): {},
 				},
 				ModulesToEntrypoints: map[string]map[string]struct{}{
-					path.Join(cwd, "testdata/with-modules/modules/module-a"): {
-						path.Join(cwd, "testdata/with-modules/project1"): struct{}{},
-						path.Join(cwd, "testdata/with-modules/project2"): struct{}{},
+					filepath.Join(cwd, "testdata/with-modules/modules/module-a"): {
+						filepath.Join(cwd, "testdata/with-modules/project1"): struct{}{},
+						filepath.Join(cwd, "testdata/with-modules/project2"): struct{}{},
 					},
-					path.Join(cwd, "testdata/with-modules/modules/module-b-using-a"): {
-						path.Join(cwd, "testdata/with-modules/project1"): struct{}{},
-						path.Join(cwd, "testdata/with-modules/project2"): struct{}{},
+					filepath.Join(cwd, "testdata/with-modules/modules/module-b-using-a"): {
+						filepath.Join(cwd, "testdata/with-modules/project1"): struct{}{},
+						filepath.Join(cwd, "testdata/with-modules/project2"): struct{}{},
 					},
 				},
 			},
@@ -420,17 +420,17 @@ func TestModuleUsage(t *testing.T) {
 			maxDepth: pointer.To(0),
 			exp: &ModuleUsageGraph{
 				EntrypointToModules: map[string]map[string]struct{}{
-					path.Join(cwd, "testdata/with-modules/project1"): {
-						path.Join(cwd, "testdata/with-modules/modules/module-a"):         struct{}{},
-						path.Join(cwd, "testdata/with-modules/modules/module-b-using-a"): struct{}{},
+					filepath.Join(cwd, "testdata/with-modules/project1"): {
+						filepath.Join(cwd, "testdata/with-modules/modules/module-a"):         struct{}{},
+						filepath.Join(cwd, "testdata/with-modules/modules/module-b-using-a"): struct{}{},
 					},
 				},
 				ModulesToEntrypoints: map[string]map[string]struct{}{
-					path.Join(cwd, "testdata/with-modules/modules/module-a"): {
-						path.Join(cwd, "testdata/with-modules/project1"): struct{}{},
+					filepath.Join(cwd, "testdata/with-modules/modules/module-a"): {
+						filepath.Join(cwd, "testdata/with-modules/project1"): struct{}{},
 					},
-					path.Join(cwd, "testdata/with-modules/modules/module-b-using-a"): {
-						path.Join(cwd, "testdata/with-modules/project1"): struct{}{},
+					filepath.Join(cwd, "testdata/with-modules/modules/module-b-using-a"): {
+						filepath.Join(cwd, "testdata/with-modules/project1"): struct{}{},
 					},
 				},
 			},
