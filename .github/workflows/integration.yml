@@ -142,7 +142,7 @@ jobs:
           service_account: '${{ env.GUARDIAN_WIF_SERVICE_ACCOUNT }}'
 
       - name: 'Setup Terraform'
-        uses: 'abcxyz/secure-setup-terraform@15205916f66ec6469e5cf6c8df40304f3b291898' # ratchet:abcxyz/secure-setup-terraform@main
+        uses: 'abcxyz/secure-setup-terraform@4a9ecd3326846493c9ee22209b0981052ca50629' # ratchet:abcxyz/secure-setup-terraform@main
         with:
           terraform_version: '${{ env.GUARDIAN_TERRAFORM_VERSION }}'
           terraform_module_location: './${{ matrix.working_directory }}'
@@ -296,7 +296,7 @@ jobs:
           service_account: '${{ env.GUARDIAN_WIF_SERVICE_ACCOUNT }}'
 
       - name: 'Setup Terraform'
-        uses: 'abcxyz/secure-setup-terraform@15205916f66ec6469e5cf6c8df40304f3b291898' # ratchet:abcxyz/secure-setup-terraform@main
+        uses: 'abcxyz/secure-setup-terraform@4a9ecd3326846493c9ee22209b0981052ca50629' # ratchet:abcxyz/secure-setup-terraform@main
         with:
           terraform_version: '${{ env.GUARDIAN_TERRAFORM_VERSION }}'
           terraform_module_location: './${{ matrix.working_directory }}'
