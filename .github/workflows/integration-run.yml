@@ -1,0 +1,301 @@
+# Copyright 2026 The Authors (see AUTHORS file)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: 'integration-run'
+
+on:
+  workflow_call:
+    inputs:
+      os:
+        description: 'OS to run plan and apply on'
+        type: 'string'
+        required: true
+      binary_suffix:
+        description: 'Binary suffix of the guardian binary for the target OS'
+        type: 'string'
+        required: true
+      binary_name:
+        description: 'Binary name of the guardian binary for the target OS'
+        type: 'string'
+        required: true
+      version:
+        description: 'Version string of the built artifacts'
+        type: 'string'
+        required: true
+
+env:
+  GUARDIAN_WIF_PROVIDER: 'projects/1098665030124/locations/global/workloadIdentityPools/guardian-automation/providers/guardian-ci-i'
+  GUARDIAN_WIF_SERVICE_ACCOUNT: 'guardian-automation-bot@ghg-guardian-ci-i-6ad437.iam.gserviceaccount.com'
+  GUARDIAN_BUCKET_NAME: 'guardian-ci-i-guardian-state-c79e1f4759'
+  GUARDIAN_TERRAFORM_VERSION: '1.7.1'
+  GUARDIAN_LINUX_BINARY: 'guardian_${{ inputs.version }}_linux_amd64'
+
+jobs:
+  init-plan:
+    runs-on: 'ubuntu-latest'
+    permissions:
+      contents: 'read'
+      pull-requests: 'write'
+    outputs:
+      directories: '${{ steps.dirs.outputs.directories }}'
+    steps:
+      - name: 'Checkout'
+        uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # ratchet:actions/checkout@v4
+        with:
+          fetch-depth: 0 # get everything so we can use git diff
+
+      - name: 'Download Guardian'
+        uses: 'actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e' # ratchet:actions/download-artifact@v4
+        with:
+          name: '${{ env.GUARDIAN_LINUX_BINARY }}'
+          path: '${{ runner.temp }}/.guardian'
+
+      - name: 'Setup Guardian'
+        env:
+          INSTALL_PATH: '${{ runner.temp }}/.guardian'
+        run: |-
+          mv "${INSTALL_PATH}/${GUARDIAN_LINUX_BINARY}" "${INSTALL_PATH}/guardian"
+          chmod +x "${INSTALL_PATH}/guardian"
+          echo "${INSTALL_PATH}" >> "${GITHUB_PATH}"
+
+      - name: 'Guardian Remove Previous Comments'
+        shell: 'bash'
+        env:
+          # used to delete old comments on pull requests (access to only this repo)
+          GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
+        run: |-
+          guardian workflows remove-guardian-comments
+
+      - name: 'Guardian Directories'
+        id: 'dirs'
+        shell: 'bash'
+        env:
+          # used to create comments on pull requests (access to only this repo)
+          GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
+          # force the value for pull request body to ensure modifiers work
+          GITHUB_PULL_REQUEST_BODY: 'GUARDIAN_DIR=./terraform/project3'
+        run: |-
+          DIRECTORIES=$(guardian entrypoints -dir=./terraform/project1 -dir=./terraform/project2)
+          echo "entrypoints -> ${DIRECTORIES}"
+          echo "directories=${DIRECTORIES}" >> "${GITHUB_OUTPUT}"
+
+  plan:
+    if: |
+      needs.init-plan.outputs.directories != '[]'
+    needs:
+      - 'init-plan'
+    runs-on: '${{ inputs.os }}'
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+      pull-requests: 'write'
+    strategy:
+      fail-fast: false
+      max-parallel: 100
+      matrix:
+        working_directory: '${{ fromJSON(needs.init-plan.outputs.directories) }}'
+    env:
+      DIRECTORY: '${{ matrix.working_directory }}'
+      GITHUB_JOB_NAME: '${{ github.job }} (${{ matrix.working_directory }})'
+    steps:
+      - name: 'Checkout'
+        uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # ratchet:actions/checkout@v4
+
+      - name: 'Authenticate to Google Cloud'
+        uses: 'google-github-actions/auth@6fc4af4b145ae7821d527454aa9bd537d1f2dc5f' # ratchet:google-github-actions/auth@v2
+        with:
+          workload_identity_provider: '${{ env.GUARDIAN_WIF_PROVIDER }}'
+          service_account: '${{ env.GUARDIAN_WIF_SERVICE_ACCOUNT }}'
+
+      - name: 'Setup Terraform'
+        uses: 'abcxyz/secure-setup-terraform@49760fa93232d16c6317c19c0871dee12f0a2245' # ratchet:abcxyz/secure-setup-terraform@main
+        with:
+          terraform_version: '${{ env.GUARDIAN_TERRAFORM_VERSION }}'
+          terraform_module_location: './${{ matrix.working_directory }}'
+          terraform_lockfile_location: './${{ matrix.working_directory }}'
+          protect_lockfile: true
+          terraform_wrapper: false
+
+      - name: 'Download Guardian'
+        uses: 'actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e' # ratchet:actions/download-artifact@v4
+        with:
+          name: 'guardian_${{ inputs.version }}_${{ inputs.binary_suffix }}'
+          path: '${{ runner.temp }}/.guardian'
+
+      - name: 'Setup Guardian'
+        shell: 'bash'
+        env:
+          INSTALL_PATH: '${{ runner.temp }}/.guardian'
+          BINARY_NAME: 'guardian_${{ inputs.version }}_${{ inputs.binary_suffix }}'
+          TARGET_NAME: '${{ inputs.binary_name }}'
+        run: |-
+          mv "${INSTALL_PATH}/${BINARY_NAME}" "${INSTALL_PATH}/${TARGET_NAME}"
+          chmod +x "${INSTALL_PATH}/${TARGET_NAME}"
+          echo "${INSTALL_PATH}" >> "${GITHUB_PATH}"
+
+      - name: 'Guardian Plan'
+        shell: 'bash'
+        env:
+          # used to create comments on pull requests (access to only this repo)
+          GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
+        run: |-
+          guardian plan -dir="${DIRECTORY}" -storage="gcs://${GUARDIAN_BUCKET_NAME}"
+
+  plan_success:
+    if: '${{ always() }}'
+    needs:
+      - 'init-plan'
+      - 'plan'
+    runs-on: 'ubuntu-latest'
+    permissions:
+      contents: 'read'
+      pull-requests: 'write'
+    steps:
+      - name: 'Checkout'
+        uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # ratchet:actions/checkout@v4
+
+      - name: 'Download Guardian'
+        uses: 'actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e' # ratchet:actions/download-artifact@v4
+        with:
+          name: '${{ env.GUARDIAN_LINUX_BINARY }}'
+          path: '${{ runner.temp }}/.guardian'
+
+      - name: 'Setup Guardian'
+        env:
+          INSTALL_PATH: '${{ runner.temp }}/.guardian'
+        run: |-
+          mv "${INSTALL_PATH}/${GUARDIAN_LINUX_BINARY}" "${INSTALL_PATH}/guardian"
+          chmod +x "${INSTALL_PATH}/guardian"
+          echo "${INSTALL_PATH}" >> "${GITHUB_PATH}"
+
+      - name: 'Guardian Post Plan Status'
+        shell: 'bash'
+        env:
+          # used to create comments on pull requests (access to only this repo)
+          GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
+        run: |-
+          guardian workflows plan-status-comment \
+            -init-result="${{ needs.init-plan.result }}" \
+            -plan-result="${{ needs.plan.result }}"
+
+  init-apply:
+    needs:
+      - 'init-plan'
+      - 'plan'
+    runs-on: 'ubuntu-latest'
+    permissions:
+      contents: 'read'
+      pull-requests: 'write'
+    outputs:
+      directories: '${{ steps.dirs.outputs.directories }}'
+    steps:
+      - name: 'Checkout'
+        uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # ratchet:actions/checkout@v4
+        with:
+          fetch-depth: 0 # get everything so we can use git diff
+
+      - name: 'Download Guardian'
+        uses: 'actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e' # ratchet:actions/download-artifact@v4
+        with:
+          name: '${{ env.GUARDIAN_LINUX_BINARY }}'
+          path: '${{ runner.temp }}/.guardian'
+
+      - name: 'Setup Guardian'
+        env:
+          INSTALL_PATH: '${{ runner.temp }}/.guardian'
+        run: |-
+          mv "${INSTALL_PATH}/${GUARDIAN_LINUX_BINARY}" "${INSTALL_PATH}/guardian"
+          chmod +x "${INSTALL_PATH}/guardian"
+          echo "${INSTALL_PATH}" >> "${GITHUB_PATH}"
+
+      - name: 'Guardian Directories'
+        id: 'dirs'
+        shell: 'bash'
+        env:
+          GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
+          # force the value for pull request body to ensure modifiers work
+          GITHUB_PULL_REQUEST_BODY: 'GUARDIAN_DIR=./terraform/project3'
+        run: |-
+          DIRECTORIES=$(guardian entrypoints -dir=./terraform/project1 -dir=./terraform/project2)
+          echo "entrypoints -> ${DIRECTORIES}"
+          echo "directories=${DIRECTORIES}" >> "${GITHUB_OUTPUT}"
+
+  apply:
+    if: |
+      needs.init-apply.outputs.directories != '[]'
+    needs:
+      - 'init-apply'
+      - 'plan'
+      - 'plan_success'
+    runs-on: '${{ inputs.os }}'
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+      pull-requests: 'write'
+    strategy:
+      fail-fast: false
+      max-parallel: 100
+      matrix:
+        working_directory: '${{ fromJSON(needs.init-apply.outputs.directories) }}'
+    env:
+      DIRECTORY: '${{ matrix.working_directory }}'
+      GITHUB_JOB_NAME: '${{ github.job }} (${{ matrix.working_directory }})'
+    steps:
+      - name: 'Checkout'
+        uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # ratchet:actions/checkout@v4
+
+      - name: 'Authenticate to Google Cloud'
+        uses: 'google-github-actions/auth@6fc4af4b145ae7821d527454aa9bd537d1f2dc5f' # ratchet:google-github-actions/auth@v2
+        with:
+          workload_identity_provider: '${{ env.GUARDIAN_WIF_PROVIDER }}'
+          service_account: '${{ env.GUARDIAN_WIF_SERVICE_ACCOUNT }}'
+
+      - name: 'Setup Terraform'
+        uses: 'abcxyz/secure-setup-terraform@49760fa93232d16c6317c19c0871dee12f0a2245' # ratchet:abcxyz/secure-setup-terraform@main
+        with:
+          terraform_version: '${{ env.GUARDIAN_TERRAFORM_VERSION }}'
+          terraform_module_location: './${{ matrix.working_directory }}'
+          terraform_lockfile_location: './${{ matrix.working_directory }}'
+          protect_lockfile: true
+          terraform_wrapper: false
+
+      - name: 'Download Guardian'
+        uses: 'actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e' # ratchet:actions/download-artifact@v4
+        with:
+          name: 'guardian_${{ inputs.version }}_${{ inputs.binary_suffix }}'
+          path: '${{ runner.temp }}/.guardian'
+
+      - name: 'Setup Guardian'
+        shell: 'bash'
+        env:
+          INSTALL_PATH: '${{ runner.temp }}/.guardian'
+          BINARY_NAME: 'guardian_${{ inputs.version }}_${{ inputs.binary_suffix }}'
+          TARGET_NAME: '${{ inputs.binary_name }}'
+        run: |-
+          mv "${INSTALL_PATH}/${BINARY_NAME}" "${INSTALL_PATH}/${TARGET_NAME}"
+          chmod +x "${INSTALL_PATH}/${TARGET_NAME}"
+          echo "${INSTALL_PATH}" >> "${GITHUB_PATH}"
+
+      - name: 'Guardian Apply'
+        shell: 'bash'
+        env:
+          # used to create comments on pull requests (access to only this repo)
+          GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
+        run: |-
+          guardian apply -dir="${DIRECTORY}" -storage="gcs://${GUARDIAN_BUCKET_NAME}"
+
+      - name: 'Guardian Destroy'
+        shell: 'bash'
+        run: |-
+          guardian run -dir="${DIRECTORY}" -- destroy -input=false -auto-approve
