@@ -16,7 +16,7 @@ package git
 
 import (
 	"os"
-	"path"
+	"path/filepath"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -44,9 +44,9 @@ func TestParseSortedDiffDirsAbs(t *testing.T) {
 testdata/second/test.txt
 testdata/third/test.txt`,
 			exp: []string{
-				path.Join(cwd, "testdata/first"),
-				path.Join(cwd, "testdata/second"),
-				path.Join(cwd, "testdata/third"),
+				filepath.Join(cwd, "testdata/first"),
+				filepath.Join(cwd, "testdata/second"),
+				filepath.Join(cwd, "testdata/third"),
 			},
 		},
 		{
@@ -56,18 +56,18 @@ testdata/second/test.txt
 testdata/third/test.txt
 testdata/fourth/test.txt`,
 			exp: []string{
-				path.Join(cwd, "testdata/first"),
-				path.Join(cwd, "testdata/second"),
-				path.Join(cwd, "testdata/third"),
+				filepath.Join(cwd, "testdata/first"),
+				filepath.Join(cwd, "testdata/second"),
+				filepath.Join(cwd, "testdata/third"),
 			},
 		},
 		{
 			name:  "carriage_return_and_newline",
 			value: "testdata/first/test.txt\r\ntestdata/third/test.txt\r\ntestdata/second/test.txt",
 			exp: []string{
-				path.Join(cwd, "testdata/first"),
-				path.Join(cwd, "testdata/second"),
-				path.Join(cwd, "testdata/third"),
+				filepath.Join(cwd, "testdata/first"),
+				filepath.Join(cwd, "testdata/second"),
+				filepath.Join(cwd, "testdata/third"),
 			},
 		},
 		{
@@ -75,7 +75,7 @@ testdata/fourth/test.txt`,
 			value: `testdata/first
 testdata/second
 testdata/third`,
-			exp: []string{path.Join(cwd, "testdata")},
+			exp: []string{filepath.Join(cwd, "testdata")},
 		},
 		{
 			name:  "handles_empty",

@@ -74,7 +74,7 @@ func ChildPath(base, target string) (string, error) {
 	trimmed := strings.TrimPrefix(absTarget, absBase)
 	trimmed = strings.TrimPrefix(trimmed, string(os.PathSeparator))
 
-	return trimmed, nil
+	return filepath.ToSlash(trimmed), nil
 }
 
 // PathEvalAbs returns the absolute path for a directory after evaluating symlinks.

@@ -18,7 +18,7 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path"
+	"path/filepath"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -73,7 +73,7 @@ func TestEntrypointsProcess(t *testing.T) {
 	}{
 		{
 			name:             "success",
-			directory:        path.Join(cwd, "testdata/backends/project1"),
+			directory:        filepath.Join(cwd, "testdata/backends/project1"),
 			getStatefileResp: emptyStatefile,
 			isEmptyStatefile: true,
 			expStorageClientReqs: []*storage.Request{
@@ -87,7 +87,7 @@ func TestEntrypointsProcess(t *testing.T) {
 		},
 		{
 			name:             "success_no_delete_non_empty",
-			directory:        path.Join(cwd, "testdata/backends/project2"),
+			directory:        filepath.Join(cwd, "testdata/backends/project2"),
 			getStatefileResp: statefileWithResources,
 			isEmptyStatefile: false,
 		},

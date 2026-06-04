@@ -16,6 +16,7 @@ package util
 
 import (
 	"os"
+	"runtime"
 	"testing"
 
 	"github.com/abcxyz/pkg/testutil"
@@ -134,6 +135,13 @@ func TestPathEvalAbs(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	var missingDirErr string
+	if runtime.GOOS == "windows" {
+		missingDirErr = "The system cannot find the file specified"
+	} else {
+		missingDirErr = "no such file or directory"
+	}
+
 	cases := []struct {
 		name string
 		dir  string
@@ -153,7 +161,7 @@ func TestPathEvalAbs(t *testing.T) {
 		{
 			name: "missing_dir",
 			dir:  "./not_a_real_dir",
-			err:  "lstat not_a_real_dir: no such file or directory",
+			err:  missingDirErr,
 		},
 	}
 
