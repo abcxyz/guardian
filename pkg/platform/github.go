@@ -277,8 +277,12 @@ type team struct {
 type organizationTeamsForUserQuery struct {
 	Organization struct {
 		Teams struct {
-			Nodes []team
-		} `graphql:"teams(first: 100)"`
+			Nodes    []team
+			PageInfo struct {
+				HasNextPage bool
+				EndCursor   githubv4.String
+			}
+		} `graphql:"teams(first: 100, after: $cursor)"`
 	} `graphql:"organization(login: $owner)"`
 }
 
@@ -294,24 +298,34 @@ func (g *GitHub) GetUserTeamMemberships(ctx context.Context, username string) ([
 		return nil, fmt.Errorf("username is required")
 	}
 
-	var teamQuery organizationTeamsForUserQuery
-	if err := g.graphqlClient.Query(ctx, &teamQuery, map[string]any{
+	variables := map[string]any{
 		"owner":    githubv4.String(g.cfg.GitHubOwner),
 		"username": githubv4.String(username),
-	}); err != nil {
-		return nil, fmt.Errorf("failed to query user team memberships: %w", err)
+		"cursor":   (*githubv4.String)(nil),
 	}
 
 	res := make([]string, 0)
-	for _, team := range teamQuery.Organization.Teams.Nodes {
-		for _, m := range team.Members.Nodes {
-			// It is important to check for exact matches of the username, due to the
-			// lack of exact username matching in the GraphQL query.
-			if m.Login == username {
-				res = append(res, team.Name)
-				break
+	for {
+		var query organizationTeamsForUserQuery
+		if err := g.graphqlClient.Query(ctx, &query, variables); err != nil {
+			return nil, fmt.Errorf("failed to query user team memberships: %w", err)
+		}
+
+		for _, team := range query.Organization.Teams.Nodes {
+			for _, m := range team.Members.Nodes {
+				// It is important to check for exact matches of the username, due to the
+				// lack of exact username matching in the GraphQL query.
+				if m.Login == username {
+					res = append(res, team.Name)
+					break
+				}
 			}
 		}
+
+		if !query.Organization.Teams.PageInfo.HasNextPage {
+			break
+		}
+		variables["cursor"] = &query.Organization.Teams.PageInfo.EndCursor
 	}
 
 	return res, nil
