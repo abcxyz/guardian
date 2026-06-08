@@ -52,8 +52,8 @@ type MockPlatform struct {
 
 	ListChangeRequestsByCommitResp *ListChangeRequestsByCommitResponse
 	ListChangeRequestsByCommitErr  error
-	ListJobsResp                  []*Job
-	ListJobsErr                   error
+	ListJobsResp                   []*Job
+	ListJobsErr                    error
 }
 
 func (m *MockPlatform) AssignReviewers(ctx context.Context, input *AssignReviewersInput) (*AssignReviewersResult, error) {

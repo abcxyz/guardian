@@ -18,10 +18,10 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/abcxyz/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
 
 	"github.com/abcxyz/guardian/pkg/platform"
-	"github.com/abcxyz/pkg/testutil"
 )
 
 func TestReportCommandFlags(t *testing.T) {
@@ -105,8 +105,8 @@ func TestReportCommandProcess(t *testing.T) {
 		githubRunID                    int64
 		listChangeRequestsByCommitResp *platform.ListChangeRequestsByCommitResponse
 		listChangeRequestsByCommitErr  error
-		listJobsResp                  []*platform.Job
-		listJobsErr                   error
+		listJobsResp                   []*platform.Job
+		listJobsErr                    error
 		err                            string
 		expPlatformClientReqs          []*platform.Request
 	}{
@@ -114,7 +114,7 @@ func TestReportCommandProcess(t *testing.T) {
 			name:                    "plan_success",
 			flagType:                "plan",
 			githubPullRequestNumber: 123,
-			githubRunID:            456,
+			githubRunID:             456,
 			listJobsResp: []*platform.Job{
 				{ID: 11, Name: "job1", URL: "url1"},
 			},
@@ -126,9 +126,9 @@ func TestReportCommandProcess(t *testing.T) {
 			},
 		},
 		{
-			name:      "apply_success_resolves_pr_by_commit",
-			flagType:  "apply",
-			githubSHA: "abcdef123456",
+			name:        "apply_success_resolves_pr_by_commit",
+			flagType:    "apply",
+			githubSHA:   "abcdef123456",
 			githubRunID: 789,
 			listChangeRequestsByCommitResp: &platform.ListChangeRequestsByCommitResponse{
 				PullRequests: []*platform.PullRequest{
@@ -164,11 +164,11 @@ func TestReportCommandProcess(t *testing.T) {
 			},
 		},
 		{
-			name:      "apply_pr_resolution_fails_errors",
-			flagType:  "apply",
-			githubSHA: "abcdef123456",
+			name:                          "apply_pr_resolution_fails_errors",
+			flagType:                      "apply",
+			githubSHA:                     "abcdef123456",
 			listChangeRequestsByCommitErr: fmt.Errorf("network error"),
-			err: "failed to list pull requests for commit [abcdef123456]: network error",
+			err:                           "failed to list pull requests for commit [abcdef123456]: network error",
 			expPlatformClientReqs: []*platform.Request{
 				{
 					Name:   "ListChangeRequestsByCommit",
@@ -180,9 +180,9 @@ func TestReportCommandProcess(t *testing.T) {
 			name:                    "list_jobs_fails_errors",
 			flagType:                "plan",
 			githubPullRequestNumber: 123,
-			githubRunID:            456,
-			listJobsErr:            fmt.Errorf("api error"),
-			err:                    "failed to list jobs for run [456]: api error",
+			githubRunID:             456,
+			listJobsErr:             fmt.Errorf("api error"),
+			err:                     "failed to list jobs for run [456]: api error",
 			expPlatformClientReqs: []*platform.Request{
 				{
 					Name:   "ListJobs",
@@ -199,12 +199,12 @@ func TestReportCommandProcess(t *testing.T) {
 			mockPlatformClient := &platform.MockPlatform{
 				ListChangeRequestsByCommitResp: tc.listChangeRequestsByCommitResp,
 				ListChangeRequestsByCommitErr:  tc.listChangeRequestsByCommitErr,
-				ListJobsResp:                  tc.listJobsResp,
-				ListJobsErr:                   tc.listJobsErr,
+				ListJobsResp:                   tc.listJobsResp,
+				ListJobsErr:                    tc.listJobsErr,
 			}
 
 			c := &ReportCommand{
-				flagType: tc.flagType,
+				flagType:       tc.flagType,
 				platformClient: mockPlatformClient,
 			}
 			c.platformConfig.GitHub.GitHubPullRequestNumber = tc.githubPullRequestNumber
