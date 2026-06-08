@@ -709,15 +709,8 @@ func validateGitHubReporterInputs(cfg *gh.Config) error {
 	return merr
 }
 
-// Job is the GitHub Job that runs as part of a workflow.
-type job struct {
-	ID   int64
-	Name string
-	URL  string
-}
-
 func (g *GitHub) resolveJobLogsURL(ctx context.Context) (string, error) {
-	var jobs []*job
+	var jobs []*Job
 
 	if err := g.withRetries(ctx, func(ctx context.Context) error {
 		ghJobs, resp, err := g.client.Actions.ListWorkflowJobs(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, g.cfg.GitHubRunID, nil)
@@ -731,7 +724,7 @@ func (g *GitHub) resolveJobLogsURL(ctx context.Context) (string, error) {
 		}
 
 		for _, workflowJob := range ghJobs.Jobs {
-			jobs = append(jobs, &job{ID: workflowJob.GetID(), Name: workflowJob.GetName(), URL: *workflowJob.HTMLURL})
+			jobs = append(jobs, &Job{ID: workflowJob.GetID(), Name: workflowJob.GetName(), URL: workflowJob.GetHTMLURL()})
 		}
 		return nil
 	}); err != nil {
@@ -744,6 +737,48 @@ func (g *GitHub) resolveJobLogsURL(ctx context.Context) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("failed to resolve direct URL to job logs: no job found matching name %s", g.cfg.GitHubJobName)
+}
+
+// ListJobs lists all jobs running as part of a GHA workflow run with pagination.
+func (g *GitHub) ListJobs(ctx context.Context, runID int64) ([]*Job, error) {
+	var jobs []*Job
+	listOpts := &github.ListWorkflowJobsOptions{
+		ListOptions: github.ListOptions{
+			PerPage: 100,
+		},
+	}
+
+	for {
+		var ghJobs *github.Jobs
+		var nextPage int
+		if err := g.withRetries(ctx, func(ctx context.Context) error {
+			var resp *github.Response
+			var err error
+			ghJobs, resp, err = g.client.Actions.ListWorkflowJobs(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, runID, listOpts)
+			if err != nil {
+				return maybeRetryable(resp, fmt.Errorf("failed to list jobs for workflow run [%d]: %w", runID, err))
+			}
+			nextPage = resp.NextPage
+			return nil
+		}); err != nil {
+			return nil, err
+		}
+
+		for _, j := range ghJobs.Jobs {
+			jobs = append(jobs, &Job{
+				ID:   j.GetID(),
+				Name: j.GetName(),
+				URL:  j.GetHTMLURL(),
+			})
+		}
+
+		if nextPage == 0 {
+			break
+		}
+		listOpts.Page = nextPage
+	}
+
+	return jobs, nil
 }
 
 // PullRequest is a GitHub pull request.
