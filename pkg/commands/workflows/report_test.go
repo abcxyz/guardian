@@ -15,8 +15,12 @@
 package workflows
 
 import (
+	"fmt"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+
+	"github.com/abcxyz/guardian/pkg/platform"
 	"github.com/abcxyz/pkg/testutil"
 )
 
@@ -83,6 +87,137 @@ func TestReportCommandFlags(t *testing.T) {
 			err := f.Parse(args)
 			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
 				t.Error(diff)
+			}
+		})
+	}
+}
+
+func TestReportCommandProcess(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+
+	cases := []struct {
+		name                           string
+		flagType                       string
+		githubPullRequestNumber        int
+		githubSHA                      string
+		githubRunID                    int64
+		listChangeRequestsByCommitResp *platform.ListChangeRequestsByCommitResponse
+		listChangeRequestsByCommitErr  error
+		listJobsResp                  []*platform.Job
+		listJobsErr                   error
+		err                            string
+		expPlatformClientReqs          []*platform.Request
+	}{
+		{
+			name:                    "plan_success",
+			flagType:                "plan",
+			githubPullRequestNumber: 123,
+			githubRunID:            456,
+			listJobsResp: []*platform.Job{
+				{ID: 11, Name: "job1", URL: "url1"},
+			},
+			expPlatformClientReqs: []*platform.Request{
+				{
+					Name:   "ListJobs",
+					Params: []any{int64(456)},
+				},
+			},
+		},
+		{
+			name:      "apply_success_resolves_pr_by_commit",
+			flagType:  "apply",
+			githubSHA: "abcdef123456",
+			githubRunID: 789,
+			listChangeRequestsByCommitResp: &platform.ListChangeRequestsByCommitResponse{
+				PullRequests: []*platform.PullRequest{
+					{Number: 123},
+				},
+			},
+			listJobsResp: []*platform.Job{
+				{ID: 22, Name: "job2", URL: "url2"},
+			},
+			expPlatformClientReqs: []*platform.Request{
+				{
+					Name:   "ListChangeRequestsByCommit",
+					Params: []any{"abcdef123456", (*platform.ListChangeRequestsByCommitOptions)(nil)},
+				},
+				{
+					Name:   "ListJobs",
+					Params: []any{int64(789)},
+				},
+			},
+		},
+		{
+			name:      "apply_no_associated_pr_skips_reporting",
+			flagType:  "apply",
+			githubSHA: "abcdef123456",
+			listChangeRequestsByCommitResp: &platform.ListChangeRequestsByCommitResponse{
+				PullRequests: []*platform.PullRequest{},
+			},
+			expPlatformClientReqs: []*platform.Request{
+				{
+					Name:   "ListChangeRequestsByCommit",
+					Params: []any{"abcdef123456", (*platform.ListChangeRequestsByCommitOptions)(nil)},
+				},
+			},
+		},
+		{
+			name:      "apply_pr_resolution_fails_errors",
+			flagType:  "apply",
+			githubSHA: "abcdef123456",
+			listChangeRequestsByCommitErr: fmt.Errorf("network error"),
+			err: "failed to list pull requests for commit [abcdef123456]: network error",
+			expPlatformClientReqs: []*platform.Request{
+				{
+					Name:   "ListChangeRequestsByCommit",
+					Params: []any{"abcdef123456", (*platform.ListChangeRequestsByCommitOptions)(nil)},
+				},
+			},
+		},
+		{
+			name:                    "list_jobs_fails_errors",
+			flagType:                "plan",
+			githubPullRequestNumber: 123,
+			githubRunID:            456,
+			listJobsErr:            fmt.Errorf("api error"),
+			err:                    "failed to list jobs for run [456]: api error",
+			expPlatformClientReqs: []*platform.Request{
+				{
+					Name:   "ListJobs",
+					Params: []any{int64(456)},
+				},
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			mockPlatformClient := &platform.MockPlatform{
+				ListChangeRequestsByCommitResp: tc.listChangeRequestsByCommitResp,
+				ListChangeRequestsByCommitErr:  tc.listChangeRequestsByCommitErr,
+				ListJobsResp:                  tc.listJobsResp,
+				ListJobsErr:                   tc.listJobsErr,
+			}
+
+			c := &ReportCommand{
+				flagType: tc.flagType,
+				platformClient: mockPlatformClient,
+			}
+			c.platformConfig.GitHub.GitHubPullRequestNumber = tc.githubPullRequestNumber
+			c.platformConfig.GitHub.GitHubSHA = tc.githubSHA
+			c.platformConfig.GitHub.GitHubRunID = tc.githubRunID
+
+			err := c.Process(ctx)
+			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
+				t.Error(diff)
+			}
+
+			if diff := cmp.Diff(mockPlatformClient.Reqs, tc.expPlatformClientReqs); diff != "" {
+				t.Errorf("MockPlatform requests mismatch (-got,+want):\n%s", diff)
 			}
 		})
 	}

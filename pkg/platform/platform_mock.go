@@ -49,6 +49,11 @@ type MockPlatform struct {
 	ReportStatusErr             error
 	ReportEntrypointsSummaryErr error
 	ClearReportsErr             error
+
+	ListChangeRequestsByCommitResp *ListChangeRequestsByCommitResponse
+	ListChangeRequestsByCommitErr  error
+	ListJobsResp                  []*Job
+	ListJobsErr                   error
 }
 
 func (m *MockPlatform) AssignReviewers(ctx context.Context, input *AssignReviewersInput) (*AssignReviewersResult, error) {
@@ -245,5 +250,30 @@ func (m *MockPlatform) ClearReports(ctx context.Context) error {
 
 // ListChangeRequestsByCommit lists the change requests associated with a commit SHA.
 func (m *MockPlatform) ListChangeRequestsByCommit(ctx context.Context, sha string, opts *ListChangeRequestsByCommitOptions) (*ListChangeRequestsByCommitResponse, error) {
-	return nil, nil
+	m.reqMu.Lock()
+	defer m.reqMu.Unlock()
+	m.Reqs = append(m.Reqs, &Request{
+		Name:   "ListChangeRequestsByCommit",
+		Params: []any{sha, opts},
+	})
+
+	if m.ListChangeRequestsByCommitErr != nil {
+		return nil, m.ListChangeRequestsByCommitErr
+	}
+	return m.ListChangeRequestsByCommitResp, nil
+}
+
+// ListJobs lists the jobs from GHA workflows.
+func (m *MockPlatform) ListJobs(ctx context.Context, runID int64) ([]*Job, error) {
+	m.reqMu.Lock()
+	defer m.reqMu.Unlock()
+	m.Reqs = append(m.Reqs, &Request{
+		Name:   "ListJobs",
+		Params: []any{runID},
+	})
+
+	if m.ListJobsErr != nil {
+		return nil, m.ListJobsErr
+	}
+	return m.ListJobsResp, nil
 }

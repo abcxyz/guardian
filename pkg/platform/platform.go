@@ -113,6 +113,13 @@ type Pagination struct {
 	NextPage int
 }
 
+// Job is a CI/CD Job that runs as part of a workflow/pipeline.
+type Job struct {
+	ID   int64
+	Name string
+	URL  string
+}
+
 // Platform defines the minimum interface for a code review platform.
 type Platform interface {
 	// AssignReviewers assigns principals to review a change request.
@@ -152,6 +159,9 @@ type Platform interface {
 
 	// ClearReports clears any existing reports that can be removed.
 	ClearReports(ctx context.Context) error
+
+	// ListJobs lists all jobs running as part of a workflow/pipeline run.
+	ListJobs(ctx context.Context, runID int64) ([]*Job, error)
 }
 
 // NewPlatform creates a new platform based on the provided type.

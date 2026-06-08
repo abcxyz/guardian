@@ -390,3 +390,8 @@ func (g *GitLab) withRetries(ctx context.Context, retryFunc retry.RetryFunc) err
 func (g *GitLab) ListChangeRequestsByCommit(ctx context.Context, sha string, opts *ListChangeRequestsByCommitOptions) (*ListChangeRequestsByCommitResponse, error) {
 	return nil, nil
 }
+
+// ListJobs is a no-op.
+func (g *GitLab) ListJobs(ctx context.Context, runID int64) ([]*Job, error) {
+	return nil, nil
+}

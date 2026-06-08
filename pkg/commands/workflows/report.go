@@ -121,7 +121,28 @@ func (c *ReportCommand) Run(ctx context.Context, args []string) error {
 }
 
 func (c *ReportCommand) Process(ctx context.Context) error {
-	// Stub implementation for initial PR
-	c.Outf("report command scaffolding works. type: %s, entrypoints: %s, artifacts: %s", c.flagType, c.flagEntrypoints, c.flagArtifactsDir)
+	var prNumber int
+	if c.flagType == "plan" {
+		prNumber = c.platformConfig.GitHub.GitHubPullRequestNumber
+	} else {
+		// For apply (on push event), look up PR number associated with the commit SHA
+		resp, err := c.platformClient.ListChangeRequestsByCommit(ctx, c.platformConfig.GitHub.GitHubSHA, nil)
+		if err != nil {
+			return fmt.Errorf("failed to list pull requests for commit [%s]: %w", c.platformConfig.GitHub.GitHubSHA, err)
+		}
+		if len(resp.PullRequests) == 0 {
+			c.Outf("no pull requests found for commit [%s], skipping reporting", c.platformConfig.GitHub.GitHubSHA)
+			return nil
+		}
+		prNumber = resp.PullRequests[0].Number
+	}
+
+	// Fetch all Jobs for current run ID
+	jobs, err := c.platformClient.ListJobs(ctx, c.platformConfig.GitHub.GitHubRunID)
+	if err != nil {
+		return fmt.Errorf("failed to list jobs for run [%d]: %w", c.platformConfig.GitHub.GitHubRunID, err)
+	}
+
+	c.Outf("successfully completed API integration checks. resolved PR: #%d, total GHA jobs fetched: %d", prNumber, len(jobs))
 	return nil
 }
