@@ -391,7 +391,7 @@ func (g *GitLab) ListChangeRequestsByCommit(ctx context.Context, sha string, opt
 	return nil, nil
 }
 
-// ListJobs is a no-op.
+// ListJobs is a no-op because GitLab platform support is currently not implemented.
 func (g *GitLab) ListJobs(ctx context.Context, runID int64) ([]*Job, error) {
 	return nil, nil
 }

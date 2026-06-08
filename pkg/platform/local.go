@@ -92,7 +92,7 @@ func (l *Local) ListChangeRequestsByCommit(ctx context.Context, sha string, opts
 	return nil, nil
 }
 
-// ListJobs is a no-op.
+// ListJobs is a no-op because the local platform does not run GHA workflows or pipelines.
 func (l *Local) ListJobs(ctx context.Context, runID int64) ([]*Job, error) {
 	return nil, nil
 }
