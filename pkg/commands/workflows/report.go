@@ -196,7 +196,7 @@ func (c *ReportCommand) Process(ctx context.Context) error {
 	}
 
 	// Generate Markdown Summary Comment
-	var rows []summaryRow
+	rows := make([]summaryRow, 0, len(entrypoints))
 	for _, entrypoint := range entrypoints {
 		status := "⛔&nbsp;UNKNOWN"
 		logLink := "-"
