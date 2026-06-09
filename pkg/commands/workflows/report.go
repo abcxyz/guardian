@@ -16,9 +16,16 @@ package workflows
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"text/template"
+
+	"github.com/google/go-github/v53/github"
 
 	"github.com/abcxyz/guardian/internal/metricswrap"
 	"github.com/abcxyz/guardian/pkg/platform"
@@ -143,6 +150,259 @@ func (c *ReportCommand) Process(ctx context.Context) error {
 		return fmt.Errorf("failed to list jobs for run [%d]: %w", c.platformConfig.GitHub.GitHubRunID, err)
 	}
 
-	c.Outf("successfully completed API integration checks. resolved PR: #%d, total GHA jobs fetched: %d", prNumber, len(jobs))
+	// Parse entrypoints
+	var entrypoints []string
+	var entrypointsData []byte
+	if _, err := os.Stat(c.flagEntrypoints); err == nil {
+		entrypointsData, err = os.ReadFile(c.flagEntrypoints)
+		if err != nil {
+			return fmt.Errorf("failed to read entrypoints file [%s]: %w", c.flagEntrypoints, err)
+		}
+	} else {
+		entrypointsData = []byte(c.flagEntrypoints)
+	}
+
+	if err := json.Unmarshal(entrypointsData, &entrypoints); err != nil {
+		return fmt.Errorf("failed to parse entrypoints JSON: %w", err)
+	}
+
+	// Map entrypoints to GHA jobs
+	jobStatuses := make(map[string]*platform.Job)
+	for _, entrypoint := range entrypoints {
+		for _, job := range jobs {
+			if strings.Contains(strings.ToLower(job.Name), strings.ToLower(entrypoint)) {
+				jobStatuses[entrypoint] = job
+				break
+			}
+		}
+	}
+
+	// Read and parse plan stats (plan only)
+	planStats := make(map[string]*planStat)
+	if c.flagType == "plan" {
+		for _, entrypoint := range entrypoints {
+			p, err := findPlanFile(c.flagArtifactsDir, entrypoint)
+			if err != nil {
+				planStats[entrypoint] = &planStat{Err: err}
+				continue
+			}
+			add, chg, del, err := parsePlanFile(p)
+			if err != nil {
+				planStats[entrypoint] = &planStat{Err: err}
+				continue
+			}
+			planStats[entrypoint] = &planStat{Added: add, Changed: chg, Deleted: del}
+		}
+	}
+
+	// Generate Markdown Summary Comment
+	var rows []summaryRow
+	for _, entrypoint := range entrypoints {
+		status := "⛔&nbsp;UNKNOWN"
+		logLink := "-"
+		notes := "-"
+		statsStr := "-"
+
+		job, hasJob := jobStatuses[entrypoint]
+		if hasJob {
+			logLink = fmt.Sprintf("<a href=\"%s\" target=\"_blank\">View Log</a>", job.URL)
+			switch job.Conclusion {
+			case "success":
+				status = "🟩&nbsp;SUCCESS"
+			case "failure":
+				status = "🟥&nbsp;FAILED"
+			case "skipped":
+				status = "🟨&nbsp;SKIPPED"
+			case "cancelled":
+				status = "🟨&nbsp;CANCELLED"
+			default:
+				status = fmt.Sprintf("⛔&nbsp;%s", strings.ToUpper(job.Conclusion))
+			}
+		}
+
+		if c.flagType == "plan" {
+			stat, ok := planStats[entrypoint]
+			if ok {
+				if stat.Err != nil {
+					notes = fmt.Sprintf("⚠️ %s", stat.Err.Error())
+				} else {
+					statsStr = fmt.Sprintf("<span style=\"white-space: nowrap;\">%+d&nbsp;~%d&nbsp;-%d</span>", stat.Added, stat.Changed, stat.Deleted)
+				}
+			} else {
+				notes = "⚠️ Missing tfplan.json"
+			}
+		}
+		rows = append(rows, summaryRow{
+			Directory: entrypoint,
+			Status:    status,
+			Stats:     statsStr,
+			Notes:     notes,
+			LogLink:   logLink,
+		})
+	}
+
+	var sb strings.Builder
+	var commentPrefix string
+	var tmplText string
+	if c.flagType == "plan" {
+		commentPrefix = "#### 🔱 Guardian 🔱 **`PLAN SUMMARY`**"
+		tmplText = planSummaryTemplate
+	} else {
+		commentPrefix = "#### 🔱 Guardian 🔱 **`APPLY SUMMARY`**"
+		tmplText = applySummaryTemplate
+	}
+
+	tmpl, err := template.New("summary").Parse(tmplText)
+	if err != nil {
+		return fmt.Errorf("failed to parse summary template: %w", err)
+	}
+
+	if err := tmpl.Execute(&sb, map[string]any{"Rows": rows}); err != nil {
+		return fmt.Errorf("failed to execute summary template: %w", err)
+	}
+
+	// Delete old summary comments
+	listOpts := &platform.ListReportsOptions{
+		GitHub: &github.IssueListCommentsOptions{
+			ListOptions: github.ListOptions{
+				PerPage: 100,
+			},
+		},
+	}
+
+	var allReports []*platform.Report
+	for {
+		res, err := c.platformClient.ListReports(ctx, prNumber, listOpts)
+		if err != nil {
+			return fmt.Errorf("failed to list comments on PR [#%d]: %w", prNumber, err)
+		}
+		allReports = append(allReports, res.Reports...)
+		if res.Pagination == nil || res.Pagination.NextPage == 0 {
+			break
+		}
+		listOpts.GitHub.Page = res.Pagination.NextPage
+	}
+
+	for _, r := range allReports {
+		if strings.HasPrefix(r.Body, commentPrefix) {
+			if err := c.platformClient.DeleteReport(ctx, r.ID); err != nil {
+				c.Errf("warning: failed to delete old summary comment: %v", err)
+			}
+		}
+	}
+
+	// Post the new summary report comment
+	if err := c.platformClient.CreateReport(ctx, prNumber, sb.String()); err != nil {
+		return fmt.Errorf("failed to post summary report on PR [#%d]: %w", prNumber, err)
+	}
+
+	c.Outf("successfully posted summary report on PR [#%d]", prNumber)
 	return nil
+}
+
+type planJSON struct {
+	ResourceChanges []resourceChange `json:"resource_changes"`
+}
+
+type resourceChange struct {
+	Address string `json:"address"`
+	Change  change `json:"change"`
+}
+
+type change struct {
+	Actions []string `json:"actions"`
+}
+
+type planStat struct {
+	Added   int
+	Changed int
+	Deleted int
+	Err     error
+}
+
+func parsePlanFile(p string) (int, int, int, error) {
+	data, err := os.ReadFile(p)
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("failed to read file: %w", err)
+	}
+
+	var plan planJSON
+	if err := json.Unmarshal(data, &plan); err != nil {
+		return 0, 0, 0, fmt.Errorf("failed to parse JSON: %w", err)
+	}
+
+	var added, changed, deleted int
+	for _, rc := range plan.ResourceChanges {
+		actions := rc.Change.Actions
+		if len(actions) == 0 {
+			continue
+		}
+
+		isDelete := false
+		isCreate := false
+		isUpdate := false
+		for _, a := range actions {
+			switch a {
+			case "create":
+				isCreate = true
+			case "delete":
+				isDelete = true
+			case "update":
+				isUpdate = true
+			}
+		}
+
+		if isCreate && isDelete {
+			added++
+			deleted++
+		} else if isCreate {
+			added++
+		} else if isDelete {
+			deleted++
+		} else if isUpdate {
+			changed++
+		}
+	}
+
+	return added, changed, deleted, nil
+}
+
+func findPlanFile(artifactsDir, entrypoint string) (string, error) {
+	slug := strings.ReplaceAll(entrypoint, "/", "-")
+
+	paths := []string{
+		filepath.Join(artifactsDir, entrypoint, "tfplan.json"),
+		filepath.Join(artifactsDir, "tfplan-"+slug, "tfplan.json"),
+		filepath.Join(artifactsDir, slug, "tfplan.json"),
+	}
+
+	for _, p := range paths {
+		if _, err := os.Stat(p); err == nil {
+			return p, nil
+		}
+	}
+
+	return "", fmt.Errorf("no tfplan.json found")
+}
+
+const planSummaryTemplate = "#### 🔱 Guardian 🔱 **`PLAN SUMMARY`**\n\n" +
+	"| Directory | Status | Stats | Notes | Log |\n" +
+	"| :--- | :--- | :--- | :--- | :--- |\n" +
+	"{{- range .Rows }}\n" +
+	"| `{{.Directory}}` | <span style=\"white-space: nowrap;\">{{.Status}}</span> | {{.Stats}} | {{.Notes}} | {{.LogLink}} |\n" +
+	"{{- end }}\n"
+
+const applySummaryTemplate = "#### 🔱 Guardian 🔱 **`APPLY SUMMARY`**\n\n" +
+	"| Directory | Status | Notes | Log |\n" +
+	"| :--- | :--- | :--- | :--- |\n" +
+	"{{- range .Rows }}\n" +
+	"| `{{.Directory}}` | <span style=\"white-space: nowrap;\">{{.Status}}</span> | {{.Notes}} | {{.LogLink}} |\n" +
+	"{{- end }}\n"
+
+type summaryRow struct {
+	Directory string
+	Status    string
+	Stats     string
+	Notes     string
+	LogLink   string
 }

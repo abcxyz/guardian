@@ -54,6 +54,7 @@ type MockPlatform struct {
 	ListChangeRequestsByCommitErr  error
 	ListJobsResp                   []*Job
 	ListJobsErr                    error
+	CreateReportErr                error
 }
 
 func (m *MockPlatform) AssignReviewers(ctx context.Context, input *AssignReviewersInput) (*AssignReviewersResult, error) {
@@ -190,11 +191,14 @@ func (m *MockPlatform) ReportStatus(ctx context.Context, s Status, p *StatusPara
 }
 
 // ListReports lists existing reports for an issue or change request.
-func (m *MockPlatform) ListReports(ctx context.Context, opts *ListReportsOptions) (*ListReportsResult, error) {
+func (m *MockPlatform) ListReports(ctx context.Context, changeRequestID int, opts *ListReportsOptions) (*ListReportsResult, error) {
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
 	m.Reqs = append(m.Reqs,
-		&Request{Name: "ListReports"},
+		&Request{
+			Name:   "ListReports",
+			Params: []any{changeRequestID, opts},
+		},
 	)
 
 	if m.ListReportsErr != nil {
@@ -211,7 +215,10 @@ func (m *MockPlatform) DeleteReport(ctx context.Context, id any) error {
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
 	m.Reqs = append(m.Reqs,
-		&Request{Name: "DeleteReport"},
+		&Request{
+			Name:   "DeleteReport",
+			Params: []any{id},
+		},
 	)
 
 	if m.DeleteReportErr != nil {
@@ -238,11 +245,12 @@ func (m *MockPlatform) ReportEntrypointsSummary(ctx context.Context, p *Entrypoi
 }
 
 // ClearReports clears any existing reports that can be removed.
-func (m *MockPlatform) ClearReports(ctx context.Context) error {
+func (m *MockPlatform) ClearReports(ctx context.Context, changeRequestID int) error {
 	m.reqMu.Lock()
 	defer m.reqMu.Unlock()
 	m.Reqs = append(m.Reqs, &Request{
-		Name: "Clear",
+		Name:   "Clear",
+		Params: []any{changeRequestID},
 	})
 
 	return m.ClearReportsErr
@@ -276,4 +284,16 @@ func (m *MockPlatform) ListJobs(ctx context.Context, runID int64) ([]*Job, error
 		return nil, m.ListJobsErr
 	}
 	return m.ListJobsResp, nil
+}
+
+// CreateReport mock implementation.
+func (m *MockPlatform) CreateReport(ctx context.Context, changeRequestID int, body string) error {
+	m.reqMu.Lock()
+	defer m.reqMu.Unlock()
+	m.Reqs = append(m.Reqs, &Request{
+		Name:   "CreateReport",
+		Params: []any{changeRequestID, body},
+	})
+
+	return m.CreateReportErr
 }

@@ -115,9 +115,11 @@ type Pagination struct {
 
 // Job is a CI/CD Job that runs as part of a workflow/pipeline.
 type Job struct {
-	ID   int64
-	Name string
-	URL  string
+	ID         int64
+	Name       string
+	URL        string
+	Status     string
+	Conclusion string
 }
 
 // Platform defines the minimum interface for a code review platform.
@@ -140,7 +142,7 @@ type Platform interface {
 	GetPolicyData(ctx context.Context) (*GetPolicyDataResult, error)
 
 	// ListReports lists existing reports for an issue or change request.
-	ListReports(ctx context.Context, opts *ListReportsOptions) (*ListReportsResult, error)
+	ListReports(ctx context.Context, changeRequestID int, opts *ListReportsOptions) (*ListReportsResult, error)
 
 	// ListChangeRequestsByCommit lists the change requests associated with a commit SHA.
 	ListChangeRequestsByCommit(ctx context.Context, sha string, opts *ListChangeRequestsByCommitOptions) (*ListChangeRequestsByCommitResponse, error)
@@ -158,10 +160,13 @@ type Platform interface {
 	ReportEntrypointsSummary(ctx context.Context, params *EntrypointsSummaryParams) error
 
 	// ClearReports clears any existing reports that can be removed.
-	ClearReports(ctx context.Context) error
+	ClearReports(ctx context.Context, changeRequestID int) error
 
 	// ListJobs lists all jobs running as part of a workflow/pipeline run.
 	ListJobs(ctx context.Context, runID int64) ([]*Job, error)
+
+	// CreateReport posts a comment/note on an issue or change request.
+	CreateReport(ctx context.Context, changeRequestID int, body string) error
 }
 
 // NewPlatform creates a new platform based on the provided type.
