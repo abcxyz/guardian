@@ -169,8 +169,28 @@ func (c *ReportCommand) Process(ctx context.Context) error {
 	// Map entrypoints to GHA jobs
 	jobStatuses := make(map[string]*platform.Job)
 	for _, entrypoint := range entrypoints {
+		parts := strings.Split(entrypoint, "/")
+		var orgName string
+		if len(parts) >= 2 {
+			if parts[0] == "terraform" {
+				orgName = parts[1]
+			} else {
+				orgName = parts[0]
+			}
+		}
+
 		for _, job := range jobs {
-			if strings.Contains(strings.ToLower(job.Name), strings.ToLower(entrypoint)) {
+			lowerJobName := strings.ToLower(job.Name)
+			lowerEntrypoint := strings.ToLower(entrypoint)
+
+			// Works for standard matrix where job name contains full entrypoint path
+			if strings.Contains(lowerJobName, lowerEntrypoint) {
+				jobStatuses[entrypoint] = job
+				break
+			}
+
+			// Works for org batching where job name contains org name in parentheses
+			if orgName != "" && strings.Contains(lowerJobName, "("+strings.ToLower(orgName)+")") {
 				jobStatuses[entrypoint] = job
 				break
 			}
@@ -218,6 +238,8 @@ func (c *ReportCommand) Process(ctx context.Context) error {
 			default:
 				status = fmt.Sprintf("⛔&nbsp;%s", strings.ToUpper(job.Conclusion))
 			}
+		} else {
+			notes = "⚠️ Job not found in run"
 		}
 
 		if c.flagType == "plan" {
@@ -227,9 +249,14 @@ func (c *ReportCommand) Process(ctx context.Context) error {
 					notes = fmt.Sprintf("⚠️ %s", stat.Err.Error())
 				} else {
 					statsStr = fmt.Sprintf("<span style=\"white-space: nowrap;\">%+d&nbsp;~%d&nbsp;-%d</span>", stat.Added, stat.Changed, stat.Deleted)
+					if hasJob {
+						notes = "-"
+					}
 				}
-			} else {
+			} else if hasJob {
 				notes = "⚠️ Missing tfplan.json"
+			} else {
+				notes = "⚠️ Job not found in run"
 			}
 		}
 		rows = append(rows, summaryRow{
@@ -241,7 +268,7 @@ func (c *ReportCommand) Process(ctx context.Context) error {
 		})
 	}
 
-	var sb strings.Builder
+	const maxLength = 60000
 	var commentPrefix string
 	var tmplText string
 	if c.flagType == "plan" {
@@ -252,12 +279,29 @@ func (c *ReportCommand) Process(ctx context.Context) error {
 		tmplText = applySummaryTemplate
 	}
 
+	currentLen := len(commentPrefix) + 200
+	finalRows := make([]summaryRow, 0, len(rows))
+	var truncated bool
+	for _, r := range rows {
+		rowLen := len(r.Directory) + len(r.Status) + len(r.Stats) + len(r.Notes) + len(r.LogLink) + 20
+		if currentLen+rowLen > maxLength {
+			truncated = true
+			break
+		}
+		finalRows = append(finalRows, r)
+		currentLen += rowLen
+	}
+
+	var sb strings.Builder
 	tmpl, err := template.New("summary").Parse(tmplText)
 	if err != nil {
 		return fmt.Errorf("failed to parse summary template: %w", err)
 	}
 
-	if err := tmpl.Execute(&sb, map[string]any{"Rows": rows}); err != nil {
+	if err := tmpl.Execute(&sb, map[string]any{
+		"Rows":      finalRows,
+		"Truncated": truncated,
+	}); err != nil {
 		return fmt.Errorf("failed to execute summary template: %w", err)
 	}
 
@@ -388,16 +432,18 @@ func findPlanFile(artifactsDir, entrypoint string) (string, error) {
 const planSummaryTemplate = "#### 🔱 Guardian 🔱 **`PLAN SUMMARY`**\n\n" +
 	"| Directory | Status | Stats | Notes | Log |\n" +
 	"| :--- | :--- | :--- | :--- | :--- |\n" +
-	"{{- range .Rows }}\n" +
+	"{{range .Rows}}" +
 	"| `{{.Directory}}` | <span style=\"white-space: nowrap;\">{{.Status}}</span> | {{.Stats}} | {{.Notes}} | {{.LogLink}} |\n" +
-	"{{- end }}\n"
+	"{{end}}" +
+	"{{if .Truncated}}\n\n> ⚠️ **Notice**: The report was truncated due to the character limit. Please check the full list and output artifacts in GitHub Actions logs.\n{{end}}"
 
 const applySummaryTemplate = "#### 🔱 Guardian 🔱 **`APPLY SUMMARY`**\n\n" +
 	"| Directory | Status | Notes | Log |\n" +
 	"| :--- | :--- | :--- | :--- |\n" +
-	"{{- range .Rows }}\n" +
+	"{{range .Rows}}" +
 	"| `{{.Directory}}` | <span style=\"white-space: nowrap;\">{{.Status}}</span> | {{.Notes}} | {{.LogLink}} |\n" +
-	"{{- end }}\n"
+	"{{end}}" +
+	"{{if .Truncated}}\n\n> ⚠️ **Notice**: The report was truncated due to the character limit.\n{{end}}"
 
 type summaryRow struct {
 	Directory string

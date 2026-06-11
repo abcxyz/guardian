@@ -17,6 +17,7 @@ package workflows
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -180,6 +181,105 @@ func TestReportCommandProcess(t *testing.T) {
 							"| Directory | Status | Stats | Notes | Log |\n" +
 							"| :--- | :--- | :--- | :--- | :--- |\n" +
 							"| `terraform/github/abseil` | <span style=\"white-space: nowrap;\">🟩&nbsp;SUCCESS</span> | <span style=\"white-space: nowrap;\">+2&nbsp;~1&nbsp;-2</span> | - | <a href=\"job_url_11\" target=\"_blank\">View Log</a> |\n",
+					},
+				},
+			},
+		},
+		{
+			name:                    "plan_success_with_org_coalescing",
+			flagType:                "plan",
+			flagEntrypoints:         `["terraform/google-gh-automation/repositories/auto-fairy"]`,
+			githubPullRequestNumber: 123,
+			githubRunID:             456,
+			flagArtifactsDir: func(t *testing.T) string {
+				t.Helper()
+				dir := t.TempDir()
+				artifactDir := filepath.Join(dir, "tfplan-terraform-google-gh-automation-repositories-auto-fairy")
+				if err := os.MkdirAll(artifactDir, 0o755); err != nil {
+					t.Fatalf("failed to create temp dir: %v", err)
+				}
+				planContent := `{
+					"resource_changes": [
+						{"address": "res1", "change": {"actions": ["create"]}}
+					]
+				}`
+				if err := os.WriteFile(filepath.Join(artifactDir, "tfplan.json"), []byte(planContent), 0o600); err != nil {
+					t.Fatalf("failed to write mock tfplan.json: %v", err)
+				}
+				return dir
+			},
+			listJobsResp: []*platform.Job{
+				{ID: 11, Name: "plan (google-gh-automation)", URL: "job_url_11", Conclusion: "success"},
+			},
+			listReportsResp: []*platform.Report{},
+			expPlatformClientReqs: []*platform.Request{
+				{
+					Name:   "ListJobs",
+					Params: []any{int64(456)},
+				},
+				{
+					Name: "ListReports",
+					Params: []any{
+						123,
+						&platform.ListReportsOptions{
+							GitHub: &github.IssueListCommentsOptions{
+								ListOptions: github.ListOptions{
+									PerPage: 100,
+								},
+							},
+						},
+					},
+				},
+				{
+					Name: "CreateReport",
+					Params: []any{
+						123,
+						"#### 🔱 Guardian 🔱 **`PLAN SUMMARY`**\n\n" +
+							"| Directory | Status | Stats | Notes | Log |\n" +
+							"| :--- | :--- | :--- | :--- | :--- |\n" +
+							"| `terraform/google-gh-automation/repositories/auto-fairy` | <span style=\"white-space: nowrap;\">🟩&nbsp;SUCCESS</span> | <span style=\"white-space: nowrap;\">+1&nbsp;~0&nbsp;-0</span> | - | <a href=\"job_url_11\" target=\"_blank\">View Log</a> |\n",
+					},
+				},
+			},
+		},
+		{
+			name:                    "plan_truncated_if_too_long",
+			flagType:                "plan",
+			flagEntrypoints:         `["` + strings.Repeat("a", 60000) + `"]`,
+			githubPullRequestNumber: 123,
+			githubRunID:             456,
+			flagArtifactsDir: func(t *testing.T) string {
+				t.Helper()
+				return t.TempDir()
+			},
+			listJobsResp:    []*platform.Job{},
+			listReportsResp: []*platform.Report{},
+			expPlatformClientReqs: []*platform.Request{
+				{
+					Name:   "ListJobs",
+					Params: []any{int64(456)},
+				},
+				{
+					Name: "ListReports",
+					Params: []any{
+						123,
+						&platform.ListReportsOptions{
+							GitHub: &github.IssueListCommentsOptions{
+								ListOptions: github.ListOptions{
+									PerPage: 100,
+								},
+							},
+						},
+					},
+				},
+				{
+					Name: "CreateReport",
+					Params: []any{
+						123,
+						"#### 🔱 Guardian 🔱 **`PLAN SUMMARY`**\n\n" +
+							"| Directory | Status | Stats | Notes | Log |\n" +
+							"| :--- | :--- | :--- | :--- | :--- |\n\n\n" +
+							"> ⚠️ **Notice**: The report was truncated due to the character limit. Please check the full list and output artifacts in GitHub Actions logs.\n",
 					},
 				},
 			},
