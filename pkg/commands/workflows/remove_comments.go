@@ -78,7 +78,7 @@ func (c *RemoveGuardianCommentsCommand) Run(ctx context.Context, args []string) 
 
 // Process handles the main logic for the Guardian remove plan comments process.
 func (c *RemoveGuardianCommentsCommand) Process(ctx context.Context) error {
-	if err := c.platformClient.ClearReports(ctx); err != nil {
+	if err := c.platformClient.ClearReports(ctx, 0); err != nil {
 		return fmt.Errorf("failed to remove comments: %w", err)
 	}
 

@@ -203,16 +203,21 @@ func (g *GitLab) StoragePrefix(ctx context.Context) (string, error) {
 }
 
 // ListReports lists existing reports for an issue or change request.
-func (g *GitLab) ListReports(ctx context.Context, opts *ListReportsOptions) (*ListReportsResult, error) {
+func (g *GitLab) ListReports(ctx context.Context, changeRequestID int, opts *ListReportsOptions) (*ListReportsResult, error) {
 	if err := validateGitLabReporterInputs(g.cfg); err != nil {
 		return nil, fmt.Errorf("failed to validate reporter inputs: %w", err)
+	}
+
+	mrIID := changeRequestID
+	if mrIID <= 0 {
+		mrIID = g.cfg.GitLabMergeRequestIID
 	}
 
 	var reports []*Report
 	var pagination *Pagination
 
 	if err := g.withRetries(ctx, func(ctx context.Context) error {
-		notes, resp, err := g.client.Notes.ListMergeRequestNotes(g.cfg.GitLabProjectID, g.cfg.GitLabMergeRequestIID, opts.GitLab)
+		notes, resp, err := g.client.Notes.ListMergeRequestNotes(g.cfg.GitLabProjectID, mrIID, opts.GitLab)
 		if err != nil {
 			if resp != nil {
 				if _, ok := gitLabIgnoredStatusCodes[resp.StatusCode]; !ok {
@@ -302,7 +307,7 @@ func (g *GitLab) ReportEntrypointsSummary(ctx context.Context, p *EntrypointsSum
 }
 
 // ClearReports clears any existing reports that can be removed.
-func (g *GitLab) ClearReports(ctx context.Context) error {
+func (g *GitLab) ClearReports(ctx context.Context, changeRequestID int) error {
 	if err := validateGitLabReporterInputs(g.cfg); err != nil {
 		return fmt.Errorf("failed to validate reporter inputs: %w", err)
 	}
@@ -314,7 +319,7 @@ func (g *GitLab) ClearReports(ctx context.Context) error {
 	}
 
 	for {
-		response, err := g.ListReports(ctx, listOpts)
+		response, err := g.ListReports(ctx, changeRequestID, listOpts)
 		if err != nil {
 			return fmt.Errorf("failed to list comments: %w", err)
 		}
@@ -394,4 +399,28 @@ func (g *GitLab) ListChangeRequestsByCommit(ctx context.Context, sha string, opt
 // ListJobs is a no-op because GitLab platform support is currently not implemented.
 func (g *GitLab) ListJobs(ctx context.Context, runID int64) ([]*Job, error) {
 	return nil, nil
+}
+
+// CreateReport posts a comment/note on an issue or change request.
+func (g *GitLab) CreateReport(ctx context.Context, changeRequestID int, body string) error {
+	if err := validateGitLabReporterInputs(g.cfg); err != nil {
+		return fmt.Errorf("failed to validate reporter inputs: %w", err)
+	}
+	mrIID := changeRequestID
+	if mrIID <= 0 {
+		mrIID = g.cfg.GitLabMergeRequestIID
+	}
+
+	logger := logging.FromContext(ctx)
+	logger.DebugContext(ctx, "creating merge request note",
+		"project", g.cfg.GitLabProjectID,
+		"merge_request", mrIID)
+
+	if _, _, err := g.client.Notes.CreateMergeRequestNote(g.cfg.GitLabProjectID, mrIID, &gitlab.CreateMergeRequestNoteOptions{
+		Body: &body,
+	}); err != nil {
+		return fmt.Errorf("failed to create merge request note: %w", err)
+	}
+
+	return nil
 }

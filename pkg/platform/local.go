@@ -63,7 +63,7 @@ func (l *Local) StoragePrefix(ctx context.Context) (string, error) {
 }
 
 // ListReports lists existing reports for an issue or change request.
-func (l *Local) ListReports(ctx context.Context, opts *ListReportsOptions) (*ListReportsResult, error) {
+func (l *Local) ListReports(ctx context.Context, changeRequestID int, opts *ListReportsOptions) (*ListReportsResult, error) {
 	return nil, nil
 }
 
@@ -83,7 +83,7 @@ func (l *Local) ReportEntrypointsSummary(ctx context.Context, params *Entrypoint
 }
 
 // ClearReports clears any existing reports that can be removed.
-func (l *Local) ClearReports(ctx context.Context) error {
+func (l *Local) ClearReports(ctx context.Context, changeRequestID int) error {
 	return nil
 }
 
@@ -95,4 +95,9 @@ func (l *Local) ListChangeRequestsByCommit(ctx context.Context, sha string, opts
 // ListJobs is a no-op because the local platform does not run GHA workflows or pipelines.
 func (l *Local) ListJobs(ctx context.Context, runID int64) ([]*Job, error) {
 	return nil, nil
+}
+
+// CreateReport is a no-op.
+func (l *Local) CreateReport(ctx context.Context, changeRequestID int, body string) error {
+	return nil
 }

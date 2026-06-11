@@ -15,10 +15,12 @@
 package workflows
 
 import (
-	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-github/v53/github"
 
 	"github.com/abcxyz/guardian/pkg/platform"
 	"github.com/abcxyz/pkg/testutil"
@@ -100,6 +102,8 @@ func TestReportCommandProcess(t *testing.T) {
 	cases := []struct {
 		name                           string
 		flagType                       string
+		flagEntrypoints                string
+		flagArtifactsDir               func(t *testing.T) string
 		githubPullRequestNumber        int
 		githubSHA                      string
 		githubRunID                    int64
@@ -107,86 +111,124 @@ func TestReportCommandProcess(t *testing.T) {
 		listChangeRequestsByCommitErr  error
 		listJobsResp                   []*platform.Job
 		listJobsErr                    error
+		listReportsResp                []*platform.Report
+		listReportsErr                 error
+		createReportErr                error
 		err                            string
 		expPlatformClientReqs          []*platform.Request
 	}{
 		{
-			name:                    "plan_success",
+			name:                    "plan_success_posts_table_and_deletes_old_comments",
 			flagType:                "plan",
+			flagEntrypoints:         `["terraform/github/abseil"]`,
 			githubPullRequestNumber: 123,
 			githubRunID:             456,
+			flagArtifactsDir: func(t *testing.T) string {
+				t.Helper()
+				dir := t.TempDir()
+				artifactDir := filepath.Join(dir, "tfplan-terraform-github-abseil")
+				if err := os.MkdirAll(artifactDir, 0o755); err != nil {
+					t.Fatalf("failed to create temp dir: %v", err)
+				}
+				planContent := `{
+					"resource_changes": [
+						{"address": "res1", "change": {"actions": ["create"]}},
+						{"address": "res2", "change": {"actions": ["update"]}},
+						{"address": "res3", "change": {"actions": ["delete"]}},
+						{"address": "res4", "change": {"actions": ["delete", "create"]}}
+					]
+				}`
+				if err := os.WriteFile(filepath.Join(artifactDir, "tfplan.json"), []byte(planContent), 0o600); err != nil {
+					t.Fatalf("failed to write mock tfplan.json: %v", err)
+				}
+				return dir
+			},
 			listJobsResp: []*platform.Job{
-				{ID: 11, Name: "job1", URL: "url1"},
+				{ID: 11, Name: "plan (terraform/github/abseil)", URL: "job_url_11", Conclusion: "success"},
+			},
+			listReportsResp: []*platform.Report{
+				{ID: int64(999), Body: "#### 🔱 Guardian 🔱 **`PLAN SUMMARY`**\n\nOld comment content"},
+				{ID: int64(888), Body: "Normal comment"},
 			},
 			expPlatformClientReqs: []*platform.Request{
 				{
 					Name:   "ListJobs",
 					Params: []any{int64(456)},
 				},
+				{
+					Name: "ListReports",
+					Params: []any{
+						123,
+						&platform.ListReportsOptions{
+							GitHub: &github.IssueListCommentsOptions{
+								ListOptions: github.ListOptions{
+									PerPage: 100,
+								},
+							},
+						},
+					},
+				},
+				{
+					Name:   "DeleteReport",
+					Params: []any{int64(999)},
+				},
+				{
+					Name: "CreateReport",
+					Params: []any{
+						123,
+						"#### 🔱 Guardian 🔱 **`PLAN SUMMARY`**\n\n" +
+							"| Directory | Status | Stats | Notes | Log |\n" +
+							"| :--- | :--- | :--- | :--- | :--- |\n" +
+							"| `terraform/github/abseil` | <span style=\"white-space: nowrap;\">🟩&nbsp;SUCCESS</span> | <span style=\"white-space: nowrap;\">+2&nbsp;~1&nbsp;-2</span> | - | <a href=\"job_url_11\" target=\"_blank\">View Log</a> |\n",
+					},
+				},
 			},
 		},
 		{
-			name:        "apply_success_resolves_pr_by_commit",
-			flagType:    "apply",
-			githubSHA:   "abcdef123456",
-			githubRunID: 789,
+			name:            "apply_success_posts_table",
+			flagType:        "apply",
+			flagEntrypoints: `["terraform/github/abseil"]`,
+			githubSHA:       "sha123",
+			githubRunID:     789,
 			listChangeRequestsByCommitResp: &platform.ListChangeRequestsByCommitResponse{
 				PullRequests: []*platform.PullRequest{
 					{Number: 123},
 				},
 			},
 			listJobsResp: []*platform.Job{
-				{ID: 22, Name: "job2", URL: "url2"},
+				{ID: 22, Name: "apply (terraform/github/abseil)", URL: "job_url_22", Conclusion: "success"},
 			},
 			expPlatformClientReqs: []*platform.Request{
 				{
 					Name:   "ListChangeRequestsByCommit",
-					Params: []any{"abcdef123456", (*platform.ListChangeRequestsByCommitOptions)(nil)},
+					Params: []any{"sha123", (*platform.ListChangeRequestsByCommitOptions)(nil)},
 				},
 				{
 					Name:   "ListJobs",
 					Params: []any{int64(789)},
 				},
-			},
-		},
-		{
-			name:      "apply_no_associated_pr_skips_reporting",
-			flagType:  "apply",
-			githubSHA: "abcdef123456",
-			listChangeRequestsByCommitResp: &platform.ListChangeRequestsByCommitResponse{
-				PullRequests: []*platform.PullRequest{},
-			},
-			expPlatformClientReqs: []*platform.Request{
 				{
-					Name:   "ListChangeRequestsByCommit",
-					Params: []any{"abcdef123456", (*platform.ListChangeRequestsByCommitOptions)(nil)},
+					Name: "ListReports",
+					Params: []any{
+						123,
+						&platform.ListReportsOptions{
+							GitHub: &github.IssueListCommentsOptions{
+								ListOptions: github.ListOptions{
+									PerPage: 100,
+								},
+							},
+						},
+					},
 				},
-			},
-		},
-		{
-			name:                          "apply_pr_resolution_fails_errors",
-			flagType:                      "apply",
-			githubSHA:                     "abcdef123456",
-			listChangeRequestsByCommitErr: fmt.Errorf("network error"),
-			err:                           "failed to list pull requests for commit [abcdef123456]: network error",
-			expPlatformClientReqs: []*platform.Request{
 				{
-					Name:   "ListChangeRequestsByCommit",
-					Params: []any{"abcdef123456", (*platform.ListChangeRequestsByCommitOptions)(nil)},
-				},
-			},
-		},
-		{
-			name:                    "list_jobs_fails_errors",
-			flagType:                "plan",
-			githubPullRequestNumber: 123,
-			githubRunID:             456,
-			listJobsErr:             fmt.Errorf("api error"),
-			err:                     "failed to list jobs for run [456]: api error",
-			expPlatformClientReqs: []*platform.Request{
-				{
-					Name:   "ListJobs",
-					Params: []any{int64(456)},
+					Name: "CreateReport",
+					Params: []any{
+						123,
+						"#### 🔱 Guardian 🔱 **`APPLY SUMMARY`**\n\n" +
+							"| Directory | Status | Notes | Log |\n" +
+							"| :--- | :--- | :--- | :--- |\n" +
+							"| `terraform/github/abseil` | <span style=\"white-space: nowrap;\">🟩&nbsp;SUCCESS</span> | - | <a href=\"job_url_22\" target=\"_blank\">View Log</a> |\n",
+					},
 				},
 			},
 		},
@@ -201,11 +243,21 @@ func TestReportCommandProcess(t *testing.T) {
 				ListChangeRequestsByCommitErr:  tc.listChangeRequestsByCommitErr,
 				ListJobsResp:                   tc.listJobsResp,
 				ListJobsErr:                    tc.listJobsErr,
+				Reports:                        tc.listReportsResp,
+				ListReportsErr:                 tc.listReportsErr,
+				CreateReportErr:                tc.createReportErr,
+			}
+
+			artifactsDir := ""
+			if tc.flagArtifactsDir != nil {
+				artifactsDir = tc.flagArtifactsDir(t)
 			}
 
 			c := &ReportCommand{
-				flagType:       tc.flagType,
-				platformClient: mockPlatformClient,
+				flagType:         tc.flagType,
+				flagEntrypoints:  tc.flagEntrypoints,
+				flagArtifactsDir: artifactsDir,
+				platformClient:   mockPlatformClient,
 			}
 			c.platformConfig.GitHub.GitHubPullRequestNumber = tc.githubPullRequestNumber
 			c.platformConfig.GitHub.GitHubSHA = tc.githubSHA

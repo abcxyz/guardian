@@ -576,7 +576,7 @@ func (g *GitHub) ReportEntrypointsSummary(ctx context.Context, p *EntrypointsSum
 }
 
 // ClearReports clears any existing reports that can be removed.
-func (g *GitHub) ClearReports(ctx context.Context) error {
+func (g *GitHub) ClearReports(ctx context.Context, changeRequestID int) error {
 	listOpts := &ListReportsOptions{
 		GitHub: &github.IssueListCommentsOptions{
 			ListOptions: github.ListOptions{PerPage: 100},
@@ -584,7 +584,7 @@ func (g *GitHub) ClearReports(ctx context.Context) error {
 	}
 
 	for {
-		response, err := g.ListReports(ctx, listOpts)
+		response, err := g.ListReports(ctx, changeRequestID, listOpts)
 		if err != nil {
 			return fmt.Errorf("failed to list comments: %w", err)
 		}
@@ -613,12 +613,17 @@ func (g *GitHub) ClearReports(ctx context.Context) error {
 }
 
 // ListReports lists existing comments for an issue or change request.
-func (g *GitHub) ListReports(ctx context.Context, opts *ListReportsOptions) (*ListReportsResult, error) {
+func (g *GitHub) ListReports(ctx context.Context, changeRequestID int, opts *ListReportsOptions) (*ListReportsResult, error) {
 	var comments []*Report
 	var pagination *Pagination
 
+	prNumber := changeRequestID
+	if prNumber <= 0 {
+		prNumber = g.cfg.GitHubPullRequestNumber
+	}
+
 	if err := g.withRetries(ctx, func(ctx context.Context) error {
-		ghComments, resp, err := g.client.Issues.ListComments(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, g.cfg.GitHubPullRequestNumber, opts.GitHub)
+		ghComments, resp, err := g.client.Issues.ListComments(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, prNumber, opts.GitHub)
 		if err != nil {
 			if resp != nil {
 				if _, ok := ignoredStatusCodes[resp.StatusCode]; !ok {
@@ -642,6 +647,15 @@ func (g *GitHub) ListReports(ctx context.Context, opts *ListReportsOptions) (*Li
 	}
 
 	return &ListReportsResult{Reports: comments, Pagination: pagination}, nil
+}
+
+// CreateReport posts a comment/note on an issue or change request.
+func (g *GitHub) CreateReport(ctx context.Context, changeRequestID int, body string) error {
+	prNumber := changeRequestID
+	if prNumber <= 0 {
+		prNumber = g.cfg.GitHubPullRequestNumber
+	}
+	return g.createIssueComment(ctx, g.cfg.GitHubOwner, g.cfg.GitHubRepo, prNumber, body)
 }
 
 // DeleteReport deletes an existing comment from an issue or change request.
@@ -766,9 +780,11 @@ func (g *GitHub) ListJobs(ctx context.Context, runID int64) ([]*Job, error) {
 
 		for _, j := range ghJobs.Jobs {
 			jobs = append(jobs, &Job{
-				ID:   j.GetID(),
-				Name: j.GetName(),
-				URL:  j.GetHTMLURL(),
+				ID:         j.GetID(),
+				Name:       j.GetName(),
+				URL:        j.GetHTMLURL(),
+				Status:     j.GetStatus(),
+				Conclusion: j.GetConclusion(),
 			})
 		}
 
