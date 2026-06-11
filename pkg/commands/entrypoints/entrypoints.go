@@ -22,6 +22,7 @@ import (
 	"flag"
 	"fmt"
 	"io/fs"
+	"path/filepath"
 	"slices"
 
 	"golang.org/x/exp/maps"
@@ -49,6 +50,7 @@ type EntrypointsCommand struct {
 	flagDetectChanges           bool
 	flagFailUnresolvableModules bool
 	flagMaxDepth                int
+	flagMaxWalkbackDepth        int
 	flagSkipReporting           bool
 
 	parsedFlagMaxDepth *int
@@ -57,6 +59,11 @@ type EntrypointsCommand struct {
 
 	newGitClient func(ctx context.Context, dir string) git.Git
 }
+
+const (
+	// Set a maximum limit to ensure we have an upper bound on how much time we spend.
+	maxWalkbackDepthLimit = 100
+)
 
 func (c *EntrypointsCommand) Desc() string {
 	return `Determine the entrypoint directories to run Guardian commands`
@@ -122,6 +129,13 @@ func (c *EntrypointsCommand) Flags() *cli.FlagSet {
 		Target:  &c.flagMaxDepth,
 		Usage:   `How far to traverse the filesystem beneath the target directory for entrypoints.`,
 		Default: -1,
+	})
+
+	f.IntVar(&cli.IntVar{
+		Name:    "max-walkback-depth",
+		Target:  &c.flagMaxWalkbackDepth,
+		Usage:   fmt.Sprintf("How far to walk up the directory tree to find a parent entrypoint or module for changed files. Cannot exceed %d. Zero disables this feature.", maxWalkbackDepthLimit),
+		Default: 5,
 	})
 
 	f.BoolVar(&cli.BoolVar{
@@ -281,6 +295,30 @@ func (c *EntrypointsCommand) findEntrypointDirs(ctx context.Context, dir string)
 	return entrypointDirs, nil
 }
 
+// matchClosestAncestorDirectory walks up the directory tree from changedDir to find the closest matching module or entrypoint in the usage graph, up to maxWalkbackDepth.
+func matchClosestAncestorDirectory(ctx context.Context, dir string, moduleUsageGraph *terraform.ModuleUsageGraph, maxWalkbackDepth int) (string, []string, bool) {
+	if maxWalkbackDepth < 0 || maxWalkbackDepth > maxWalkbackDepthLimit {
+		maxWalkbackDepth = maxWalkbackDepthLimit
+	}
+
+	for curr, count := dir, 0; count <= maxWalkbackDepth; curr, count = filepath.Dir(curr), count+1 {
+		entrypoints := moduleUsageGraph.ModulesToEntrypoints[curr]
+		_, isEntrypoint := moduleUsageGraph.EntrypointToModules[curr]
+		if len(entrypoints) > 0 || isEntrypoint {
+			return curr, maps.Keys(entrypoints), true
+		}
+
+		// Return without a warning log here. We've made it all the way back to the filesystem root,
+		// so we know for sure that an entrypoint doesn't exist.
+		if filepath.Dir(curr) == curr {
+			return "", nil, false
+		}
+	}
+
+	logging.FromContext(ctx).WarnContext(ctx, "Entypoint for %q not found by walking up %d levels. Giving up.", dir, maxWalkbackDepthLimit)
+	return "", nil, false
+}
+
 // detectChanges detects changed and removed entrypoints using git diff.
 func (c *EntrypointsCommand) detectEntrypointChanges(ctx context.Context, dir string) ([]string, error) {
 	logger := logging.FromContext(ctx)
@@ -301,14 +339,14 @@ func (c *EntrypointsCommand) detectEntrypointChanges(ctx context.Context, dir st
 
 	modifiedEntrypoints := make(map[string]struct{})
 
-	for _, changedFile := range diffDirs {
-		if entrypoints, ok := moduleUsageGraph.ModulesToEntrypoints[changedFile]; ok {
-			for entrypoint := range entrypoints {
-				modifiedEntrypoints[entrypoint] = struct{}{}
-			}
+	for _, d := range diffDirs {
+		matchedDir, entrypoints, ok := matchClosestAncestorDirectory(ctx, d, moduleUsageGraph, c.flagMaxWalkbackDepth)
+		if !ok {
+			continue
 		}
-		if _, ok := moduleUsageGraph.EntrypointToModules[changedFile]; ok {
-			modifiedEntrypoints[changedFile] = struct{}{}
+		modifiedEntrypoints[matchedDir] = struct{}{}
+		for _, entrypoint := range entrypoints {
+			modifiedEntrypoints[entrypoint] = struct{}{}
 		}
 	}
 
