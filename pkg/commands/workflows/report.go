@@ -280,7 +280,7 @@ func (c *ReportCommand) Process(ctx context.Context) error {
 	}
 
 	currentLen := len(commentPrefix) + 200
-	var finalRows []summaryRow
+	finalRows := make([]summaryRow, 0, len(rows))
 	var truncated bool
 	for _, r := range rows {
 		rowLen := len(r.Directory) + len(r.Status) + len(r.Stats) + len(r.Notes) + len(r.LogLink) + 20
