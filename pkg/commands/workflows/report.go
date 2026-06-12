@@ -412,12 +412,15 @@ func parsePlanFile(p string) (int, int, int, error) {
 }
 
 func findPlanFile(artifactsDir, entrypoint string) (string, error) {
-	slug := strings.ReplaceAll(entrypoint, "/", "-")
+	slugHyphen := strings.ReplaceAll(entrypoint, "/", "-")
+	slugUnderscore := strings.ReplaceAll(entrypoint, "/", "_")
 
 	paths := []string{
 		filepath.Join(artifactsDir, entrypoint, "tfplan.json"),
-		filepath.Join(artifactsDir, "tfplan-"+slug, "tfplan.json"),
-		filepath.Join(artifactsDir, slug, "tfplan.json"),
+		filepath.Join(artifactsDir, "tfplan-"+slugHyphen, "tfplan.json"),
+		filepath.Join(artifactsDir, "tfplan-"+slugUnderscore, "tfplan.json"),
+		filepath.Join(artifactsDir, slugHyphen, "tfplan.json"),
+		filepath.Join(artifactsDir, slugUnderscore, "tfplan.json"),
 	}
 
 	for _, p := range paths {
