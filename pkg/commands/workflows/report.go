@@ -170,12 +170,10 @@ func (c *ReportCommand) Process(ctx context.Context) error {
 	jobStatuses := make(map[string]*platform.Job)
 	for _, entrypoint := range entrypoints {
 		parts := strings.Split(entrypoint, "/")
-		var orgName string
-		if len(parts) >= 2 {
-			if parts[0] == "terraform" {
-				orgName = parts[1]
-			} else {
-				orgName = parts[0]
+		var candidates []string
+		for _, part := range parts {
+			if part != "" {
+				candidates = append(candidates, part)
 			}
 		}
 
@@ -190,8 +188,15 @@ func (c *ReportCommand) Process(ctx context.Context) error {
 			}
 
 			// Works for org batching where job name contains org name in parentheses
-			if orgName != "" && strings.Contains(lowerJobName, "("+strings.ToLower(orgName)+")") {
-				jobStatuses[entrypoint] = job
+			matched := false
+			for _, candidate := range candidates {
+				if candidate != "" && strings.Contains(lowerJobName, "("+strings.ToLower(candidate)+")") {
+					jobStatuses[entrypoint] = job
+					matched = true
+					break
+				}
+			}
+			if matched {
 				break
 			}
 		}
@@ -246,7 +251,11 @@ func (c *ReportCommand) Process(ctx context.Context) error {
 			stat, ok := planStats[entrypoint]
 			if ok {
 				if stat.Err != nil {
-					notes = fmt.Sprintf("⚠️ %s", stat.Err.Error())
+					if hasJob && (job.Conclusion == "skipped" || job.Conclusion == "cancelled") {
+						notes = "-"
+					} else {
+						notes = fmt.Sprintf("⚠️ %s", stat.Err.Error())
+					}
 				} else {
 					statsStr = fmt.Sprintf("<span style=\"white-space: nowrap;\">%+d&nbsp;~%d&nbsp;-%d</span>", stat.Added, stat.Changed, stat.Deleted)
 					if hasJob {
@@ -254,7 +263,11 @@ func (c *ReportCommand) Process(ctx context.Context) error {
 					}
 				}
 			} else if hasJob {
-				notes = "⚠️ Missing tfplan.json"
+				if job.Conclusion == "skipped" || job.Conclusion == "cancelled" {
+					notes = "-"
+				} else {
+					notes = "⚠️ Missing tfplan.json"
+				}
 			} else {
 				notes = "⚠️ Job not found in run"
 			}
