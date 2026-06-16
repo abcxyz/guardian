@@ -39,19 +39,18 @@ func TestEntrypointsProcess(t *testing.T) {
 	}
 
 	cases := []struct {
-		name                 string
-		flagDir              []string
-		flagGuardianDirs     []string
-		flagDestRef          string
-		flagSourceRef        string
-		flagDetectChanges    bool
-		flagMaxDepth         int
-		flagMaxWalkbackDepth int
-		newGitClient         func(ctx context.Context, dir string) git.Git
-		platformClient       *platform.MockPlatform
-		err                  string
-		expStdout            string
-		expStderr            string
+		name              string
+		flagDir           []string
+		flagGuardianDirs  []string
+		flagDestRef       string
+		flagSourceRef     string
+		flagDetectChanges bool
+		flagMaxDepth      int
+		newGitClient      func(ctx context.Context, dir string) git.Git
+		platformClient    *platform.MockPlatform
+		err               string
+		expStdout         string
+		expStderr         string
 	}{
 		{
 			name:              "success",
@@ -161,28 +160,11 @@ func TestEntrypointsProcess(t *testing.T) {
 			expStdout: `["testdata/entrypoint1/project1","testdata/entrypoint1/project2"]`,
 		},
 		{
-			name:                 "changes_in_subdirectory_detected",
-			flagDir:              []string{"testdata/entrypoint1"},
-			flagDestRef:          "main",
-			flagSourceRef:        "ldap/feature",
-			flagDetectChanges:    true,
-			flagMaxWalkbackDepth: maxWalkbackDepthLimit,
-			newGitClient: func(ctx context.Context, dir string) git.Git {
-				return &git.MockGitClient{
-					DiffResp: []string{
-						filepath.Join(cwd, "testdata/entrypoint1/project1/files"),
-					},
-				}
-			},
-			expStdout: `["testdata/entrypoint1/project1"]`,
-		},
-		{
-			name:                 "walkback_depth_zero",
-			flagDir:              []string{"testdata/entrypoint1"},
-			flagDestRef:          "main",
-			flagSourceRef:        "ldap/feature",
-			flagDetectChanges:    true,
-			flagMaxWalkbackDepth: 0,
+			name:              "no_changes_without_add_entrypoint",
+			flagDir:           []string{"testdata/entrypoint1"},
+			flagDestRef:       "main",
+			flagSourceRef:     "ldap/feature",
+			flagDetectChanges: true,
 			newGitClient: func(ctx context.Context, dir string) git.Git {
 				return &git.MockGitClient{
 					DiffResp: []string{
@@ -191,86 +173,6 @@ func TestEntrypointsProcess(t *testing.T) {
 				}
 			},
 			expStdout: `[]`,
-		},
-		{
-			name:                 "walkback_depth_one_direct_child",
-			flagDir:              []string{"testdata/entrypoint1"},
-			flagDestRef:          "main",
-			flagSourceRef:        "ldap/feature",
-			flagDetectChanges:    true,
-			flagMaxWalkbackDepth: 1,
-			newGitClient: func(ctx context.Context, dir string) git.Git {
-				return &git.MockGitClient{
-					DiffResp: []string{
-						filepath.Join(cwd, "testdata/entrypoint1/project1/files"),
-					},
-				}
-			},
-			expStdout: `["testdata/entrypoint1/project1"]`,
-		},
-		{
-			name:                 "walkback_depth_one_nested_child",
-			flagDir:              []string{"testdata/entrypoint1"},
-			flagDestRef:          "main",
-			flagSourceRef:        "ldap/feature",
-			flagDetectChanges:    true,
-			flagMaxWalkbackDepth: 1,
-			newGitClient: func(ctx context.Context, dir string) git.Git {
-				return &git.MockGitClient{
-					DiffResp: []string{
-						filepath.Join(cwd, "testdata/entrypoint1/project1/files/sub"),
-					},
-				}
-			},
-			expStdout: `[]`,
-		},
-		{
-			name:                 "walkback_depth_two_nested_child",
-			flagDir:              []string{"testdata/entrypoint1"},
-			flagDestRef:          "main",
-			flagSourceRef:        "ldap/feature",
-			flagDetectChanges:    true,
-			flagMaxWalkbackDepth: 2,
-			newGitClient: func(ctx context.Context, dir string) git.Git {
-				return &git.MockGitClient{
-					DiffResp: []string{
-						filepath.Join(cwd, "testdata/entrypoint1/project1/files/sub"),
-					},
-				}
-			},
-			expStdout: `["testdata/entrypoint1/project1"]`,
-		},
-		{
-			name:                 "walkback_hits_root",
-			flagDir:              []string{"testdata/entrypoint1"},
-			flagDestRef:          "main",
-			flagSourceRef:        "ldap/feature",
-			flagDetectChanges:    true,
-			flagMaxWalkbackDepth: maxWalkbackDepthLimit,
-			newGitClient: func(ctx context.Context, dir string) git.Git {
-				return &git.MockGitClient{
-					DiffResp: []string{
-						filepath.Join(cwd, "testdata/entrypoint1/project3"),
-					},
-				}
-			},
-			expStdout: `[]`,
-		},
-		{
-			name:                 "nearest_entrypoint_returned",
-			flagDir:              []string{"testdata/nested_entrypoints"},
-			flagDestRef:          "main",
-			flagSourceRef:        "ldap/feature",
-			flagDetectChanges:    true,
-			flagMaxWalkbackDepth: maxWalkbackDepthLimit,
-			newGitClient: func(ctx context.Context, dir string) git.Git {
-				return &git.MockGitClient{
-					DiffResp: []string{
-						filepath.Join(cwd, "testdata/nested_entrypoints/subdir/entrypoint2/subsub"),
-					},
-				}
-			},
-			expStdout: `["testdata/nested_entrypoints/subdir/entrypoint2"]`,
 		},
 		{
 			name:              "changes_with_add_entrypoint",
@@ -338,15 +240,14 @@ func TestEntrypointsProcess(t *testing.T) {
 			mockPlatformClient := &platform.MockPlatform{}
 
 			c := &EntrypointsCommand{
-				flagDir:              tc.flagDir,
-				flagGuardianDirs:     tc.flagGuardianDirs,
-				flagDestRef:          tc.flagDestRef,
-				flagSourceRef:        tc.flagSourceRef,
-				flagDetectChanges:    tc.flagDetectChanges,
-				flagMaxDepth:         tc.flagMaxDepth,
-				flagMaxWalkbackDepth: tc.flagMaxWalkbackDepth,
-				platformClient:       mockPlatformClient,
-				newGitClient:         tc.newGitClient,
+				flagDir:           tc.flagDir,
+				flagGuardianDirs:  tc.flagGuardianDirs,
+				flagDestRef:       tc.flagDestRef,
+				flagSourceRef:     tc.flagSourceRef,
+				flagDetectChanges: tc.flagDetectChanges,
+				flagMaxDepth:      tc.flagMaxDepth,
+				platformClient:    mockPlatformClient,
+				newGitClient:      tc.newGitClient,
 			}
 
 			_, stdout, stderr := c.Pipe()
