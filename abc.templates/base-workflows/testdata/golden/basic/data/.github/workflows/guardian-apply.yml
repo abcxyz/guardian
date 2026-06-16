@@ -65,6 +65,7 @@ jobs:
         env:
           # used to create comments on pull requests (access to only this repo)
           GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
+          GUARDIAN_LOG_TARGET: 'STDERR'
         run: |-
           DIRECTORIES=$(guardian entrypoints -dir="." -detect-changes -source-ref=HEAD~1 -dest-ref=HEAD)
           echo "entrypoints -> ${DIRECTORIES}"

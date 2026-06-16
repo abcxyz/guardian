@@ -90,6 +90,7 @@ jobs:
         shell: 'bash'
         env:
           GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
+          GUARDIAN_LOG_TARGET: 'STDERR'
           SOURCE_REF: '${{ github.event.merge_group.base_sha }}'
           DEST_REF: '${{ github.event.merge_group.head_sha }}'
           EVENT: '${{ github.event_name }}'
@@ -128,6 +129,7 @@ jobs:
         shell: 'bash'
         env:
           GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
+          GUARDIAN_LOG_TARGET: 'STDERR'
           BASE_REF: '${{ github.event.merge_group.base_sha }}'
           PR_REF: '${{ steps.pr-info.outputs.pr_branch_ref }}'
           EVENT: '${{ github.event_name }}'

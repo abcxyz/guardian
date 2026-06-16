@@ -115,6 +115,7 @@ jobs:
         env:
           ENTRYPOINT: '${{ inputs.entrypoint }}'
           GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
+          GUARDIAN_LOG_TARGET: 'STDERR'
         run: |-
           DIRECTORIES=$(guardian entrypoints -dir="${ENTRYPOINT}" -skip-reporting)
           echo "entrypoints -> ${DIRECTORIES}"
