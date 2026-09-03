@@ -25,6 +25,17 @@ These options sets the code review platform that Guardian should interact with.
 
 - **-platform="github"** - The code review platform for Guardian to integrate with. Allowed values are ["github", "local"].
 
+### Common Options
+These options apply to commands that interact with Terraform directories (`plan`, `apply`, `run`):
+
+- **-dir="./terraform"** - The location of the terraform directory.
+
+### Registry Proxy Options
+
+These options apply to commands that interact with Terraform directories (`plan`, `apply`, `run`) and route provider requests through a proxy:
+
+- **-registry-proxy="https://localhost:8080/"** - The base URL for a Terraform Provider Registry Proxy or Network Mirror. When set, Guardian routes all provider requests through this proxy, which transparently decides where to fetch each provider from. This option can also be specified with the GUARDIAN_REGISTRY_PROXY environment variable.
+
 ### GitHub Options
 
 These options influence how Guardian interacts with GitHub:

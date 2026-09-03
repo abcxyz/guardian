@@ -27,6 +27,7 @@ import (
 	"github.com/abcxyz/guardian/pkg/checkterraform"
 	"github.com/abcxyz/guardian/pkg/flags"
 	"github.com/abcxyz/guardian/pkg/terraform"
+	"github.com/abcxyz/guardian/pkg/terraform/registryproxy"
 	"github.com/abcxyz/guardian/pkg/util"
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/pointer"
@@ -43,6 +44,7 @@ type RunCommand struct {
 	terraformArgs    []string
 
 	flags.CommonFlags
+	flags.RegistryProxyFlags
 
 	flagAllowedTerraformCommands []string
 	flagAllowLockfileChanges     bool
@@ -70,7 +72,8 @@ Usage: {{ COMMAND }} [options]
 func (c *RunCommand) Flags() *cli.FlagSet {
 	set := c.NewFlagSet()
 
-	c.Register(set)
+	c.CommonFlags.Register(set)
+	c.RegistryProxyFlags.Register(set)
 
 	f := set.NewSection("COMMAND OPTIONS")
 
@@ -163,6 +166,14 @@ func (c *RunCommand) Run(ctx context.Context, args []string) error {
 	c.childPath = childPath
 
 	tfEnvVars := []string{"TF_IN_AUTOMATION=true"}
+	if c.FlagRegistryProxy != "" {
+		cfgPath, cleanup, err := registryproxy.GenerateCLIConfig(ctx, c.FlagRegistryProxy, c.directory)
+		if err != nil {
+			return fmt.Errorf("failed to generate terraform CLI config: %w", err)
+		}
+		defer cleanup()
+		tfEnvVars = append(tfEnvVars, "TF_CLI_CONFIG_FILE="+cfgPath)
+	}
 	c.terraformClient = terraform.NewTerraformClient(c.directory, tfEnvVars)
 
 	return c.Process(ctx)
