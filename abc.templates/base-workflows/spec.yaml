@@ -35,6 +35,12 @@ inputs:
     desc: 'The Google Cloud storage bucket for Guardian state'
   - name: 'guardian_allowed_providers'
     desc: 'The comma separated list of allowed providers for Guardian. If left blank, all providers will be allowed.'
+  - name: 'guardian_report_threshold'
+    desc: 'The number of changed entrypoints at which Guardian posts a single aggregated summary comment instead of one comment per directory.'
+    default: '5'
+    rules:
+      - rule: 'int(guardian_report_threshold) > 0'
+        message: 'must be a positive integer'
 
 steps:
   - desc: 'Include required files and directories'
@@ -67,6 +73,8 @@ steps:
           with: '{{.guardian_state_bucket}}'
         - to_replace: 'REPLACE_GUARDIAN_ALLOWED_PROVIDERS'
           with: '{{.guardian_allowed_providers}}'
+        - to_replace: 'REPLACE_GUARDIAN_REPORT_THRESHOLD'
+          with: '{{.guardian_report_threshold}}'
         - to_replace: 'REPLACE_GUARDIAN_VERSION_TAG'
           with: '{{ trimPrefix ._git_tag "v" }}'
 

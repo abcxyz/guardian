@@ -27,6 +27,10 @@ abc templates render \
 #### Optional inputs:
 
 - `terraform_directory`: Defaults to the current directory.
+- `guardian_report_threshold`: Defaults to `5`. When a pull request changes at
+  least this many Terraform entrypoints, Guardian replaces the per-directory
+  comments with a single aggregated summary table. Raise it to keep
+  per-directory comments on larger pull requests.
 
 ## Install Drift Detection Workflows
 

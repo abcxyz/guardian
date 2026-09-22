@@ -42,6 +42,7 @@ env:
   GUARDIAN_TERRAFORM_VERSION: '1.7.4'
   GUARDIAN_ALLOWED_PROVIDERS: 'google,google-beta'
   TAGREP_VERSION: '0.0.7'
+  GUARDIAN_REPORT_THRESHOLD: '5'
 
 jobs:
   init:
@@ -58,6 +59,7 @@ jobs:
 
     outputs:
       directories: '${{ steps.dirs.outputs.directories }}'
+      threshold_exceeded: '${{ steps.dirs.outputs.threshold_exceeded }}'
     steps:
       - name: 'Checkout'
         uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # ratchet:actions/checkout@v4
@@ -120,6 +122,19 @@ jobs:
           echo "entrypoints -> ${DIRECTORIES}"
           echo "directories=${DIRECTORIES}" >> "${GITHUB_OUTPUT}"
 
+          if [ -z "${DIRECTORIES}" ] || [ "${DIRECTORIES}" == "[]" ]; then
+            COUNT=0
+          else
+            COUNT=$(echo "${DIRECTORIES}" | jq 'length')
+          fi
+          echo "entrypoint count -> ${COUNT} (threshold ${GUARDIAN_REPORT_THRESHOLD})"
+
+          if [ "${COUNT}" -ge "${GUARDIAN_REPORT_THRESHOLD}" ]; then
+            echo "threshold_exceeded=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "threshold_exceeded=false" >> "${GITHUB_OUTPUT}"
+          fi
+
   plan:
     if: |
       github.event_name == 'pull_request_target' && needs.init.outputs.directories != '[]'
@@ -177,8 +192,73 @@ jobs:
         env:
           # used to create comments on pull requests (access to only this repo)
           GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
+          THRESHOLD_EXCEEDED: '${{ needs.init.outputs.threshold_exceeded }}'
         run: |-
-          guardian plan -dir="${DIRECTORY}" -storage="gcs://${GUARDIAN_BUCKET_NAME}" -allowed-providers="${GUARDIAN_ALLOWED_PROVIDERS}"
+          if [ "${THRESHOLD_EXCEEDED}" = "true" ]; then
+            guardian plan -dir="${DIRECTORY}" -storage="gcs://${GUARDIAN_BUCKET_NAME}" -allowed-providers="${GUARDIAN_ALLOWED_PROVIDERS}" -skip-reporting=true
+          else
+            guardian plan -dir="${DIRECTORY}" -storage="gcs://${GUARDIAN_BUCKET_NAME}" -allowed-providers="${GUARDIAN_ALLOWED_PROVIDERS}"
+          fi
+
+      - name: 'Copy tfplan.json'
+        if: |
+          always() && needs.init.outputs.threshold_exceeded == 'true'
+        shell: 'bash'
+        run: |
+          if [ -f "${DIRECTORY}/tfplan.json" ]; then
+            slug=$(echo "${DIRECTORY}" | tr "/" "-")
+            mkdir -p "${{ runner.temp }}/artifacts/tfplan-${slug}"
+            cp "${DIRECTORY}/tfplan.json" "${{ runner.temp }}/artifacts/tfplan-${slug}/tfplan.json"
+          fi
+
+      - name: 'Upload tfplan'
+        if: |
+          always() && needs.init.outputs.threshold_exceeded == 'true'
+        uses: 'actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02' # ratchet:actions/upload-artifact@v4
+        with:
+          name: 'tfplans-${{ strategy.job-index }}'
+          path: '${{ runner.temp }}/artifacts'
+          if-no-files-found: 'ignore'
+          retention-days: 1
+
+  aggregator:
+    if: |
+      always() && github.event_name == 'pull_request_target' && needs.init.outputs.threshold_exceeded == 'true'
+    needs:
+      - 'init'
+      - 'plan'
+    runs-on: 'ubuntu-latest'
+
+    permissions:
+      actions: 'read'
+      pull-requests: 'write'
+
+    steps:
+      - name: 'Download All Artifacts'
+        uses: 'actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093' # ratchet:actions/download-artifact@v4
+        with:
+          path: '${{ runner.temp }}/artifacts'
+          merge-multiple: true
+
+      - name: 'Setup Guardian'
+        uses: 'abcxyz/actions/.github/actions/setup-binary@4354d52e96a232b28734c3a0cc39266ecc3d52e8' # ratchet:abcxyz/actions/.github/actions/setup-binary@main
+        with:
+          download_url: 'https://github.com/abcxyz/guardian/releases/download/v${{ env.GUARDIAN_VERSION }}/guardian_${{ env.GUARDIAN_VERSION }}_linux_amd64.tar.gz'
+          install_path: '${{ runner.temp }}/.guardian'
+          binary_subpath: 'guardian'
+          cache_key: '${{ runner.os }}_${{ runner.arch }}_guardian_${{ env.GUARDIAN_VERSION }}'
+          add_to_path: true
+
+      - name: 'Aggregate results and post comment'
+        shell: 'bash'
+        env:
+          GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
+          OUTPUTS_DIRECTORIES: '${{ needs.init.outputs.directories }}'
+        run: |-
+          guardian workflows report \
+            -type="plan" \
+            -entrypoints="${OUTPUTS_DIRECTORIES}" \
+            -artifacts-dir="${{ runner.temp }}/artifacts"
 
   plan_success:
     if: |
