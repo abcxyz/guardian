@@ -33,6 +33,7 @@ env:
   GUARDIAN_BUCKET_NAME: 'my-guardian-state-bucket'
   GUARDIAN_TERRAFORM_VERSION: '1.7.4'
   GUARDIAN_ALLOWED_PROVIDERS: 'google,google-beta'
+  GUARDIAN_REPORT_THRESHOLD: '5'
 
 jobs:
   init:
@@ -44,6 +45,7 @@ jobs:
 
     outputs:
       directories: '${{ steps.dirs.outputs.directories }}'
+      threshold_exceeded: '${{ steps.dirs.outputs.threshold_exceeded }}'
     steps:
       - name: 'Checkout'
         uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # ratchet:actions/checkout@v4
@@ -69,6 +71,19 @@ jobs:
           DIRECTORIES=$(guardian entrypoints -dir="." -detect-changes -source-ref=HEAD~1 -dest-ref=HEAD)
           echo "entrypoints -> ${DIRECTORIES}"
           echo "directories=${DIRECTORIES}" >> "${GITHUB_OUTPUT}"
+
+          if [ -z "${DIRECTORIES}" ] || [ "${DIRECTORIES}" == "[]" ]; then
+            COUNT=0
+          else
+            COUNT=$(echo "${DIRECTORIES}" | jq 'length')
+          fi
+          echo "entrypoint count -> ${COUNT} (threshold ${GUARDIAN_REPORT_THRESHOLD})"
+
+          if [ "${COUNT}" -ge "${GUARDIAN_REPORT_THRESHOLD}" ]; then
+            echo "threshold_exceeded=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "threshold_exceeded=false" >> "${GITHUB_OUTPUT}"
+          fi
 
   apply:
     if: |
@@ -125,5 +140,42 @@ jobs:
         env:
           # used to create comments on pull requests (access to only this repo)
           GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
+          THRESHOLD_EXCEEDED: '${{ needs.init.outputs.threshold_exceeded }}'
         run: |-
-          guardian apply -dir="${DIRECTORY}" -storage="gcs://${GUARDIAN_BUCKET_NAME}" -allowed-providers="${GUARDIAN_ALLOWED_PROVIDERS}"
+          if [ "${THRESHOLD_EXCEEDED}" = "true" ]; then
+            guardian apply -dir="${DIRECTORY}" -storage="gcs://${GUARDIAN_BUCKET_NAME}" -allowed-providers="${GUARDIAN_ALLOWED_PROVIDERS}" -skip-reporting=true
+          else
+            guardian apply -dir="${DIRECTORY}" -storage="gcs://${GUARDIAN_BUCKET_NAME}" -allowed-providers="${GUARDIAN_ALLOWED_PROVIDERS}"
+          fi
+
+  aggregator:
+    if: |
+      always() && needs.init.outputs.threshold_exceeded == 'true'
+    needs:
+      - 'init'
+      - 'apply'
+    runs-on: 'ubuntu-latest'
+
+    permissions:
+      actions: 'read'
+      pull-requests: 'write'
+
+    steps:
+      - name: 'Setup Guardian'
+        uses: 'abcxyz/actions/.github/actions/setup-binary@4354d52e96a232b28734c3a0cc39266ecc3d52e8' # ratchet:abcxyz/actions/.github/actions/setup-binary@main
+        with:
+          download_url: 'https://github.com/abcxyz/guardian/releases/download/v${{ env.GUARDIAN_VERSION }}/guardian_${{ env.GUARDIAN_VERSION }}_linux_amd64.tar.gz'
+          install_path: '${{ runner.temp }}/.guardian'
+          binary_subpath: 'guardian'
+          cache_key: '${{ runner.os }}_${{ runner.arch }}_guardian_${{ env.GUARDIAN_VERSION }}'
+          add_to_path: true
+
+      - name: 'Aggregate results and post comment'
+        shell: 'bash'
+        env:
+          GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
+          OUTPUTS_DIRECTORIES: '${{ needs.init.outputs.directories }}'
+        run: |-
+          guardian workflows report \
+            -type="apply" \
+            -entrypoints="${OUTPUTS_DIRECTORIES}"
