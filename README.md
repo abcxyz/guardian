@@ -36,6 +36,7 @@ details and to understand how to use the cli see [Guardian CLI](./cli.md).
 ### Terraform Actuation
 
 * Show Terraform plans and applies, including outputs, in GitHub comments on Pull Requests.
+* Automatically switch to a single aggregated summary table when the number of changed entrypoints reaches a configurable threshold (`GUARDIAN_REPORT_THRESHOLD`, defaults to `5`).
 * Determines all Terraform entrypoints (e.g. where your Terraform backend configurations are)
   in your repository and plan/apply for each entrypoint.
 * Automatically detect changes and only plan/apply entrypoints that have changed.
@@ -55,6 +56,7 @@ CLI doc:
 * [Apply CLI Docs](./cli.md#apply)
 * [Run CLI Docs](./cli.md#run)
 * [Entrypoints CLI Docs](./cli.md#entrypoints)
+* [Workflows Report CLI Docs](./cli.md#workflows-report)
 
 You can get started with using Guardian for terraform actuation by
 [Creating the Terraform Actuation GitHub Workflows](#creating-terraform-actuation-workflows).
