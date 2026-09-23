@@ -13,6 +13,7 @@ Supported commands:
 | drift                       | [statefiles](#drift-statefiles)                                 | `issues: write`<br> `contents: read`                              | Detect drift for terraform statefiles                         |
 | workflows                   | [plan-status-comment](#workflows-plan-status-comment)           | `pull-requests: write`                                            | Add Guardian plan comment to a pull request                   |
 |                             | [remove-guardian-comments](#workflows-remove-guardian-comments) | `contents: read`<br> `pull-requests: write`                       | Remove previous Guardian comments from a pull request         |
+|                             | [report](#workflows-report)                                     | `actions: read`<br> `pull-requests: write`                        | Aggregate Guardian plan/apply status into a single PR comment |
 | policy                      | fetch-data                                                      | See [Policy fetch-data command](#policy-fetch-data)               | Fetch data used for policy evaluation   |
 |                             | enforce                                                         | See [Policy enforce command](#policy-fetch-data)                  | Enforce a set of Guardian policies      |
 
@@ -361,6 +362,24 @@ Usage: guardian workflows remove-guardian-comments [options]
 ### Options
 
 Supports [Platform Options](#platform-options), [GitHub Options](#github-options) and [Retry Options](#retry-options).
+
+## Workflows report
+
+Aggregate and report Guardian plan/apply status in a single summary table on a pull request.
+
+Usage: guardian workflows report [options]
+
+### Prerequisites
+
+* Required GitHub [permissions](#guardian-cli).
+
+### Options
+
+Also supports [Platform Options](#platform-options), [GitHub Options](#github-options) and [Retry Options](#retry-options).
+
+* **-type="plan"** - The type of the report, either "plan" or "apply".
+* **-entrypoints='["terraform/project1"]'** - The list of directory entrypoints as a JSON array string, or a path to a file containing the JSON array.
+* **-artifacts-dir="./artifacts"** - The local path where plan artifacts (`tfplan.json`) are downloaded. Required when `-type="plan"`.
 
 ## Policy fetch-data
 
