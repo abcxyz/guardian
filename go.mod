@@ -16,6 +16,7 @@ require (
 	github.com/sethvargo/go-githubactions v1.3.0
 	github.com/sethvargo/go-retry v0.3.0
 	github.com/shurcooL/githubv4 v0.0.0-20240727222349-48295856cce7
+	github.com/zclconf/go-cty v1.16.2
 	gitlab.com/gitlab-org/api/client-go v0.122.0
 	golang.org/x/exp v0.0.0-20250210185358-939b2ce775ac
 	golang.org/x/oauth2 v0.27.0
@@ -67,7 +68,6 @@ require (
 	github.com/sethvargo/go-envconfig v1.1.1 // indirect
 	github.com/shurcooL/graphql v0.0.0-20230722043721-ed46e5a46466 // indirect
 	github.com/stoewer/go-strcase v1.3.0 // indirect
-	github.com/zclconf/go-cty v1.16.2 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/contrib/detectors/gcp v1.34.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.59.0 // indirect
