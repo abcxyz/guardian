@@ -68,6 +68,7 @@ type ApplyCommand struct {
 
 	flags.CommonFlags
 	flags.RegistryProxyFlags
+	flags.ProviderSourceFlags
 
 	flagStorage                string
 	flagAllowLockfileChanges   bool
@@ -171,6 +172,8 @@ func (c *ApplyCommand) Flags() *cli.FlagSet {
 		Example: "allowed-provisioner,another-allowed-provisioner",
 		Usage:   "The list of allowed Terraform provisioners. Setting this will override disallowed provisioners.",
 	})
+
+	c.RegisterProviderSourceFlags(f)
 
 	return set
 }
@@ -333,6 +336,19 @@ func (c *ApplyCommand) terraformApply(ctx context.Context) (*RunResult, error) {
 	multiStdout := io.MultiWriter(c.Stdout(), &stdout)
 	multiStderr := io.MultiWriter(c.Stderr(), &stderr)
 
+	sourceMatcher, err := c.ProviderSourceMatcher()
+	if err != nil {
+		return &RunResult{commentDetails: err.Error()}, fmt.Errorf("failed to build provider source matcher: %w", err)
+	}
+
+	util.Headerf(c.Stdout(), "Checking Terraform Provider Sources")
+	if err := checkterraform.RemoveLocalProviderOverrides(ctx, c.directory); err != nil {
+		return &RunResult{commentDetails: err.Error()}, fmt.Errorf("failed provider source check: %w", err)
+	}
+	if _, err := checkterraform.CheckDeclaredProviderSources(ctx, c.directory, sourceMatcher); err != nil {
+		return &RunResult{commentDetails: err.Error()}, fmt.Errorf("failed provider source check: %w", err)
+	}
+
 	lockfileMode := "none"
 	if !c.flagAllowLockfileChanges {
 		lockfileMode = "readonly"
@@ -349,6 +365,13 @@ func (c *ApplyCommand) terraformApply(ctx context.Context) (*RunResult, error) {
 	}
 
 	stderr.Reset()
+
+	// This must happen after init (which only downloads providers) and before
+	// validate, which is the first command that executes provider binaries.
+	util.Headerf(c.Stdout(), "Checking Installed Terraform Providers")
+	if _, err := checkterraform.CheckInstalledProviderSources(ctx, c.directory, sourceMatcher); err != nil {
+		return &RunResult{commentDetails: err.Error()}, fmt.Errorf("failed provider source check: %w", err)
+	}
 
 	util.Headerf(c.Stdout(), "Validating Terraform")
 	if _, err := c.terraformClient.Validate(ctx, c.Stdout(), multiStderr, &terraform.ValidateOptions{
