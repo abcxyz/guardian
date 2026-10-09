@@ -22,6 +22,7 @@ import (
 	"flag"
 	"fmt"
 	"io/fs"
+	"path/filepath"
 	"slices"
 
 	"golang.org/x/exp/maps"
@@ -301,20 +302,46 @@ func (c *EntrypointsCommand) detectEntrypointChanges(ctx context.Context, dir st
 
 	modifiedEntrypoints := make(map[string]struct{})
 
-	for _, changedFile := range diffDirs {
-		if entrypoints, ok := moduleUsageGraph.ModulesToEntrypoints[changedFile]; ok {
-			for entrypoint := range entrypoints {
-				modifiedEntrypoints[entrypoint] = struct{}{}
-			}
-		}
-		if _, ok := moduleUsageGraph.EntrypointToModules[changedFile]; ok {
-			modifiedEntrypoints[changedFile] = struct{}{}
+	for _, changedDir := range diffDirs {
+		affected := affectedEntrypoints(changedDir, moduleUsageGraph)
+		logger.DebugContext(ctx, "resolved changed directory to entrypoints",
+			"directory", changedDir,
+			"entrypoints", affected)
+		for _, entrypoint := range affected {
+			modifiedEntrypoints[entrypoint] = struct{}{}
 		}
 	}
 
 	modifiedDirs := maps.Keys(modifiedEntrypoints)
 
 	return modifiedDirs, nil
+}
+
+// affectedEntrypoints walks up the directory tree from dir (inclusive) and
+// returns the entrypoints affected by a change in dir. The walk stops at the
+// nearest ancestor that is a known entrypoint or a module used by at least one
+// entrypoint, so a change under a nested entrypoint is attributed only to the
+// nested entrypoint. This catches changes to non-Terraform files that an
+// entrypoint or module depends on (e.g. via fileset() or file()). Returns nil
+// when no ancestor matches.
+func affectedEntrypoints(dir string, graph *terraform.ModuleUsageGraph) []string {
+	for curr := dir; ; curr = filepath.Dir(curr) {
+		var affected []string
+		if _, ok := graph.EntrypointToModules[curr]; ok {
+			affected = append(affected, curr)
+		}
+		if entrypoints, ok := graph.ModulesToEntrypoints[curr]; ok {
+			affected = append(affected, maps.Keys(entrypoints)...)
+		}
+		if len(affected) > 0 {
+			return affected
+		}
+
+		// Reached the filesystem root without finding a match.
+		if filepath.Dir(curr) == curr {
+			return nil
+		}
+	}
 }
 
 // writeOutput writes the command output.
