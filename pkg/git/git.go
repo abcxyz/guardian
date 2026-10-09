@@ -103,7 +103,10 @@ func (g *GitClient) CloneRepository(ctx context.Context, githubToken, owner, rep
 }
 
 // parseSortedDiffDirs splits a string at newlines and returns the sorted set of
-// absolute directory paths.
+// absolute directory paths. A changed file whose directory no longer exists
+// (because the whole directory was deleted) is attributed to its nearest
+// ancestor that still exists, so that removing the last file under an
+// entrypoint or module still triggers the entrypoint.
 func parseSortedDiffDirsAbs(ctx context.Context, stdout string) ([]string, error) {
 	logger := logging.FromContext(ctx)
 
@@ -114,8 +117,13 @@ func parseSortedDiffDirsAbs(ctx context.Context, stdout string) ([]string, error
 			dir := filepath.Dir(line)
 
 			path, err := util.PathEvalAbs(dir)
-			if errors.Is(err, fs.ErrNotExist) {
-				continue
+			for errors.Is(err, fs.ErrNotExist) {
+				parent := filepath.Dir(dir)
+				if parent == dir {
+					break
+				}
+				dir = parent
+				path, err = util.PathEvalAbs(dir)
 			}
 
 			if err != nil {

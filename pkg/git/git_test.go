@@ -50,16 +50,31 @@ testdata/third/test.txt`,
 			},
 		},
 		{
-			name: "ignores_missing_dir",
+			name: "resolves_missing_dir_to_nearest_existing_ancestor",
 			value: `testdata/first/test.txt
 testdata/second/test.txt
 testdata/third/test.txt
 testdata/fourth/test.txt`,
 			exp: []string{
+				filepath.Join(cwd, "testdata"),
 				filepath.Join(cwd, "testdata/first"),
 				filepath.Join(cwd, "testdata/second"),
 				filepath.Join(cwd, "testdata/third"),
 			},
+		},
+		{
+			name: "resolves_deeply_missing_dir_to_nearest_existing_ancestor",
+			value: `testdata/first/gone/also-gone/test.txt
+testdata/second/test.txt`,
+			exp: []string{
+				filepath.Join(cwd, "testdata/first"),
+				filepath.Join(cwd, "testdata/second"),
+			},
+		},
+		{
+			name:  "resolves_missing_top_level_dir_to_working_dir",
+			value: `gone/test.txt`,
+			exp:   []string{cwd},
 		},
 		{
 			name:  "carriage_return_and_newline",
