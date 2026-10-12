@@ -31,22 +31,45 @@ import (
 // directory (.terraform), where terraform init installs provider packages.
 // terraform init reuses a package found here if it matches the dependency lock
 // file, which is controlled by the same (possibly untrusted) change as the
-// package itself, so these must be removed before init.
+// package itself, so these must be removed before init. The legacy
+// .terraform/plugins/<os_arch> directory is also searched for provisioner
+// plugins.
 var providerCacheDirs = []string{"providers", "plugins"}
 
-// RemoveLocalProviderOverrides prepares dir so that terraform init can only
-// install providers from their declared sources. It must be called before
+// pluginPathFile is the file, relative to the Terraform data directory, that
+// terraform init -plugin-dir writes. When it exists, every later Terraform
+// command (validate, plan, apply, ...) searches only the directories it lists
+// for provisioner plugins, so an untrusted copy can point Terraform at any
+// binary. terraform init without -plugin-dir does not remove it.
+const pluginPathFile = "plugin_path"
+
+// provisionerPluginPrefix is the file name prefix of a provisioner plugin.
+// Terraform searches the working directory for files with this prefix, and a
+// discovered plugin overrides a built-in provisioner of the same name.
+const provisionerPluginPrefix = "terraform-provisioner-"
+
+// RemoveLocalPluginOverrides prepares dir so that Terraform can only install
+// providers from their declared sources and cannot load provisioner plugins
+// from the (possibly untrusted) working directory. It must be called before
 // terraform init.
 //
 //   - terraform.d: Terraform treats terraform.d/plugins in the working
 //     directory as an implied local filesystem mirror that takes precedence over
-//     the registry. Terraform never creates it, so its presence is an error.
+//     the registry, and also searches it for provisioner plugins. Terraform
+//     never creates it, so its presence is an error.
+//   - terraform-provisioner-*: Terraform searches the working directory for
+//     provisioner plugins, which run during terraform validate and override
+//     built-in provisioners such as local-exec. Terraform never creates these,
+//     so their presence is an error.
 //   - .terraform/providers (and the legacy .terraform/plugins): these provider
 //     caches are removed so every provider is re-installed from its source and
-//     verified against the lock file. The rest of .terraform (backend
-//     configuration, selected workspace, modules) is left untouched so local
-//     re-runs keep working.
-func RemoveLocalProviderOverrides(ctx context.Context, dir string) error {
+//     verified against the lock file.
+//   - .terraform/plugin_path: removed so Terraform searches only its default
+//     plugin directories.
+//
+// The rest of .terraform (backend configuration, selected workspace, modules)
+// is left untouched so local re-runs keep working.
+func RemoveLocalPluginOverrides(ctx context.Context, dir string) error {
 	logger := logging.FromContext(ctx)
 
 	terraformD := filepath.Join(dir, "terraform.d")
@@ -55,6 +78,22 @@ func RemoveLocalProviderOverrides(ctx context.Context, dir string) error {
 			"as a local provider mirror, which can substitute provider binaries", dir)
 	} else if !errors.Is(err, fs.ErrNotExist) {
 		return fmt.Errorf("failed to check for %q: %w", terraformD, err)
+	}
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return fmt.Errorf("failed to read directory %q: %w", dir, err)
+	}
+	var plugins []string
+	for _, e := range entries {
+		if strings.HasPrefix(strings.ToLower(e.Name()), provisionerPluginPrefix) {
+			plugins = append(plugins, e.Name())
+		}
+	}
+	if len(plugins) > 0 {
+		return fmt.Errorf("refusing to run: found provisioner plugins in %q: %s; Terraform loads "+
+			"terraform-provisioner-* plugins from the working directory, which can run arbitrary code "+
+			"and override built-in provisioners", dir, strings.Join(plugins, ", "))
 	}
 
 	dataDir := filepath.Join(dir, ".terraform")
@@ -71,7 +110,7 @@ func RemoveLocalProviderOverrides(ctx context.Context, dir string) error {
 		return fmt.Errorf("refusing to run: %q is not a directory", dataDir)
 	}
 
-	for _, name := range providerCacheDirs {
+	for _, name := range append(slices.Clone(providerCacheDirs), pluginPathFile) {
 		p := filepath.Join(dataDir, name)
 		if _, err := os.Lstat(p); err != nil {
 			if errors.Is(err, fs.ErrNotExist) {
@@ -80,12 +119,12 @@ func RemoveLocalProviderOverrides(ctx context.Context, dir string) error {
 			return fmt.Errorf("failed to check for %q: %w", p, err)
 		}
 
-		// os.RemoveAll does not follow symlinks, so a symlinked cache only removes
-		// the link itself.
+		// os.RemoveAll does not follow symlinks, so a symlink only removes the link
+		// itself.
 		if err := os.RemoveAll(p); err != nil {
-			return fmt.Errorf("failed to remove cached providers %q: %w", p, err)
+			return fmt.Errorf("failed to remove %q: %w", p, err)
 		}
-		logger.InfoContext(ctx, "removed cached terraform providers so they are re-installed from their sources",
+		logger.InfoContext(ctx, "removed local terraform plugin override so plugins are only loaded from trusted locations",
 			"path", p)
 	}
 	return nil

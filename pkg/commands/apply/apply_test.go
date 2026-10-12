@@ -24,6 +24,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
+	"github.com/abcxyz/guardian/pkg/checkterraform/plugintest"
 	"github.com/abcxyz/guardian/pkg/platform"
 	"github.com/abcxyz/guardian/pkg/storage"
 	"github.com/abcxyz/guardian/pkg/terraform"
@@ -267,7 +268,7 @@ func TestApply_Process_ProviderSources(t *testing.T) {
 				"main.tf":                 `resource "google_project" "p" {}`,
 				"terraform.d/plugins/.ok": "",
 			},
-			expErr:     "failed provider source check: refusing to run: found terraform.d",
+			expErr:     "failed local plugin check: refusing to run: found terraform.d",
 			expStatus:  platform.StatusFailure,
 			expDetails: "found terraform.d",
 		},
@@ -359,6 +360,70 @@ func TestApply_Process_ProviderSources(t *testing.T) {
 			}
 			if !strings.Contains(sp.Details, tc.expDetails) {
 				t.Errorf("status details %q do not contain %q", sp.Details, tc.expDetails)
+			}
+		})
+	}
+}
+
+func TestApply_Process_LocalProvisionerPlugins(t *testing.T) {
+	t.Parallel()
+
+	ctx := logging.WithLogger(t.Context(), logging.TestLogger(t))
+
+	for _, tc := range plugintest.Cases() {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+
+			dir := t.TempDir()
+			tc.Setup(t, dir, filepath.Join(dir, "marker"))
+
+			var initCalled bool
+			tfClient := &terraform.MockTerraformClient{
+				InitHook: func() error {
+					initCalled = true
+					return tc.CheckRemoved(dir)
+				},
+				ValidateResponse: &terraform.MockTerraformResponse{Stdout: "VALIDATE_CALLED"},
+				ApplyResponse:    &terraform.MockTerraformResponse{Stdout: "terraform apply success"},
+			}
+
+			c := &ApplyCommand{
+				directory:       dir,
+				childPath:       "dir",
+				planFilename:    "test-tfplan.binary",
+				flagLockTimeout: 10 * time.Minute,
+				storageClient: &storage.MockStorageClient{
+					Metadata: map[string]string{"plan_exit_code": "2"},
+				},
+				terraformClient: tfClient,
+				platformClient:  &platform.MockPlatform{},
+			}
+			c.FlagAllowedProviderSources = []string{"*"}
+
+			_, stdout, _ := c.Pipe()
+
+			err := c.Process(ctx)
+
+			if tc.WantRejected {
+				if diff := testutil.DiffErrString(err, plugintest.RejectedErr); diff != "" {
+					t.Error(diff)
+				}
+				if initCalled {
+					t.Errorf("terraform init was called")
+				}
+				if strings.Contains(stdout.String(), "VALIDATE_CALLED") {
+					t.Errorf("terraform was executed after init")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !initCalled {
+				t.Errorf("terraform init was not called")
+			}
+			if !strings.Contains(stdout.String(), "VALIDATE_CALLED") {
+				t.Errorf("terraform was not executed after init")
 			}
 		})
 	}
