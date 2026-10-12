@@ -61,17 +61,17 @@ func (p ProviderSource) IsBuiltin() bool {
 //	"registry.terraform.io/x/y"        -> registry.terraform.io/x/y
 //
 // All segments are lower-cased. Wildcard characters are not permitted.
-func ParseProviderSource(s string) (ProviderSource, error) {
+func ParseProviderSource(s string) (*ProviderSource, error) {
 	segs, err := splitSource(s)
 	if err != nil {
-		return ProviderSource{}, err
+		return nil, err
 	}
 	for _, seg := range segs {
 		if strings.ContainsAny(seg, `*?[]\`) {
-			return ProviderSource{}, fmt.Errorf("invalid provider source %q: wildcards are not permitted", s)
+			return nil, fmt.Errorf("invalid provider source %q: wildcards are not permitted", s)
 		}
 	}
-	return ProviderSource{Hostname: segs[0], Namespace: segs[1], Type: segs[2]}, nil
+	return &ProviderSource{Hostname: segs[0], Namespace: segs[1], Type: segs[2]}, nil
 }
 
 // splitSource splits and normalizes a provider source or pattern into its
@@ -104,23 +104,37 @@ func splitSource(s string) ([3]string, error) {
 	return out, nil
 }
 
+// AllowAllPattern is the pattern that allows every source when given on its
+// own, rather than being interpreted as a single segment.
+const AllowAllPattern = "*"
+
 // SourceMatcher is an allowlist of provider source patterns. Patterns are
 // normalized with the same rules as [ParseProviderSource] and matched with
-// [path.Match], so "*" matches exactly one segment and
-// "hashicorp/*" is equivalent to "registry.terraform.io/hashicorp/*".
+// [path.Match], so "*" within a pattern matches exactly one segment and
+// "hashicorp/*" is equivalent to "registry.terraform.io/hashicorp/*". A bare
+// [AllowAllPattern] allows every provider source on any host.
 //
 // A provider source is allowed if and only if it matches at least one pattern.
+// A matcher with no patterns allows nothing.
 type SourceMatcher struct {
 	patterns []string
+	allowAll bool
 }
 
 // NewSourceMatcher builds a SourceMatcher from the given patterns. Blank
 // patterns are ignored. If no non-blank patterns are given, the returned
-// matcher is not [SourceMatcher.Enabled] and allows all sources.
+// matcher denies every source.
 func NewSourceMatcher(patterns []string) (*SourceMatcher, error) {
 	m := &SourceMatcher{}
 	for _, raw := range patterns {
 		if strings.TrimSpace(raw) == "" {
+			continue
+		}
+		if strings.TrimSpace(raw) == AllowAllPattern {
+			m.allowAll = true
+			if !slices.Contains(m.patterns, AllowAllPattern) {
+				m.patterns = append(m.patterns, AllowAllPattern)
+			}
 			continue
 		}
 		if strings.HasPrefix(strings.TrimSpace(raw), "!") {
@@ -146,12 +160,6 @@ func NewSourceMatcher(patterns []string) (*SourceMatcher, error) {
 	return m, nil
 }
 
-// Enabled reports whether any patterns were configured. A matcher that is not
-// enabled allows every provider source.
-func (m *SourceMatcher) Enabled() bool {
-	return m != nil && len(m.patterns) > 0
-}
-
 // Patterns returns the normalized allowlist patterns.
 func (m *SourceMatcher) Patterns() []string {
 	if m == nil {
@@ -162,9 +170,19 @@ func (m *SourceMatcher) Patterns() []string {
 
 // Allowed reports whether the given provider source is permitted. Built-in
 // providers are always allowed because they are never downloaded or executed
-// as a separate plugin.
-func (m *SourceMatcher) Allowed(p ProviderSource) bool {
-	if !m.Enabled() || p.IsBuiltin() {
+// as a separate plugin. A nil source is never allowed, and a nil or empty
+// matcher allows only built-in providers.
+func (m *SourceMatcher) Allowed(p *ProviderSource) bool {
+	if p == nil {
+		return false
+	}
+	if p.IsBuiltin() {
+		return true
+	}
+	if m == nil {
+		return false
+	}
+	if m.allowAll {
 		return true
 	}
 	s := p.String()

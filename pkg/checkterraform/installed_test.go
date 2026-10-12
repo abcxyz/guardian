@@ -179,7 +179,7 @@ func TestCheckInstalledProviderSources(t *testing.T) {
 		installed    []string // relative to .terraform/providers
 		strayFiles   []string // relative to .terraform/providers
 		noProviders  bool
-		expInstalled []ProviderSource
+		expInstalled []*ProviderSource
 		expErr       string
 	}{
 		{
@@ -194,7 +194,7 @@ func TestCheckInstalledProviderSources(t *testing.T) {
 				"registry.terraform.io/hashicorp/google/6.0.0/linux_amd64",
 				"registry.terraform.io/hashicorp/google-beta/6.0.0/linux_amd64",
 			},
-			expInstalled: []ProviderSource{
+			expInstalled: []*ProviderSource{
 				{Hostname: "registry.terraform.io", Namespace: "hashicorp", Type: "google"},
 				{Hostname: "registry.terraform.io", Namespace: "hashicorp", Type: "google-beta"},
 			},
@@ -206,7 +206,7 @@ func TestCheckInstalledProviderSources(t *testing.T) {
 				"registry.terraform.io/hashicorp/google/6.0.0/linux_amd64",
 				"registry.terraform.io/attacker/evil/1.0.0/linux_amd64",
 			},
-			expInstalled: []ProviderSource{
+			expInstalled: []*ProviderSource{
 				{Hostname: "registry.terraform.io", Namespace: "attacker", Type: "evil"},
 				{Hostname: "registry.terraform.io", Namespace: "hashicorp", Type: "google"},
 			},
@@ -218,7 +218,7 @@ func TestCheckInstalledProviderSources(t *testing.T) {
 			installed: []string{
 				"registry.terraform.io/hashicorp/external/2.0.0/linux_amd64",
 			},
-			expInstalled: []ProviderSource{
+			expInstalled: []*ProviderSource{
 				{Hostname: "registry.terraform.io", Namespace: "hashicorp", Type: "external"},
 			},
 			expErr: "not allowed: registry.terraform.io/hashicorp/external",
@@ -229,18 +229,31 @@ func TestCheckInstalledProviderSources(t *testing.T) {
 			installed: []string{
 				"evil.example.com/hashicorp/google/6.0.0/linux_amd64",
 			},
-			expInstalled: []ProviderSource{
+			expInstalled: []*ProviderSource{
 				{Hostname: "evil.example.com", Namespace: "hashicorp", Type: "google"},
 			},
 			expErr: "not allowed: evil.example.com/hashicorp/google",
 		},
 		{
-			name:     "matcher_disabled_returns_installed",
+			name:     "no_patterns_rejects_installed",
 			patterns: nil,
 			installed: []string{
-				"registry.terraform.io/attacker/evil/1.0.0/linux_amd64",
+				"registry.terraform.io/hashicorp/google/6.0.0/linux_amd64",
 			},
-			expInstalled: []ProviderSource{
+			expInstalled: []*ProviderSource{
+				{Hostname: "registry.terraform.io", Namespace: "hashicorp", Type: "google"},
+			},
+			expErr: `no provider sources are allowed; set -allowed-provider-sources, or use "*" to allow all`,
+		},
+		{
+			name:     "allow_all",
+			patterns: []string{"*"},
+			installed: []string{
+				"registry.terraform.io/attacker/evil/1.0.0/linux_amd64",
+				"registry.example.com/acme/thing/1.0.0/linux_amd64",
+			},
+			expInstalled: []*ProviderSource{
+				{Hostname: "registry.example.com", Namespace: "acme", Type: "thing"},
 				{Hostname: "registry.terraform.io", Namespace: "attacker", Type: "evil"},
 			},
 		},
@@ -255,7 +268,7 @@ func TestCheckInstalledProviderSources(t *testing.T) {
 				"registry.terraform.io/README",
 				"registry.terraform.io/hashicorp/README",
 			},
-			expInstalled: []ProviderSource{
+			expInstalled: []*ProviderSource{
 				{Hostname: "registry.terraform.io", Namespace: "hashicorp", Type: "google"},
 			},
 		},
