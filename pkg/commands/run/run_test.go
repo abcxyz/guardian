@@ -175,3 +175,114 @@ func writeTestFile(t *testing.T, dir, name, content string) {
 		t.Fatalf("failed to write test file: %v", err)
 	}
 }
+
+func TestRun_Process_ProviderSources(t *testing.T) {
+	t.Parallel()
+
+	ctx := logging.WithLogger(t.Context(), logging.TestLogger(t))
+
+	cases := []struct {
+		name           string
+		command        string
+		allowedSources []string
+		files          map[string]string
+		installed      []string
+		expErr         string
+		expRun         bool
+	}{
+		{
+			name:           "allowed",
+			command:        "plan",
+			allowedSources: []string{"hashicorp/google"},
+			files:          map[string]string{"main.tf": `resource "google_project" "p" {}`},
+			installed:      []string{"registry.terraform.io/hashicorp/google/6.0.0/linux_amd64"},
+			expRun:         true,
+		},
+		{
+			name:           "invalid_pattern",
+			command:        "plan",
+			allowedSources: []string{"a/b/c/d"},
+			expErr:         "invalid -allowed-provider-sources",
+		},
+		{
+			name:           "local_override_rejected_before_init",
+			command:        "plan",
+			allowedSources: []string{"hashicorp/google"},
+			files: map[string]string{
+				"main.tf":                 `resource "google_project" "p" {}`,
+				"terraform.d/plugins/.ok": "",
+			},
+			expErr: "failed provider source check: refusing to run: found terraform.d",
+		},
+		{
+			name:           "declared_source_rejected_before_init",
+			command:        "plan",
+			allowedSources: []string{"hashicorp/*"},
+			files: map[string]string{"main.tf": `
+terraform {
+  required_providers {
+    evil = { source = "attacker/evil" }
+  }
+}
+`},
+			expErr: "failed provider source check: terraform uses provider sources that are not allowed: registry.terraform.io/attacker/evil",
+		},
+		{
+			name:           "installed_source_rejected_before_command",
+			command:        "apply",
+			allowedSources: []string{"hashicorp/google"},
+			files:          map[string]string{"main.tf": `resource "google_project" "p" {}`},
+			installed: []string{
+				"registry.terraform.io/hashicorp/google/6.0.0/linux_amd64",
+				"registry.terraform.io/attacker/evil/1.0.0/linux_amd64",
+			},
+			expErr: "failed provider source check: terraform uses provider sources that are not allowed: registry.terraform.io/attacker/evil",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			dir := t.TempDir()
+			for name, content := range tc.files {
+				p := filepath.Join(dir, name)
+				if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+					t.Fatal(err)
+				}
+				writeTestFile(t, filepath.Dir(p), filepath.Base(p), content)
+			}
+
+			tfClient := &terraform.MockTerraformClient{
+				InitHook: func() error {
+					for _, p := range tc.installed {
+						if err := os.MkdirAll(filepath.Join(dir, ".terraform", "providers", p), 0o755); err != nil {
+							return err
+						}
+					}
+					return nil
+				},
+				RunResponse: &terraform.MockTerraformResponse{Stdout: "RUN_CALLED"},
+			}
+
+			c := &RunCommand{
+				directory:        dir,
+				childPath:        "testdir",
+				terraformCommand: tc.command,
+				flagLockTimeout:  10 * time.Minute,
+				terraformClient:  tfClient,
+			}
+			c.FlagAllowedProviderSources = tc.allowedSources
+
+			_, stdout, _ := c.Pipe()
+
+			err := c.Process(ctx)
+			if diff := testutil.DiffErrString(err, tc.expErr); diff != "" {
+				t.Error(diff)
+			}
+			if got := strings.Contains(stdout.String(), "RUN_CALLED"); got != tc.expRun {
+				t.Errorf("terraform command run = %t, want %t", got, tc.expRun)
+			}
+		})
+	}
+}

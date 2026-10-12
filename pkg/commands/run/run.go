@@ -45,6 +45,7 @@ type RunCommand struct {
 
 	flags.CommonFlags
 	flags.RegistryProxyFlags
+	flags.ProviderSourceFlags
 
 	flagAllowedTerraformCommands []string
 	flagAllowLockfileChanges     bool
@@ -131,6 +132,8 @@ func (c *RunCommand) Flags() *cli.FlagSet {
 		Usage:   "The list of allowed Terraform provisioners. Setting this will override disallowed provisioners.",
 	})
 
+	c.RegisterProviderSourceFlags(f)
+
 	return set
 }
 
@@ -198,6 +201,19 @@ func (c *RunCommand) Process(ctx context.Context) error {
 		return fmt.Errorf("terraform provider/provisioner check failed: %w", err)
 	}
 
+	sourceMatcher, err := c.ProviderSourceMatcher()
+	if err != nil {
+		return fmt.Errorf("failed to build provider source matcher: %w", err)
+	}
+
+	util.Headerf(c.Stdout(), "Checking Terraform Provider Sources")
+	if err := checkterraform.RemoveLocalProviderOverrides(ctx, c.directory); err != nil {
+		return fmt.Errorf("failed provider source check: %w", err)
+	}
+	if _, err := checkterraform.CheckDeclaredProviderSources(ctx, c.directory, sourceMatcher); err != nil {
+		return fmt.Errorf("failed provider source check: %w", err)
+	}
+
 	if _, ok := terraform.InitRequiredCommands[c.terraformCommand]; ok {
 		c.Outf("Running Terraform init")
 
@@ -214,6 +230,13 @@ func (c *RunCommand) Process(ctx context.Context) error {
 		}); err != nil {
 			return fmt.Errorf("failed to initialize: %w", err)
 		}
+	}
+
+	// This must happen after init (which only downloads providers) and before
+	// running any command that may execute provider binaries.
+	util.Headerf(c.Stdout(), "Checking Installed Terraform Providers")
+	if _, err := checkterraform.CheckInstalledProviderSources(ctx, c.directory, sourceMatcher); err != nil {
+		return fmt.Errorf("failed provider source check: %w", err)
 	}
 
 	util.Headerf(c.Stdout(), "Running Terraform Command")

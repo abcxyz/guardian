@@ -72,6 +72,7 @@ type PlanCommand struct {
 
 	flags.CommonFlags
 	flags.RegistryProxyFlags
+	flags.ProviderSourceFlags
 
 	flagOutputDir              string
 	flagStorage                string
@@ -189,6 +190,9 @@ func (c *PlanCommand) Flags() *cli.FlagSet {
 		Example: "allowed-provisioner,another-allowed-provisioner",
 		Usage:   "The list of allowed Terraform provisioners. Setting this will override disallowed provisioners.",
 	})
+
+	c.RegisterProviderSourceFlags(f)
+
 	return set
 }
 
@@ -337,6 +341,19 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 	stdout.Reset()
 	stderr.Reset()
 
+	sourceMatcher, err := c.ProviderSourceMatcher()
+	if err != nil {
+		return &RunResult{commentDetails: err.Error()}, fmt.Errorf("failed to build provider source matcher: %w", err)
+	}
+
+	util.Headerf(c.Stdout(), "Checking Terraform Provider Sources")
+	if err := checkterraform.RemoveLocalProviderOverrides(ctx, c.directory); err != nil {
+		return &RunResult{commentDetails: err.Error()}, fmt.Errorf("failed provider source check: %w", err)
+	}
+	if _, err := checkterraform.CheckDeclaredProviderSources(ctx, c.directory, sourceMatcher); err != nil {
+		return &RunResult{commentDetails: err.Error()}, fmt.Errorf("failed provider source check: %w", err)
+	}
+
 	lockfileMode := "none"
 	if !c.flagAllowLockfileChanges {
 		lockfileMode = "readonly"
@@ -358,6 +375,13 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 
 	stdout.Reset()
 	stderr.Reset()
+
+	// This must happen after init (which only downloads providers) and before
+	// validate, which is the first command that executes provider binaries.
+	util.Headerf(c.Stdout(), "Checking Installed Terraform Providers")
+	if _, err := checkterraform.CheckInstalledProviderSources(ctx, c.directory, sourceMatcher); err != nil {
+		return &RunResult{commentDetails: err.Error()}, fmt.Errorf("failed provider source check: %w", err)
+	}
 
 	util.Headerf(c.Stdout(), "Validating Terraform")
 	if _, err := c.terraformClient.Validate(ctx, multiStdout, multiStderr, &terraform.ValidateOptions{

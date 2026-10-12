@@ -44,9 +44,19 @@ type MockTerraformClient struct {
 	ShowJSONResponse *MockTerraformResponse
 	FormatResponse   *MockTerraformResponse
 	RunResponse      *MockTerraformResponse
+
+	// InitHook, if set, is called by Init before returning InitResponse. Tests
+	// can use it to simulate side effects of terraform init, such as installing
+	// providers into the working directory.
+	InitHook func() error
 }
 
 func (m *MockTerraformClient) Init(ctx context.Context, stdout, stderr io.Writer, opts *InitOptions) (int, error) {
+	if m.InitHook != nil {
+		if err := m.InitHook(); err != nil {
+			return 1, err
+		}
+	}
 	if m.InitResponse != nil {
 		stdout.Write([]byte(m.InitResponse.Stdout))
 		stderr.Write([]byte(m.InitResponse.Stderr))
