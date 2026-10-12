@@ -150,6 +150,7 @@ func TestPlan_Process(t *testing.T) {
 				flagAllowedProvisioners:      tc.flagAllowedProvisioners,
 				terraformClient:              tc.terraformClient,
 			}
+			c.FlagAllowedProviderSources = []string{"*"}
 
 			_, stdout, stderr := c.Pipe()
 

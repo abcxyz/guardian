@@ -28,33 +28,33 @@ func TestParseProviderSource(t *testing.T) {
 	cases := []struct {
 		name   string
 		in     string
-		exp    ProviderSource
+		exp    *ProviderSource
 		expErr string
 	}{
 		{
 			name: "type_only",
 			in:   "google",
-			exp:  ProviderSource{Hostname: "registry.terraform.io", Namespace: "hashicorp", Type: "google"},
+			exp:  &ProviderSource{Hostname: "registry.terraform.io", Namespace: "hashicorp", Type: "google"},
 		},
 		{
 			name: "namespace_and_type",
 			in:   "integrations/github",
-			exp:  ProviderSource{Hostname: "registry.terraform.io", Namespace: "integrations", Type: "github"},
+			exp:  &ProviderSource{Hostname: "registry.terraform.io", Namespace: "integrations", Type: "github"},
 		},
 		{
 			name: "fully_qualified",
 			in:   "registry.example.com/acme/thing",
-			exp:  ProviderSource{Hostname: "registry.example.com", Namespace: "acme", Type: "thing"},
+			exp:  &ProviderSource{Hostname: "registry.example.com", Namespace: "acme", Type: "thing"},
 		},
 		{
 			name: "mixed_case_and_whitespace",
 			in:   "  Registry.Terraform.IO/HashiCorp/Google ",
-			exp:  ProviderSource{Hostname: "registry.terraform.io", Namespace: "hashicorp", Type: "google"},
+			exp:  &ProviderSource{Hostname: "registry.terraform.io", Namespace: "hashicorp", Type: "google"},
 		},
 		{
 			name: "builtin",
 			in:   "terraform.io/builtin/terraform",
-			exp:  ProviderSource{Hostname: "terraform.io", Namespace: "builtin", Type: "terraform"},
+			exp:  &ProviderSource{Hostname: "terraform.io", Namespace: "builtin", Type: "terraform"},
 		},
 		{
 			name:   "empty",
@@ -111,24 +111,25 @@ func TestNewSourceMatcher(t *testing.T) {
 		name        string
 		patterns    []string
 		expPatterns []string
-		expEnabled  bool
 		expErr      string
 	}{
 		{
-			name:       "nil",
-			patterns:   nil,
-			expEnabled: false,
+			name:     "nil",
+			patterns: nil,
 		},
 		{
-			name:       "blank_only",
-			patterns:   []string{"", "  "},
-			expEnabled: false,
+			name:     "blank_only",
+			patterns: []string{"", "  "},
 		},
 		{
 			name:        "normalizes_and_dedupes",
 			patterns:    []string{"hashicorp/*", "registry.terraform.io/hashicorp/*", "Integrations/GitHub"},
 			expPatterns: []string{"registry.terraform.io/hashicorp/*", "registry.terraform.io/integrations/github"},
-			expEnabled:  true,
+		},
+		{
+			name:        "allow_all_is_not_normalized",
+			patterns:    []string{" * ", "*", "hashicorp/google"},
+			expPatterns: []string{"*", "registry.terraform.io/hashicorp/google"},
 		},
 		{
 			name:     "rejects_exclusion",
@@ -158,9 +159,6 @@ func TestNewSourceMatcher(t *testing.T) {
 			if err != nil {
 				return
 			}
-			if got := m.Enabled(); got != tc.expEnabled {
-				t.Errorf("Enabled() = %t, want %t", got, tc.expEnabled)
-			}
 			if diff := cmp.Diff(tc.expPatterns, m.Patterns()); diff != "" {
 				t.Errorf("Patterns() mismatch (-want +got):\n%s", diff)
 			}
@@ -178,9 +176,45 @@ func TestSourceMatcher_Allowed(t *testing.T) {
 		exp      bool
 	}{
 		{
-			name:     "disabled_allows_everything",
+			name:     "no_patterns_denies_everything",
 			patterns: nil,
+			source:   "hashicorp/google",
+			exp:      false,
+		},
+		{
+			name:     "blank_patterns_deny_everything",
+			patterns: []string{"", " "},
+			source:   "hashicorp/google",
+			exp:      false,
+		},
+		{
+			name:     "no_patterns_allows_builtin",
+			patterns: nil,
+			source:   "terraform.io/builtin/terraform",
+			exp:      true,
+		},
+		{
+			name:     "allow_all",
+			patterns: []string{"*"},
+			source:   "registry.example.com/acme/thing",
+			exp:      true,
+		},
+		{
+			name:     "allow_all_alongside_other_patterns",
+			patterns: []string{"hashicorp/google", "*"},
 			source:   "attacker/evil",
+			exp:      true,
+		},
+		{
+			name:     "single_segment_wildcards_do_not_allow_other_hosts",
+			patterns: []string{"*/*"},
+			source:   "registry.example.com/acme/thing",
+			exp:      false,
+		},
+		{
+			name:     "three_segment_wildcards_allow_any_host",
+			patterns: []string{"*/*/*"},
+			source:   "registry.example.com/acme/thing",
 			exp:      true,
 		},
 		{
@@ -249,5 +283,22 @@ func TestSourceMatcher_Allowed(t *testing.T) {
 				t.Errorf("Allowed(%q) with patterns %q = %t, want %t", src, tc.patterns, got, tc.exp)
 			}
 		})
+	}
+}
+
+func TestSourceMatcher_Allowed_Nil(t *testing.T) {
+	t.Parallel()
+
+	m, err := NewSourceMatcher([]string{"*"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Allowed(nil) {
+		t.Errorf("Allowed(nil) = true, want false")
+	}
+
+	var nilMatcher *SourceMatcher
+	if nilMatcher.Allowed(&ProviderSource{Hostname: "registry.terraform.io", Namespace: "hashicorp", Type: "google"}) {
+		t.Errorf("nil matcher Allowed() = true, want false")
 	}
 }

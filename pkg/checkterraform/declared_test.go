@@ -27,22 +27,22 @@ import (
 func TestCheckDeclaredProviderSources(t *testing.T) {
 	t.Parallel()
 
-	hashicorp := func(typ string) ProviderSource {
-		return ProviderSource{Hostname: "registry.terraform.io", Namespace: "hashicorp", Type: typ}
+	hashicorp := func(typ string) *ProviderSource {
+		return &ProviderSource{Hostname: "registry.terraform.io", Namespace: "hashicorp", Type: typ}
 	}
 
 	cases := []struct {
 		name        string
 		files       map[string]string
 		patterns    []string
-		expDeclared []ProviderSource
+		expDeclared []*ProviderSource
 		expErr      string
 	}{
 		{
 			name:        "empty",
 			files:       map[string]string{"main.tf": ""},
 			patterns:    []string{"hashicorp/google"},
-			expDeclared: []ProviderSource{},
+			expDeclared: []*ProviderSource{},
 		},
 		{
 			name: "required_providers_allowed",
@@ -63,7 +63,7 @@ terraform {
 resource "google_project" "p" {}
 `},
 			patterns:    []string{"hashicorp/google", "hashicorp/google-beta"},
-			expDeclared: []ProviderSource{hashicorp("google"), hashicorp("google-beta")},
+			expDeclared: []*ProviderSource{hashicorp("google"), hashicorp("google-beta")},
 		},
 		{
 			name: "attacker_source_rejected",
@@ -77,7 +77,7 @@ terraform {
 }
 `},
 			patterns: []string{"hashicorp/*"},
-			expDeclared: []ProviderSource{
+			expDeclared: []*ProviderSource{
 				{Hostname: "registry.terraform.io", Namespace: "attacker", Type: "evil"},
 			},
 			expErr: "not allowed: registry.terraform.io/attacker/evil",
@@ -99,7 +99,7 @@ data "external" "x" {
 }
 `},
 			patterns:    []string{"hashicorp/google"},
-			expDeclared: []ProviderSource{hashicorp("external")},
+			expDeclared: []*ProviderSource{hashicorp("external")},
 			expErr:      "not allowed: registry.terraform.io/hashicorp/external",
 		},
 		{
@@ -110,7 +110,7 @@ data "external" "x" {
 }
 `},
 			patterns:    []string{"hashicorp/google"},
-			expDeclared: []ProviderSource{hashicorp("external")},
+			expDeclared: []*ProviderSource{hashicorp("external")},
 			expErr:      "not allowed: registry.terraform.io/hashicorp/external",
 		},
 		{
@@ -129,7 +129,7 @@ resource "google_project" "p" {
 }
 `},
 			patterns:    []string{"hashicorp/google-beta"},
-			expDeclared: []ProviderSource{hashicorp("google-beta")},
+			expDeclared: []*ProviderSource{hashicorp("google-beta")},
 		},
 		{
 			name: "builtin_terraform_provider_skipped",
@@ -138,7 +138,7 @@ data "terraform_remote_state" "s" {}
 resource "terraform_data" "d" {}
 `},
 			patterns:    []string{"hashicorp/google"},
-			expDeclared: []ProviderSource{},
+			expDeclared: []*ProviderSource{},
 		},
 		{
 			name: "legacy_version_string",
@@ -150,7 +150,7 @@ terraform {
 }
 `},
 			patterns:    []string{"hashicorp/google"},
-			expDeclared: []ProviderSource{hashicorp("google")},
+			expDeclared: []*ProviderSource{hashicorp("google")},
 		},
 		{
 			name: "json_config",
@@ -162,7 +162,7 @@ terraform {
   }
 }`},
 			patterns: []string{"hashicorp/*"},
-			expDeclared: []ProviderSource{
+			expDeclared: []*ProviderSource{
 				{Hostname: "registry.terraform.io", Namespace: "attacker", Type: "evil"},
 			},
 			expErr: "not allowed: registry.terraform.io/attacker/evil",
@@ -188,7 +188,7 @@ terraform {
 				".terraform/modules/modules.json": `{"Modules":[{"Key":"","Source":"","Dir":"."},{"Key":"child","Source":"./modules/child","Dir":"modules/child"}]}`,
 			},
 			patterns: []string{"hashicorp/google"},
-			expDeclared: []ProviderSource{
+			expDeclared: []*ProviderSource{
 				{Hostname: "registry.terraform.io", Namespace: "attacker", Type: "thing"},
 				hashicorp("google"),
 			},
@@ -203,7 +203,7 @@ terraform {
 				"terraform.tfvars.json": `{"a": "b"}`,
 			},
 			patterns:    []string{"hashicorp/google"},
-			expDeclared: []ProviderSource{hashicorp("google")},
+			expDeclared: []*ProviderSource{hashicorp("google")},
 		},
 		{
 			name: "ignored_files_skipped",
@@ -215,7 +215,7 @@ terraform {
 				".hidden.tf.json": "{",
 			},
 			patterns:    []string{"hashicorp/google"},
-			expDeclared: []ProviderSource{hashicorp("google")},
+			expDeclared: []*ProviderSource{hashicorp("google")},
 		},
 		{
 			name:     "unparseable_hcl_rejected",
@@ -325,7 +325,20 @@ resource "google_project" "p" {
 			expErr:   "failed to analyze",
 		},
 		{
-			name: "matcher_disabled",
+			name:        "no_patterns_rejects_declared",
+			files:       map[string]string{"main.tf": `resource "google_project" "p" {}`},
+			patterns:    nil,
+			expDeclared: []*ProviderSource{hashicorp("google")},
+			expErr:      `no provider sources are allowed; set -allowed-provider-sources, or use "*" to allow all`,
+		},
+		{
+			name:        "no_patterns_allows_builtin_only",
+			files:       map[string]string{"main.tf": `resource "terraform_data" "d" {}`},
+			patterns:    nil,
+			expDeclared: []*ProviderSource{},
+		},
+		{
+			name: "allow_all",
 			files: map[string]string{"main.tf": `
 terraform {
   required_providers {
@@ -333,8 +346,8 @@ terraform {
   }
 }
 `},
-			patterns: nil,
-			expDeclared: []ProviderSource{
+			patterns: []string{"*"},
+			expDeclared: []*ProviderSource{
 				{Hostname: "registry.terraform.io", Namespace: "attacker", Type: "evil"},
 			},
 		},

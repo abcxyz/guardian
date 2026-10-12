@@ -16,10 +16,18 @@ package flags
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/abcxyz/guardian/pkg/checkterraform"
 	"github.com/abcxyz/pkg/cli"
 )
+
+// DefaultAllowedProviderSources is the default value of
+// -allowed-provider-sources. It allows every provider in the hashicorp
+// namespace on the public registry, which keeps Guardian cloud platform
+// agnostic. Note that it also allows hashicorp/external, which can execute
+// arbitrary programs during plan.
+var DefaultAllowedProviderSources = []string{"hashicorp/*"}
 
 // ProviderSourceFlags are the flags that control which Terraform provider
 // sources Guardian allows Terraform to install and execute.
@@ -33,13 +41,14 @@ func (p *ProviderSourceFlags) RegisterProviderSourceFlags(f *cli.FlagSection) {
 	f.StringSliceVar(&cli.StringSliceVar{
 		Name:    "allowed-provider-sources",
 		Target:  &p.FlagAllowedProviderSources,
-		Default: []string{},
+		Default: slices.Clone(DefaultAllowedProviderSources),
 		Example: "hashicorp/google,hashicorp/google-beta,integrations/github",
 		Usage: "The allowlist of Terraform provider sources, in the form " +
 			"[HOSTNAME/]NAMESPACE/TYPE. HOSTNAME defaults to registry.terraform.io " +
-			"and '*' matches a single segment (e.g. hashicorp/*). Installed " +
-			"providers are checked after terraform init and before any provider " +
-			"is executed. If unset, all provider sources are allowed.",
+			"and '*' matches a single segment (e.g. hashicorp/*). A bare '*' " +
+			"allows every provider source, and an empty value allows none. " +
+			"Installed providers are checked after terraform init and before any " +
+			"provider is executed.",
 	})
 }
 

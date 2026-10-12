@@ -34,8 +34,8 @@ import (
 const builtinLocalName = "terraform"
 
 // CheckDeclaredProviderSources statically analyzes the Terraform configuration
-// in dir and returns the provider sources it requires. If m is enabled, it
-// returns an error if any of those sources is not allowed.
+// in dir and returns the provider sources it requires. It returns an error if
+// any of those sources is not allowed by m.
 //
 // Each module directory (dir itself, plus any module directories listed in
 // .terraform/modules/modules.json) is analyzed independently, mirroring how
@@ -53,7 +53,7 @@ const builtinLocalName = "terraform"
 // providers declared in the root module are rejected without being
 // downloaded. It is not a substitute for CheckInstalledProviderSources, which
 // must still be run after init.
-func CheckDeclaredProviderSources(ctx context.Context, dir string, m *SourceMatcher) ([]ProviderSource, error) {
+func CheckDeclaredProviderSources(ctx context.Context, dir string, m *SourceMatcher) ([]*ProviderSource, error) {
 	logger := logging.FromContext(ctx)
 
 	seen := make(map[ProviderSource]struct{})
@@ -63,25 +63,21 @@ func CheckDeclaredProviderSources(ctx context.Context, dir string, m *SourceMatc
 			return nil, fmt.Errorf("failed to analyze module directory %q: %w", moduleDir, err)
 		}
 		for _, s := range sources {
-			seen[s] = struct{}{}
+			seen[*s] = struct{}{}
 		}
 	}
 
-	declared := make([]ProviderSource, 0, len(seen))
+	declared := make([]*ProviderSource, 0, len(seen))
 	for s := range seen {
-		declared = append(declared, s)
+		declared = append(declared, &s)
 	}
-	slices.SortFunc(declared, func(a, b ProviderSource) int {
+	slices.SortFunc(declared, func(a, b *ProviderSource) int {
 		return strings.Compare(a.String(), b.String())
 	})
 
 	logger.DebugContext(ctx, "found declared terraform provider sources",
 		"dir", dir,
 		"providers", declared)
-
-	if !m.Enabled() {
-		return declared, nil
-	}
 
 	var disallowed []string
 	for _, p := range declared {
@@ -101,7 +97,7 @@ func CheckDeclaredProviderSources(ctx context.Context, dir string, m *SourceMatc
 //
 // Any configuration that cannot be parsed or analyzed is an error rather than
 // being skipped, so that the check fails closed.
-func declaredProviderSources(dir string) ([]ProviderSource, error) {
+func declaredProviderSources(dir string) ([]*ProviderSource, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read directory: %w", err)
@@ -140,7 +136,7 @@ func declaredProviderSources(dir string) ([]ProviderSource, error) {
 		}
 	}
 
-	out := make([]ProviderSource, 0, len(localNames))
+	out := make([]*ProviderSource, 0, len(localNames))
 	for name := range localNames {
 		raw := name
 		if src, ok := requiredSources[name]; ok && src != "" {

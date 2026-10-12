@@ -97,9 +97,8 @@ func RemoveLocalProviderOverrides(ctx context.Context, dir string) error {
 //
 // This is the authoritative provider gate and must be called after terraform
 // init and before any command that executes providers (validate, plan, apply,
-// etc.). If m is not enabled, the installed providers are returned without
-// being checked.
-func CheckInstalledProviderSources(ctx context.Context, dir string, m *SourceMatcher) ([]ProviderSource, error) {
+// etc.). If m has no patterns, every installed provider is rejected.
+func CheckInstalledProviderSources(ctx context.Context, dir string, m *SourceMatcher) ([]*ProviderSource, error) {
 	logger := logging.FromContext(ctx)
 
 	installed, err := installedProviders(filepath.Join(dir, ".terraform", "providers"))
@@ -110,10 +109,6 @@ func CheckInstalledProviderSources(ctx context.Context, dir string, m *SourceMat
 	logger.DebugContext(ctx, "found installed terraform providers",
 		"dir", dir,
 		"providers", installed)
-
-	if !m.Enabled() {
-		return installed, nil
-	}
 
 	var disallowed []string
 	for _, p := range installed {
@@ -132,7 +127,7 @@ func CheckInstalledProviderSources(ctx context.Context, dir string, m *SourceMat
 // the layout <root>/<hostname>/<namespace>/<type>/<version>/<os_arch>, and
 // returns the sorted list of providers it contains. A missing root is not an
 // error and returns no providers.
-func installedProviders(root string) ([]ProviderSource, error) {
+func installedProviders(root string) ([]*ProviderSource, error) {
 	hosts, err := subdirs(root)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
@@ -141,7 +136,7 @@ func installedProviders(root string) ([]ProviderSource, error) {
 		return nil, err
 	}
 
-	var out []ProviderSource
+	var out []*ProviderSource
 	for _, host := range hosts {
 		namespaces, err := subdirs(filepath.Join(root, host))
 		if err != nil {
@@ -153,7 +148,7 @@ func installedProviders(root string) ([]ProviderSource, error) {
 				return nil, err
 			}
 			for _, typ := range types {
-				out = append(out, ProviderSource{
+				out = append(out, &ProviderSource{
 					Hostname:  strings.ToLower(host),
 					Namespace: strings.ToLower(ns),
 					Type:      strings.ToLower(typ),
@@ -162,10 +157,12 @@ func installedProviders(root string) ([]ProviderSource, error) {
 		}
 	}
 
-	slices.SortFunc(out, func(a, b ProviderSource) int {
+	slices.SortFunc(out, func(a, b *ProviderSource) int {
 		return strings.Compare(a.String(), b.String())
 	})
-	return slices.Compact(out), nil
+	return slices.CompactFunc(out, func(a, b *ProviderSource) bool {
+		return *a == *b
+	}), nil
 }
 
 // subdirs returns the names of the directories (following symlinks) directly
@@ -192,6 +189,11 @@ func subdirs(dir string) ([]string, error) {
 func newDisallowedSourcesError(disallowed []string, m *SourceMatcher) error {
 	slices.Sort(disallowed)
 	disallowed = slices.Compact(disallowed)
+	if len(m.Patterns()) == 0 {
+		return fmt.Errorf("terraform uses provider sources that are not allowed: %s (no provider sources are allowed; "+
+			"set -allowed-provider-sources, or use %q to allow all)",
+			strings.Join(disallowed, ", "), AllowAllPattern)
+	}
 	return fmt.Errorf("terraform uses provider sources that are not allowed: %s (allowed provider sources: %s)",
 		strings.Join(disallowed, ", "), strings.Join(m.Patterns(), ", "))
 }
