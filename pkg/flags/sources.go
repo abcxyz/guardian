@@ -29,15 +29,16 @@ import (
 // arbitrary programs during plan.
 var DefaultAllowedProviderSources = []string{"hashicorp/*"}
 
-// ProviderSourceFlags are the flags that control which Terraform provider
-// sources Guardian allows Terraform to install and execute.
-type ProviderSourceFlags struct {
-	FlagAllowedProviderSources []string
+// SourceFlags are the flags that control which Terraform provider and
+// provisioner sources Guardian allows Terraform to install and execute.
+type SourceFlags struct {
+	FlagAllowedProviderSources    []string
+	FlagAllowedProvisionerSources []string
 }
 
-// RegisterProviderSourceFlags registers the provider source flags in the given
-// flag section.
-func (p *ProviderSourceFlags) RegisterProviderSourceFlags(f *cli.FlagSection) {
+// RegisterSourceFlags registers the provider and provisioner source flags in
+// the given flag section.
+func (p *SourceFlags) RegisterSourceFlags(f *cli.FlagSection) {
 	f.StringSliceVar(&cli.StringSliceVar{
 		Name:    "allowed-provider-sources",
 		Target:  &p.FlagAllowedProviderSources,
@@ -50,13 +51,36 @@ func (p *ProviderSourceFlags) RegisterProviderSourceFlags(f *cli.FlagSection) {
 			"Installed providers are checked after terraform init and before any " +
 			"provider is executed.",
 	})
+
+	f.StringSliceVar(&cli.StringSliceVar{
+		Name:    "allowed-provisioner-sources",
+		Target:  &p.FlagAllowedProvisionerSources,
+		Default: []string{},
+		Example: "builtin/local-exec",
+		Usage: "The allowlist of Terraform provisioner sources, in the form " +
+			"[ORIGIN/]TYPE, where ORIGIN is builtin (file, local-exec, remote-exec) " +
+			"or plugin, and defaults to builtin. '*' matches a single segment " +
+			"(e.g. builtin/*) and a bare '*' allows every provisioner. Provisioners " +
+			"are discouraged; plugin provisioners should only be used for quick " +
+			"proofs of concept. If unset, no provisioners are allowed.",
+	})
 }
 
 // ProviderSourceMatcher builds a SourceMatcher from the configured flags.
-func (p *ProviderSourceFlags) ProviderSourceMatcher() (*checkterraform.SourceMatcher, error) {
+func (p *SourceFlags) ProviderSourceMatcher() (*checkterraform.SourceMatcher, error) {
 	m, err := checkterraform.NewSourceMatcher(p.FlagAllowedProviderSources)
 	if err != nil {
 		return nil, fmt.Errorf("invalid -allowed-provider-sources: %w", err)
+	}
+	return m, nil
+}
+
+// ProvisionerSourceMatcher builds a ProvisionerSourceMatcher from the
+// configured flags.
+func (p *SourceFlags) ProvisionerSourceMatcher() (*checkterraform.ProvisionerSourceMatcher, error) {
+	m, err := checkterraform.NewProvisionerSourceMatcher(p.FlagAllowedProvisionerSources)
+	if err != nil {
+		return nil, fmt.Errorf("invalid -allowed-provisioner-sources: %w", err)
 	}
 	return m, nil
 }

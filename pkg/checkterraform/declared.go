@@ -56,56 +56,130 @@ const builtinLocalName = "terraform"
 func CheckDeclaredProviderSources(ctx context.Context, dir string, m *SourceMatcher) ([]*ProviderSource, error) {
 	logger := logging.FromContext(ctx)
 
-	seen := make(map[ProviderSource]struct{})
-	for _, moduleDir := range extractPathsFromModulesJSON(ctx, dir) {
-		sources, err := declaredProviderSources(moduleDir)
-		if err != nil {
-			return nil, fmt.Errorf("failed to analyze module directory %q: %w", moduleDir, err)
-		}
-		for _, s := range sources {
-			seen[*s] = struct{}{}
-		}
+	declared, err := analyzeModules(ctx, dir)
+	if err != nil {
+		return nil, err
 	}
-
-	declared := make([]*ProviderSource, 0, len(seen))
-	for s := range seen {
-		declared = append(declared, &s)
-	}
-	slices.SortFunc(declared, func(a, b *ProviderSource) int {
-		return strings.Compare(a.String(), b.String())
-	})
 
 	logger.DebugContext(ctx, "found declared terraform provider sources",
 		"dir", dir,
-		"providers", declared)
+		"providers", declared.providers)
 
 	var disallowed []string
-	for _, p := range declared {
+	for _, p := range declared.providers {
 		if !m.Allowed(p) {
 			disallowed = append(disallowed, p.String())
 		}
 	}
 	if len(disallowed) > 0 {
-		return declared, newDisallowedSourcesError(disallowed, m)
+		return declared.providers, newDisallowedSourcesError(disallowed, m)
 	}
-	return declared, nil
+	return declared.providers, nil
 }
 
-// declaredProviderSources returns the provider sources required by the single
-// Terraform module in dir. Subdirectories are not traversed because each
-// directory is a separate module in Terraform.
+// CheckDeclaredProvisionerSources statically analyzes the Terraform
+// configuration in dir, in the same way as [CheckDeclaredProviderSources], and
+// returns the sources of the provisioners it uses. It returns an error if any
+// of those sources is not allowed by m. If m has no patterns, any provisioner
+// is rejected.
+//
+// Run it before terraform init to reject provisioners in the root module, and
+// again after init (before any command that may load provisioners, such as
+// validate) to also cover modules installed by init.
+func CheckDeclaredProvisionerSources(ctx context.Context, dir string, m *ProvisionerSourceMatcher) ([]*ProvisionerSource, error) {
+	logger := logging.FromContext(ctx)
+
+	declared, err := analyzeModules(ctx, dir)
+	if err != nil {
+		return nil, err
+	}
+
+	logger.DebugContext(ctx, "found declared terraform provisioner sources",
+		"dir", dir,
+		"provisioners", declared.provisioners)
+
+	var disallowed []string
+	for _, p := range declared.provisioners {
+		if !m.Allowed(p) {
+			disallowed = append(disallowed, p.String())
+		}
+	}
+	if len(disallowed) > 0 {
+		return declared.provisioners, newDisallowedProvisionerSourcesError(disallowed, m)
+	}
+	return declared.provisioners, nil
+}
+
+// declaredSources are the sources required by Terraform configuration.
+type declaredSources struct {
+	providers    []*ProviderSource
+	provisioners []*ProvisionerSource
+}
+
+// analyzeModules analyzes each module directory (dir itself, plus any module
+// directories listed in .terraform/modules/modules.json) and returns the
+// de-duplicated, sorted sources they require.
+func analyzeModules(ctx context.Context, dir string) (*declaredSources, error) {
+	providers := make(map[ProviderSource]struct{})
+	provisioners := make(map[ProvisionerSource]struct{})
+	for _, moduleDir := range extractPathsFromModulesJSON(ctx, dir) {
+		sources, err := analyzeModule(moduleDir)
+		if err != nil {
+			return nil, fmt.Errorf("failed to analyze module directory %q: %w", moduleDir, err)
+		}
+		for _, s := range sources.providers {
+			providers[*s] = struct{}{}
+		}
+		for _, s := range sources.provisioners {
+			provisioners[*s] = struct{}{}
+		}
+	}
+
+	out := &declaredSources{
+		providers:    make([]*ProviderSource, 0, len(providers)),
+		provisioners: make([]*ProvisionerSource, 0, len(provisioners)),
+	}
+	for s := range providers {
+		out.providers = append(out.providers, &s)
+	}
+	slices.SortFunc(out.providers, func(a, b *ProviderSource) int {
+		return strings.Compare(a.String(), b.String())
+	})
+	for s := range provisioners {
+		out.provisioners = append(out.provisioners, &s)
+	}
+	slices.SortFunc(out.provisioners, func(a, b *ProvisionerSource) int {
+		return strings.Compare(a.String(), b.String())
+	})
+	return out, nil
+}
+
+// moduleReferences are the provider and provisioner references found in a
+// single module.
+type moduleReferences struct {
+	requiredSources map[string]string // provider local name -> source
+	localNames      map[string]struct{}
+	provisioners    map[string]struct{} // provisioner types
+}
+
+// analyzeModule returns the sources required by the single Terraform module in
+// dir. Subdirectories are not traversed because each directory is a separate
+// module in Terraform.
 //
 // Any configuration that cannot be parsed or analyzed is an error rather than
 // being skipped, so that the check fails closed.
-func declaredProviderSources(dir string) ([]*ProviderSource, error) {
+func analyzeModule(dir string) (*declaredSources, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read directory: %w", err)
 	}
 
 	parser := hclparse.NewParser()
-	requiredSources := make(map[string]string) // local name -> source
-	localNames := make(map[string]struct{})
+	refs := &moduleReferences{
+		requiredSources: make(map[string]string),
+		localNames:      make(map[string]struct{}),
+		provisioners:    make(map[string]struct{}),
+	}
 
 	for _, e := range entries {
 		if e.IsDir() || isIgnoredFile(e.Name()) {
@@ -131,15 +205,18 @@ func declaredProviderSources(dir string) ([]*ProviderSource, error) {
 			return nil, fmt.Errorf("failed to parse %q", p)
 		}
 
-		if err := collectProviderReferences(f.Body, requiredSources, localNames); err != nil {
+		if err := collectReferences(f.Body, refs); err != nil {
 			return nil, fmt.Errorf("failed to analyze %q: %w", p, err)
 		}
 	}
 
-	out := make([]*ProviderSource, 0, len(localNames))
-	for name := range localNames {
+	out := &declaredSources{
+		providers:    make([]*ProviderSource, 0, len(refs.localNames)),
+		provisioners: make([]*ProvisionerSource, 0, len(refs.provisioners)),
+	}
+	for name := range refs.localNames {
 		raw := name
-		if src, ok := requiredSources[name]; ok && src != "" {
+		if src, ok := refs.requiredSources[name]; ok && src != "" {
 			raw = src
 		} else if name == builtinLocalName {
 			continue
@@ -149,7 +226,10 @@ func declaredProviderSources(dir string) ([]*ProviderSource, error) {
 		if err != nil {
 			return nil, fmt.Errorf("invalid provider source for %q: %w", name, err)
 		}
-		out = append(out, ps)
+		out.providers = append(out.providers, ps)
+	}
+	for typ := range refs.provisioners {
+		out.provisioners = append(out.provisioners, ProvisionerSourceForType(typ))
 	}
 	return out, nil
 }
@@ -163,11 +243,10 @@ func isIgnoredFile(name string) bool {
 		(strings.HasPrefix(name, "#") && strings.HasSuffix(name, "#"))
 }
 
-// collectProviderReferences records every provider local name referenced in
-// body into localNames, and every required_providers source into
-// requiredSources. It returns an error if any of the relevant blocks cannot be
-// decoded.
-func collectProviderReferences(body hcl.Body, requiredSources map[string]string, localNames map[string]struct{}) error {
+// collectReferences records every provider local name referenced in body,
+// every required_providers source, and every provisioner type into refs. It
+// returns an error if any of the relevant blocks cannot be decoded.
+func collectReferences(body hcl.Body, refs *moduleReferences) error {
 	content, _, diags := body.PartialContent(&hcl.BodySchema{
 		Blocks: []hcl.BlockHeaderSchema{
 			{Type: "terraform"},
@@ -187,20 +266,18 @@ func collectProviderReferences(body hcl.Body, requiredSources map[string]string,
 	for _, block := range content.Blocks {
 		switch block.Type {
 		case "terraform":
-			if err := collectRequiredProviderSources(block.Body, requiredSources, localNames); err != nil {
+			if err := collectRequiredProviderSources(block.Body, refs.requiredSources, refs.localNames); err != nil {
 				return err
 			}
 		case "provider":
 			if len(block.Labels) == 0 {
 				return fmt.Errorf("provider block at %s has no name", block.DefRange)
 			}
-			localNames[block.Labels[0]] = struct{}{}
+			refs.localNames[block.Labels[0]] = struct{}{}
 		case "resource", "data", "ephemeral":
-			name, err := resourceProviderLocalName(block)
-			if err != nil {
+			if err := collectResourceReferences(block, refs); err != nil {
 				return err
 			}
-			localNames[name] = struct{}{}
 		}
 	}
 	return nil
@@ -292,35 +369,47 @@ func requiredProviderSource(expr hcl.Expression) (string, error) {
 	return source, nil
 }
 
-// resourceProviderLocalName returns the provider local name used by a
-// resource, data or ephemeral block. If the block sets the "provider"
-// meta-argument, that local name is used; otherwise Terraform infers it from
-// the resource type prefix (google_project -> google). It returns an error if
-// the "provider" meta-argument is not a provider reference.
-func resourceProviderLocalName(block *hcl.Block) (string, error) {
+// collectResourceReferences records the provider local name and provisioner
+// types used by a resource, data or ephemeral block into refs. If the block
+// sets the "provider" meta-argument, that local name is used; otherwise
+// Terraform infers it from the resource type prefix (google_project -> google).
+// It returns an error if the "provider" meta-argument is not a provider
+// reference or a provisioner block cannot be decoded.
+func collectResourceReferences(block *hcl.Block, refs *moduleReferences) error {
 	content, _, diags := block.Body.PartialContent(&hcl.BodySchema{
 		Attributes: []hcl.AttributeSchema{{Name: "provider"}},
+		Blocks:     []hcl.BlockHeaderSchema{{Type: "provisioner", LabelNames: []string{"type"}}},
 	})
 	if diags.HasErrors() {
-		return "", diags
+		return diags
+	}
+	if content == nil {
+		return fmt.Errorf("failed to decode %s block at %s", block.Type, block.DefRange)
 	}
 
-	if content != nil {
-		if attr, ok := content.Attributes["provider"]; ok {
-			trav, diags := hcl.AbsTraversalForExpr(attr.Expr)
-			if diags.HasErrors() {
-				return "", diags
-			}
-			if len(trav) == 0 {
-				return "", fmt.Errorf("invalid provider reference at %s", attr.Range)
-			}
-			return trav.RootName(), nil
+	for _, b := range content.Blocks {
+		if len(b.Labels) == 0 || b.Labels[0] == "" {
+			return fmt.Errorf("provisioner block at %s has no type", b.DefRange)
 		}
+		refs.provisioners[b.Labels[0]] = struct{}{}
+	}
+
+	if attr, ok := content.Attributes["provider"]; ok {
+		trav, diags := hcl.AbsTraversalForExpr(attr.Expr)
+		if diags.HasErrors() {
+			return diags
+		}
+		if len(trav) == 0 {
+			return fmt.Errorf("invalid provider reference at %s", attr.Range)
+		}
+		refs.localNames[trav.RootName()] = struct{}{}
+		return nil
 	}
 
 	if len(block.Labels) == 0 || block.Labels[0] == "" {
-		return "", fmt.Errorf("%s block at %s has no type", block.Type, block.DefRange)
+		return fmt.Errorf("%s block at %s has no type", block.Type, block.DefRange)
 	}
 	name, _, _ := strings.Cut(block.Labels[0], "_")
-	return name, nil
+	refs.localNames[name] = struct{}{}
+	return nil
 }

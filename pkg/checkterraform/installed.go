@@ -236,3 +236,15 @@ func newDisallowedSourcesError(disallowed []string, m *SourceMatcher) error {
 	return fmt.Errorf("terraform uses provider sources that are not allowed: %s (allowed provider sources: %s)",
 		strings.Join(disallowed, ", "), strings.Join(m.Patterns(), ", "))
 }
+
+func newDisallowedProvisionerSourcesError(disallowed []string, m *ProvisionerSourceMatcher) error {
+	slices.Sort(disallowed)
+	disallowed = slices.Compact(disallowed)
+	if len(m.Patterns()) == 0 {
+		return fmt.Errorf("terraform uses provisioners that are not allowed: %s (no provisioners are allowed; "+
+			"set -allowed-provisioner-sources, or use %q to allow all)",
+			strings.Join(disallowed, ", "), AllowAllPattern)
+	}
+	return fmt.Errorf("terraform uses provisioners that are not allowed: %s (allowed provisioner sources: %s)",
+		strings.Join(disallowed, ", "), strings.Join(m.Patterns(), ", "))
+}

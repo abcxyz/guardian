@@ -72,7 +72,7 @@ type PlanCommand struct {
 
 	flags.CommonFlags
 	flags.RegistryProxyFlags
-	flags.ProviderSourceFlags
+	flags.SourceFlags
 
 	flagOutputDir              string
 	flagStorage                string
@@ -191,7 +191,7 @@ func (c *PlanCommand) Flags() *cli.FlagSet {
 		Usage:   "The list of allowed Terraform provisioners. Setting this will override disallowed provisioners.",
 	})
 
-	c.RegisterProviderSourceFlags(f)
+	c.RegisterSourceFlags(f)
 
 	return set
 }
@@ -346,12 +346,20 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 		return &RunResult{commentDetails: err.Error()}, fmt.Errorf("failed to build provider source matcher: %w", err)
 	}
 
+	provisionerMatcher, err := c.ProvisionerSourceMatcher()
+	if err != nil {
+		return &RunResult{commentDetails: err.Error()}, fmt.Errorf("failed to build provisioner source matcher: %w", err)
+	}
+
 	util.Headerf(c.Stdout(), "Checking Terraform Provider Sources")
 	if err := checkterraform.RemoveLocalPluginOverrides(ctx, c.directory); err != nil {
 		return &RunResult{commentDetails: err.Error()}, fmt.Errorf("failed local plugin check: %w", err)
 	}
 	if _, err := checkterraform.CheckDeclaredProviderSources(ctx, c.directory, sourceMatcher); err != nil {
 		return &RunResult{commentDetails: err.Error()}, fmt.Errorf("failed provider source check: %w", err)
+	}
+	if _, err := checkterraform.CheckDeclaredProvisionerSources(ctx, c.directory, provisionerMatcher); err != nil {
+		return &RunResult{commentDetails: err.Error()}, fmt.Errorf("failed provisioner source check: %w", err)
 	}
 
 	lockfileMode := "none"
@@ -381,6 +389,9 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 	util.Headerf(c.Stdout(), "Checking Installed Terraform Providers")
 	if _, err := checkterraform.CheckInstalledProviderSources(ctx, c.directory, sourceMatcher); err != nil {
 		return &RunResult{commentDetails: err.Error()}, fmt.Errorf("failed provider source check: %w", err)
+	}
+	if _, err := checkterraform.CheckDeclaredProvisionerSources(ctx, c.directory, provisionerMatcher); err != nil {
+		return &RunResult{commentDetails: err.Error()}, fmt.Errorf("failed provisioner source check: %w", err)
 	}
 
 	util.Headerf(c.Stdout(), "Validating Terraform")
