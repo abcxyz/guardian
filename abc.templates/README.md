@@ -31,6 +31,14 @@ abc templates render \
   least this many Terraform entrypoints, Guardian replaces the per-directory
   comments with a single aggregated summary table. Raise it to keep
   per-directory comments on larger pull requests.
+- `guardian_allowed_provider_sources`: The comma separated allowlist of
+  Terraform provider sources that Guardian allows Terraform to install and
+  execute. Defaults to `hashicorp/*`, which also allows `hashicorp/external`;
+  list exact sources to restrict this further. If blank, no providers are
+  allowed; use `*` to allow all.
+- `guardian_allowed_provisioner_sources`: The comma separated allowlist of
+  Terraform provisioner sources, e.g. `builtin/local-exec`. Defaults to blank,
+  which allows no provisioners.
 
 ## Install Drift Detection Workflows
 

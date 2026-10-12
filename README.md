@@ -382,6 +382,62 @@ To make this process secure, Guardian should only be run in `internal` or
 but still ensures only the approved and merged workflow is being executed for
 the pull request.
 
+Because the pull request's Terraform configuration is untrusted, Guardian
+restricts which Terraform providers and provisioners it will allow Terraform to
+execute. Set `-allowed-provider-sources` (and the
+`guardian_allowed_provider_sources` template input, which both default to
+`hashicorp/*`) to the exact provider sources your configuration needs.
+Provisioners are discouraged and blocked unless listed in
+`-allowed-provisioner-sources` (the `guardian_allowed_provisioner_sources`
+template input). Guardian also refuses to load plugins from the Terraform
+directory itself. All of this is checked before any provider or provisioner is
+executed. See [Provider Source Restrictions](cli.md#provider-source-restrictions),
+[Provisioner Source Restrictions](cli.md#provisioner-source-restrictions) and
+[Local Plugin Protection](cli.md#local-plugin-protection).
+
+### Migrating from v3 to v4
+
+Guardian v4 replaces name-based provider and provisioner restrictions with
+source-based allowlists. **Even if you did not use these flags in v3, v4 is
+potentially a breaking change due to safe-by-default restrictions.**
+
+- The `-allowed-providers`, `-disallowed-providers`, `-allowed-provisioners`
+  and `-disallowed-provisioners` flags are removed. Passing them to v4 fails
+  with `flag provided but not defined`.
+- **Defaults are restrictive.** In v3, unset flags allowed every provider and
+  provisioner. In v4, `-allowed-provider-sources` defaults to `hashicorp/*`,
+  and `-allowed-provisioner-sources` defaults to allowing no provisioners. An
+  empty value for either flag allows nothing. Use `*` to allow all explicitly.
+- Use `-allowed-provider-sources` with fully qualified provider sources instead
+  of local names. For example, `-allowed-providers=google,github` becomes
+  `-allowed-provider-sources=hashicorp/google,integrations/github`. Names are
+  not sources, so look up the namespace of each provider you use. The `provider`
+  blocks in `.terraform.lock.hcl` list the exact sources currently in use, as
+  does `terraform providers`.
+- The `guardian_allowed_providers` template input is replaced by
+  `guardian_allowed_provider_sources`, which defaults to `hashicorp/*`.
+  Re-render or upgrade the templates and add any other provider sources you
+  need.
+- `hashicorp/external` was previously denied by default. It is now denied only
+  if it is not in your allowlist, and the default `hashicorp/*` allows it.
+  Replace the default with the exact sources you use to keep it blocked.
+- Use `-allowed-provisioner-sources` instead of the provisioner flags. For
+  example, `-allowed-provisioners=local-exec` becomes
+  `-allowed-provisioner-sources=local-exec` (that is, `builtin/local-exec`).
+  The new `guardian_allowed_provisioner_sources` template input defaults to
+  blank, which allows no provisioners. Provisioners are discouraged, and
+  plugin-based provisioners should never be used outside of quick proofs of
+  concept.
+- Provisioners are now checked before `terraform validate`, per module as
+  Terraform loads them. Only the Terraform directory and the module directories
+  in `.terraform/modules/modules.json` are scanned, not every subdirectory, and
+  a file that cannot be parsed is an error.
+- Guardian refuses to run if `terraform.d` or a `terraform-provisioner-*` plugin
+  exists in a Terraform directory, and removes the `.terraform/providers`
+  cache and `.terraform/plugin_path` before `terraform init` so that providers
+  are always re-installed from their sources and plugins are only loaded from
+  the trusted environment.
+
 ## Workload Identity Federation
 Terraform service accounts have elevated privileges, following [WIF Best Practices](https://cloud.google.com/iam/docs/best-practices-for-using-workload-identity-federation)
 is recommended when setting up guardian to use Workload Identity Federation. Below is an example attribute

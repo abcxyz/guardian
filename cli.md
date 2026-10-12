@@ -123,6 +123,12 @@ Also supports [Platform Options](#platform-options), [GitHub Options](#github-op
 
 * **-lock-timeout="10m"** - The duration Terraform should wait to obtain a lock when
   running commands that modify state. The default value is "10m".
+* **-allowed-provider-sources="hashicorp/google,integrations/github"** - The allowlist of
+  Terraform provider sources. See [Provider Source Restrictions](#provider-source-restrictions).
+  Defaults to `hashicorp/*`. An empty value allows none; use `"*"` to allow all.
+* **-allowed-provisioner-sources="builtin/local-exec"** - The allowlist of
+  Terraform provisioner sources. See [Provisioner Source Restrictions](#provisioner-source-restrictions).
+  If unset, no provisioners are allowed; use `"*"` to allow all.
 
 ## Plan
 
@@ -155,6 +161,12 @@ Also supports [Platform Options](#platform-options), [GitHub Options](#github-op
 * **-lock-timeout="10m"** - The duration Terraform should wait to obtain a lock when
   running commands that modify state. The default value is "10m".
 * **-output-dir="./output/plan"** - Write the plan binary and JSON file to a target local directory.
+* **-allowed-provider-sources="hashicorp/google,integrations/github"** - The allowlist of
+  Terraform provider sources. See [Provider Source Restrictions](#provider-source-restrictions).
+  Defaults to `hashicorp/*`. An empty value allows none; use `"*"` to allow all.
+* **-allowed-provisioner-sources="builtin/local-exec"** - The allowlist of
+  Terraform provisioner sources. See [Provisioner Source Restrictions](#provisioner-source-restrictions).
+  If unset, no provisioners are allowed; use `"*"` to allow all.
 
 ## Run
 
@@ -179,6 +191,97 @@ Also supports [GitHub Options](#github-options) and [Retry Options](#retry-optio
 * **-lock-timeout="10m"** - The duration Terraform should wait to obtain a lock when
   running commands that modify state. The default value is "10m".
 * **-allowed-terraform-commands="plan, apply, destroy"** - The list of allowed Terraform commands to be run. Defaults to all commands.
+* **-allowed-provider-sources="hashicorp/google,integrations/github"** - The allowlist of
+  Terraform provider sources. See [Provider Source Restrictions](#provider-source-restrictions).
+  Defaults to `hashicorp/*`. An empty value allows none; use `"*"` to allow all.
+* **-allowed-provisioner-sources="builtin/local-exec"** - The allowlist of
+  Terraform provisioner sources. See [Provisioner Source Restrictions](#provisioner-source-restrictions).
+  If unset, no provisioners are allowed; use `"*"` to allow all.
+
+## Provider Source Restrictions
+
+`guardian apply`, `guardian plan` and `guardian run` only allow Terraform to
+install and execute providers whose source is in `-allowed-provider-sources`.
+The flag defaults to `hashicorp/*`; **an empty value allows no providers.**
+Terraform's built-in `terraform` provider is always allowed.
+
+Each entry is a provider source in the form `[HOSTNAME/]NAMESPACE/TYPE`, using
+the same defaults as Terraform: `HOSTNAME` defaults to `registry.terraform.io`
+and a bare `TYPE` implies the `hashicorp` namespace. Within an entry, `*`
+matches exactly one segment, so `hashicorp/*` allows every provider in the
+`hashicorp` namespace on the public registry and `*/*/*` allows every provider
+on any host. A bare `*` allows every provider source. Only allowlist entries
+are supported; there is no exclusion syntax.
+
+> [!WARNING]
+> Prefer listing exact sources. A wildcard such as `hashicorp/*` also allows
+> `hashicorp/external`, which runs arbitrary programs during `terraform plan`.
+
+## Provisioner Source Restrictions
+
+> [!WARNING]
+> Provisioners are discouraged in general; prefer native resources or a
+> configuration management tool. Plugin-based provisioners run arbitrary
+> binaries and should never be used outside of quick proofs of concept.
+
+`guardian apply`, `guardian plan` and `guardian run` only allow provisioners
+whose source is in `-allowed-provisioner-sources`. **If the flag is unset or
+empty, no provisioners are allowed.**
+
+Each entry is a provisioner source in the form `[ORIGIN/]TYPE`, where `ORIGIN`
+is how Terraform loads the provisioner:
+
+* `builtin`: compiled into Terraform (`file`, `local-exec` and `remote-exec`).
+  A bare `TYPE` implies `builtin`, so `local-exec` is the same as
+  `builtin/local-exec`.
+* `plugin`: a `terraform-provisioner-<TYPE>` plugin binary installed in the
+  trusted environment (for example `~/.terraform.d/plugins`). Guardian never
+  loads provisioner plugins from the Terraform directory under review; see
+  [Local Plugin Protection](#local-plugin-protection).
+
+Within an entry, `*` matches exactly one segment, so `builtin/*` allows every
+built-in provisioner. A bare `*` allows every provisioner. Only allowlist
+entries are supported; there is no exclusion syntax.
+
+## Local Plugin Protection
+
+Terraform looks for provider and provisioner plugins in locations that the
+change under review controls. Provisioner plugins also override built-in
+provisioners of the same name. So, regardless of the allowlists, before
+`terraform init` Guardian:
+
+1. Refuses to run if the Terraform directory contains `terraform.d`, which
+   Terraform treats as a local provider mirror and provisioner plugin
+   directory.
+2. Refuses to run if the Terraform directory contains any file or directory
+   named `terraform-provisioner-*`, which Terraform would load as a
+   provisioner plugin.
+3. Removes the `.terraform/providers` and `.terraform/plugins` caches.
+   `terraform init` reuses cached provider binaries that match the dependency
+   lock file, so a pre-populated cache could otherwise substitute an arbitrary
+   binary for an allowed provider.
+4. Removes `.terraform/plugin_path`, which would make Terraform load plugins
+   from any directory it lists.
+
+The rest of `.terraform` (backend configuration, selected workspace, modules)
+is kept, so re-running locally still works, but providers are re-downloaded on
+each run (set `TF_PLUGIN_CACHE_DIR` to avoid this).
+
+## Order of Checks
+
+1. Before `terraform init`: the [Local Plugin Protection](#local-plugin-protection)
+   steps, then disallowed providers and provisioners declared in the
+   configuration are rejected, so disallowed providers are never downloaded.
+2. After `terraform init`, before `terraform validate` (or any other command)
+   executes a provider or provisioner: any installed provider whose source is
+   not allowed is rejected, and the configuration is checked again, now
+   including modules installed by `terraform init`. This covers providers and
+   provisioners introduced by remote modules.
+
+The configuration is analyzed one module at a time, as Terraform loads it: the
+Terraform directory plus the module directories listed in
+`.terraform/modules/modules.json`. A `.tf` or `.tf.json` file that cannot be
+parsed is an error.
 
 ## IAM cleanup
 
