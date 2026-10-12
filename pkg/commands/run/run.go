@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"slices"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/abcxyz/guardian/internal/metricswrap"
@@ -50,10 +49,6 @@ type RunCommand struct {
 	flagAllowedTerraformCommands []string
 	flagAllowLockfileChanges     bool
 	flagLockTimeout              time.Duration
-	flagDisallowedProviders      []string
-	flagDisallowedProvisioners   []string
-	flagAllowedProviders         []string
-	flagAllowedProvisioners      []string
 
 	terraformClient terraform.Terraform
 }
@@ -98,38 +93,6 @@ func (c *RunCommand) Flags() *cli.FlagSet {
 		Default: 10 * time.Minute,
 		Example: "10m",
 		Usage:   "The duration Terraform should wait to obtain a lock when running commands that modify state.",
-	})
-
-	f.StringSliceVar(&cli.StringSliceVar{
-		Name:    "disallowed-providers",
-		Target:  &c.flagDisallowedProviders,
-		Default: strings.Split(checkterraform.DefaultDisallowedProviders, ","),
-		Example: "external",
-		Usage:   "The list of disallowed Terraform providers.",
-	})
-
-	f.StringSliceVar(&cli.StringSliceVar{
-		Name:    "disallowed-provisioners",
-		Target:  &c.flagDisallowedProvisioners,
-		Default: []string{},
-		Example: "local-exec,remote-exec",
-		Usage:   "The list of disallowed Terraform provisioners.",
-	})
-
-	f.StringSliceVar(&cli.StringSliceVar{
-		Name:    "allowed-providers",
-		Target:  &c.flagAllowedProviders,
-		Default: []string{},
-		Example: "google,github",
-		Usage:   "The list of allowed Terraform providers. Setting this will override disallowed providers.",
-	})
-
-	f.StringSliceVar(&cli.StringSliceVar{
-		Name:    "allowed-provisioners",
-		Target:  &c.flagAllowedProvisioners,
-		Default: []string{},
-		Example: "allowed-provisioner,another-allowed-provisioner",
-		Usage:   "The list of allowed Terraform provisioners. Setting this will override disallowed provisioners.",
 	})
 
 	c.RegisterSourceFlags(f)
@@ -191,35 +154,16 @@ func (c *RunCommand) Process(ctx context.Context) error {
 		return fmt.Errorf("%s is not an allowed Terraform command.\n\nAllowed commands are %q", c.terraformCommand, c.flagAllowedTerraformCommands)
 	}
 
-	if _, err := checkterraform.CheckProvidersProvisioners(ctx,
-		c.directory,
-		c.flagDisallowedProviders,
-		c.flagDisallowedProvisioners,
-		c.flagAllowedProviders,
-		c.flagAllowedProvisioners,
-	); err != nil {
-		return fmt.Errorf("terraform provider/provisioner check failed: %w", err)
-	}
-
-	sourceMatcher, err := c.ProviderSourceMatcher()
+	policy, err := c.Policy()
 	if err != nil {
-		return fmt.Errorf("failed to build provider source matcher: %w", err)
+		return fmt.Errorf("failed to build terraform check policy: %w", err)
 	}
 
-	provisionerMatcher, err := c.ProvisionerSourceMatcher()
-	if err != nil {
-		return fmt.Errorf("failed to build provisioner source matcher: %w", err)
-	}
-
-	util.Headerf(c.Stdout(), "Checking Terraform Provider Sources")
-	if err := checkterraform.RemoveLocalPluginOverrides(ctx, c.directory); err != nil {
-		return fmt.Errorf("failed local plugin check: %w", err)
-	}
-	if _, err := checkterraform.CheckDeclaredProviderSources(ctx, c.directory, sourceMatcher); err != nil {
-		return fmt.Errorf("failed provider source check: %w", err)
-	}
-	if _, err := checkterraform.CheckDeclaredProvisionerSources(ctx, c.directory, provisionerMatcher); err != nil {
-		return fmt.Errorf("failed provisioner source check: %w", err)
+	// This must happen before init, which can download providers and modules
+	// and reuse local plugins.
+	util.Headerf(c.Stdout(), "Checking Terraform Configuration")
+	if err := checkterraform.CheckBeforeInit(ctx, c.directory, policy); err != nil {
+		return fmt.Errorf("failed terraform check: %w", err)
 	}
 
 	if _, ok := terraform.InitRequiredCommands[c.terraformCommand]; ok {
@@ -240,14 +184,12 @@ func (c *RunCommand) Process(ctx context.Context) error {
 		}
 	}
 
-	// This must happen after init (which only downloads providers) and before
-	// running any command that may execute provider binaries.
-	util.Headerf(c.Stdout(), "Checking Installed Terraform Providers")
-	if _, err := checkterraform.CheckInstalledProviderSources(ctx, c.directory, sourceMatcher); err != nil {
-		return fmt.Errorf("failed provider source check: %w", err)
-	}
-	if _, err := checkterraform.CheckDeclaredProvisionerSources(ctx, c.directory, provisionerMatcher); err != nil {
-		return fmt.Errorf("failed provisioner source check: %w", err)
+	// This must happen after init (which only downloads providers and modules)
+	// and before running any command that may execute providers or
+	// provisioners.
+	util.Headerf(c.Stdout(), "Checking Installed Terraform Providers and Modules")
+	if err := checkterraform.CheckBeforeExecute(ctx, c.directory, policy); err != nil {
+		return fmt.Errorf("failed terraform check: %w", err)
 	}
 
 	util.Headerf(c.Stdout(), "Running Terraform Command")

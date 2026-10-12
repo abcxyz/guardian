@@ -40,8 +40,8 @@ const requireTerraformEnv = "GUARDIANTEST_REQUIRE_TERRAFORM"
 //  1. Without Guardian's checks, terraform init and terraform validate execute
 //     the plugin. This detects changes in Terraform's plugin discovery that
 //     would make the fixtures (and Guardian's checks) stale.
-//  2. With RemoveLocalPluginOverrides, the directory is rejected or cleaned so
-//     the plugin is never executed.
+//  2. With CheckBeforeInit, the directory is rejected or cleaned so the plugin
+//     is never executed, even if every provisioner is allowed.
 func TestLocalProvisionerPlugins_Terraform(t *testing.T) {
 	t.Parallel()
 
@@ -80,7 +80,12 @@ func TestLocalProvisionerPlugins_Terraform(t *testing.T) {
 				marker := filepath.Join(t.TempDir(), "marker")
 				tc.Setup(t, dir, marker)
 
-				err := RemoveLocalPluginOverrides(ctx, dir)
+				// Allow every provider and provisioner, so that only the plugin
+				// checks can reject the directory.
+				err := CheckBeforeInit(ctx, dir, &Policy{
+					ProviderSources:    mustProviderMatcher(t, "*"),
+					ProvisionerSources: mustProvisionerMatcher(t, "*"),
+				})
 				if tc.WantRejected {
 					if diff := testutil.DiffErrString(err, plugintest.RejectedErr); diff != "" {
 						t.Fatal(diff)

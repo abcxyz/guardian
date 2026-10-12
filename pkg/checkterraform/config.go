@@ -16,6 +16,7 @@ package checkterraform
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -33,9 +34,74 @@ import (
 // e.g. terraform_remote_state and terraform_data.
 const builtinLocalName = "terraform"
 
-// CheckDeclaredProviderSources statically analyzes the Terraform configuration
-// in dir and returns the provider sources it requires. It returns an error if
-// any of those sources is not allowed by m.
+// Policy is everything Guardian enforces on the (possibly untrusted)
+// Terraform configuration it runs.
+type Policy struct {
+	// ProviderSources is the allowlist of provider sources. A nil or empty
+	// matcher allows only Terraform's built-in providers.
+	ProviderSources *SourceMatcher
+
+	// ProvisionerSources is the allowlist of provisioner sources. A nil or
+	// empty matcher allows no provisioners.
+	ProvisionerSources *ProvisionerSourceMatcher
+}
+
+// CheckBeforeInit enforces p on dir before terraform init. It must be called
+// before terraform init, and fails if dir cannot be used safely:
+//
+//  1. [RemoveLocalPluginOverrides] rejects or removes plugins that the
+//     configuration under review could use to replace providers or
+//     provisioners.
+//  2. [CheckConfiguration] rejects disallowed providers and provisioners that
+//     are declared in the configuration already on disk, so they are not even
+//     downloaded.
+func CheckBeforeInit(ctx context.Context, dir string, p *Policy) error {
+	if err := RemoveLocalPluginOverrides(ctx, dir); err != nil {
+		return err
+	}
+	if _, err := CheckConfiguration(ctx, dir, p); err != nil {
+		return err
+	}
+	return nil
+}
+
+// CheckBeforeExecute enforces p on dir after terraform init. It must be called
+// after terraform init and before any Terraform command that may execute
+// providers or provisioners (validate, plan, apply, ...):
+//
+//  1. [CheckInstalledProviderSources] rejects disallowed providers that init
+//     installed. This is the authoritative provider check: it also covers
+//     providers required by modules installed by init.
+//  2. [CheckConfiguration] runs again, now including modules installed by
+//     init, so their provisioners are also checked.
+func CheckBeforeExecute(ctx context.Context, dir string, p *Policy) error {
+	if p == nil {
+		p = &Policy{}
+	}
+	if _, err := CheckInstalledProviderSources(ctx, dir, p.ProviderSources); err != nil {
+		return err
+	}
+	if _, err := CheckConfiguration(ctx, dir, p); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Configuration is the result of statically analyzing Terraform configuration.
+type Configuration struct {
+	// ProviderSources are the sorted, de-duplicated provider sources the
+	// configuration requires, excluding Terraform's built-in provider.
+	ProviderSources []*ProviderSource
+
+	// ProvisionerSources are the sorted, de-duplicated sources of the
+	// provisioners the configuration uses.
+	ProvisionerSources []*ProvisionerSource
+}
+
+// CheckConfiguration statically analyzes the Terraform configuration in dir
+// and returns the providers and provisioners it uses. It returns an error if
+// any of them is not allowed by p. Most callers should use [CheckBeforeInit]
+// and [CheckBeforeExecute] instead.
 //
 // Each module directory (dir itself, plus any module directories listed in
 // .terraform/modules/modules.json) is analyzed independently, mirroring how
@@ -45,69 +111,56 @@ const builtinLocalName = "terraform"
 //   - Any other referenced local name (provider blocks, resource and data
 //     source types, and resource "provider" meta-arguments) uses Terraform's
 //     implied source, hashicorp/<name>.
+//   - Provisioner blocks are classified with [ProvisionerSourceForType].
 //
 // Configuration that cannot be parsed or analyzed is an error, so the check
 // fails closed. Files that Terraform ignores (e.g. hidden files) are skipped.
 //
-// This check is intended to run before terraform init so that disallowed
-// providers declared in the root module are rejected without being
-// downloaded. It is not a substitute for CheckInstalledProviderSources, which
-// must still be run after init.
-func CheckDeclaredProviderSources(ctx context.Context, dir string, m *SourceMatcher) ([]*ProviderSource, error) {
+// This is not a substitute for [CheckInstalledProviderSources], which must
+// still be run after init.
+func CheckConfiguration(ctx context.Context, dir string, p *Policy) (*Configuration, error) {
 	logger := logging.FromContext(ctx)
+
+	// A nil policy allows nothing.
+	if p == nil {
+		p = &Policy{}
+	}
 
 	declared, err := analyzeModules(ctx, dir)
 	if err != nil {
 		return nil, err
 	}
+	cfg := &Configuration{
+		ProviderSources:    declared.providers,
+		ProvisionerSources: declared.provisioners,
+	}
 
-	logger.DebugContext(ctx, "found declared terraform provider sources",
+	logger.DebugContext(ctx, "found declared terraform sources",
 		"dir", dir,
-		"providers", declared.providers)
+		"providers", cfg.ProviderSources,
+		"provisioners", cfg.ProvisionerSources)
 
-	var disallowed []string
-	for _, p := range declared.providers {
-		if !m.Allowed(p) {
-			disallowed = append(disallowed, p.String())
+	var disallowedProviders []string
+	for _, s := range cfg.ProviderSources {
+		if !p.ProviderSources.Allowed(s) {
+			disallowedProviders = append(disallowedProviders, s.String())
 		}
 	}
-	if len(disallowed) > 0 {
-		return declared.providers, newDisallowedSourcesError(disallowed, m)
-	}
-	return declared.providers, nil
-}
-
-// CheckDeclaredProvisionerSources statically analyzes the Terraform
-// configuration in dir, in the same way as [CheckDeclaredProviderSources], and
-// returns the sources of the provisioners it uses. It returns an error if any
-// of those sources is not allowed by m. If m has no patterns, any provisioner
-// is rejected.
-//
-// Run it before terraform init to reject provisioners in the root module, and
-// again after init (before any command that may load provisioners, such as
-// validate) to also cover modules installed by init.
-func CheckDeclaredProvisionerSources(ctx context.Context, dir string, m *ProvisionerSourceMatcher) ([]*ProvisionerSource, error) {
-	logger := logging.FromContext(ctx)
-
-	declared, err := analyzeModules(ctx, dir)
-	if err != nil {
-		return nil, err
-	}
-
-	logger.DebugContext(ctx, "found declared terraform provisioner sources",
-		"dir", dir,
-		"provisioners", declared.provisioners)
-
-	var disallowed []string
-	for _, p := range declared.provisioners {
-		if !m.Allowed(p) {
-			disallowed = append(disallowed, p.String())
+	var disallowedProvisioners []string
+	for _, s := range cfg.ProvisionerSources {
+		if !p.ProvisionerSources.Allowed(s) {
+			disallowedProvisioners = append(disallowedProvisioners, s.String())
 		}
 	}
-	if len(disallowed) > 0 {
-		return declared.provisioners, newDisallowedProvisionerSourcesError(disallowed, m)
+
+	var errs []error
+	if len(disallowedProviders) > 0 {
+		errs = append(errs, newDisallowedSourcesError(disallowedProviders, p.ProviderSources))
 	}
-	return declared.provisioners, nil
+	if len(disallowedProvisioners) > 0 {
+		errs = append(errs, newDisallowedProvisionerSourcesError(disallowedProvisioners, p.ProvisionerSources))
+	}
+	return cfg, errors.Join(errs...)
 }
 
 // declaredSources are the sources required by Terraform configuration.

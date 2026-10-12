@@ -74,16 +74,12 @@ type PlanCommand struct {
 	flags.RegistryProxyFlags
 	flags.SourceFlags
 
-	flagOutputDir              string
-	flagStorage                string
-	flagAllowLockfileChanges   bool
-	flagLockTimeout            time.Duration
-	flagSkipReporting          bool
-	flagReportStdout           bool
-	flagDisallowedProviders    []string
-	flagDisallowedProvisioners []string
-	flagAllowedProviders       []string
-	flagAllowedProvisioners    []string
+	flagOutputDir            string
+	flagStorage              string
+	flagAllowLockfileChanges bool
+	flagLockTimeout          time.Duration
+	flagSkipReporting        bool
+	flagReportStdout         bool
 
 	storageClient   storage.Storage
 	terraformClient terraform.Terraform
@@ -157,38 +153,6 @@ func (c *PlanCommand) Flags() *cli.FlagSet {
 		Default: false,
 		Example: "true",
 		Usage:   "Report the stdout to the comment details.",
-	})
-
-	f.StringSliceVar(&cli.StringSliceVar{
-		Name:    "disallowed-providers",
-		Target:  &c.flagDisallowedProviders,
-		Default: strings.Split(checkterraform.DefaultDisallowedProviders, ","),
-		Example: "external",
-		Usage:   "The list of disallowed Terraform providers.",
-	})
-
-	f.StringSliceVar(&cli.StringSliceVar{
-		Name:    "disallowed-provisioners",
-		Target:  &c.flagDisallowedProvisioners,
-		Default: []string{},
-		Example: "local-exec,remote-exec",
-		Usage:   "The list of disallowed Terraform provisioners.",
-	})
-
-	f.StringSliceVar(&cli.StringSliceVar{
-		Name:    "allowed-providers",
-		Target:  &c.flagAllowedProviders,
-		Default: []string{},
-		Example: "google,github",
-		Usage:   "The list of allowed Terraform providers. Setting this will override disallowed providers.",
-	})
-
-	f.StringSliceVar(&cli.StringSliceVar{
-		Name:    "allowed-provisioners",
-		Target:  &c.flagAllowedProvisioners,
-		Default: []string{},
-		Example: "allowed-provisioner,another-allowed-provisioner",
-		Usage:   "The list of allowed Terraform provisioners. Setting this will override disallowed provisioners.",
 	})
 
 	c.RegisterSourceFlags(f)
@@ -341,25 +305,16 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 	stdout.Reset()
 	stderr.Reset()
 
-	sourceMatcher, err := c.ProviderSourceMatcher()
+	policy, err := c.Policy()
 	if err != nil {
-		return &RunResult{commentDetails: err.Error()}, fmt.Errorf("failed to build provider source matcher: %w", err)
+		return &RunResult{commentDetails: err.Error()}, fmt.Errorf("failed to build terraform check policy: %w", err)
 	}
 
-	provisionerMatcher, err := c.ProvisionerSourceMatcher()
-	if err != nil {
-		return &RunResult{commentDetails: err.Error()}, fmt.Errorf("failed to build provisioner source matcher: %w", err)
-	}
-
-	util.Headerf(c.Stdout(), "Checking Terraform Provider Sources")
-	if err := checkterraform.RemoveLocalPluginOverrides(ctx, c.directory); err != nil {
-		return &RunResult{commentDetails: err.Error()}, fmt.Errorf("failed local plugin check: %w", err)
-	}
-	if _, err := checkterraform.CheckDeclaredProviderSources(ctx, c.directory, sourceMatcher); err != nil {
-		return &RunResult{commentDetails: err.Error()}, fmt.Errorf("failed provider source check: %w", err)
-	}
-	if _, err := checkterraform.CheckDeclaredProvisionerSources(ctx, c.directory, provisionerMatcher); err != nil {
-		return &RunResult{commentDetails: err.Error()}, fmt.Errorf("failed provisioner source check: %w", err)
+	// This must happen before init, which can download providers and modules
+	// and reuse local plugins.
+	util.Headerf(c.Stdout(), "Checking Terraform Configuration")
+	if err := checkterraform.CheckBeforeInit(ctx, c.directory, policy); err != nil {
+		return &RunResult{commentDetails: err.Error()}, fmt.Errorf("failed terraform check: %w", err)
 	}
 
 	lockfileMode := "none"
@@ -384,14 +339,12 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 	stdout.Reset()
 	stderr.Reset()
 
-	// This must happen after init (which only downloads providers) and before
-	// validate, which is the first command that executes provider binaries.
-	util.Headerf(c.Stdout(), "Checking Installed Terraform Providers")
-	if _, err := checkterraform.CheckInstalledProviderSources(ctx, c.directory, sourceMatcher); err != nil {
-		return &RunResult{commentDetails: err.Error()}, fmt.Errorf("failed provider source check: %w", err)
-	}
-	if _, err := checkterraform.CheckDeclaredProvisionerSources(ctx, c.directory, provisionerMatcher); err != nil {
-		return &RunResult{commentDetails: err.Error()}, fmt.Errorf("failed provisioner source check: %w", err)
+	// This must happen after init (which only downloads providers and modules)
+	// and before validate, which is the first command that executes providers or
+	// provisioners.
+	util.Headerf(c.Stdout(), "Checking Installed Terraform Providers and Modules")
+	if err := checkterraform.CheckBeforeExecute(ctx, c.directory, policy); err != nil {
+		return &RunResult{commentDetails: err.Error()}, fmt.Errorf("failed terraform check: %w", err)
 	}
 
 	util.Headerf(c.Stdout(), "Validating Terraform")
@@ -420,15 +373,11 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 
 	planAbsFilepath := path.Join(c.flagOutputDir, planFilename)
 	exitCode, err := c.terraformClient.Plan(ctx, multiPlanOut, multiStderr, &terraform.PlanOptions{
-		Out:                    pointer.To(planAbsFilepath),
-		Input:                  pointer.To(false),
-		NoColor:                pointer.To(true),
-		DetailedExitcode:       pointer.To(true),
-		LockTimeout:            pointer.To(c.flagLockTimeout.String()),
-		DisallowedProviders:    c.flagDisallowedProviders,
-		DisallowedProvisioners: c.flagDisallowedProvisioners,
-		AllowedProviders:       c.flagAllowedProviders,
-		AllowedProvisioners:    c.flagAllowedProvisioners,
+		Out:              pointer.To(planAbsFilepath),
+		Input:            pointer.To(false),
+		NoColor:          pointer.To(true),
+		DetailedExitcode: pointer.To(true),
+		LockTimeout:      pointer.To(c.flagLockTimeout.String()),
 	})
 
 	planExitCode = exitCode
