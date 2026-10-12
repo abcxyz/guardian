@@ -377,3 +377,150 @@ terraform {
 		})
 	}
 }
+
+func TestCheckDeclaredProvisionerSources(t *testing.T) {
+	t.Parallel()
+
+	builtin := func(typ string) *ProvisionerSource {
+		return &ProvisionerSource{Origin: ProvisionerOriginBuiltin, Type: typ}
+	}
+	plugin := func(typ string) *ProvisionerSource {
+		return &ProvisionerSource{Origin: ProvisionerOriginPlugin, Type: typ}
+	}
+
+	const localExec = `
+resource "terraform_data" "a" {
+  provisioner "local-exec" {
+    command = "true"
+  }
+}
+`
+
+	cases := []struct {
+		name        string
+		files       map[string]string
+		patterns    []string
+		expDeclared []*ProvisionerSource
+		expErr      string
+	}{
+		{
+			name:        "no_provisioners",
+			files:       map[string]string{"main.tf": `resource "terraform_data" "a" {}`},
+			patterns:    nil,
+			expDeclared: []*ProvisionerSource{},
+		},
+		{
+			name:        "denied_by_default",
+			files:       map[string]string{"main.tf": localExec},
+			patterns:    nil,
+			expDeclared: []*ProvisionerSource{builtin("local-exec")},
+			expErr:      `terraform uses provisioners that are not allowed: builtin/local-exec (no provisioners are allowed; set -allowed-provisioner-sources, or use "*" to allow all)`,
+		},
+		{
+			name:        "builtin_allowed_by_bare_name",
+			files:       map[string]string{"main.tf": localExec},
+			patterns:    []string{"local-exec"},
+			expDeclared: []*ProvisionerSource{builtin("local-exec")},
+		},
+		{
+			name: "plugin_rejected_by_builtin_wildcard",
+			files: map[string]string{"main.tf": `
+resource "terraform_data" "a" {
+  provisioner "file" {
+    content     = "x"
+    destination = "/tmp/x"
+  }
+  provisioner "evil" {}
+}
+`},
+			patterns:    []string{"builtin/*"},
+			expDeclared: []*ProvisionerSource{builtin("file"), plugin("evil")},
+			expErr:      "not allowed: plugin/evil (allowed provisioner sources: builtin/*)",
+		},
+		{
+			name: "allow_all",
+			files: map[string]string{"main.tf": `
+resource "terraform_data" "a" {
+  provisioner "evil" {}
+}
+`},
+			patterns:    []string{"*"},
+			expDeclared: []*ProvisionerSource{plugin("evil")},
+		},
+		{
+			name: "json_config",
+			files: map[string]string{"main.tf.json": `{
+  "resource": {
+    "terraform_data": {
+      "a": {"provisioner": [{"remote-exec": {"inline": ["true"]}}]}
+    }
+  }
+}`},
+			patterns:    []string{"local-exec"},
+			expDeclared: []*ProvisionerSource{builtin("remote-exec")},
+			expErr:      "not allowed: builtin/remote-exec",
+		},
+		{
+			// e.g. a provisioner in a remote module, which is only visible after
+			// terraform init has installed it.
+			name: "module_provisioner_rejected",
+			files: map[string]string{
+				"main.tf":                         `module "child" { source = "./modules/child" }`,
+				"modules/child/main.tf":           localExec,
+				".terraform/modules/modules.json": `{"Modules":[{"Key":"","Source":"","Dir":"."},{"Key":"child","Source":"./modules/child","Dir":"modules/child"}]}`,
+			},
+			patterns:    nil,
+			expDeclared: []*ProvisionerSource{builtin("local-exec")},
+			expErr:      "not allowed: builtin/local-exec",
+		},
+		{
+			name: "non_module_subdirectories_ignored",
+			files: map[string]string{
+				"main.tf":           `resource "terraform_data" "a" {}`,
+				"scratch/unused.tf": localExec,
+			},
+			patterns:    nil,
+			expDeclared: []*ProvisionerSource{},
+		},
+		{
+			name: "provisioner_missing_type_rejected",
+			files: map[string]string{"main.tf": `
+resource "terraform_data" "a" {
+  provisioner {}
+}
+`},
+			patterns: []string{"*"},
+			expErr:   "failed to analyze",
+		},
+		{
+			name:     "unparseable_rejected",
+			files:    map[string]string{"main.tf": "this is { not valid hcl"},
+			patterns: []string{"*"},
+			expErr:   "failed to parse",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			dir := t.TempDir()
+			for name, content := range tc.files {
+				mustWrite(t, filepath.Join(dir, name), content)
+			}
+
+			m, err := NewProvisionerSourceMatcher(tc.patterns)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			got, err := CheckDeclaredProvisionerSources(context.Background(), dir, m)
+			if diff := testutil.DiffErrString(err, tc.expErr); diff != "" {
+				t.Error(diff)
+			}
+			if diff := cmp.Diff(tc.expDeclared, got); diff != "" {
+				t.Errorf("declared provisioners mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}

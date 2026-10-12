@@ -23,7 +23,7 @@ import (
 	"github.com/abcxyz/pkg/cli"
 )
 
-func TestProviderSourceFlags(t *testing.T) {
+func TestSourceFlags_ProviderSources(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
@@ -76,9 +76,9 @@ func TestProviderSourceFlags(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			var p ProviderSourceFlags
+			var p SourceFlags
 			set := cli.NewFlagSet()
-			p.RegisterProviderSourceFlags(set.NewSection("OPTIONS"))
+			p.RegisterSourceFlags(set.NewSection("OPTIONS"))
 			if err := set.Parse(tc.args); err != nil {
 				t.Fatal(err)
 			}
@@ -97,6 +97,71 @@ func TestProviderSourceFlags(t *testing.T) {
 				}
 				if got := m.Allowed(src); got != want {
 					t.Errorf("Allowed(%q) = %t, want %t", raw, got, want)
+				}
+			}
+		})
+	}
+}
+
+func TestSourceFlags_ProvisionerSources(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name        string
+		args        []string
+		expPatterns []string
+		expAllowed  map[string]bool
+	}{
+		{
+			name:        "default_allows_none",
+			args:        nil,
+			expPatterns: nil,
+			expAllowed: map[string]bool{
+				"local-exec": false,
+				"custom":     false,
+			},
+		},
+		{
+			name:        "builtin",
+			args:        []string{"-allowed-provisioner-sources=local-exec"},
+			expPatterns: []string{"builtin/local-exec"},
+			expAllowed: map[string]bool{
+				"local-exec":  true,
+				"remote-exec": false,
+			},
+		},
+		{
+			name:        "wildcard_allows_all",
+			args:        []string{"-allowed-provisioner-sources=*"},
+			expPatterns: []string{"*"},
+			expAllowed: map[string]bool{
+				"local-exec": true,
+				"custom":     true,
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var p SourceFlags
+			set := cli.NewFlagSet()
+			p.RegisterSourceFlags(set.NewSection("OPTIONS"))
+			if err := set.Parse(tc.args); err != nil {
+				t.Fatal(err)
+			}
+
+			m, err := p.ProvisionerSourceMatcher()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if diff := cmp.Diff(tc.expPatterns, m.Patterns()); diff != "" {
+				t.Errorf("patterns mismatch (-want +got):\n%s", diff)
+			}
+			for typ, want := range tc.expAllowed {
+				if got := m.Allowed(checkterraform.ProvisionerSourceForType(typ)); got != want {
+					t.Errorf("Allowed(%q) = %t, want %t", typ, got, want)
 				}
 			}
 		})

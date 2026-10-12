@@ -481,6 +481,8 @@ func TestPlan_Process_LocalProvisionerPlugins(t *testing.T) {
 				platformClient:  &platform.MockPlatform{},
 			}
 			c.FlagAllowedProviderSources = []string{"*"}
+			// Plugins must be rejected even when every provisioner is allowed.
+			c.FlagAllowedProvisionerSources = []string{"*"}
 
 			_, stdout, _ := c.Pipe()
 
@@ -508,5 +510,135 @@ func TestPlan_Process_LocalProvisionerPlugins(t *testing.T) {
 				t.Errorf("terraform was not executed after init")
 			}
 		})
+	}
+}
+
+func TestPlan_Process_ProvisionerSources(t *testing.T) {
+	t.Parallel()
+
+	ctx := logging.WithLogger(t.Context(), logging.TestLogger(t))
+
+	const localExec = `resource "terraform_data" "x" {
+  provisioner "local-exec" {
+    command = "true"
+  }
+}
+`
+
+	cases := []struct {
+		name                string
+		allowedProvisioners []string
+		files               map[string]string
+		// moduleFiles are written by terraform init, e.g. a remote module.
+		moduleFiles map[string]string
+		expErr      string
+		expInit     bool
+		expExecuted bool
+	}{
+		{
+			name:        "no_provisioners",
+			files:       map[string]string{"main.tf": `resource "terraform_data" "x" {}`},
+			expInit:     true,
+			expExecuted: true,
+		},
+		{
+			name:   "denied_by_default_before_init",
+			files:  map[string]string{"main.tf": localExec},
+			expErr: "failed provisioner source check: terraform uses provisioners that are not allowed: builtin/local-exec (no provisioners are allowed",
+		},
+		{
+			name:                "allowed",
+			allowedProvisioners: []string{"builtin/local-exec"},
+			files:               map[string]string{"main.tf": localExec},
+			expInit:             true,
+			expExecuted:         true,
+		},
+		{
+			name:                "plugin_denied",
+			allowedProvisioners: []string{"builtin/*"},
+			files: map[string]string{"main.tf": `resource "terraform_data" "x" {
+  provisioner "custom" {}
+}
+`},
+			expErr: "not allowed: plugin/custom",
+		},
+		{
+			name:  "module_installed_by_init_denied_before_execution",
+			files: map[string]string{"main.tf": `module "m" { source = "example.com/acme/m/x" }`},
+			moduleFiles: map[string]string{
+				".terraform/modules/modules.json": `{"Modules":[{"Key":"","Source":"","Dir":"."},{"Key":"m","Source":"example.com/acme/m/x","Dir":".terraform/modules/m"}]}`,
+				".terraform/modules/m/main.tf":    localExec,
+			},
+			expErr:  "failed provisioner source check: terraform uses provisioners that are not allowed: builtin/local-exec",
+			expInit: true,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			dir := t.TempDir()
+			for name, content := range tc.files {
+				writeFile(t, filepath.Join(dir, name), content)
+			}
+
+			var initCalled bool
+			tfClient := &terraform.MockTerraformClient{
+				PlanBody:         []byte("this is a plan binary"),
+				ValidateResponse: &terraform.MockTerraformResponse{Stdout: "VALIDATE_CALLED"},
+				PlanResponse:     &terraform.MockTerraformResponse{ExitCode: 2},
+				ShowResponse:     &terraform.MockTerraformResponse{Stdout: "terraform show success with diff"},
+			}
+			tfClient.InitHook = func() error {
+				initCalled = true
+				for name, content := range tc.moduleFiles {
+					p := filepath.Join(dir, name)
+					if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+						return err
+					}
+					if err := os.WriteFile(p, []byte(content), 0o600); err != nil {
+						return err
+					}
+				}
+				return nil
+			}
+
+			c := &PlanCommand{
+				directory:       dir,
+				childPath:       "dir",
+				flagOutputDir:   t.TempDir(),
+				flagLockTimeout: 10 * time.Minute,
+				terraformClient: tfClient,
+				storageClient:   &storage.MockStorageClient{},
+				platformClient:  &platform.MockPlatform{},
+			}
+			c.FlagAllowedProviderSources = []string{"*"}
+			c.FlagAllowedProvisionerSources = tc.allowedProvisioners
+
+			_, stdout, _ := c.Pipe()
+
+			err := c.Process(ctx)
+			if diff := testutil.DiffErrString(err, tc.expErr); diff != "" {
+				t.Error(diff)
+			}
+			if initCalled != tc.expInit {
+				t.Errorf("terraform init called = %t, want %t", initCalled, tc.expInit)
+			}
+			if got := strings.Contains(stdout.String(), "VALIDATE_CALLED"); got != tc.expExecuted {
+				t.Errorf("terraform executed after init = %t, want %t", got, tc.expExecuted)
+			}
+		})
+	}
+}
+
+func writeFile(tb testing.TB, p, content string) {
+	tb.Helper()
+
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		tb.Fatal(err)
+	}
+	if err := os.WriteFile(p, []byte(content), 0o600); err != nil {
+		tb.Fatal(err)
 	}
 }
