@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/abcxyz/guardian/pkg/checkterraform/plugintest"
 	"github.com/abcxyz/guardian/pkg/terraform"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/testutil"
@@ -213,7 +214,7 @@ func TestRun_Process_ProviderSources(t *testing.T) {
 				"main.tf":                 `resource "google_project" "p" {}`,
 				"terraform.d/plugins/.ok": "",
 			},
-			expErr: "failed provider source check: refusing to run: found terraform.d",
+			expErr: "failed local plugin check: refusing to run: found terraform.d",
 		},
 		{
 			name:           "declared_source_rejected_before_init",
@@ -283,6 +284,65 @@ terraform {
 			}
 			if got := strings.Contains(stdout.String(), "RUN_CALLED"); got != tc.expRun {
 				t.Errorf("terraform command run = %t, want %t", got, tc.expRun)
+			}
+		})
+	}
+}
+
+func TestRun_Process_LocalProvisionerPlugins(t *testing.T) {
+	t.Parallel()
+
+	ctx := logging.WithLogger(t.Context(), logging.TestLogger(t))
+
+	for _, tc := range plugintest.Cases() {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+
+			dir := t.TempDir()
+			tc.Setup(t, dir, filepath.Join(dir, "marker"))
+
+			var initCalled bool
+			tfClient := &terraform.MockTerraformClient{
+				InitHook: func() error {
+					initCalled = true
+					return tc.CheckRemoved(dir)
+				},
+				RunResponse: &terraform.MockTerraformResponse{Stdout: "RUN_CALLED"},
+			}
+
+			c := &RunCommand{
+				directory:        dir,
+				childPath:        "testdir",
+				terraformCommand: "plan",
+				flagLockTimeout:  10 * time.Minute,
+				terraformClient:  tfClient,
+			}
+			c.FlagAllowedProviderSources = []string{"*"}
+
+			_, stdout, _ := c.Pipe()
+
+			err := c.Process(ctx)
+
+			if tc.WantRejected {
+				if diff := testutil.DiffErrString(err, plugintest.RejectedErr); diff != "" {
+					t.Error(diff)
+				}
+				if initCalled {
+					t.Errorf("terraform init was called")
+				}
+				if strings.Contains(stdout.String(), "RUN_CALLED") {
+					t.Errorf("terraform was executed after init")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !initCalled {
+				t.Errorf("terraform init was not called")
+			}
+			if !strings.Contains(stdout.String(), "RUN_CALLED") {
+				t.Errorf("terraform was not executed after init")
 			}
 		})
 	}

@@ -24,11 +24,12 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
+	"github.com/abcxyz/guardian/pkg/checkterraform/plugintest"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/testutil"
 )
 
-func TestRemoveLocalProviderOverrides(t *testing.T) {
+func TestRemoveLocalPluginOverrides(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
@@ -83,6 +84,32 @@ func TestRemoveLocalProviderOverrides(t *testing.T) {
 			expErr: "is not a directory",
 		},
 		{
+			name:   "provisioner_plugin_dir_rejected",
+			dirs:   []string{"terraform-provisioner-evil"},
+			expErr: "found provisioner plugins in",
+		},
+		{
+			name:   "provisioner_plugin_prefix_is_case_insensitive",
+			files:  []string{"Terraform-Provisioner-evil"},
+			expErr: "found provisioner plugins in",
+		},
+		{
+			name:    "provisioner_plugin_in_subdir_ignored",
+			files:   []string{"modules/child/terraform-provisioner-evil", "terraform-provisioner.md"},
+			expKept: []string{"modules/child/terraform-provisioner-evil", "terraform-provisioner.md"},
+		},
+		{
+			name:       "plugin_path_removed",
+			files:      []string{".terraform/plugin_path", ".terraform/environment"},
+			expRemoved: []string{".terraform/plugin_path"},
+			expKept:    []string{".terraform/environment"},
+		},
+		{
+			name:       "plugin_path_dir_removed",
+			dirs:       []string{".terraform/plugin_path/x"},
+			expRemoved: []string{".terraform/plugin_path"},
+		},
+		{
 			name:    "unrelated_dirs",
 			dirs:    []string{"modules/terraform.d", "nested/.terraform/providers"},
 			files:   []string{".terraform.lock.hcl", "main.tf"},
@@ -104,7 +131,7 @@ func TestRemoveLocalProviderOverrides(t *testing.T) {
 				mustWrite(t, filepath.Join(dir, f), "")
 			}
 
-			err := RemoveLocalProviderOverrides(ctx, dir)
+			err := RemoveLocalPluginOverrides(ctx, dir)
 			if diff := testutil.DiffErrString(err, tc.expErr); diff != "" {
 				t.Error(diff)
 			}
@@ -123,7 +150,7 @@ func TestRemoveLocalProviderOverrides(t *testing.T) {
 	}
 }
 
-func TestRemoveLocalProviderOverrides_Symlinks(t *testing.T) {
+func TestRemoveLocalPluginOverrides_Symlinks(t *testing.T) {
 	t.Parallel()
 
 	t.Run("symlinked_dot_terraform_rejected", func(t *testing.T) {
@@ -137,12 +164,52 @@ func TestRemoveLocalProviderOverrides_Symlinks(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		err := RemoveLocalProviderOverrides(ctx, dir)
+		err := RemoveLocalPluginOverrides(ctx, dir)
 		if diff := testutil.DiffErrString(err, "is not a directory"); diff != "" {
 			t.Error(diff)
 		}
 		if _, err := os.Stat(filepath.Join(outside, "providers")); err != nil {
 			t.Errorf("expected directory outside of dir to be untouched: %v", err)
+		}
+	})
+
+	t.Run("symlinked_provisioner_plugin_rejected", func(t *testing.T) {
+		t.Parallel()
+
+		ctx := logging.WithLogger(t.Context(), logging.TestLogger(t))
+		dir := t.TempDir()
+		outside := t.TempDir()
+		mustWrite(t, filepath.Join(outside, "plugin"), "")
+		if err := os.Symlink(filepath.Join(outside, "plugin"), filepath.Join(dir, "terraform-provisioner-evil")); err != nil {
+			t.Fatal(err)
+		}
+
+		err := RemoveLocalPluginOverrides(ctx, dir)
+		if diff := testutil.DiffErrString(err, "found provisioner plugins in"); diff != "" {
+			t.Error(diff)
+		}
+	})
+
+	t.Run("symlinked_plugin_path_only_unlinked", func(t *testing.T) {
+		t.Parallel()
+
+		ctx := logging.WithLogger(t.Context(), logging.TestLogger(t))
+		dir := t.TempDir()
+		outside := t.TempDir()
+		mustWrite(t, filepath.Join(outside, "plugin_path"), "[]")
+		mustMkdir(t, filepath.Join(dir, ".terraform"))
+		if err := os.Symlink(filepath.Join(outside, "plugin_path"), filepath.Join(dir, ".terraform", "plugin_path")); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := RemoveLocalPluginOverrides(ctx, dir); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := os.Lstat(filepath.Join(dir, ".terraform", "plugin_path")); !errors.Is(err, fs.ErrNotExist) {
+			t.Errorf("expected symlink to be removed, got err=%v", err)
+		}
+		if _, err := os.Stat(filepath.Join(outside, "plugin_path")); err != nil {
+			t.Errorf("expected symlink target to be untouched: %v", err)
 		}
 	})
 
@@ -158,7 +225,7 @@ func TestRemoveLocalProviderOverrides_Symlinks(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if err := RemoveLocalProviderOverrides(ctx, dir); err != nil {
+		if err := RemoveLocalPluginOverrides(ctx, dir); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := os.Lstat(filepath.Join(dir, ".terraform", "providers")); !errors.Is(err, fs.ErrNotExist) {
@@ -168,6 +235,36 @@ func TestRemoveLocalProviderOverrides_Symlinks(t *testing.T) {
 			t.Errorf("expected symlink target to be untouched: %v", err)
 		}
 	})
+}
+
+func TestRemoveLocalPluginOverrides_ProvisionerPlugins(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range plugintest.Cases() {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+
+			ctx := logging.WithLogger(t.Context(), logging.TestLogger(t))
+			dir := t.TempDir()
+			tc.Setup(t, dir, filepath.Join(t.TempDir(), "marker"))
+
+			err := RemoveLocalPluginOverrides(ctx, dir)
+			if tc.WantRejected {
+				if diff := testutil.DiffErrString(err, plugintest.RejectedErr); diff != "" {
+					t.Error(diff)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, p := range tc.WantRemoved {
+				if _, err := os.Lstat(filepath.Join(dir, p)); !errors.Is(err, fs.ErrNotExist) {
+					t.Errorf("expected %q to be removed, got err=%v", p, err)
+				}
+			}
+		})
+	}
 }
 
 func TestCheckInstalledProviderSources(t *testing.T) {

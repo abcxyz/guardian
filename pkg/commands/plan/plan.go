@@ -347,8 +347,8 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 	}
 
 	util.Headerf(c.Stdout(), "Checking Terraform Provider Sources")
-	if err := checkterraform.RemoveLocalProviderOverrides(ctx, c.directory); err != nil {
-		return &RunResult{commentDetails: err.Error()}, fmt.Errorf("failed provider source check: %w", err)
+	if err := checkterraform.RemoveLocalPluginOverrides(ctx, c.directory); err != nil {
+		return &RunResult{commentDetails: err.Error()}, fmt.Errorf("failed local plugin check: %w", err)
 	}
 	if _, err := checkterraform.CheckDeclaredProviderSources(ctx, c.directory, sourceMatcher); err != nil {
 		return &RunResult{commentDetails: err.Error()}, fmt.Errorf("failed provider source check: %w", err)
