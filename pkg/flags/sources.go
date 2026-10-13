@@ -16,18 +16,17 @@ package flags
 
 import (
 	"fmt"
-	"slices"
 
 	"github.com/abcxyz/guardian/pkg/checkterraform"
 	"github.com/abcxyz/pkg/cli"
 )
 
-// DefaultAllowedProviderSources is the default value of
-// -allowed-provider-sources. It allows every provider in the hashicorp
-// namespace on the public registry, which keeps Guardian cloud platform
-// agnostic. Note that it also allows hashicorp/external, which can execute
-// arbitrary programs during plan.
-var DefaultAllowedProviderSources = []string{"hashicorp/*"}
+// There is deliberately no default for -allowed-provider-sources. The
+// configuration under review is untrusted, and any broad default (such as
+// hashicorp/*) admits providers that execute arbitrary programs during plan
+// (hashicorp/external, hashicorp/helm, hashicorp/enos) or read and exfiltrate
+// files from the runner (hashicorp/local, hashicorp/http, hashicorp/archive).
+// Operators must list the exact provider sources they trust.
 
 // SourceFlags are the flags that control which Terraform provider and
 // provisioner sources Guardian allows Terraform to install and execute.
@@ -42,14 +41,16 @@ func (p *SourceFlags) RegisterSourceFlags(f *cli.FlagSection) {
 	f.StringSliceVar(&cli.StringSliceVar{
 		Name:    "allowed-provider-sources",
 		Target:  &p.FlagAllowedProviderSources,
-		Default: slices.Clone(DefaultAllowedProviderSources),
+		Default: []string{},
 		Example: "hashicorp/google,hashicorp/google-beta,integrations/github",
 		Usage: "The allowlist of Terraform provider sources, in the form " +
-			"[HOSTNAME/]NAMESPACE/TYPE. HOSTNAME defaults to registry.terraform.io " +
-			"and '*' matches a single segment (e.g. hashicorp/*). A bare '*' " +
-			"allows every provider source, and an empty value allows none. " +
-			"Installed providers are checked after terraform init and before any " +
-			"provider is executed.",
+			"[HOSTNAME/]NAMESPACE/TYPE. HOSTNAME defaults to registry.terraform.io. " +
+			"List the exact providers you trust. If unset, no providers are " +
+			"allowed. '*' matches a single segment and a bare '*' allows every " +
+			"provider source; both admit providers that run arbitrary programs or " +
+			"read files on the runner (e.g. hashicorp/external) and must only be " +
+			"used in test environments. Installed providers are checked after " +
+			"terraform init and before any provider is executed.",
 	})
 
 	f.StringSliceVar(&cli.StringSliceVar{

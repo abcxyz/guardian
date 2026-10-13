@@ -33,14 +33,25 @@ func TestSourceFlags_ProviderSources(t *testing.T) {
 		expAllowed  map[string]bool
 	}{
 		{
-			name:        "default_allows_hashicorp_namespace",
+			name:        "default_allows_none",
 			args:        nil,
-			expPatterns: []string{"registry.terraform.io/hashicorp/*"},
+			expPatterns: nil,
 			expAllowed: map[string]bool{
-				"hashicorp/google":                      true,
-				"hashicorp/null":                        true,
+				"hashicorp/google":                      false,
+				"hashicorp/null":                        false,
+				"hashicorp/external":                    false,
 				"integrations/github":                   false,
 				"registry.example.com/hashicorp/google": false,
+			},
+		},
+		{
+			name:        "explicit_namespace_wildcard",
+			args:        []string{"-allowed-provider-sources=hashicorp/*"},
+			expPatterns: []string{"registry.terraform.io/hashicorp/*"},
+			expAllowed: map[string]bool{
+				"hashicorp/google":    true,
+				"hashicorp/external":  true,
+				"integrations/github": false,
 			},
 		},
 		{

@@ -384,9 +384,12 @@ the pull request.
 
 Because the pull request's Terraform configuration is untrusted, Guardian
 restricts which Terraform providers and provisioners it will allow Terraform to
-execute. Set `-allowed-provider-sources` (and the
-`guardian_allowed_provider_sources` template input, which both default to
-`hashicorp/*`) to the exact provider sources your configuration needs.
+execute. Set `-allowed-provider-sources` (the `guardian_allowed_provider_sources`
+template input) to the exact provider sources your configuration needs. There
+is no default: if it is unset, no providers are allowed. Wildcards such as
+`hashicorp/*` or `*` admit providers that run arbitrary programs on the runner
+(`hashicorp/external`) or read its files and credentials (`hashicorp/local`,
+`hashicorp/http`), and must only be used in test environments.
 Provisioners are discouraged and blocked unless listed in
 `-allowed-provisioner-sources` (the `guardian_allowed_provisioner_sources`
 template input). Guardian also refuses to load plugins from the Terraform
@@ -405,22 +408,23 @@ potentially a breaking change due to safe-by-default restrictions.**
   and `-disallowed-provisioners` flags are removed. Passing them to v4 fails
   with `flag provided but not defined`.
 - **Defaults are restrictive.** In v3, unset flags allowed every provider and
-  provisioner. In v4, `-allowed-provider-sources` defaults to `hashicorp/*`,
-  and `-allowed-provisioner-sources` defaults to allowing no provisioners. An
-  empty value for either flag allows nothing. Use `*` to allow all explicitly.
+  provisioner. In v4, both `-allowed-provider-sources` and
+  `-allowed-provisioner-sources` default to allowing nothing, so **every
+  deployment must set `-allowed-provider-sources`**. A bare `*` allows all,
+  but admits providers that run arbitrary programs on the runner; use it only
+  in test environments.
 - Use `-allowed-provider-sources` with fully qualified provider sources instead
   of local names. For example, `-allowed-providers=google,github` becomes
   `-allowed-provider-sources=hashicorp/google,integrations/github`. Names are
   not sources, so look up the namespace of each provider you use. The `provider`
   blocks in `.terraform.lock.hcl` list the exact sources currently in use, as
   does `terraform providers`.
-- The `guardian_allowed_providers` template input is replaced by
-  `guardian_allowed_provider_sources`, which defaults to `hashicorp/*`.
-  Re-render or upgrade the templates and add any other provider sources you
-  need.
-- `hashicorp/external` was previously denied by default. It is now denied only
-  if it is not in your allowlist, and the default `hashicorp/*` allows it.
-  Replace the default with the exact sources you use to keep it blocked.
+- The `guardian_allowed_providers` template input is replaced by the required
+  `guardian_allowed_provider_sources` input. Re-render or upgrade the templates
+  and list every provider source you use.
+- `hashicorp/external` was previously denied by default. It is now denied like
+  every other provider that is not in your allowlist. Do not add it, or a
+  wildcard that matches it, outside of test environments.
 - Use `-allowed-provisioner-sources` instead of the provisioner flags. For
   example, `-allowed-provisioners=local-exec` becomes
   `-allowed-provisioner-sources=local-exec` (that is, `builtin/local-exec`).

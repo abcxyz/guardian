@@ -125,7 +125,8 @@ Also supports [Platform Options](#platform-options), [GitHub Options](#github-op
   running commands that modify state. The default value is "10m".
 * **-allowed-provider-sources="hashicorp/google,integrations/github"** - The allowlist of
   Terraform provider sources. See [Provider Source Restrictions](#provider-source-restrictions).
-  Defaults to `hashicorp/*`. An empty value allows none; use `"*"` to allow all.
+  There is no default; if unset, no providers are allowed. A bare `"*"` allows
+  all and must only be used in test environments.
 * **-allowed-provisioner-sources="builtin/local-exec"** - The allowlist of
   Terraform provisioner sources. See [Provisioner Source Restrictions](#provisioner-source-restrictions).
   If unset, no provisioners are allowed; use `"*"` to allow all.
@@ -163,7 +164,8 @@ Also supports [Platform Options](#platform-options), [GitHub Options](#github-op
 * **-output-dir="./output/plan"** - Write the plan binary and JSON file to a target local directory.
 * **-allowed-provider-sources="hashicorp/google,integrations/github"** - The allowlist of
   Terraform provider sources. See [Provider Source Restrictions](#provider-source-restrictions).
-  Defaults to `hashicorp/*`. An empty value allows none; use `"*"` to allow all.
+  There is no default; if unset, no providers are allowed. A bare `"*"` allows
+  all and must only be used in test environments.
 * **-allowed-provisioner-sources="builtin/local-exec"** - The allowlist of
   Terraform provisioner sources. See [Provisioner Source Restrictions](#provisioner-source-restrictions).
   If unset, no provisioners are allowed; use `"*"` to allow all.
@@ -193,7 +195,8 @@ Also supports [GitHub Options](#github-options) and [Retry Options](#retry-optio
 * **-allowed-terraform-commands="plan, apply, destroy"** - The list of allowed Terraform commands to be run. Defaults to all commands.
 * **-allowed-provider-sources="hashicorp/google,integrations/github"** - The allowlist of
   Terraform provider sources. See [Provider Source Restrictions](#provider-source-restrictions).
-  Defaults to `hashicorp/*`. An empty value allows none; use `"*"` to allow all.
+  There is no default; if unset, no providers are allowed. A bare `"*"` allows
+  all and must only be used in test environments.
 * **-allowed-provisioner-sources="builtin/local-exec"** - The allowlist of
   Terraform provisioner sources. See [Provisioner Source Restrictions](#provisioner-source-restrictions).
   If unset, no provisioners are allowed; use `"*"` to allow all.
@@ -202,8 +205,9 @@ Also supports [GitHub Options](#github-options) and [Retry Options](#retry-optio
 
 `guardian apply`, `guardian plan` and `guardian run` only allow Terraform to
 install and execute providers whose source is in `-allowed-provider-sources`.
-The flag defaults to `hashicorp/*`; **an empty value allows no providers.**
-Terraform's built-in `terraform` provider is always allowed.
+**The flag has no default; if it is unset, no providers are allowed**, and the
+error names the sources the configuration uses so you can add the ones you
+trust. Terraform's built-in `terraform` provider is always allowed.
 
 Each entry is a provider source in the form `[HOSTNAME/]NAMESPACE/TYPE`, using
 the same defaults as Terraform: `HOSTNAME` defaults to `registry.terraform.io`
@@ -214,8 +218,13 @@ on any host. A bare `*` allows every provider source. Only allowlist entries
 are supported; there is no exclusion syntax.
 
 > [!WARNING]
-> Prefer listing exact sources. A wildcard such as `hashicorp/*` also allows
-> `hashicorp/external`, which runs arbitrary programs during `terraform plan`.
+> List exact sources. Pull requests are untrusted, and a wildcard such as
+> `hashicorp/*` or `*` also allows providers that run arbitrary programs during
+> `terraform plan` (`hashicorp/external`, `hashicorp/helm`, `hashicorp/enos`)
+> or read the runner's files and credentials and send them anywhere
+> (`hashicorp/local`, `hashicorp/http`, `hashicorp/archive`). Any pull request
+> could then run code with the workflow's cloud credentials. Use wildcards
+> only in test environments.
 
 ## Provisioner Source Restrictions
 
