@@ -408,6 +408,19 @@ resource "terraform_data" "a" {
 }
 `
 
+	const removedLocalExec = `
+removed {
+  from = terraform_data.a
+  lifecycle {
+    destroy = true
+  }
+  provisioner "local-exec" {
+    when    = destroy
+    command = "true"
+  }
+}
+`
+
 	cases := []struct {
 		name        string
 		files       map[string]string
@@ -509,6 +522,60 @@ resource "terraform_data" "a" {
 			files:    map[string]string{"main.tf": "this is { not valid hcl"},
 			patterns: []string{"*"},
 			expErr:   "failed to parse",
+		},
+		{
+			name:        "removed_block_destroy_provisioner_rejected",
+			files:       map[string]string{"main.tf": removedLocalExec},
+			patterns:    nil,
+			expDeclared: []*ProvisionerSource{builtin("local-exec")},
+			expErr:      "terraform uses provisioners that are not allowed: builtin/local-exec",
+		},
+		{
+			name:        "removed_block_destroy_provisioner_allowed",
+			files:       map[string]string{"main.tf": removedLocalExec},
+			patterns:    []string{"local-exec"},
+			expDeclared: []*ProvisionerSource{builtin("local-exec")},
+		},
+		{
+			name: "removed_block_json_rejected",
+			files: map[string]string{"main.tf.json": `{
+  "removed": [{
+    "from": "terraform_data.a",
+    "lifecycle": {"destroy": true},
+    "provisioner": [{"local-exec": {"when": "destroy", "command": "true"}}]
+  }]
+}`},
+			patterns:    nil,
+			expDeclared: []*ProvisionerSource{builtin("local-exec")},
+			expErr:      "not allowed: builtin/local-exec",
+		},
+		{
+			name: "removed_block_json_allowed",
+			files: map[string]string{"main.tf.json": `{
+  "removed": {
+    "from": "terraform_data.a",
+    "provisioner": {"local-exec": {"when": "destroy", "command": "true"}}
+  }
+}`},
+			patterns:    []string{"local-exec"},
+			expDeclared: []*ProvisionerSource{builtin("local-exec")},
+		},
+		{
+			name:        "removed_block_without_provisioner",
+			files:       map[string]string{"main.tf": "removed {\n  from = terraform_data.a\n}\n"},
+			patterns:    nil,
+			expDeclared: []*ProvisionerSource{},
+		},
+		{
+			name: "removed_block_provisioner_missing_type_rejected",
+			files: map[string]string{"main.tf": `
+removed {
+  from = terraform_data.a
+  provisioner {}
+}
+`},
+			patterns: []string{"*"},
+			expErr:   "failed to analyze",
 		},
 	}
 
@@ -617,6 +684,19 @@ func TestCheckBeforeInit(t *testing.T) {
 			files: map[string]string{"main.tf": `
 resource "terraform_data" "d" {
   provisioner "local-exec" {
+    command = "true"
+  }
+}
+`},
+			expErr: "terraform uses provisioners that are not allowed: builtin/local-exec",
+		},
+		{
+			name: "disallowed_removed_block_provisioner",
+			files: map[string]string{"main.tf": `
+removed {
+  from = terraform_data.d
+  provisioner "local-exec" {
+    when    = destroy
     command = "true"
   }
 }

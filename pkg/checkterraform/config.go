@@ -111,7 +111,8 @@ type Configuration struct {
 //   - Any other referenced local name (provider blocks, resource and data
 //     source types, and resource "provider" meta-arguments) uses Terraform's
 //     implied source, hashicorp/<name>.
-//   - Provisioner blocks are classified with [ProvisionerSourceForType].
+//   - Provisioner blocks (including destroy-time provisioners in removed
+//     blocks) are classified with [ProvisionerSourceForType].
 //
 // Configuration that cannot be parsed or analyzed is an error, so the check
 // fails closed. Files that Terraform ignores (e.g. hidden files) are skipped.
@@ -307,6 +308,7 @@ func collectReferences(body hcl.Body, refs *moduleReferences) error {
 			{Type: "resource", LabelNames: []string{"type", "name"}},
 			{Type: "data", LabelNames: []string{"type", "name"}},
 			{Type: "ephemeral", LabelNames: []string{"type", "name"}},
+			{Type: "removed"},
 		},
 	})
 	if diags.HasErrors() {
@@ -331,7 +333,35 @@ func collectReferences(body hcl.Body, refs *moduleReferences) error {
 			if err := collectResourceReferences(block, refs); err != nil {
 				return err
 			}
+		case "removed":
+			// removed blocks (Terraform 1.7+) may contain destroy-time
+			// provisioners, which run when the resource is destroyed.
+			if err := collectProvisioners(block, refs); err != nil {
+				return err
+			}
 		}
+	}
+	return nil
+}
+
+// collectProvisioners records the provisioner types of the provisioner blocks
+// nested directly in block. It returns an error if a provisioner block cannot
+// be decoded.
+func collectProvisioners(block *hcl.Block, refs *moduleReferences) error {
+	content, _, diags := block.Body.PartialContent(&hcl.BodySchema{
+		Blocks: []hcl.BlockHeaderSchema{{Type: "provisioner", LabelNames: []string{"type"}}},
+	})
+	if diags.HasErrors() {
+		return diags
+	}
+	if content == nil {
+		return fmt.Errorf("failed to decode %s block at %s", block.Type, block.DefRange)
+	}
+	for _, b := range content.Blocks {
+		if len(b.Labels) == 0 || b.Labels[0] == "" {
+			return fmt.Errorf("provisioner block at %s has no type", b.DefRange)
+		}
+		refs.provisioners[b.Labels[0]] = struct{}{}
 	}
 	return nil
 }
