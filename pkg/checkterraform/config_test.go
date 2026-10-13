@@ -652,6 +652,7 @@ func TestCheckBeforeInit(t *testing.T) {
 	cases := []struct {
 		name                string
 		files               map[string]string
+		dirs                []string
 		providerPatterns    []string
 		provisionerPatterns []string
 		expErr              string
@@ -703,6 +704,35 @@ removed {
 `},
 			expErr: "terraform uses provisioners that are not allowed: builtin/local-exec",
 		},
+		{
+			name: "disallowed_removed_block_provisioner",
+			files: map[string]string{"main.tf": `
+removed {
+  from = terraform_data.d
+  provisioner "local-exec" {
+    when    = destroy
+    command = "true"
+  }
+}
+`},
+			expErr: "terraform uses provisioners that are not allowed: builtin/local-exec",
+		},
+		{
+			name: "corrupt_modules_json_fails_closed",
+			files: map[string]string{
+				"main.tf":                         `resource "google_project" "p" {}`,
+				".terraform/modules/modules.json": `{"Modules": [`,
+			},
+			providerPatterns: []string{"hashicorp/google"},
+			expErr:           "failed to parse modules.json",
+		},
+		{
+			name:             "unreadable_modules_json_fails_closed",
+			files:            map[string]string{"main.tf": `resource "google_project" "p" {}`},
+			dirs:             []string{".terraform/modules/modules.json"},
+			providerPatterns: []string{"hashicorp/google"},
+			expErr:           "failed to read modules.json",
+		},
 	}
 
 	for _, tc := range cases {
@@ -713,6 +743,9 @@ removed {
 			dir := t.TempDir()
 			for name, content := range tc.files {
 				mustWrite(t, filepath.Join(dir, name), content)
+			}
+			for _, d := range tc.dirs {
+				mustMkdir(t, filepath.Join(dir, d))
 			}
 
 			err := CheckBeforeInit(ctx, dir, &Policy{
@@ -737,6 +770,7 @@ func TestCheckBeforeExecute(t *testing.T) {
 	cases := []struct {
 		name                string
 		files               map[string]string
+		dirs                []string
 		installed           []string
 		providerPatterns    []string
 		provisionerPatterns []string
@@ -780,6 +814,24 @@ resource "terraform_data" "d" {
 			nilPolicy: true,
 			expErr:    "no provider sources are allowed",
 		},
+		{
+			name: "corrupt_modules_json_fails_closed",
+			files: map[string]string{
+				"main.tf":                         `resource "google_project" "p" {}`,
+				".terraform/modules/modules.json": `not json`,
+			},
+			installed:        []string{"registry.terraform.io/hashicorp/google/6.0.0/linux_amd64"},
+			providerPatterns: []string{"hashicorp/google"},
+			expErr:           "failed to parse modules.json",
+		},
+		{
+			name:             "unreadable_modules_json_fails_closed",
+			files:            map[string]string{"main.tf": `resource "google_project" "p" {}`},
+			dirs:             []string{".terraform/modules/modules.json"},
+			installed:        []string{"registry.terraform.io/hashicorp/google/6.0.0/linux_amd64"},
+			providerPatterns: []string{"hashicorp/google"},
+			expErr:           "failed to read modules.json",
+		},
 	}
 
 	for _, tc := range cases {
@@ -790,6 +842,9 @@ resource "terraform_data" "d" {
 			dir := t.TempDir()
 			for name, content := range tc.files {
 				mustWrite(t, filepath.Join(dir, name), content)
+			}
+			for _, d := range tc.dirs {
+				mustMkdir(t, filepath.Join(dir, d))
 			}
 			for _, p := range tc.installed {
 				mustMkdir(t, filepath.Join(dir, ".terraform", "providers", p))
