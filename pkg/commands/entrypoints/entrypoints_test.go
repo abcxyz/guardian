@@ -160,7 +160,7 @@ func TestEntrypointsProcess(t *testing.T) {
 			expStdout: `["testdata/entrypoint1/project1","testdata/entrypoint1/project2"]`,
 		},
 		{
-			name:              "no_changes_without_add_entrypoint",
+			name:              "changes_in_entrypoint_subdirectory",
 			flagDir:           []string{"testdata/entrypoint1"},
 			flagDestRef:       "main",
 			flagSourceRef:     "ldap/feature",
@@ -172,7 +172,98 @@ func TestEntrypointsProcess(t *testing.T) {
 					},
 				}
 			},
+			expStdout: `["testdata/entrypoint1/project1"]`,
+		},
+		{
+			name:              "changes_in_deep_entrypoint_subdirectory",
+			flagDir:           []string{"testdata/entrypoint1"},
+			flagDestRef:       "main",
+			flagSourceRef:     "ldap/feature",
+			flagDetectChanges: true,
+			newGitClient: func(ctx context.Context, dir string) git.Git {
+				return &git.MockGitClient{
+					DiffResp: []string{
+						filepath.Join(cwd, "testdata/entrypoint1/project1/files/a/b/c"),
+					},
+				}
+			},
+			expStdout: `["testdata/entrypoint1/project1"]`,
+		},
+		{
+			name:              "changes_outside_any_entrypoint",
+			flagDir:           []string{"testdata/entrypoint1"},
+			flagDestRef:       "main",
+			flagSourceRef:     "ldap/feature",
+			flagDetectChanges: true,
+			newGitClient: func(ctx context.Context, dir string) git.Git {
+				return &git.MockGitClient{
+					DiffResp: []string{
+						filepath.Join(cwd, "testdata/entrypoint1"),
+						filepath.Join(cwd, "testdata"),
+					},
+				}
+			},
 			expStdout: `[]`,
+		},
+		{
+			name:              "changes_in_module_dir_returns_only_entrypoints",
+			flagDir:           []string{"testdata/with_modules"},
+			flagDestRef:       "main",
+			flagSourceRef:     "ldap/feature",
+			flagDetectChanges: true,
+			newGitClient: func(ctx context.Context, dir string) git.Git {
+				return &git.MockGitClient{
+					DiffResp: []string{
+						filepath.Join(cwd, "testdata/with_modules/modules/m"),
+					},
+				}
+			},
+			expStdout: `["testdata/with_modules/project1"]`,
+		},
+		{
+			name:              "changes_in_module_subdirectory_returns_only_entrypoints",
+			flagDir:           []string{"testdata/with_modules"},
+			flagDestRef:       "main",
+			flagSourceRef:     "ldap/feature",
+			flagDetectChanges: true,
+			newGitClient: func(ctx context.Context, dir string) git.Git {
+				return &git.MockGitClient{
+					DiffResp: []string{
+						filepath.Join(cwd, "testdata/with_modules/modules/m/templates"),
+					},
+				}
+			},
+			expStdout: `["testdata/with_modules/project1"]`,
+		},
+		{
+			name:              "nearest_entrypoint_returned",
+			flagDir:           []string{"testdata/nested_entrypoints"},
+			flagDestRef:       "main",
+			flagSourceRef:     "ldap/feature",
+			flagDetectChanges: true,
+			newGitClient: func(ctx context.Context, dir string) git.Git {
+				return &git.MockGitClient{
+					DiffResp: []string{
+						filepath.Join(cwd, "testdata/nested_entrypoints/subdir/entrypoint2/subsub"),
+					},
+				}
+			},
+			expStdout: `["testdata/nested_entrypoints/subdir/entrypoint2"]`,
+		},
+		{
+			name:              "parent_entrypoint_returned_for_sibling_dir",
+			flagDir:           []string{"testdata/nested_entrypoints"},
+			flagDestRef:       "main",
+			flagSourceRef:     "ldap/feature",
+			flagDetectChanges: true,
+			newGitClient: func(ctx context.Context, dir string) git.Git {
+				return &git.MockGitClient{
+					DiffResp: []string{
+						filepath.Join(cwd, "testdata/nested_entrypoints/subdir"),
+					},
+				}
+			},
+			expStdout: `["testdata/nested_entrypoints"]`,
 		},
 		{
 			name:              "changes_with_add_entrypoint",
@@ -257,11 +348,80 @@ func TestEntrypointsProcess(t *testing.T) {
 				t.Error(diff)
 			}
 
-			if got, want := strings.TrimSpace(stdout.String()), strings.TrimSpace(tc.expStdout); !strings.Contains(got, want) {
-				t.Errorf("expected stdout\n\n%s\n\nto contain\n\n%s\n\n", got, want)
+			if got, want := strings.TrimSpace(stdout.String()), strings.TrimSpace(tc.expStdout); got != want {
+				t.Errorf("expected stdout\n\n%s\n\nto be\n\n%s\n\n", got, want)
 			}
 			if got, want := strings.TrimSpace(stderr.String()), strings.TrimSpace(tc.expStderr); !strings.Contains(got, want) {
 				t.Errorf("expected stderr\n\n%s\n\nto contain\n\n%s\n\n", got, want)
+			}
+		})
+	}
+}
+
+// TestEntrypointsProcess_NoLogsOnStdout guards against log lines corrupting
+// the machine-readable JSON written to stdout. Guardian configures its logger
+// to write WARNING and above to stdout by default (see cmd/guardian/main.go)
+// and the workflows pipe the output of this command into jq, so any
+// non-debug log emitted on the happy path breaks every Guardian workflow.
+func TestEntrypointsProcess_NoLogsOnStdout(t *testing.T) {
+	t.Parallel()
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cases := []struct {
+		name      string
+		diffResp  []string
+		expStdout string
+	}{
+		{
+			name: "unmatched_changes",
+			diffResp: []string{
+				filepath.Join(cwd, "testdata"),
+				filepath.Join(cwd, "testdata/entrypoint1"),
+				filepath.Join(cwd, "testdata/entrypoint1/project3/does/not/exist"),
+			},
+			expStdout: "[]\n",
+		},
+		{
+			name: "matched_changes",
+			diffResp: []string{
+				filepath.Join(cwd, "testdata/entrypoint1/project1/files"),
+			},
+			expStdout: "[\"testdata/entrypoint1/project1\"]\n",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			c := &EntrypointsCommand{
+				flagDir:           []string{"testdata/entrypoint1"},
+				flagDestRef:       "main",
+				flagSourceRef:     "ldap/feature",
+				flagDetectChanges: true,
+				platformClient:    &platform.MockPlatform{},
+				newGitClient: func(ctx context.Context, dir string) git.Git {
+					return &git.MockGitClient{DiffResp: tc.diffResp}
+				},
+			}
+
+			_, stdout, _ := c.Pipe()
+
+			// Mirror the production logger configuration, pointed at the
+			// same writer as the command's stdout.
+			logger := logging.New(stdout, logging.LevelWarning, logging.FormatJSON, false)
+			ctx := logging.WithLogger(t.Context(), logger)
+
+			if err := c.Process(ctx); err != nil {
+				t.Fatal(err)
+			}
+
+			if got, want := stdout.String(), tc.expStdout; got != want {
+				t.Errorf("expected stdout to be exactly %q, got %q", want, got)
 			}
 		})
 	}
