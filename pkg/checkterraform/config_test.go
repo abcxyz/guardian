@@ -16,15 +16,19 @@ package checkterraform
 
 import (
 	"context"
+	"errors"
+	"io/fs"
+	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 
+	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/testutil"
 )
 
-func TestCheckDeclaredProviderSources(t *testing.T) {
+func TestCheckConfiguration_Providers(t *testing.T) {
 	t.Parallel()
 
 	hashicorp := func(typ string) *ProviderSource {
@@ -367,9 +371,17 @@ terraform {
 				t.Fatal(err)
 			}
 
-			got, err := CheckDeclaredProviderSources(context.Background(), dir, m)
+			// Allow every provisioner so that only providers are checked.
+			cfg, err := CheckConfiguration(context.Background(), dir, &Policy{
+				ProviderSources:    m,
+				ProvisionerSources: mustProvisionerMatcher(t, "*"),
+			})
 			if diff := testutil.DiffErrString(err, tc.expErr); diff != "" {
 				t.Error(diff)
+			}
+			var got []*ProviderSource
+			if cfg != nil {
+				got = cfg.ProviderSources
 			}
 			if diff := cmp.Diff(tc.expDeclared, got); diff != "" {
 				t.Errorf("declared providers mismatch (-want +got):\n%s", diff)
@@ -378,7 +390,7 @@ terraform {
 	}
 }
 
-func TestCheckDeclaredProvisionerSources(t *testing.T) {
+func TestCheckConfiguration_Provisioners(t *testing.T) {
 	t.Parallel()
 
 	builtin := func(typ string) *ProvisionerSource {
@@ -514,13 +526,226 @@ resource "terraform_data" "a" {
 				t.Fatal(err)
 			}
 
-			got, err := CheckDeclaredProvisionerSources(context.Background(), dir, m)
+			// Allow every provider so that only provisioners are checked.
+			cfg, err := CheckConfiguration(context.Background(), dir, &Policy{
+				ProviderSources:    mustProviderMatcher(t, "*"),
+				ProvisionerSources: m,
+			})
 			if diff := testutil.DiffErrString(err, tc.expErr); diff != "" {
 				t.Error(diff)
+			}
+			var got []*ProvisionerSource
+			if cfg != nil {
+				got = cfg.ProvisionerSources
 			}
 			if diff := cmp.Diff(tc.expDeclared, got); diff != "" {
 				t.Errorf("declared provisioners mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}
+}
+
+func TestCheckConfiguration_ReportsProvidersAndProvisioners(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, "main.tf"), `
+resource "google_project" "p" {
+  provisioner "local-exec" {
+    command = "true"
+  }
+}
+`)
+
+	_, err := CheckConfiguration(context.Background(), dir, &Policy{})
+	for _, want := range []string{
+		"terraform uses provider sources that are not allowed: registry.terraform.io/hashicorp/google",
+		"terraform uses provisioners that are not allowed: builtin/local-exec",
+	} {
+		if diff := testutil.DiffErrString(err, want); diff != "" {
+			t.Error(diff)
+		}
+	}
+}
+
+func TestCheckConfiguration_NilPolicyAllowsNothing(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, "main.tf"), `resource "google_project" "p" {}`)
+
+	if _, err := CheckConfiguration(context.Background(), dir, nil); err == nil {
+		t.Errorf("expected an error")
+	}
+}
+
+func TestCheckBeforeInit(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name                string
+		files               map[string]string
+		providerPatterns    []string
+		provisionerPatterns []string
+		expErr              string
+		expRemoved          []string
+	}{
+		{
+			name: "allowed",
+			files: map[string]string{
+				"main.tf":                `resource "google_project" "p" {}`,
+				".terraform/plugin_path": `["/tmp"]`,
+			},
+			providerPatterns: []string{"hashicorp/google"},
+			expRemoved:       []string{".terraform/plugin_path"},
+		},
+		{
+			name: "local_plugin_rejected_before_configuration",
+			files: map[string]string{
+				"main.tf":                    "this is { not valid hcl",
+				"terraform-provisioner-evil": "#!/bin/sh",
+			},
+			expErr: "found provisioner plugins",
+		},
+		{
+			name:   "disallowed_provider",
+			files:  map[string]string{"main.tf": `resource "google_project" "p" {}`},
+			expErr: "terraform uses provider sources that are not allowed",
+		},
+		{
+			name: "disallowed_provisioner",
+			files: map[string]string{"main.tf": `
+resource "terraform_data" "d" {
+  provisioner "local-exec" {
+    command = "true"
+  }
+}
+`},
+			expErr: "terraform uses provisioners that are not allowed: builtin/local-exec",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			ctx := logging.WithLogger(t.Context(), logging.TestLogger(t))
+			dir := t.TempDir()
+			for name, content := range tc.files {
+				mustWrite(t, filepath.Join(dir, name), content)
+			}
+
+			err := CheckBeforeInit(ctx, dir, &Policy{
+				ProviderSources:    mustProviderMatcher(t, tc.providerPatterns...),
+				ProvisionerSources: mustProvisionerMatcher(t, tc.provisionerPatterns...),
+			})
+			if diff := testutil.DiffErrString(err, tc.expErr); diff != "" {
+				t.Error(diff)
+			}
+			for _, p := range tc.expRemoved {
+				if _, err := os.Lstat(filepath.Join(dir, p)); !errors.Is(err, fs.ErrNotExist) {
+					t.Errorf("expected %q to be removed, got err=%v", p, err)
+				}
+			}
+		})
+	}
+}
+
+func TestCheckBeforeExecute(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name                string
+		files               map[string]string
+		installed           []string
+		providerPatterns    []string
+		provisionerPatterns []string
+		nilPolicy           bool
+		expErr              string
+	}{
+		{
+			name:             "allowed",
+			files:            map[string]string{"main.tf": `resource "google_project" "p" {}`},
+			installed:        []string{"registry.terraform.io/hashicorp/google/6.0.0/linux_amd64"},
+			providerPatterns: []string{"hashicorp/google"},
+		},
+		{
+			name:             "disallowed_installed_provider",
+			files:            map[string]string{"main.tf": `resource "google_project" "p" {}`},
+			installed:        []string{"registry.terraform.io/hashicorp/external/2.0.0/linux_amd64"},
+			providerPatterns: []string{"hashicorp/google"},
+			expErr:           "not allowed: registry.terraform.io/hashicorp/external",
+		},
+		{
+			// A provisioner in a module that terraform init installed.
+			name: "disallowed_module_provisioner",
+			files: map[string]string{
+				"main.tf":                         `module "m" { source = "example.com/acme/m/x" }`,
+				".terraform/modules/modules.json": `{"Modules":[{"Key":"","Source":"","Dir":"."},{"Key":"m","Source":"example.com/acme/m/x","Dir":".terraform/modules/m"}]}`,
+				".terraform/modules/m/main.tf": `
+resource "terraform_data" "d" {
+  provisioner "remote-exec" {
+    inline = ["true"]
+  }
+}
+`,
+			},
+			provisionerPatterns: []string{"local-exec"},
+			expErr:              "terraform uses provisioners that are not allowed: builtin/remote-exec",
+		},
+		{
+			name:      "nil_policy_allows_nothing",
+			files:     map[string]string{"main.tf": `resource "google_project" "p" {}`},
+			installed: []string{"registry.terraform.io/hashicorp/google/6.0.0/linux_amd64"},
+			nilPolicy: true,
+			expErr:    "no provider sources are allowed",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			ctx := logging.WithLogger(t.Context(), logging.TestLogger(t))
+			dir := t.TempDir()
+			for name, content := range tc.files {
+				mustWrite(t, filepath.Join(dir, name), content)
+			}
+			for _, p := range tc.installed {
+				mustMkdir(t, filepath.Join(dir, ".terraform", "providers", p))
+			}
+
+			var policy *Policy
+			if !tc.nilPolicy {
+				policy = &Policy{
+					ProviderSources:    mustProviderMatcher(t, tc.providerPatterns...),
+					ProvisionerSources: mustProvisionerMatcher(t, tc.provisionerPatterns...),
+				}
+			}
+			err := CheckBeforeExecute(ctx, dir, policy)
+			if diff := testutil.DiffErrString(err, tc.expErr); diff != "" {
+				t.Error(diff)
+			}
+		})
+	}
+}
+
+func mustProviderMatcher(tb testing.TB, patterns ...string) *SourceMatcher {
+	tb.Helper()
+
+	m, err := NewSourceMatcher(patterns)
+	if err != nil {
+		tb.Fatal(err)
+	}
+	return m
+}
+
+func mustProvisionerMatcher(tb testing.TB, patterns ...string) *ProvisionerSourceMatcher {
+	tb.Helper()
+
+	m, err := NewProvisionerSourceMatcher(patterns)
+	if err != nil {
+		tb.Fatal(err)
+	}
+	return m
 }

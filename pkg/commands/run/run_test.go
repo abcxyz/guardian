@@ -50,7 +50,13 @@ func TestPlan_Process(t *testing.T) {
 	ctx := logging.WithLogger(t.Context(), logging.TestLogger(t))
 
 	testDir := t.TempDir()
-	writeTestFile(t, testDir, "disallowed_provider.tf", `resource "disallowed_provider" "example" {}`)
+	writeTestFile(t, testDir, "local_exec.tf", `
+resource "terraform_data" "example" {
+  provisioner "local-exec" {
+    command = "echo hello"
+  }
+}
+`)
 
 	cases := []struct {
 		name                         string
@@ -63,10 +69,7 @@ func TestPlan_Process(t *testing.T) {
 		flagTerraformArgs            []string
 		flagAllowLockfileChanges     bool
 		flagLockTimeout              time.Duration
-		flagDisallowedProviders      []string
-		flagDisallowedProvisioners   []string
-		flagAllowedProviders         []string
-		flagAllowedProvisioners      []string
+		allowedProvisionerSources    []string
 		terraformClient              *terraform.MockTerraformClient
 		err                          string
 		expStdout                    string
@@ -83,6 +86,7 @@ func TestPlan_Process(t *testing.T) {
 			flagTerraformArgs:            []string{"-no-color", "-input=false"},
 			flagAllowLockfileChanges:     true,
 			flagLockTimeout:              10 * time.Minute,
+			allowedProvisionerSources:    []string{"local-exec"},
 			terraformClient:              terraformMock,
 		},
 		{
@@ -96,6 +100,7 @@ func TestPlan_Process(t *testing.T) {
 			flagTerraformArgs:            []string{"-no-color", "-input=false"},
 			flagAllowLockfileChanges:     true,
 			flagLockTimeout:              10 * time.Minute,
+			allowedProvisionerSources:    []string{"local-exec"},
 			terraformClient:              terraformMock,
 			err:                          "apply is not an allowed Terraform command.\n\nAllowed commands are [\"plan\"]",
 		},
@@ -110,13 +115,14 @@ func TestPlan_Process(t *testing.T) {
 			flagTerraformArgs:            []string{"-no-color", "-input=false"},
 			flagAllowLockfileChanges:     true,
 			flagLockTimeout:              10 * time.Minute,
+			allowedProvisionerSources:    []string{"local-exec"},
 			terraformClient:              terraformErrorMock,
 			expStdout:                    "terraform run output",
 			expStderr:                    "terraform run failed",
 			err:                          "failed to run command: failed to run terraform run",
 		},
 		{
-			name:                         "calls_provider_check",
+			name:                         "checks_provisioner_sources",
 			directory:                    testDir,
 			flagIsGitHubActions:          true,
 			flagGitHubOwner:              "owner",
@@ -126,9 +132,9 @@ func TestPlan_Process(t *testing.T) {
 			flagTerraformArgs:            []string{"-no-color", "-input=false"},
 			flagAllowLockfileChanges:     true,
 			flagLockTimeout:              10 * time.Minute,
-			flagDisallowedProviders:      []string{"disallowed"},
+			allowedProvisionerSources:    []string{"remote-exec"},
 			terraformClient:              terraformMock,
-			err:                          "terraform provider/provisioner check failed",
+			err:                          "terraform uses provisioners that are not allowed: builtin/local-exec",
 		},
 	}
 
@@ -145,13 +151,10 @@ func TestPlan_Process(t *testing.T) {
 				terraformArgs:                tc.flagTerraformArgs,
 				flagAllowLockfileChanges:     tc.flagAllowLockfileChanges,
 				flagLockTimeout:              tc.flagLockTimeout,
-				flagDisallowedProviders:      tc.flagDisallowedProviders,
-				flagDisallowedProvisioners:   tc.flagDisallowedProvisioners,
-				flagAllowedProviders:         tc.flagAllowedProviders,
-				flagAllowedProvisioners:      tc.flagAllowedProvisioners,
 				terraformClient:              tc.terraformClient,
 			}
 			c.FlagAllowedProviderSources = []string{"*"}
+			c.FlagAllowedProvisionerSources = tc.allowedProvisionerSources
 
 			_, stdout, stderr := c.Pipe()
 
@@ -214,7 +217,7 @@ func TestRun_Process_ProviderSources(t *testing.T) {
 				"main.tf":                 `resource "google_project" "p" {}`,
 				"terraform.d/plugins/.ok": "",
 			},
-			expErr: "failed local plugin check: refusing to run: found terraform.d",
+			expErr: "failed terraform check: refusing to run: found terraform.d",
 		},
 		{
 			name:           "declared_source_rejected_before_init",
@@ -227,7 +230,7 @@ terraform {
   }
 }
 `},
-			expErr: "failed provider source check: terraform uses provider sources that are not allowed: registry.terraform.io/attacker/evil",
+			expErr: "failed terraform check: terraform uses provider sources that are not allowed: registry.terraform.io/attacker/evil",
 		},
 		{
 			name:           "installed_source_rejected_before_command",
@@ -238,7 +241,7 @@ terraform {
 				"registry.terraform.io/hashicorp/google/6.0.0/linux_amd64",
 				"registry.terraform.io/attacker/evil/1.0.0/linux_amd64",
 			},
-			expErr: "failed provider source check: terraform uses provider sources that are not allowed: registry.terraform.io/attacker/evil",
+			expErr: "failed terraform check: terraform uses provider sources that are not allowed: registry.terraform.io/attacker/evil",
 		},
 	}
 
@@ -381,7 +384,7 @@ func TestRun_Process_ProvisionerSources(t *testing.T) {
 		{
 			name:   "denied_by_default_before_init",
 			files:  map[string]string{"main.tf": localExec},
-			expErr: "failed provisioner source check: terraform uses provisioners that are not allowed: builtin/local-exec (no provisioners are allowed",
+			expErr: "failed terraform check: terraform uses provisioners that are not allowed: builtin/local-exec (no provisioners are allowed",
 		},
 		{
 			name:                "allowed",
@@ -406,7 +409,7 @@ func TestRun_Process_ProvisionerSources(t *testing.T) {
 				".terraform/modules/modules.json": `{"Modules":[{"Key":"","Source":"","Dir":"."},{"Key":"m","Source":"example.com/acme/m/x","Dir":".terraform/modules/m"}]}`,
 				".terraform/modules/m/main.tf":    localExec,
 			},
-			expErr:  "failed provisioner source check: terraform uses provisioners that are not allowed: builtin/local-exec",
+			expErr:  "failed terraform check: terraform uses provisioners that are not allowed: builtin/local-exec",
 			expInit: true,
 		},
 	}

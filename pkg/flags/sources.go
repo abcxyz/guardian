@@ -84,3 +84,19 @@ func (p *SourceFlags) ProvisionerSourceMatcher() (*checkterraform.ProvisionerSou
 	}
 	return m, nil
 }
+
+// Policy builds the checkterraform.Policy from the configured flags.
+func (p *SourceFlags) Policy() (*checkterraform.Policy, error) {
+	providers, err := p.ProviderSourceMatcher()
+	if err != nil {
+		return nil, err
+	}
+	provisioners, err := p.ProvisionerSourceMatcher()
+	if err != nil {
+		return nil, err
+	}
+	return &checkterraform.Policy{
+		ProviderSources:    providers,
+		ProvisionerSources: provisioners,
+	}, nil
+}

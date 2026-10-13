@@ -309,7 +309,7 @@ func TestPlan_Process_ProviderSources(t *testing.T) {
 				"main.tf": `resource "google_project" "p" {}`,
 				"terraform.d/plugins/registry.terraform.io/hashicorp/google/9.9.9/linux_amd64/terraform-provider-google": "#!/bin/sh",
 			},
-			expErr:     "failed local plugin check: refusing to run: found terraform.d",
+			expErr:     "failed terraform check: refusing to run: found terraform.d",
 			expStatus:  platform.StatusFailure,
 			expDetails: "found terraform.d",
 		},
@@ -339,7 +339,7 @@ terraform {
   }
 }
 `},
-			expErr:     "failed provider source check: terraform uses provider sources that are not allowed: registry.terraform.io/attacker/evil",
+			expErr:     "failed terraform check: terraform uses provider sources that are not allowed: registry.terraform.io/attacker/evil",
 			expStatus:  platform.StatusFailure,
 			expDetails: "registry.terraform.io/attacker/evil",
 		},
@@ -353,7 +353,7 @@ terraform {
 				"registry.terraform.io/hashicorp/google/6.0.0/linux_amd64",
 				"registry.terraform.io/hashicorp/external/2.0.0/linux_amd64",
 			},
-			expErr:     "failed provider source check: terraform uses provider sources that are not allowed: registry.terraform.io/hashicorp/external",
+			expErr:     "failed terraform check: terraform uses provider sources that are not allowed: registry.terraform.io/hashicorp/external",
 			expStatus:  platform.StatusFailure,
 			expDetails: "registry.terraform.io/hashicorp/external",
 		},
@@ -362,7 +362,7 @@ terraform {
 			allowedSources: nil,
 			files:          map[string]string{"main.tf": `resource "google_project" "p" {}`},
 			installed:      []string{"registry.terraform.io/hashicorp/google/6.0.0/linux_amd64"},
-			expErr:         "failed provider source check: terraform uses provider sources that are not allowed: registry.terraform.io/hashicorp/google (no provider sources are allowed",
+			expErr:         "failed terraform check: terraform uses provider sources that are not allowed: registry.terraform.io/hashicorp/google (no provider sources are allowed",
 			expStatus:      platform.StatusFailure,
 			expDetails:     "registry.terraform.io/hashicorp/google",
 		},
@@ -544,7 +544,7 @@ func TestPlan_Process_ProvisionerSources(t *testing.T) {
 		{
 			name:   "denied_by_default_before_init",
 			files:  map[string]string{"main.tf": localExec},
-			expErr: "failed provisioner source check: terraform uses provisioners that are not allowed: builtin/local-exec (no provisioners are allowed",
+			expErr: "failed terraform check: terraform uses provisioners that are not allowed: builtin/local-exec (no provisioners are allowed",
 		},
 		{
 			name:                "allowed",
@@ -569,7 +569,7 @@ func TestPlan_Process_ProvisionerSources(t *testing.T) {
 				".terraform/modules/modules.json": `{"Modules":[{"Key":"","Source":"","Dir":"."},{"Key":"m","Source":"example.com/acme/m/x","Dir":".terraform/modules/m"}]}`,
 				".terraform/modules/m/main.tf":    localExec,
 			},
-			expErr:  "failed provisioner source check: terraform uses provisioners that are not allowed: builtin/local-exec",
+			expErr:  "failed terraform check: terraform uses provisioners that are not allowed: builtin/local-exec",
 			expInit: true,
 		},
 	}
