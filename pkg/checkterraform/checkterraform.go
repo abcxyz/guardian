@@ -18,6 +18,9 @@ package checkterraform
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -34,34 +37,29 @@ type moduleJSON struct {
 	} `json:"Modules"`
 }
 
-// extractPathsFromModulesJSON extracts the paths to walk from modules.json if present.
-func extractPathsFromModulesJSON(ctx context.Context, dir string) []string {
+// extractPathsFromModulesJSON returns dir followed by the module directories
+// listed in dir/.terraform/modules/modules.json, if that file exists.
+//
+// A missing modules.json (e.g. before terraform init) is not an error. A
+// modules.json that cannot be read or parsed is an error, so that callers fail
+// closed rather than silently skipping every installed module.
+func extractPathsFromModulesJSON(ctx context.Context, dir string) ([]string, error) {
 	logger := logging.FromContext(ctx)
 	pathsToWalk := []string{dir}
 
 	modulesJSONPath := filepath.Join(dir, ".terraform", "modules", "modules.json")
 	content, err := os.ReadFile(modulesJSONPath)
 	if err != nil {
-		logger.WarnContext(
-			ctx,
-			"failed to read modules.json",
-			"path",
-			modulesJSONPath,
-			"error",
-			err,
-		)
+		if errors.Is(err, fs.ErrNotExist) {
+			logger.DebugContext(ctx, "modules.json not found", "path", modulesJSONPath)
+			return pathsToWalk, nil
+		}
+		return nil, fmt.Errorf("failed to read modules.json: %w", err)
 	}
 
 	var modules moduleJSON
 	if err := json.Unmarshal(content, &modules); err != nil {
-		logger.WarnContext(
-			ctx,
-			"failed to parse modules.json",
-			"path",
-			modulesJSONPath,
-			"error",
-			err)
-		return pathsToWalk
+		return nil, fmt.Errorf("failed to parse modules.json: %w", err)
 	}
 
 	for _, m := range modules.Modules {
@@ -73,5 +71,5 @@ func extractPathsFromModulesJSON(ctx context.Context, dir string) []string {
 		}
 	}
 
-	return pathsToWalk
+	return pathsToWalk, nil
 }

@@ -21,6 +21,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+
+	"github.com/abcxyz/pkg/testutil"
 )
 
 func TestExtractPathsFromModulesJSON(t *testing.T) {
@@ -28,28 +30,39 @@ func TestExtractPathsFromModulesJSON(t *testing.T) {
 
 	cases := []struct {
 		name        string
-		modulesJSON string
+		modulesJSON *string
+		modulesDir  bool
 		expResult   []string
+		expErr      string
 	}{
 		{
-			name:        "Empty JSON results in just basedir.",
-			modulesJSON: "",
-			expResult:   []string{""},
+			name:      "missing modules.json results in just basedir",
+			expResult: []string{""},
 		},
 		{
-			name:        "Should fail gracefully if file invalid, still returning the basedir.",
-			modulesJSON: `not json`,
-			expResult:   []string{""},
+			name:        "empty file fails closed",
+			modulesJSON: ptr(""),
+			expErr:      "failed to parse modules.json",
 		},
 		{
-			name: "Should discover all directories.",
-			modulesJSON: `{
+			name:        "invalid file fails closed",
+			modulesJSON: ptr(`not json`),
+			expErr:      "failed to parse modules.json",
+		},
+		{
+			name:       "unreadable file fails closed",
+			modulesDir: true,
+			expErr:     "failed to read modules.json",
+		},
+		{
+			name: "discovers all directories",
+			modulesJSON: ptr(`{
 				"Modules": [
 					{"Key": "", "Source": "", "Dir": "."},
 					{"Key": "child", "Source": "./modules/child", "Dir": "modules/child"}
 				]
-			}`,
-			expResult: []string{".", "modules/child"},
+			}`),
+			expResult: []string{"", "modules/child"},
 		},
 	}
 
@@ -62,22 +75,33 @@ func TestExtractPathsFromModulesJSON(t *testing.T) {
 			if err := os.MkdirAll(modulesDir, 0o755); err != nil {
 				t.Fatal(err)
 			}
-			if err := os.WriteFile(filepath.Join(modulesDir, "modules.json"), []byte(tc.modulesJSON), 0o600); err != nil {
-				t.Fatal(err)
+			if tc.modulesJSON != nil {
+				if err := os.WriteFile(filepath.Join(modulesDir, "modules.json"), []byte(*tc.modulesJSON), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if tc.modulesDir {
+				if err := os.Mkdir(filepath.Join(modulesDir, "modules.json"), 0o755); err != nil {
+					t.Fatal(err)
+				}
 			}
 
-			result := extractPathsFromModulesJSON(context.Background(), rootDir)
-			if result == nil {
-				t.Fatal("expected result, got nil")
+			result, err := extractPathsFromModulesJSON(context.Background(), rootDir)
+			if diff := testutil.DiffErrString(err, tc.expErr); diff != "" {
+				t.Fatal(diff)
 			}
 
-			expResult := tc.expResult
-			for i, path := range expResult {
-				expResult[i] = filepath.Join(rootDir, path)
+			var expResult []string
+			for _, path := range tc.expResult {
+				expResult = append(expResult, filepath.Join(rootDir, path))
 			}
 			if diff := cmp.Diff(expResult, result); diff != "" {
 				t.Errorf("extractPathsFromModulesJSON() mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }

@@ -172,11 +172,17 @@ type declaredSources struct {
 
 // analyzeModules analyzes each module directory (dir itself, plus any module
 // directories listed in .terraform/modules/modules.json) and returns the
-// de-duplicated, sorted sources they require.
+// de-duplicated, sorted sources they require. A modules.json that cannot be
+// read or parsed is an error.
 func analyzeModules(ctx context.Context, dir string) (*declaredSources, error) {
+	moduleDirs, err := extractPathsFromModulesJSON(ctx, dir)
+	if err != nil {
+		return nil, err
+	}
+
 	providers := make(map[ProviderSource]struct{})
 	provisioners := make(map[ProvisionerSource]struct{})
-	for _, moduleDir := range extractPathsFromModulesJSON(ctx, dir) {
+	for _, moduleDir := range moduleDirs {
 		sources, err := analyzeModule(moduleDir)
 		if err != nil {
 			return nil, fmt.Errorf("failed to analyze module directory %q: %w", moduleDir, err)
