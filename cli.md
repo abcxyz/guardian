@@ -256,16 +256,27 @@ provisioners of the same name. So, regardless of the allowlists, before
 2. Refuses to run if the Terraform directory contains any file or directory
    named `terraform-provisioner-*`, which Terraform would load as a
    provisioner plugin.
-3. Removes the `.terraform/providers` and `.terraform/plugins` caches.
+3. Removes the entire `.terraform` directory (or file, or symlink, which is
+   unlinked rather than followed), so `terraform init` re-creates it from the
+   Terraform files. A pre-existing `.terraform` is not safe to reuse:
    `terraform init` reuses cached provider binaries that match the dependency
-   lock file, so a pre-populated cache could otherwise substitute an arbitrary
-   binary for an allowed provider.
-4. Removes `.terraform/plugin_path`, which would make Terraform load plugins
-   from any directory it lists.
+   lock file, loads plugins from any directory listed in
+   `.terraform/plugin_path`, follows a symlinked `.terraform/modules` when
+   installing modules (which could write a module over the provider cache or
+   as `terraform.d`), and reuses the cached backend configuration in
+   `.terraform/terraform.tfstate`, including `-backend-config` values that are
+   not in the Terraform files.
 
-The rest of `.terraform` (backend configuration, selected workspace, modules)
-is kept, so re-running locally still works, but providers are re-downloaded on
-each run (set `TF_PLUGIN_CACHE_DIR` to avoid this).
+Names are matched case-insensitively. Providers and modules are re-downloaded
+on each run (set `TF_PLUGIN_CACHE_DIR` to avoid re-downloading providers), and
+the selected workspace is reset to the default unless `TF_WORKSPACE` is set.
+Local state (`terraform.tfstate` in the Terraform directory) is kept.
+
+After `terraform init`, Guardian refuses to run if `terraform.d` or a
+`terraform-provisioner-*` plugin exists in the Terraform directory, if
+`.terraform/plugins` or `.terraform/plugin_path` exists, or if `.terraform`,
+`.terraform/providers` or `.terraform/modules` is not a real directory (for
+example, a symlink).
 
 ## Order of Checks
 

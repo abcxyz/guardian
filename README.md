@@ -433,10 +433,12 @@ potentially a breaking change due to safe-by-default restrictions.**
   in `.terraform/modules/modules.json` are scanned, not every subdirectory, and
   a file that cannot be parsed is an error.
 - Guardian refuses to run if `terraform.d` or a `terraform-provisioner-*` plugin
-  exists in a Terraform directory, and removes the `.terraform/providers`
-  cache and `.terraform/plugin_path` before `terraform init` so that providers
-  are always re-installed from their sources and plugins are only loaded from
-  the trusted environment.
+  exists in a Terraform directory, and removes the entire `.terraform`
+  directory before `terraform init` so that providers, modules and backend
+  configuration always come from their sources and plugins are only loaded
+  from the trusted environment. After `terraform init`, it refuses to run if
+  plugin overrides or symlinked `.terraform`, `.terraform/providers` or
+  `.terraform/modules` directories are found.
 
 ## Workload Identity Federation
 Terraform service accounts have elevated privileges, following [WIF Best Practices](https://cloud.google.com/iam/docs/best-practices-for-using-workload-identity-federation)

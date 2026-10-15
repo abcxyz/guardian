@@ -49,9 +49,9 @@ type Policy struct {
 // CheckBeforeInit enforces p on dir before terraform init. It must be called
 // before terraform init, and fails if dir cannot be used safely:
 //
-//  1. [RemoveLocalPluginOverrides] rejects or removes plugins that the
-//     configuration under review could use to replace providers or
-//     provisioners.
+//  1. [RemoveLocalPluginOverrides] rejects plugins that the configuration
+//     under review could use to replace providers or provisioners, and removes
+//     the .terraform data directory.
 //  2. [CheckConfiguration] rejects disallowed providers and provisioners that
 //     are declared in the configuration already on disk, so they are not even
 //     downloaded.
@@ -69,14 +69,19 @@ func CheckBeforeInit(ctx context.Context, dir string, p *Policy) error {
 // after terraform init and before any Terraform command that may execute
 // providers or provisioners (validate, plan, apply, ...):
 //
-//  1. [CheckInstalledProviderSources] rejects disallowed providers that init
+//  1. [VerifyPluginDirsAfterInit] rejects plugin overrides and symlinked
+//     plugin or module directories that init could have created or followed.
+//  2. [CheckInstalledProviderSources] rejects disallowed providers that init
 //     installed. This is the authoritative provider check: it also covers
 //     providers required by modules installed by init.
-//  2. [CheckConfiguration] runs again, now including modules installed by
+//  3. [CheckConfiguration] runs again, now including modules installed by
 //     init, so their provisioners are also checked.
 func CheckBeforeExecute(ctx context.Context, dir string, p *Policy) error {
 	if p == nil {
 		p = &Policy{}
+	}
+	if err := VerifyPluginDirsAfterInit(dir); err != nil {
+		return err
 	}
 	if _, err := CheckInstalledProviderSources(ctx, dir, p.ProviderSources); err != nil {
 		return err
