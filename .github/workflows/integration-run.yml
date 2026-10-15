@@ -41,6 +41,10 @@ env:
   GUARDIAN_TERRAFORM_VERSION: '1.7.1'
   # The integration fixtures under terraform/ only use null_resource.
   GUARDIAN_ALLOWED_PROVIDER_SOURCES: 'hashicorp/null'
+  # The integration fixtures under terraform/ use an empty `backend "local" {}`,
+  # which is not in the default backend allowlist. local/* is acceptable here
+  # because these fixtures are owned by this repository, not a pull request.
+  GUARDIAN_ALLOWED_BACKEND_ATTRIBUTES: 'local/*'
   GUARDIAN_LINUX_BINARY: 'guardian_${{ inputs.version }}_linux_amd64'
 
 jobs:

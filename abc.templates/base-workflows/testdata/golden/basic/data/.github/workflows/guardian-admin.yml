@@ -40,6 +40,7 @@ env:
   GUARDIAN_TERRAFORM_VERSION: '1.7.4'
   GUARDIAN_ALLOWED_PROVIDER_SOURCES: 'hashicorp/google,hashicorp/google-beta'
   GUARDIAN_ALLOWED_PROVISIONER_SOURCES: 'builtin/local-exec'
+  GUARDIAN_ALLOWED_BACKEND_ATTRIBUTES: 'gcs/bucket,gcs/prefix,gcs/kms_encryption_key,s3/bucket,s3/key,s3/region,s3/dynamodb_table,s3/encrypt,s3/use_lockfile,s3/kms_key_id,azurerm/resource_group_name,azurerm/storage_account_name,azurerm/container_name,azurerm/key,azurerm/use_azuread_auth,azurerm/use_oidc'
 
 jobs:
   init:
@@ -172,4 +173,4 @@ jobs:
         shell: 'bash'
         run: |-
           read -r -a CLI_ARGS <<< "${TERRAFORM_CMD}"
-          guardian run -dir="${DIRECTORY}" -allowed-provider-sources="${GUARDIAN_ALLOWED_PROVIDER_SOURCES}" -allowed-provisioner-sources="${GUARDIAN_ALLOWED_PROVISIONER_SOURCES}" -- "${CLI_ARGS[@]}"
+          guardian run -dir="${DIRECTORY}" -allowed-provider-sources="${GUARDIAN_ALLOWED_PROVIDER_SOURCES}" -allowed-provisioner-sources="${GUARDIAN_ALLOWED_PROVISIONER_SOURCES}" -allowed-backend-attributes="${GUARDIAN_ALLOWED_BACKEND_ATTRIBUTES}" -- "${CLI_ARGS[@]}"

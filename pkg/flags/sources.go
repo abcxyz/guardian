@@ -16,6 +16,7 @@ package flags
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/abcxyz/guardian/pkg/checkterraform"
 	"github.com/abcxyz/pkg/cli"
@@ -28,15 +29,42 @@ import (
 // files from the runner (hashicorp/local, hashicorp/http, hashicorp/archive).
 // Operators must list the exact provider sources they trust.
 
+// DefaultAllowedBackendAttributes is the default value of
+// -allowed-backend-attributes. It covers the attributes that select the state
+// location and locking behavior of the gcs, s3 and azurerm backends, and
+// deliberately excludes every attribute that sets credentials, endpoints,
+// local file paths or identities, since terraform init could use those to
+// execute commands or leak the runner's credentials. Other backend types are
+// not allowed unless the operator adds entries for them.
+var DefaultAllowedBackendAttributes = []string{
+	"gcs/bucket",
+	"gcs/prefix",
+	"gcs/kms_encryption_key",
+	"s3/bucket",
+	"s3/key",
+	"s3/region",
+	"s3/dynamodb_table",
+	"s3/encrypt",
+	"s3/use_lockfile",
+	"s3/kms_key_id",
+	"azurerm/resource_group_name",
+	"azurerm/storage_account_name",
+	"azurerm/container_name",
+	"azurerm/key",
+	"azurerm/use_azuread_auth",
+	"azurerm/use_oidc",
+}
+
 // SourceFlags are the flags that control which Terraform provider and
-// provisioner sources Guardian allows Terraform to install and execute.
+// provisioner sources, and which backend attributes, Guardian allows.
 type SourceFlags struct {
 	FlagAllowedProviderSources    []string
 	FlagAllowedProvisionerSources []string
+	FlagAllowedBackendAttributes  []string
 }
 
-// RegisterSourceFlags registers the provider and provisioner source flags in
-// the given flag section.
+// RegisterSourceFlags registers the provider and provisioner source and
+// backend attribute flags in the given flag section.
 func (p *SourceFlags) RegisterSourceFlags(f *cli.FlagSection) {
 	f.StringSliceVar(&cli.StringSliceVar{
 		Name:    "allowed-provider-sources",
@@ -65,6 +93,26 @@ func (p *SourceFlags) RegisterSourceFlags(f *cli.FlagSection) {
 			"are discouraged; plugin provisioners should only be used for quick " +
 			"proofs of concept. If unset, no provisioners are allowed.",
 	})
+
+	f.StringSliceVar(&cli.StringSliceVar{
+		Name:    "allowed-backend-attributes",
+		Target:  &p.FlagAllowedBackendAttributes,
+		Default: slices.Clone(DefaultAllowedBackendAttributes),
+		EnvVar:  "GUARDIAN_ALLOWED_BACKEND_ATTRIBUTES",
+		Example: "gcs/bucket,gcs/prefix,s3/*",
+		Usage: "The allowlist of terraform backend types, and the attributes each may " +
+			"set, in the form TYPE/ATTRIBUTE (e.g. gcs/bucket). Use \"cloud\" as " +
+			"the type for HCP Terraform cloud blocks and dotted paths for nested " +
+			"blocks (e.g. s3/assume_role.role_arn). A backend type with no entries " +
+			"is not allowed, and allowed attributes must be static literal values. " +
+			"terraform init initializes the backend before any provider is " +
+			"checked, and attributes that set credentials, endpoints, file paths " +
+			"or identities can run commands or send the runner's credentials " +
+			"elsewhere, so TYPE/* (every attribute of a type, any value) and a " +
+			"bare '*' (every backend) should only be used if you accept that " +
+			"risk, e.g. in test environments. The default covers the state " +
+			"location, locking and encryption attributes of gcs, s3 and azurerm.",
+	})
 }
 
 // ProviderSourceMatcher builds a SourceMatcher from the configured flags.
@@ -86,6 +134,15 @@ func (p *SourceFlags) ProvisionerSourceMatcher() (*checkterraform.ProvisionerSou
 	return m, nil
 }
 
+// BackendAttributeSet builds a BackendAttributeSet from the configured flags.
+func (p *SourceFlags) BackendAttributeSet() (*checkterraform.BackendAttributeSet, error) {
+	s, err := checkterraform.NewBackendAttributeSet(p.FlagAllowedBackendAttributes)
+	if err != nil {
+		return nil, fmt.Errorf("invalid -allowed-backend-attributes: %w", err)
+	}
+	return s, nil
+}
+
 // Policy builds the checkterraform.Policy from the configured flags.
 func (p *SourceFlags) Policy() (*checkterraform.Policy, error) {
 	providers, err := p.ProviderSourceMatcher()
@@ -96,8 +153,13 @@ func (p *SourceFlags) Policy() (*checkterraform.Policy, error) {
 	if err != nil {
 		return nil, err
 	}
+	backendAttributes, err := p.BackendAttributeSet()
+	if err != nil {
+		return nil, err
+	}
 	return &checkterraform.Policy{
 		ProviderSources:    providers,
 		ProvisionerSources: provisioners,
+		BackendAttributes:  backendAttributes,
 	}, nil
 }

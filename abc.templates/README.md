@@ -42,6 +42,13 @@ abc templates render \
 - `guardian_allowed_provisioner_sources`: The comma separated allowlist of
   Terraform provisioner sources, e.g. `builtin/local-exec`. Defaults to blank,
   which allows no provisioners.
+- `guardian_allowed_backend_attributes`: The comma separated allowlist of
+  backend types and the attributes each may set, as `TYPE/ATTRIBUTE`, e.g.
+  `gcs/bucket,gcs/prefix`. Defaults to the state location and locking
+  attributes of the `gcs`, `s3` and `azurerm` backends; other backend types
+  need their own entries. `TYPE/*` allows every attribute of a type and
+  should only be used if you accept the risk, e.g. in test environments. See
+  [Backend Attribute Restrictions](../cli.md#backend-attribute-restrictions).
 
 ## Install Drift Detection Workflows
 
