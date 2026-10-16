@@ -54,7 +54,12 @@ func TestRemoveLocalPluginOverrides(t *testing.T) {
 			expErr: "found terraform.d in",
 		},
 		{
-			name: "provider_caches_removed_rest_kept",
+			name:   "terraform_d_is_case_insensitive",
+			dirs:   []string{"Terraform.D/plugins"},
+			expErr: "found terraform.d in",
+		},
+		{
+			name: "dot_terraform_removed_entirely",
 			dirs: []string{
 				".terraform/providers/registry.terraform.io/hashicorp/google/9.9.9/linux_amd64",
 				".terraform/plugins/registry.terraform.io/hashicorp/google/9.9.9/linux_amd64",
@@ -65,23 +70,27 @@ func TestRemoveLocalPluginOverrides(t *testing.T) {
 				".terraform/terraform.tfstate",
 				".terraform/modules/modules.json",
 			},
-			expRemoved: []string{".terraform/providers", ".terraform/plugins"},
-			expKept: []string{
-				".terraform",
-				".terraform/environment",
-				".terraform/terraform.tfstate",
-				".terraform/modules/modules.json",
-			},
+			expRemoved: []string{".terraform"},
 		},
 		{
-			name:    "dot_terraform_without_provider_cache",
-			dirs:    []string{".terraform/modules"},
-			expKept: []string{".terraform/modules"},
+			name:       "dot_terraform_without_provider_cache_removed",
+			dirs:       []string{".terraform/modules"},
+			expRemoved: []string{".terraform"},
 		},
 		{
-			name:   "dot_terraform_file_rejected",
-			files:  []string{".terraform"},
-			expErr: "is not a directory",
+			name:       "dot_terraform_file_removed",
+			files:      []string{".terraform"},
+			expRemoved: []string{".terraform"},
+		},
+		{
+			name:       "dot_terraform_is_case_insensitive",
+			dirs:       []string{".Terraform/providers"},
+			expRemoved: []string{".Terraform"},
+		},
+		{
+			name:    "local_state_kept",
+			files:   []string{"terraform.tfstate", "terraform.tfstate.backup", "main.tf"},
+			expKept: []string{"terraform.tfstate", "terraform.tfstate.backup", "main.tf"},
 		},
 		{
 			name:   "provisioner_plugin_dir_rejected",
@@ -101,8 +110,7 @@ func TestRemoveLocalPluginOverrides(t *testing.T) {
 		{
 			name:       "plugin_path_removed",
 			files:      []string{".terraform/plugin_path", ".terraform/environment"},
-			expRemoved: []string{".terraform/plugin_path"},
-			expKept:    []string{".terraform/environment"},
+			expRemoved: []string{".terraform"},
 		},
 		{
 			name:       "plugin_path_dir_removed",
@@ -112,8 +120,8 @@ func TestRemoveLocalPluginOverrides(t *testing.T) {
 		{
 			name:    "unrelated_dirs",
 			dirs:    []string{"modules/terraform.d", "nested/.terraform/providers"},
-			files:   []string{".terraform.lock.hcl", "main.tf"},
-			expKept: []string{"modules/terraform.d", "nested/.terraform/providers", ".terraform.lock.hcl"},
+			files:   []string{".terraform.lock.hcl", "main.tf", "terraform.tfvars", "terraform.tfstate.d/x/terraform.tfstate"},
+			expKept: []string{"modules/terraform.d", "nested/.terraform/providers", ".terraform.lock.hcl", "terraform.tfvars", "terraform.tfstate.d/x/terraform.tfstate"},
 		},
 	}
 
@@ -153,7 +161,7 @@ func TestRemoveLocalPluginOverrides(t *testing.T) {
 func TestRemoveLocalPluginOverrides_Symlinks(t *testing.T) {
 	t.Parallel()
 
-	t.Run("symlinked_dot_terraform_rejected", func(t *testing.T) {
+	t.Run("symlinked_dot_terraform_only_unlinked", func(t *testing.T) {
 		t.Parallel()
 
 		ctx := logging.WithLogger(t.Context(), logging.TestLogger(t))
@@ -164,14 +172,45 @@ func TestRemoveLocalPluginOverrides_Symlinks(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		err := RemoveLocalPluginOverrides(ctx, dir)
-		if diff := testutil.DiffErrString(err, "is not a directory"); diff != "" {
-			t.Error(diff)
+		if err := RemoveLocalPluginOverrides(ctx, dir); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := os.Lstat(filepath.Join(dir, ".terraform")); !errors.Is(err, fs.ErrNotExist) {
+			t.Errorf("expected symlink to be removed, got err=%v", err)
 		}
 		if _, err := os.Stat(filepath.Join(outside, "providers")); err != nil {
 			t.Errorf("expected directory outside of dir to be untouched: %v", err)
 		}
 	})
+
+	// terraform init creates .terraform/modules with os.MkdirAll, which follows
+	// symlinks, before it installs providers. A .terraform/modules symlink to
+	// "." would let a module named "providers" be unpacked into
+	// .terraform/providers, and one to ".." would let nested modules be unpacked
+	// into terraform.d.
+	for _, target := range []string{".", ".."} {
+		t.Run("symlinked_modules_"+target, func(t *testing.T) {
+			t.Parallel()
+
+			ctx := logging.WithLogger(t.Context(), logging.TestLogger(t))
+			dir := t.TempDir()
+			mustWrite(t, filepath.Join(dir, "main.tf"), "")
+			mustMkdir(t, filepath.Join(dir, ".terraform"))
+			if err := os.Symlink(target, filepath.Join(dir, ".terraform", "modules")); err != nil {
+				t.Fatal(err)
+			}
+
+			if err := RemoveLocalPluginOverrides(ctx, dir); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := os.Lstat(filepath.Join(dir, ".terraform")); !errors.Is(err, fs.ErrNotExist) {
+				t.Errorf("expected .terraform to be removed, got err=%v", err)
+			}
+			if _, err := os.Stat(filepath.Join(dir, "main.tf")); err != nil {
+				t.Errorf("expected symlink target to be untouched: %v", err)
+			}
+		})
+	}
 
 	t.Run("symlinked_provisioner_plugin_rejected", func(t *testing.T) {
 		t.Parallel()
@@ -262,6 +301,135 @@ func TestRemoveLocalPluginOverrides_ProvisionerPlugins(t *testing.T) {
 				if _, err := os.Lstat(filepath.Join(dir, p)); !errors.Is(err, fs.ErrNotExist) {
 					t.Errorf("expected %q to be removed, got err=%v", p, err)
 				}
+			}
+		})
+	}
+}
+
+func TestVerifyPluginDirsAfterInit(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name     string
+		dirs     []string
+		files    []string
+		symlinks map[string]string // link -> target, relative to dir
+		expErr   string
+	}{
+		{
+			name: "clean",
+		},
+		{
+			name: "fresh_init",
+			dirs: []string{
+				".terraform/providers/registry.terraform.io/hashicorp/google/6.0.0/linux_amd64",
+				".terraform/modules/m",
+			},
+			files: []string{".terraform/terraform.tfstate", ".terraform/modules/modules.json", ".terraform.lock.hcl", "main.tf"},
+		},
+		{
+			// terraform init links cached providers when TF_PLUGIN_CACHE_DIR is set.
+			name:     "symlink_inside_providers_allowed",
+			dirs:     []string{".terraform/providers/registry.terraform.io/hashicorp", "cache/google"},
+			symlinks: map[string]string{".terraform/providers/registry.terraform.io/hashicorp/google": "../../../../cache/google"},
+		},
+		{
+			name:   "terraform_d_rejected",
+			dirs:   []string{"terraform.d/plugins"},
+			expErr: "found terraform.d in",
+		},
+		{
+			name:   "terraform_d_is_case_insensitive",
+			files:  []string{"Terraform.d"},
+			expErr: "found terraform.d in",
+		},
+		{
+			name:   "provisioner_plugin_rejected",
+			files:  []string{"terraform-provisioner-evil"},
+			expErr: "found provisioner plugins in",
+		},
+		{
+			name:   "provisioner_plugin_is_case_insensitive",
+			dirs:   []string{"Terraform-Provisioner-foo"},
+			expErr: "found provisioner plugins in",
+		},
+		{
+			name:   "dot_terraform_file_rejected",
+			files:  []string{".terraform"},
+			expErr: "is not a directory",
+		},
+		{
+			name:     "symlinked_dot_terraform_rejected",
+			dirs:     []string{"elsewhere/providers"},
+			symlinks: map[string]string{".terraform": "elsewhere"},
+			expErr:   "is not a directory",
+		},
+		{
+			name:   "plugins_rejected",
+			dirs:   []string{".terraform/plugins/linux_amd64"},
+			expErr: "found",
+		},
+		{
+			name:   "plugins_is_case_insensitive",
+			dirs:   []string{".terraform/Plugins"},
+			expErr: "after terraform init",
+		},
+		{
+			name:   "plugin_path_rejected",
+			files:  []string{".terraform/plugin_path"},
+			expErr: "after terraform init",
+		},
+		{
+			name:   "providers_file_rejected",
+			files:  []string{".terraform/providers"},
+			expErr: "is not a directory",
+		},
+		{
+			name:     "symlinked_providers_rejected",
+			dirs:     []string{".terraform", "elsewhere"},
+			symlinks: map[string]string{".terraform/providers": "../elsewhere"},
+			expErr:   "is not a directory",
+		},
+		{
+			name:     "symlinked_providers_is_case_insensitive",
+			dirs:     []string{".terraform", "elsewhere"},
+			symlinks: map[string]string{".terraform/Providers": "../elsewhere"},
+			expErr:   "is not a directory",
+		},
+		{
+			name:     "symlinked_modules_dot_rejected",
+			dirs:     []string{".terraform/providers"},
+			symlinks: map[string]string{".terraform/modules": "."},
+			expErr:   "is not a directory",
+		},
+		{
+			name:     "symlinked_modules_dotdot_rejected",
+			dirs:     []string{".terraform"},
+			symlinks: map[string]string{".terraform/modules": ".."},
+			expErr:   "is not a directory",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			dir := t.TempDir()
+			for _, d := range tc.dirs {
+				mustMkdir(t, filepath.Join(dir, d))
+			}
+			for _, f := range tc.files {
+				mustWrite(t, filepath.Join(dir, f), "")
+			}
+			for link, target := range tc.symlinks {
+				if err := os.Symlink(target, filepath.Join(dir, link)); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			err := VerifyPluginDirsAfterInit(dir)
+			if diff := testutil.DiffErrString(err, tc.expErr); diff != "" {
+				t.Error(diff)
 			}
 		})
 	}

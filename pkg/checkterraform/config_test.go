@@ -665,7 +665,7 @@ func TestCheckBeforeInit(t *testing.T) {
 				".terraform/plugin_path": `["/tmp"]`,
 			},
 			providerPatterns: []string{"hashicorp/google"},
-			expRemoved:       []string{".terraform/plugin_path"},
+			expRemoved:       []string{".terraform"},
 		},
 		{
 			name: "local_plugin_rejected_before_configuration",
@@ -718,20 +718,23 @@ removed {
 			expErr: "terraform uses provisioners that are not allowed: builtin/local-exec",
 		},
 		{
-			name: "corrupt_modules_json_fails_closed",
+			// .terraform is removed before init, so a stale or corrupt
+			// modules.json is never read. CheckBeforeExecute fails closed on a
+			// corrupt modules.json written after init.
+			name: "corrupt_modules_json_removed",
 			files: map[string]string{
 				"main.tf":                         `resource "google_project" "p" {}`,
 				".terraform/modules/modules.json": `{"Modules": [`,
 			},
 			providerPatterns: []string{"hashicorp/google"},
-			expErr:           "failed to parse modules.json",
+			expRemoved:       []string{".terraform"},
 		},
 		{
-			name:             "unreadable_modules_json_fails_closed",
+			name:             "unreadable_modules_json_removed",
 			files:            map[string]string{"main.tf": `resource "google_project" "p" {}`},
 			dirs:             []string{".terraform/modules/modules.json"},
 			providerPatterns: []string{"hashicorp/google"},
-			expErr:           "failed to read modules.json",
+			expRemoved:       []string{".terraform"},
 		},
 	}
 
@@ -774,6 +777,7 @@ func TestCheckBeforeExecute(t *testing.T) {
 		installed           []string
 		providerPatterns    []string
 		provisionerPatterns []string
+		symlinks            map[string]string // link -> target, relative to dir
 		nilPolicy           bool
 		expErr              string
 	}{
@@ -832,6 +836,76 @@ resource "terraform_data" "d" {
 			providerPatterns: []string{"hashicorp/google"},
 			expErr:           "failed to read modules.json",
 		},
+		{
+			name: "terraform_d_after_init_rejected",
+			files: map[string]string{
+				"main.tf": `resource "google_project" "p" {}`,
+				"terraform.d/plugins/registry.terraform.io/hashicorp/google/6.0.0/linux_amd64/terraform-provider-google": "#!/bin/sh",
+			},
+			installed:        []string{"registry.terraform.io/hashicorp/google/6.0.0/linux_amd64"},
+			providerPatterns: []string{"hashicorp/google"},
+			expErr:           "found terraform.d in",
+		},
+		{
+			name: "provisioner_plugin_after_init_rejected",
+			files: map[string]string{
+				"main.tf":                   `resource "google_project" "p" {}`,
+				"Terraform-Provisioner-foo": "#!/bin/sh",
+			},
+			installed:        []string{"registry.terraform.io/hashicorp/google/6.0.0/linux_amd64"},
+			providerPatterns: []string{"hashicorp/google"},
+			expErr:           "found provisioner plugins in",
+		},
+		{
+			name: "plugins_after_init_rejected",
+			files: map[string]string{
+				"main.tf": `resource "google_project" "p" {}`,
+				".terraform/plugins/linux_amd64/terraform-provisioner-local-exec": "#!/bin/sh",
+			},
+			installed:        []string{"registry.terraform.io/hashicorp/google/6.0.0/linux_amd64"},
+			providerPatterns: []string{"hashicorp/google"},
+			expErr:           "after terraform init",
+		},
+		{
+			name: "plugin_path_after_init_rejected",
+			files: map[string]string{
+				"main.tf":                `resource "google_project" "p" {}`,
+				".terraform/plugin_path": `["/tmp"]`,
+			},
+			installed:        []string{"registry.terraform.io/hashicorp/google/6.0.0/linux_amd64"},
+			providerPatterns: []string{"hashicorp/google"},
+			expErr:           "after terraform init",
+		},
+		{
+			name:             "symlinked_dot_terraform_rejected",
+			files:            map[string]string{"main.tf": `resource "google_project" "p" {}`},
+			symlinks:         map[string]string{".terraform": "elsewhere"},
+			providerPatterns: []string{"hashicorp/google"},
+			expErr:           "is not a directory",
+		},
+		{
+			name:             "symlinked_providers_rejected",
+			files:            map[string]string{"main.tf": `resource "google_project" "p" {}`},
+			symlinks:         map[string]string{".terraform/providers": "../elsewhere"},
+			providerPatterns: []string{"hashicorp/google"},
+			expErr:           "is not a directory",
+		},
+		{
+			name:             "symlinked_modules_dot_rejected",
+			files:            map[string]string{"main.tf": `resource "google_project" "p" {}`},
+			installed:        []string{"registry.terraform.io/hashicorp/google/6.0.0/linux_amd64"},
+			symlinks:         map[string]string{".terraform/modules": "."},
+			providerPatterns: []string{"hashicorp/google"},
+			expErr:           "is not a directory",
+		},
+		{
+			name:             "symlinked_modules_dotdot_rejected",
+			files:            map[string]string{"main.tf": `resource "google_project" "p" {}`},
+			installed:        []string{"registry.terraform.io/hashicorp/google/6.0.0/linux_amd64"},
+			symlinks:         map[string]string{".terraform/modules": ".."},
+			providerPatterns: []string{"hashicorp/google"},
+			expErr:           "is not a directory",
+		},
 	}
 
 	for _, tc := range cases {
@@ -848,6 +922,14 @@ resource "terraform_data" "d" {
 			}
 			for _, p := range tc.installed {
 				mustMkdir(t, filepath.Join(dir, ".terraform", "providers", p))
+			}
+			for link, target := range tc.symlinks {
+				// Create the link target, resolved relative to the link's directory.
+				mustMkdir(t, filepath.Join(dir, filepath.Dir(link), target, "registry.terraform.io", "hashicorp", "google"))
+				mustMkdir(t, filepath.Join(dir, filepath.Dir(link)))
+				if err := os.Symlink(target, filepath.Join(dir, link)); err != nil {
+					t.Fatal(err)
+				}
 			}
 
 			var policy *Policy
