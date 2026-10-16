@@ -39,6 +39,8 @@ env:
   GUARDIAN_WIF_SERVICE_ACCOUNT: 'guardian-automation-bot@ghg-guardian-ci-i-6ad437.iam.gserviceaccount.com'
   GUARDIAN_BUCKET_NAME: 'guardian-ci-i-guardian-state-c79e1f4759'
   GUARDIAN_TERRAFORM_VERSION: '1.7.1'
+  # The integration fixtures under terraform/ only use null_resource.
+  GUARDIAN_ALLOWED_PROVIDER_SOURCES: 'hashicorp/null'
   GUARDIAN_LINUX_BINARY: 'guardian_${{ inputs.version }}_linux_amd64'
 
 jobs:
@@ -150,7 +152,7 @@ jobs:
           # used to create comments on pull requests (access to only this repo)
           GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
         run: |-
-          guardian plan -dir="${DIRECTORY}" -storage="gcs://${GUARDIAN_BUCKET_NAME}"
+          guardian plan -dir="${DIRECTORY}" -storage="gcs://${GUARDIAN_BUCKET_NAME}" -allowed-provider-sources="${GUARDIAN_ALLOWED_PROVIDER_SOURCES}"
 
   plan_success:
     if: '${{ always() }}'
@@ -293,9 +295,9 @@ jobs:
           # used to create comments on pull requests (access to only this repo)
           GUARDIAN_GITHUB_TOKEN: '${{ github.token }}'
         run: |-
-          guardian apply -dir="${DIRECTORY}" -storage="gcs://${GUARDIAN_BUCKET_NAME}"
+          guardian apply -dir="${DIRECTORY}" -storage="gcs://${GUARDIAN_BUCKET_NAME}" -allowed-provider-sources="${GUARDIAN_ALLOWED_PROVIDER_SOURCES}"
 
       - name: 'Guardian Destroy'
         shell: 'bash'
         run: |-
-          guardian run -dir="${DIRECTORY}" -- destroy -input=false -auto-approve
+          guardian run -dir="${DIRECTORY}" -allowed-provider-sources="${GUARDIAN_ALLOWED_PROVIDER_SOURCES}" -- destroy -input=false -auto-approve

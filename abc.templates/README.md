@@ -31,11 +31,14 @@ abc templates render \
   least this many Terraform entrypoints, Guardian replaces the per-directory
   comments with a single aggregated summary table. Raise it to keep
   per-directory comments on larger pull requests.
-- `guardian_allowed_provider_sources`: The comma separated allowlist of
-  Terraform provider sources that Guardian allows Terraform to install and
-  execute. Defaults to `hashicorp/*`, which also allows `hashicorp/external`;
-  list exact sources to restrict this further. If blank, no providers are
-  allowed; use `*` to allow all.
+- `guardian_allowed_provider_sources` (required): The comma separated
+  allowlist of Terraform provider sources that Guardian allows Terraform to
+  install and execute, e.g. `hashicorp/google,hashicorp/google-beta`. List the
+  exact providers you trust; `terraform providers` and `.terraform.lock.hcl`
+  show the ones in use. There is no default. Wildcards (`hashicorp/*`, or a
+  bare `*` for every provider) admit providers that run arbitrary programs on
+  the runner or read its credentials, and must only be used in test
+  environments.
 - `guardian_allowed_provisioner_sources`: The comma separated allowlist of
   Terraform provisioner sources, e.g. `builtin/local-exec`. Defaults to blank,
   which allows no provisioners.

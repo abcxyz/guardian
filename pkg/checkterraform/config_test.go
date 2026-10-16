@@ -333,7 +333,7 @@ resource "google_project" "p" {
 			files:       map[string]string{"main.tf": `resource "google_project" "p" {}`},
 			patterns:    nil,
 			expDeclared: []*ProviderSource{hashicorp("google")},
-			expErr:      `no provider sources are allowed; set -allowed-provider-sources, or use "*" to allow all`,
+			expErr:      `no provider sources are allowed; set -allowed-provider-sources to the exact providers you trust, e.g. -allowed-provider-sources=registry.terraform.io/hashicorp/google; "*" allows every provider, including ones that run arbitrary programs on the runner, and must only be used in test environments`,
 		},
 		{
 			name:        "no_patterns_allows_builtin_only",

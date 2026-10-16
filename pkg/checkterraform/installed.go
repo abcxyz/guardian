@@ -230,8 +230,10 @@ func newDisallowedSourcesError(disallowed []string, m *SourceMatcher) error {
 	disallowed = slices.Compact(disallowed)
 	if len(m.Patterns()) == 0 {
 		return fmt.Errorf("terraform uses provider sources that are not allowed: %s (no provider sources are allowed; "+
-			"set -allowed-provider-sources, or use %q to allow all)",
-			strings.Join(disallowed, ", "), AllowAllPattern)
+			"set -allowed-provider-sources to the exact providers you trust, e.g. -allowed-provider-sources=%s; "+
+			"%q allows every provider, including ones that run arbitrary programs on the runner, "+
+			"and must only be used in test environments)",
+			strings.Join(disallowed, ", "), strings.Join(disallowed, ","), AllowAllPattern)
 	}
 	return fmt.Errorf("terraform uses provider sources that are not allowed: %s (allowed provider sources: %s)",
 		strings.Join(disallowed, ", "), strings.Join(m.Patterns(), ", "))

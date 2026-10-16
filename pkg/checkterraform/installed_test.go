@@ -340,7 +340,7 @@ func TestCheckInstalledProviderSources(t *testing.T) {
 			expInstalled: []*ProviderSource{
 				{Hostname: "registry.terraform.io", Namespace: "hashicorp", Type: "google"},
 			},
-			expErr: `no provider sources are allowed; set -allowed-provider-sources, or use "*" to allow all`,
+			expErr: `no provider sources are allowed; set -allowed-provider-sources to the exact providers you trust, e.g. -allowed-provider-sources=registry.terraform.io/hashicorp/google; "*" allows every provider, including ones that run arbitrary programs on the runner, and must only be used in test environments`,
 		},
 		{
 			name:     "allow_all",
