@@ -21,6 +21,7 @@ import (
 
 	"github.com/abcxyz/guardian/pkg/checkterraform"
 	"github.com/abcxyz/pkg/cli"
+	"github.com/abcxyz/pkg/testutil"
 )
 
 func TestSourceFlags_ProviderSources(t *testing.T) {
@@ -174,6 +175,72 @@ func TestSourceFlags_ProvisionerSources(t *testing.T) {
 				if got := m.Allowed(checkterraform.ProvisionerSourceForType(typ)); got != want {
 					t.Errorf("Allowed(%q) = %t, want %t", typ, got, want)
 				}
+			}
+		})
+	}
+}
+
+func TestSourceFlags_BackendAttributes(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name       string
+		args       []string
+		expEntries []string
+		expErr     string
+	}{
+		{
+			name: "default",
+			args: nil,
+			expEntries: []string{
+				"azurerm/container_name", "azurerm/key", "azurerm/resource_group_name",
+				"azurerm/storage_account_name", "azurerm/use_azuread_auth", "azurerm/use_oidc",
+				"gcs/bucket", "gcs/kms_encryption_key", "gcs/prefix",
+				"s3/bucket", "s3/dynamodb_table", "s3/encrypt", "s3/key", "s3/kms_key_id", "s3/region", "s3/use_lockfile",
+			},
+		},
+		{
+			name:       "value_replaces_default",
+			args:       []string{"-allowed-backend-attributes=gcs/bucket,s3/assume_role.role_arn,local/*"},
+			expEntries: []string{"gcs/bucket", "local/*", "s3/assume_role.role_arn"},
+		},
+		{
+			name:       "empty_value_allows_none",
+			args:       []string{"-allowed-backend-attributes="},
+			expEntries: nil,
+		},
+		{
+			name:       "allow_all",
+			args:       []string{"-allowed-backend-attributes=*"},
+			expEntries: []string{"*"},
+		},
+		{
+			name:   "unscoped_attribute_rejected",
+			args:   []string{"-allowed-backend-attributes=bucket"},
+			expErr: "invalid -allowed-backend-attributes",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var p SourceFlags
+			set := cli.NewFlagSet()
+			p.RegisterSourceFlags(set.NewSection("OPTIONS"))
+			if err := set.Parse(tc.args); err != nil {
+				t.Fatal(err)
+			}
+
+			policy, err := p.Policy()
+			if diff := testutil.DiffErrString(err, tc.expErr); diff != "" {
+				t.Fatal(diff)
+			}
+			if err != nil {
+				return
+			}
+			if diff := cmp.Diff(tc.expEntries, policy.BackendAttributes.Entries()); diff != "" {
+				t.Errorf("entries mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}

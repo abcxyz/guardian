@@ -130,6 +130,13 @@ Also supports [Platform Options](#platform-options), [GitHub Options](#github-op
 * **-allowed-provisioner-sources="builtin/local-exec"** - The allowlist of
   Terraform provisioner sources. See [Provisioner Source Restrictions](#provisioner-source-restrictions).
   If unset, no provisioners are allowed; use `"*"` to allow all.
+* **-allowed-backend-attributes="gcs/bucket,gcs/prefix"** - The allowlist of
+  backend types, and the attributes each may set, that the root module's
+  `backend` and `cloud` blocks may use. See
+  [Backend Attribute Restrictions](#backend-attribute-restrictions). Defaults
+  to the common `gcs`, `s3` and `azurerm` attributes. An empty value allows no
+  backends; `TYPE/*` allows everything for one type and should only be used
+  in test environments.
 
 ## Plan
 
@@ -169,6 +176,13 @@ Also supports [Platform Options](#platform-options), [GitHub Options](#github-op
 * **-allowed-provisioner-sources="builtin/local-exec"** - The allowlist of
   Terraform provisioner sources. See [Provisioner Source Restrictions](#provisioner-source-restrictions).
   If unset, no provisioners are allowed; use `"*"` to allow all.
+* **-allowed-backend-attributes="gcs/bucket,gcs/prefix"** - The allowlist of
+  backend types, and the attributes each may set, that the root module's
+  `backend` and `cloud` blocks may use. See
+  [Backend Attribute Restrictions](#backend-attribute-restrictions). Defaults
+  to the common `gcs`, `s3` and `azurerm` attributes. An empty value allows no
+  backends; `TYPE/*` allows everything for one type and should only be used
+  in test environments.
 
 ## Run
 
@@ -200,6 +214,13 @@ Also supports [GitHub Options](#github-options) and [Retry Options](#retry-optio
 * **-allowed-provisioner-sources="builtin/local-exec"** - The allowlist of
   Terraform provisioner sources. See [Provisioner Source Restrictions](#provisioner-source-restrictions).
   If unset, no provisioners are allowed; use `"*"` to allow all.
+* **-allowed-backend-attributes="gcs/bucket,gcs/prefix"** - The allowlist of
+  backend types, and the attributes each may set, that the root module's
+  `backend` and `cloud` blocks may use. See
+  [Backend Attribute Restrictions](#backend-attribute-restrictions). Defaults
+  to the common `gcs`, `s3` and `azurerm` attributes. An empty value allows no
+  backends; `TYPE/*` allows everything for one type and should only be used
+  in test environments.
 
 ## Provider Source Restrictions
 
@@ -251,6 +272,60 @@ is how Terraform loads the provisioner:
 Within an entry, `*` matches exactly one segment, so `builtin/*` allows every
 built-in provisioner. A bare `*` allows every provisioner. Only allowlist
 entries are supported; there is no exclusion syntax.
+
+## Backend Attribute Restrictions
+
+`terraform init` initializes the `backend` (or HCP Terraform `cloud`) block
+before it installs any provider, and backends are compiled into Terraform, so
+the provider and provisioner allowlists do not cover them. Many backend
+attributes can run commands or leak the runner's credentials, for example a
+kubeconfig `exec` plugin (`kubernetes` `config_path`), an AWS
+`credential_process` (`s3` `shared_config_files`), or a custom endpoint that
+receives the runner's OAuth token (`gcs` `storage_custom_endpoint`).
+
+`guardian apply`, `guardian plan` and `guardian run` therefore only allow
+`backend` and `cloud` blocks in the root module to use backend types and
+attributes listed in `-allowed-backend-attributes` (env
+`GUARDIAN_ALLOWED_BACKEND_ATTRIBUTES`). Each entry is `TYPE/ATTRIBUTE`, where
+`TYPE` is the backend type (`cloud` for HCP Terraform `cloud` blocks) and
+attributes of nested blocks use dotted paths, such as `cloud/workspaces.name`
+or `s3/assume_role.role_arn`. Allowing a block (e.g. `s3/assume_role`) allows
+everything inside it. Entries are scoped to their type: `gcs/bucket` says
+nothing about `s3`. A backend type with no entries is not allowed at all, even
+with an empty block, because an empty block still initializes that backend
+from the runner's ambient configuration. Allowed attributes must be static
+literal values (no variables, function calls or templates). Backend blocks in
+child modules are ignored by Terraform and are not checked.
+
+The default allows the state location and locking attributes of the three
+common backends, and no credential, endpoint, file path or identity attributes:
+
+| Backend | Attributes |
+| --- | --- |
+| `gcs` | `bucket`, `prefix`, `kms_encryption_key` |
+| `s3` | `bucket`, `key`, `region`, `dynamodb_table`, `encrypt`, `use_lockfile`, `kms_key_id` |
+| `azurerm` | `resource_group_name`, `storage_account_name`, `container_name`, `key`, `use_azuread_auth`, `use_oidc` |
+
+### Using other backends or attributes
+
+Set the flag to the default plus what you need. For example, to also allow
+HCP Terraform `cloud` blocks and the `s3` `assume_role` block:
+
+```
+-allowed-backend-attributes="gcs/bucket,gcs/prefix,gcs/kms_encryption_key,s3/bucket,s3/key,s3/region,s3/dynamodb_table,s3/encrypt,s3/use_lockfile,s3/kms_key_id,azurerm/resource_group_name,azurerm/storage_account_name,azurerm/container_name,azurerm/key,azurerm/use_azuread_auth,azurerm/use_oidc,cloud/organization,cloud/workspaces.name,s3/assume_role.role_arn"
+```
+
+Review each attribute you add. The configuration under review controls its
+value, so ask whether an attacker who can set it to anything could make
+`terraform init` run a program, read a file, or send a request with the
+runner's credentials. Attributes that take a file path, a URL or hostname, a
+credential, or a command are not safe to allow.
+
+`TYPE/*` allows every attribute and nested block of one backend type, with any
+value, and a bare `*` allows every backend. These skip the review above
+entirely, so only use them if you accept that any pull request can configure
+that backend however it likes, for example in a test environment with no
+credentials worth protecting.
 
 ## Local Plugin Protection
 

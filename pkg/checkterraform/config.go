@@ -44,6 +44,11 @@ type Policy struct {
 	// ProvisionerSources is the allowlist of provisioner sources. A nil or
 	// empty matcher allows no provisioners.
 	ProvisionerSources *ProvisionerSourceMatcher
+
+	// BackendAttributes is the allowlist of attributes that the root module's
+	// backend and cloud blocks may set. A nil or empty set allows only empty
+	// backend and cloud blocks.
+	BackendAttributes *BackendAttributeSet
 }
 
 // CheckBeforeInit enforces p on dir before terraform init. It must be called
@@ -54,7 +59,9 @@ type Policy struct {
 //     the .terraform data directory.
 //  2. [CheckConfiguration] rejects disallowed providers and provisioners that
 //     are declared in the configuration already on disk, so they are not even
-//     downloaded.
+//     downloaded. It also rejects backend and cloud blocks that set
+//     attributes that are not allowed, since terraform init initializes the
+//     backend before installing any provider.
 func CheckBeforeInit(ctx context.Context, dir string, p *Policy) error {
 	if err := RemoveLocalPluginOverrides(ctx, dir); err != nil {
 		return err
@@ -119,6 +126,11 @@ type Configuration struct {
 //   - Provisioner blocks (including destroy-time provisioners in removed
 //     blocks) are classified with [ProvisionerSourceForType].
 //
+// The backend and cloud blocks of the root module (dir itself) may only set
+// attributes in p.BackendAttributes, and only to static literal values.
+// Backend and cloud blocks in child modules are ignored by Terraform, so they
+// are not checked.
+//
 // Configuration that cannot be parsed or analyzed is an error, so the check
 // fails closed. Files that Terraform ignores (e.g. hidden files) are skipped.
 //
@@ -130,6 +142,10 @@ func CheckConfiguration(ctx context.Context, dir string, p *Policy) (*Configurat
 	// A nil policy allows nothing.
 	if p == nil {
 		p = &Policy{}
+	}
+
+	if err := checkRootModuleBackends(dir, p.BackendAttributes); err != nil {
+		return nil, err
 	}
 
 	declared, err := analyzeModules(ctx, dir)

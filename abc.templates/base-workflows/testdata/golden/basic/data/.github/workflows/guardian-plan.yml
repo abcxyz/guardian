@@ -42,6 +42,7 @@ env:
   GUARDIAN_TERRAFORM_VERSION: '1.7.4'
   GUARDIAN_ALLOWED_PROVIDER_SOURCES: 'hashicorp/google,hashicorp/google-beta'
   GUARDIAN_ALLOWED_PROVISIONER_SOURCES: 'builtin/local-exec'
+  GUARDIAN_ALLOWED_BACKEND_ATTRIBUTES: 'gcs/bucket,gcs/prefix,gcs/kms_encryption_key,s3/bucket,s3/key,s3/region,s3/dynamodb_table,s3/encrypt,s3/use_lockfile,s3/kms_key_id,azurerm/resource_group_name,azurerm/storage_account_name,azurerm/container_name,azurerm/key,azurerm/use_azuread_auth,azurerm/use_oidc'
   TAGREP_VERSION: '0.0.7'
   GUARDIAN_REPORT_THRESHOLD: '5'
 
@@ -196,9 +197,9 @@ jobs:
           THRESHOLD_EXCEEDED: '${{ needs.init.outputs.threshold_exceeded }}'
         run: |-
           if [ "${THRESHOLD_EXCEEDED}" = "true" ]; then
-            guardian plan -dir="${DIRECTORY}" -storage="gcs://${GUARDIAN_BUCKET_NAME}" -allowed-provider-sources="${GUARDIAN_ALLOWED_PROVIDER_SOURCES}" -allowed-provisioner-sources="${GUARDIAN_ALLOWED_PROVISIONER_SOURCES}" -skip-reporting=true
+            guardian plan -dir="${DIRECTORY}" -storage="gcs://${GUARDIAN_BUCKET_NAME}" -allowed-provider-sources="${GUARDIAN_ALLOWED_PROVIDER_SOURCES}" -allowed-provisioner-sources="${GUARDIAN_ALLOWED_PROVISIONER_SOURCES}" -allowed-backend-attributes="${GUARDIAN_ALLOWED_BACKEND_ATTRIBUTES}" -skip-reporting=true
           else
-            guardian plan -dir="${DIRECTORY}" -storage="gcs://${GUARDIAN_BUCKET_NAME}" -allowed-provider-sources="${GUARDIAN_ALLOWED_PROVIDER_SOURCES}" -allowed-provisioner-sources="${GUARDIAN_ALLOWED_PROVISIONER_SOURCES}"
+            guardian plan -dir="${DIRECTORY}" -storage="gcs://${GUARDIAN_BUCKET_NAME}" -allowed-provider-sources="${GUARDIAN_ALLOWED_PROVIDER_SOURCES}" -allowed-provisioner-sources="${GUARDIAN_ALLOWED_PROVISIONER_SOURCES}" -allowed-backend-attributes="${GUARDIAN_ALLOWED_BACKEND_ATTRIBUTES}"
           fi
 
       - name: 'Copy tfplan.json'

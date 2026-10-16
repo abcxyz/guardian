@@ -67,6 +67,7 @@ env:
   GUARDIAN_TERRAFORM_VERSION: 'REPLACE_TERRAFORM_VERSION'
   GUARDIAN_ALLOWED_PROVIDER_SOURCES: 'REPLACE_GUARDIAN_ALLOWED_PROVIDER_SOURCES'
   GUARDIAN_ALLOWED_PROVISIONER_SOURCES: 'REPLACE_GUARDIAN_ALLOWED_PROVISIONER_SOURCES'
+  GUARDIAN_ALLOWED_BACKEND_ATTRIBUTES: 'REPLACE_GUARDIAN_ALLOWED_BACKEND_ATTRIBUTES'
 
 jobs:
   init:
@@ -163,11 +164,11 @@ jobs:
           DETAILED_EXITCODE: '${{ inputs.detailed-exitcode }}'
         shell: 'bash'
         run: |-
-          guardian run -dir="${DIRECTORY}" -allowed-provider-sources="${GUARDIAN_ALLOWED_PROVIDER_SOURCES}" -allowed-provisioner-sources="${GUARDIAN_ALLOWED_PROVISIONER_SOURCES}" -- plan -input=false -detailed-exitcode="${DETAILED_EXITCODE}"
+          guardian run -dir="${DIRECTORY}" -allowed-provider-sources="${GUARDIAN_ALLOWED_PROVIDER_SOURCES}" -allowed-provisioner-sources="${GUARDIAN_ALLOWED_PROVISIONER_SOURCES}" -allowed-backend-attributes="${GUARDIAN_ALLOWED_BACKEND_ATTRIBUTES}" -- plan -input=false -detailed-exitcode="${DETAILED_EXITCODE}"
 
       - name: 'Guardian Apply'
         if: |
           inputs.command == 'apply'
         shell: 'bash'
         run: |-
-          guardian run -dir="${DIRECTORY}" -allowed-provider-sources="${GUARDIAN_ALLOWED_PROVIDER_SOURCES}" -allowed-provisioner-sources="${GUARDIAN_ALLOWED_PROVISIONER_SOURCES}" -- apply -input=false -auto-approve
+          guardian run -dir="${DIRECTORY}" -allowed-provider-sources="${GUARDIAN_ALLOWED_PROVIDER_SOURCES}" -allowed-provisioner-sources="${GUARDIAN_ALLOWED_PROVISIONER_SOURCES}" -allowed-backend-attributes="${GUARDIAN_ALLOWED_BACKEND_ATTRIBUTES}" -- apply -input=false -auto-approve

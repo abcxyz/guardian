@@ -42,6 +42,7 @@ env:
   GUARDIAN_TERRAFORM_VERSION: 'REPLACE_TERRAFORM_VERSION'
   GUARDIAN_ALLOWED_PROVIDER_SOURCES: 'REPLACE_GUARDIAN_ALLOWED_PROVIDER_SOURCES'
   GUARDIAN_ALLOWED_PROVISIONER_SOURCES: 'REPLACE_GUARDIAN_ALLOWED_PROVISIONER_SOURCES'
+  GUARDIAN_ALLOWED_BACKEND_ATTRIBUTES: 'REPLACE_GUARDIAN_ALLOWED_BACKEND_ATTRIBUTES'
   TAGREP_VERSION: 'REPLACE_TAGREP_VERSION'
   GUARDIAN_REPORT_THRESHOLD: 'REPLACE_GUARDIAN_REPORT_THRESHOLD'
 
@@ -196,9 +197,9 @@ jobs:
           THRESHOLD_EXCEEDED: '${{ needs.init.outputs.threshold_exceeded }}'
         run: |-
           if [ "${THRESHOLD_EXCEEDED}" = "true" ]; then
-            guardian plan -dir="${DIRECTORY}" -storage="gcs://${GUARDIAN_BUCKET_NAME}" -allowed-provider-sources="${GUARDIAN_ALLOWED_PROVIDER_SOURCES}" -allowed-provisioner-sources="${GUARDIAN_ALLOWED_PROVISIONER_SOURCES}" -skip-reporting=true
+            guardian plan -dir="${DIRECTORY}" -storage="gcs://${GUARDIAN_BUCKET_NAME}" -allowed-provider-sources="${GUARDIAN_ALLOWED_PROVIDER_SOURCES}" -allowed-provisioner-sources="${GUARDIAN_ALLOWED_PROVISIONER_SOURCES}" -allowed-backend-attributes="${GUARDIAN_ALLOWED_BACKEND_ATTRIBUTES}" -skip-reporting=true
           else
-            guardian plan -dir="${DIRECTORY}" -storage="gcs://${GUARDIAN_BUCKET_NAME}" -allowed-provider-sources="${GUARDIAN_ALLOWED_PROVIDER_SOURCES}" -allowed-provisioner-sources="${GUARDIAN_ALLOWED_PROVISIONER_SOURCES}"
+            guardian plan -dir="${DIRECTORY}" -storage="gcs://${GUARDIAN_BUCKET_NAME}" -allowed-provider-sources="${GUARDIAN_ALLOWED_PROVIDER_SOURCES}" -allowed-provisioner-sources="${GUARDIAN_ALLOWED_PROVISIONER_SOURCES}" -allowed-backend-attributes="${GUARDIAN_ALLOWED_BACKEND_ATTRIBUTES}"
           fi
 
       - name: 'Copy tfplan.json'

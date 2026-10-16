@@ -398,6 +398,16 @@ executed. See [Provider Source Restrictions](cli.md#provider-source-restrictions
 [Provisioner Source Restrictions](cli.md#provisioner-source-restrictions) and
 [Local Plugin Protection](cli.md#local-plugin-protection).
 
+Terraform initializes the backend before any provider is installed, and many
+backend attributes can run commands or send credentials to arbitrary endpoints.
+So Guardian only allows the root module's `backend` and `cloud` blocks to use
+backend types and attributes listed in `-allowed-backend-attributes` (the
+`guardian_allowed_backend_attributes` template input), as `TYPE/ATTRIBUTE`
+entries with static literal values. The default covers the state location and
+locking attributes of the `gcs`, `s3` and `azurerm` backends; other backend
+types need their own entries. See
+[Backend Attribute Restrictions](cli.md#backend-attribute-restrictions).
+
 ### Migrating from v3 to v4
 
 Guardian v4 replaces name-based provider and provisioner restrictions with
