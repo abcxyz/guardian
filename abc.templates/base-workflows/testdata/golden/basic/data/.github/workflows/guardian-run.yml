@@ -63,7 +63,8 @@ concurrency:
 env:
   GUARDIAN_VERSION: '1.0.0'
   GUARDIAN_WIF_PROVIDER: 'my-guardian-wif-provider'
-  GUARDIAN_WIF_SERVICE_ACCOUNT: 'my-guardian-service-account@abcxyz-my-project.iam.gserviceaccount.com'
+  GUARDIAN_PLAN_WIF_SERVICE_ACCOUNT: 'my-guardian-plan-sa@abcxyz-my-project.iam.gserviceaccount.com'
+  GUARDIAN_APPLY_WIF_SERVICE_ACCOUNT: 'my-guardian-apply-sa@abcxyz-my-project.iam.gserviceaccount.com'
   GUARDIAN_TERRAFORM_VERSION: '1.7.4'
   GUARDIAN_ALLOWED_PROVIDER_SOURCES: 'hashicorp/google,hashicorp/google-beta'
   GUARDIAN_ALLOWED_PROVISIONER_SOURCES: 'builtin/local-exec'
@@ -130,7 +131,7 @@ jobs:
         uses: 'google-github-actions/auth@6fc4af4b145ae7821d527454aa9bd537d1f2dc5f' # ratchet:google-github-actions/auth@v2
         with:
           workload_identity_provider: '${{ env.GUARDIAN_WIF_PROVIDER}}'
-          service_account: '${{ env.GUARDIAN_WIF_SERVICE_ACCOUNT }}'
+          service_account: '${{ inputs.command == ''apply'' && env.GUARDIAN_APPLY_WIF_SERVICE_ACCOUNT || env.GUARDIAN_PLAN_WIF_SERVICE_ACCOUNT }}'
 
       - name: 'Setup Terraform'
         uses: 'abcxyz/secure-setup-terraform@de9c26e6f9362048c4199f26a4bc8912f215c041' # ratchet:abcxyz/secure-setup-terraform@main

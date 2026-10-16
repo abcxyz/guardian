@@ -366,10 +366,12 @@ action. This is for two reasons:
    run for any given pull request.
 2. This enables the ability to restrict access to the Google Cloud Workload
    Identity Federation provider using the `@refs/heads/main` for the workflows,
-   additionally ensuring only approved and merged workflows can impersonate the
-   highly privileged service account. This prevents someone from copying the
-   workflows with the `pull_request` trigger and using the service account
-   however they want.
+   and to bind a dedicated read-only service account to `guardian-plan.yml`
+   while restricting the privileged apply service account to post-merge
+   workflows on `main`. This prevents someone from copying the workflows with
+   the `pull_request` trigger or using an unreviewed pull request to access
+   privileged credentials. See
+   [Deployment Recommendations](#deployment-recommendations).
 
 Because `pull_request_target` runs in the context of the head commit on the
 repository default branch, we need to checkout the pull request branch for
@@ -442,6 +444,11 @@ potentially a breaking change due to safe-by-default restrictions.**
   blank, which allows no provisioners. Provisioners are discouraged, and
   plugin-based provisioners should never be used outside of quick proofs of
   concept.
+- The `guardian_service_account` template input in `base-workflows` is replaced
+  by `guardian_plan_service_account` (read-only) and
+  `guardian_apply_service_account` (read-write) so that pull request planning
+  does not run with apply privileges. See
+  [Deployment Recommendations](#deployment-recommendations).
 - Provisioners are now checked before `terraform validate`, per module as
   Terraform loads them. Only the Terraform directory and the module directories
   in `.terraform/modules/modules.json` are scanned, not every subdirectory, and
@@ -453,6 +460,115 @@ potentially a breaking change due to safe-by-default restrictions.**
   from the trusted environment. After `terraform init`, it refuses to run if
   plugin overrides or symlinked `.terraform`, `.terraform/providers` or
   `.terraform/modules` directories are found.
+
+## Deployment Recommendations
+
+### Separate Read-Only Service Account for Plan
+
+> [!IMPORTANT]
+> Always use a dedicated, **read-only** service account for `guardian plan`
+> (`guardian_plan_service_account`), separate from the privileged read-write
+> service account used for `guardian apply` (`guardian_apply_service_account`).
+
+`guardian plan` runs on unreviewed pull requests via `pull_request_target` and
+executes `terraform plan` against the pull request's untrusted `.tf` files.
+While Guardian enforces provider source allowlists, provisioner source
+allowlists, backend attribute allowlists, and local plugin protections before
+providers execute, **`terraform plan` still executes your allowed cloud
+providers (such as `hashicorp/google`) using the workflow's cloud credentials**
+to refresh existing resources and evaluate any `data` sources or `ephemeral`
+resources written in the pull request. Using a read-only service account to
+limit the blast radius is a defense-in-depth best practice.
+
+If `guardian plan` runs with the same privileged service account as
+`guardian apply`:
+
+1. **Secret and data exfiltration via `data` sources:** Any user who can open a
+   pull request can add allowed provider `data` sources (for example,
+   `data "google_secret_manager_secret_version"`,
+   `data "google_storage_bucket_object_content"`, or
+   `data "google_sql_database_instance"`) and reference their attributes in
+   planned resource diffs or error expressions so that `guardian plan` prints
+   the values in a pull request comment before the change is reviewed.
+2. **Privilege escalation via token minting:** If the plan identity has
+   permissions such as `iam.serviceAccounts.getAccessToken` or
+   `roles/iam.serviceAccountTokenCreator` on privileged service accounts, a pull
+   request can use `data "google_service_account_access_token"` or provider
+   `impersonate_service_account` configuration during `terraform plan` to mint
+   live access tokens for those accounts.
+3. **Blast radius of misconfiguration:** If a deployment misconfigures provider
+   or backend allowlists, running `plan` with `apply` credentials immediately
+   exposes write and admin permissions over production infrastructure to
+   unreviewed pull requests.
+
+Configure the two service accounts with least privilege:
+
+* **Plan Service Account (`guardian_plan_service_account`)** — used by
+  `guardian-plan.yml` (and `plan`/`output` runs in `guardian-run.yml`):
+  * **Managed cloud resources:** Grant strictly **read-only** roles required to
+    refresh state for the resources managed by Terraform (for example,
+    `roles/iam.securityReviewer` or custom read-only roles containing only
+    `*.get`, `*.list`, and `*.getIamPolicy` permissions). Avoid `roles/viewer`,
+    which includes `storage.objects.get` and allows reading potentially
+    sensitive Cloud Storage objects across the project.
+  * **No secret payload or impersonation permissions:** Do **not** grant
+    permissions that read sensitive secret payloads (such as
+    `roles/secretmanager.secretAccessor` / `secretmanager.versions.access`),
+    create service account keys (`iam.serviceAccountKeys.create`), or mint
+    tokens or act as other service accounts
+    (`roles/iam.serviceAccountTokenCreator`, `roles/iam.serviceAccountUser`,
+    `iam.serviceAccounts.getAccessToken`, `iam.serviceAccounts.getOpenIdToken`,
+    `iam.serviceAccounts.signBlob`, `iam.serviceAccounts.signJwt`,
+    `iam.serviceAccounts.actAs`).
+  * **Terraform state and Guardian plan buckets:** Grant
+    `roles/storage.objectViewer` on the Terraform state bucket so
+    `terraform plan` can read `.tfstate`. Do **not** grant unrestricted write
+    access to the state bucket, which would allow a pull request to overwrite or
+    delete `.tfstate` objects. Instead, grant `roles/storage.objectUser`
+    restricted with a
+    [Cloud Storage IAM Condition](https://cloud.google.com/storage/docs/access-control/iam-conditions)
+    so the plan service account can only create/delete `.tflock` lock files and
+    write Guardian plan binaries under `guardian-plans/` (or use a dedicated
+    bucket for `guardian_state_bucket`):
+    ```
+    resource.name.endsWith(".tflock") ||
+    resource.name.startsWith("projects/_/buckets/<state-bucket-name>/objects/guardian-plans/")
+    ```
+* **Apply Service Account (`guardian_apply_service_account`)** — used only by
+  `guardian-apply.yml` (on `push` to `main` after review and merge),
+  `guardian-admin.yml` (restricted to repository administrators on `main`), and
+  `guardian-run.yml` when `command` is `apply` on `main`:
+  * Grant the read-write permissions needed to create, modify, and delete the
+    managed infrastructure, read and write `.tfstate` and `.tflock` objects in
+    the Terraform state bucket, and read and delete `guardian-plans/` objects in
+    `guardian_state_bucket`.
+
+### Least-Privilege Allowlists and Supply-Chain Hardening
+
+* **Explicit Provider Allowlist (`-allowed-provider-sources`):** List only the
+  exact `[HOSTNAME/]NAMESPACE/TYPE` providers required by your configuration
+  (for example, `hashicorp/google,hashicorp/google-beta`). Never allow
+  `hashicorp/external`, `hashicorp/local`, `hashicorp/http`, or wildcards
+  (`hashicorp/*`, `*`) outside of isolated test environments.
+* **Disallow Provisioners (`-allowed-provisioner-sources`):** Leave
+  `-allowed-provisioner-sources` empty so all provisioners remain blocked.
+* **Restrict Backend Attributes (`-allowed-backend-attributes`):** Keep the
+  default state-location and locking attribute allowlist (or narrow it to only
+  the backend type you use, such as
+  `gcs/bucket,gcs/prefix,gcs/kms_encryption_key`). Never allow backend
+  attributes that take file paths, custom endpoints/URLs, credentials, or
+  commands, and do not use `TYPE/*` or `*` in production.
+* **Provider Registry Proxy (`-registry-proxy`):** Where possible, route
+  provider downloads through a trusted Terraform Registry Proxy or Network
+  Mirror (`-registry-proxy` / `GUARDIAN_REGISTRY_PROXY`) so Terraform only
+  installs vetted provider binaries.
+* **Lockfile Enforcement:** Keep `-allow-lockfile-changes=false` (the default)
+  and `protect_lockfile: true` in `abcxyz/secure-setup-terraform` so pull
+  requests cannot modify `.terraform.lock.hcl` during planning.
+* **Repository and Runner Hardening:** Run Guardian only in `private` or
+  `internal` repositories with forking disabled, use ephemeral GitHub Actions
+  runners, and require `CODEOWNERS` approval on `.github/workflows/`, `policy/`,
+  and `.terraform.lock.hcl`.
 
 ## Workload Identity Federation
 Terraform service accounts have elevated privileges, following [WIF Best Practices](https://cloud.google.com/iam/docs/best-practices-for-using-workload-identity-federation)
@@ -484,6 +600,28 @@ attribute.workflow_ref in [
   "<your-repository-owner-name>/<your-repository-name>/.github/workflows/guardian-run.yml@refs/heads/main",
 ]
 ```
+
+### Service Account IAM Bindings
+
+Bind `roles/iam.workloadIdentityUser` on each service account using
+`attribute.workflow_ref` (not `attribute.repository_id`) so that
+`guardian-plan.yml` can only impersonate the read-only plan service account and
+can **never** impersonate the privileged apply service account:
+
+* **Plan Service Account (`guardian_plan_service_account`):** Grant
+  `roles/iam.workloadIdentityUser` only to the `plan` and `run` workflows:
+  ```
+  principalSet://iam.googleapis.com/projects/<project-number>/locations/global/workloadIdentityPools/<pool-id>/attribute.workflow_ref/<your-repository-owner-name>/<your-repository-name>/.github/workflows/guardian-plan.yml@refs/heads/main
+  principalSet://iam.googleapis.com/projects/<project-number>/locations/global/workloadIdentityPools/<pool-id>/attribute.workflow_ref/<your-repository-owner-name>/<your-repository-name>/.github/workflows/guardian-run.yml@refs/heads/main
+  ```
+* **Apply Service Account (`guardian_apply_service_account`):** Grant
+  `roles/iam.workloadIdentityUser` only to the `apply`, `admin`, and `run`
+  workflows (**never** `guardian-plan.yml`):
+  ```
+  principalSet://iam.googleapis.com/projects/<project-number>/locations/global/workloadIdentityPools/<pool-id>/attribute.workflow_ref/<your-repository-owner-name>/<your-repository-name>/.github/workflows/guardian-apply.yml@refs/heads/main
+  principalSet://iam.googleapis.com/projects/<project-number>/locations/global/workloadIdentityPools/<pool-id>/attribute.workflow_ref/<your-repository-owner-name>/<your-repository-name>/.github/workflows/guardian-admin.yml@refs/heads/main
+  principalSet://iam.googleapis.com/projects/<project-number>/locations/global/workloadIdentityPools/<pool-id>/attribute.workflow_ref/<your-repository-owner-name>/<your-repository-name>/.github/workflows/guardian-run.yml@refs/heads/main
+  ```
 
 You can find the `id` and `owner.id` of your repository by using GitHub's REST API.
 ```shell

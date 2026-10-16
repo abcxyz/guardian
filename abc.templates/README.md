@@ -15,10 +15,17 @@ abc templates render \
   -input=terraform_version=<TERRAFORM_VERSION> \
   -input=tagrep_version=<TAGREP_VERSION> \
   -input=guardian_wif_provider=<WIF_PROVIDER> \
-  -input=guardian_service_account=<SERVICE_ACCOUNT> \
+  -input=guardian_plan_service_account=<PLAN_SERVICE_ACCOUNT> \
+  -input=guardian_apply_service_account=<APPLY_SERVICE_ACCOUNT> \
   -input=guardian_state_bucket=<GUARDIAN_STATE_BUCKET> \
   github.com/abcxyz/guardian/abc.templates/base-workflows@latest
 ```
+
+> [!IMPORTANT]
+> `guardian_plan_service_account` should be a dedicated, read-only service
+> account used for pull request planning, separate from the privileged
+> `guardian_apply_service_account` used for apply and admin workflows. See
+> [Deployment Recommendations](../README.md#deployment-recommendations).
 
 > [!TIP]
 > You can find the latest version of tagrep at
