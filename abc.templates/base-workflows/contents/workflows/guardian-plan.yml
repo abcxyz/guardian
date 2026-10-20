@@ -202,24 +202,24 @@ jobs:
             guardian plan -dir="${DIRECTORY}" -storage="gcs://${GUARDIAN_BUCKET_NAME}" -allowed-provider-sources="${GUARDIAN_ALLOWED_PROVIDER_SOURCES}" -allowed-provisioner-sources="${GUARDIAN_ALLOWED_PROVISIONER_SOURCES}" -allowed-backend-attributes="${GUARDIAN_ALLOWED_BACKEND_ATTRIBUTES}"
           fi
 
-      - name: 'Copy tfplan.json'
+      - name: 'Copy plan summary'
         if: |
           always() && needs.init.outputs.threshold_exceeded == 'true'
         shell: 'bash'
         run: |
-          if [ -f "${DIRECTORY}/tfplan.json" ]; then
+          if [ -f "${DIRECTORY}/plan-summary.json" ]; then
             slug=$(echo "${DIRECTORY}" | tr "/" "-")
-            mkdir -p "${{ runner.temp }}/artifacts/tfplan-${slug}"
-            cp "${DIRECTORY}/tfplan.json" "${{ runner.temp }}/artifacts/tfplan-${slug}/tfplan.json"
+            mkdir -p "${{ runner.temp }}/plan-summaries/${slug}"
+            cp "${DIRECTORY}/plan-summary.json" "${{ runner.temp }}/plan-summaries/${slug}/plan-summary.json"
           fi
 
-      - name: 'Upload tfplan'
+      - name: 'Upload plan summary'
         if: |
           always() && needs.init.outputs.threshold_exceeded == 'true'
         uses: 'actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02' # ratchet:actions/upload-artifact@v4
         with:
-          name: 'tfplans-${{ strategy.job-index }}'
-          path: '${{ runner.temp }}/artifacts'
+          name: 'plan-summaries-${{ strategy.job-index }}'
+          path: '${{ runner.temp }}/plan-summaries'
           if-no-files-found: 'ignore'
           retention-days: 1
 
@@ -236,10 +236,11 @@ jobs:
       pull-requests: 'write'
 
     steps:
-      - name: 'Download All Artifacts'
+      - name: 'Download Plan Summaries'
         uses: 'actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093' # ratchet:actions/download-artifact@v4
         with:
-          path: '${{ runner.temp }}/artifacts'
+          pattern: 'plan-summaries-*'
+          path: '${{ runner.temp }}/plan-summaries'
           merge-multiple: true
 
       - name: 'Setup Guardian'
@@ -260,7 +261,7 @@ jobs:
           guardian workflows report \
             -type="plan" \
             -entrypoints="${OUTPUTS_DIRECTORIES}" \
-            -artifacts-dir="${{ runner.temp }}/artifacts"
+            -artifacts-dir="${{ runner.temp }}/plan-summaries"
 
   plan_success:
     if: |
