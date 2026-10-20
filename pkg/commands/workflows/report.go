@@ -20,6 +20,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -28,6 +29,7 @@ import (
 	"github.com/google/go-github/v53/github"
 
 	"github.com/abcxyz/guardian/internal/metricswrap"
+	"github.com/abcxyz/guardian/pkg/plansummary"
 	"github.com/abcxyz/guardian/pkg/platform"
 	"github.com/abcxyz/pkg/cli"
 )
@@ -83,7 +85,7 @@ func (c *ReportCommand) Flags() *cli.FlagSet {
 		Name:    "artifacts-dir",
 		Target:  &c.flagArtifactsDir,
 		Example: "./artifacts",
-		Usage:   "The local path where plan artifacts are downloaded (required for plan type).",
+		Usage:   fmt.Sprintf("The local path where %s artifacts are downloaded (required for plan type).", plansummary.Filename),
 	})
 
 	set.AfterParse(func(existingErr error) (merr error) {
@@ -202,21 +204,11 @@ func (c *ReportCommand) Process(ctx context.Context) error {
 		}
 	}
 
-	// Read and parse plan stats (plan only)
-	planStats := make(map[string]*planStat)
+	var summaries map[string]*plansummary.Summary
 	if c.flagType == "plan" {
-		for _, entrypoint := range entrypoints {
-			p, err := findPlanFile(c.flagArtifactsDir, entrypoint)
-			if err != nil {
-				planStats[entrypoint] = &planStat{Err: err}
-				continue
-			}
-			add, chg, del, err := parsePlanFile(p)
-			if err != nil {
-				planStats[entrypoint] = &planStat{Err: err}
-				continue
-			}
-			planStats[entrypoint] = &planStat{Added: add, Changed: chg, Deleted: del}
+		summaries, err = loadPlanSummaries(c.flagArtifactsDir)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -248,25 +240,17 @@ func (c *ReportCommand) Process(ctx context.Context) error {
 		}
 
 		if c.flagType == "plan" {
-			stat, ok := planStats[entrypoint]
+			summary, ok := summaries[filepath.ToSlash(filepath.Clean(entrypoint))]
 			if ok {
-				if stat.Err != nil {
-					if hasJob && (job.Conclusion == "skipped" || job.Conclusion == "cancelled") {
-						notes = "-"
-					} else {
-						notes = fmt.Sprintf("⚠️ %s", stat.Err.Error())
-					}
-				} else {
-					statsStr = fmt.Sprintf("<span style=\"white-space: nowrap;\">%+d&nbsp;~%d&nbsp;-%d</span>", stat.Added, stat.Changed, stat.Deleted)
-					if hasJob {
-						notes = "-"
-					}
+				statsStr = fmt.Sprintf("<span style=\"white-space: nowrap;\">%+d&nbsp;~%d&nbsp;-%d</span>", summary.Added, summary.Changed, summary.Deleted)
+				if hasJob {
+					notes = "-"
 				}
 			} else if hasJob {
 				if job.Conclusion == "skipped" || job.Conclusion == "cancelled" {
 					notes = "-"
 				} else {
-					notes = "⚠️ Missing tfplan.json"
+					notes = "⚠️ Missing plan summary"
 				}
 			} else {
 				notes = "⚠️ Job not found in run"
@@ -357,92 +341,49 @@ func (c *ReportCommand) Process(ctx context.Context) error {
 	return nil
 }
 
-type planJSON struct {
-	ResourceChanges []resourceChange `json:"resource_changes"`
+var forbiddenArtifactFiles = map[string]struct{}{
+	"tfplan.binary": {},
+	"tfplan.json":   {},
 }
 
-type resourceChange struct {
-	Address string `json:"address"`
-	Change  change `json:"change"`
-}
+func loadPlanSummaries(artifactsDir string) (map[string]*plansummary.Summary, error) {
+	summaries := make(map[string]*plansummary.Summary)
 
-type change struct {
-	Actions []string `json:"actions"`
-}
-
-type planStat struct {
-	Added   int
-	Changed int
-	Deleted int
-	Err     error
-}
-
-func parsePlanFile(p string) (int, int, int, error) {
-	data, err := os.ReadFile(p)
-	if err != nil {
-		return 0, 0, 0, fmt.Errorf("failed to read file: %w", err)
+	if _, err := os.Stat(artifactsDir); errors.Is(err, fs.ErrNotExist) {
+		return summaries, nil
 	}
 
-	var plan planJSON
-	if err := json.Unmarshal(data, &plan); err != nil {
-		return 0, 0, 0, fmt.Errorf("failed to parse JSON: %w", err)
-	}
-
-	var added, changed, deleted int
-	for _, rc := range plan.ResourceChanges {
-		actions := rc.Change.Actions
-		if len(actions) == 0 {
-			continue
+	if err := filepath.WalkDir(artifactsDir, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
 		}
 
-		isDelete := false
-		isCreate := false
-		isUpdate := false
-		for _, a := range actions {
-			switch a {
-			case "create":
-				isCreate = true
-			case "delete":
-				isDelete = true
-			case "update":
-				isUpdate = true
-			}
+		name := d.Name()
+		if _, ok := forbiddenArtifactFiles[name]; ok {
+			return fmt.Errorf("found Terraform plan file %s in artifacts directory: "+
+				"plan files contain sensitive values and must not be uploaded as artifacts, "+
+				"upload only %s files (see the guardian-plan.yml workflow template)", p, plansummary.Filename)
+		}
+		if name != plansummary.Filename {
+			return nil
 		}
 
-		if isCreate && isDelete {
-			added++
-			deleted++
-		} else if isCreate {
-			added++
-		} else if isDelete {
-			deleted++
-		} else if isUpdate {
-			changed++
+		s, err := plansummary.Read(p)
+		if err != nil {
+			return fmt.Errorf("failed to read plan summary: %w", err)
 		}
-	}
-
-	return added, changed, deleted, nil
-}
-
-func findPlanFile(artifactsDir, entrypoint string) (string, error) {
-	slugHyphen := strings.ReplaceAll(entrypoint, "/", "-")
-	slugUnderscore := strings.ReplaceAll(entrypoint, "/", "_")
-
-	paths := []string{
-		filepath.Join(artifactsDir, entrypoint, "tfplan.json"),
-		filepath.Join(artifactsDir, "tfplan-"+slugHyphen, "tfplan.json"),
-		filepath.Join(artifactsDir, "tfplan-"+slugUnderscore, "tfplan.json"),
-		filepath.Join(artifactsDir, slugHyphen, "tfplan.json"),
-		filepath.Join(artifactsDir, slugUnderscore, "tfplan.json"),
-	}
-
-	for _, p := range paths {
-		if _, err := os.Stat(p); err == nil {
-			return p, nil
+		if _, ok := summaries[s.Entrypoint]; ok {
+			return fmt.Errorf("found multiple plan summaries for entrypoint %s", s.Entrypoint)
 		}
+		summaries[s.Entrypoint] = s
+		return nil
+	}); err != nil {
+		return nil, fmt.Errorf("failed to load plan summaries from %s: %w", artifactsDir, err)
 	}
-
-	return "", fmt.Errorf("no tfplan.json found")
+	return summaries, nil
 }
 
 const planSummaryTemplate = "#### 🔱 Guardian 🔱 **`PLAN SUMMARY`**\n\n" +

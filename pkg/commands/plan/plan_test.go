@@ -25,6 +25,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	"github.com/abcxyz/guardian/pkg/checkterraform/plugintest"
+	"github.com/abcxyz/guardian/pkg/plansummary"
 	"github.com/abcxyz/guardian/pkg/platform"
 	"github.com/abcxyz/guardian/pkg/storage"
 	"github.com/abcxyz/guardian/pkg/terraform"
@@ -404,6 +405,7 @@ terraform {
 				ValidateResponse: &terraform.MockTerraformResponse{Stdout: "VALIDATE_CALLED"},
 				PlanResponse:     &terraform.MockTerraformResponse{ExitCode: 2},
 				ShowResponse:     &terraform.MockTerraformResponse{Stdout: "terraform show success with diff"},
+				ShowJSONResponse: &terraform.MockTerraformResponse{Stdout: `{"resource_changes": []}`},
 			}
 
 			mockPlatformClient := &platform.MockPlatform{}
@@ -469,6 +471,7 @@ func TestPlan_Process_LocalProvisionerPlugins(t *testing.T) {
 				ValidateResponse: &terraform.MockTerraformResponse{Stdout: "VALIDATE_CALLED"},
 				PlanResponse:     &terraform.MockTerraformResponse{ExitCode: 2},
 				ShowResponse:     &terraform.MockTerraformResponse{Stdout: "terraform show success with diff"},
+				ShowJSONResponse: &terraform.MockTerraformResponse{Stdout: `{"resource_changes": []}`},
 			}
 
 			c := &PlanCommand{
@@ -589,6 +592,7 @@ func TestPlan_Process_ProvisionerSources(t *testing.T) {
 				ValidateResponse: &terraform.MockTerraformResponse{Stdout: "VALIDATE_CALLED"},
 				PlanResponse:     &terraform.MockTerraformResponse{ExitCode: 2},
 				ShowResponse:     &terraform.MockTerraformResponse{Stdout: "terraform show success with diff"},
+				ShowJSONResponse: &terraform.MockTerraformResponse{Stdout: `{"resource_changes": []}`},
 			}
 			tfClient.InitHook = func() error {
 				initCalled = true
@@ -640,5 +644,48 @@ func writeFile(tb testing.TB, p, content string) {
 	}
 	if err := os.WriteFile(p, []byte(content), 0o600); err != nil {
 		tb.Fatal(err)
+	}
+}
+
+func TestPlan_Process_WritesPlanSummary(t *testing.T) {
+	t.Parallel()
+
+	ctx := logging.WithLogger(t.Context(), logging.TestLogger(t))
+
+	tfClient := *terraformDiffMock
+	tfClient.ShowJSONResponse = &terraform.MockTerraformResponse{
+		Stdout: `{
+			"variables": {"token": {"value": "super-secret"}},
+			"resource_changes": [
+				{"address": "res1", "change": {"actions": ["create"]}},
+				{"address": "res2", "change": {"actions": ["update"]}},
+				{"address": "res3", "change": {"actions": ["delete", "create"]}}
+			]
+		}`,
+	}
+
+	outputDir := t.TempDir()
+	c := &PlanCommand{
+		directory:       "testdata",
+		childPath:       "testdata",
+		flagOutputDir:   outputDir,
+		flagLockTimeout: 10 * time.Minute,
+		terraformClient: &tfClient,
+		storageClient:   &storage.MockStorageClient{},
+		platformClient:  &platform.MockPlatform{},
+	}
+	_, _, _ = c.Pipe()
+
+	if err := c.Process(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := plansummary.Read(filepath.Join(outputDir, plansummary.Filename))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := &plansummary.Summary{Entrypoint: "testdata", Added: 2, Changed: 1, Deleted: 1}
+	if diff := cmp.Diff(got, want); diff != "" {
+		t.Errorf("plan summary mismatch (-got,+want):\n%s", diff)
 	}
 }

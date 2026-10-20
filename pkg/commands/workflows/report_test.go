@@ -23,6 +23,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-github/v53/github"
 
+	"github.com/abcxyz/guardian/pkg/plansummary"
 	"github.com/abcxyz/guardian/pkg/platform"
 	"github.com/abcxyz/pkg/testutil"
 )
@@ -127,21 +128,12 @@ func TestReportCommandProcess(t *testing.T) {
 			flagArtifactsDir: func(t *testing.T) string {
 				t.Helper()
 				dir := t.TempDir()
-				artifactDir := filepath.Join(dir, "tfplan-terraform-github-abseil")
-				if err := os.MkdirAll(artifactDir, 0o755); err != nil {
-					t.Fatalf("failed to create temp dir: %v", err)
-				}
-				planContent := `{
-					"resource_changes": [
-						{"address": "res1", "change": {"actions": ["create"]}},
-						{"address": "res2", "change": {"actions": ["update"]}},
-						{"address": "res3", "change": {"actions": ["delete"]}},
-						{"address": "res4", "change": {"actions": ["delete", "create"]}}
-					]
-				}`
-				if err := os.WriteFile(filepath.Join(artifactDir, "tfplan.json"), []byte(planContent), 0o600); err != nil {
-					t.Fatalf("failed to write mock tfplan.json: %v", err)
-				}
+				writePlanSummary(t, filepath.Join(dir, "plan-summary-terraform-github-abseil"), &plansummary.Summary{
+					Entrypoint: "terraform/github/abseil",
+					Added:      2,
+					Changed:    1,
+					Deleted:    2,
+				})
 				return dir
 			},
 			listJobsResp: []*platform.Job{
@@ -194,18 +186,12 @@ func TestReportCommandProcess(t *testing.T) {
 			flagArtifactsDir: func(t *testing.T) string {
 				t.Helper()
 				dir := t.TempDir()
-				artifactDir := filepath.Join(dir, "tfplan-terraform-google-gh-automation-repositories-auto-fairy")
-				if err := os.MkdirAll(artifactDir, 0o755); err != nil {
-					t.Fatalf("failed to create temp dir: %v", err)
-				}
-				planContent := `{
-					"resource_changes": [
-						{"address": "res1", "change": {"actions": ["create"]}}
-					]
-				}`
-				if err := os.WriteFile(filepath.Join(artifactDir, "tfplan.json"), []byte(planContent), 0o600); err != nil {
-					t.Fatalf("failed to write mock tfplan.json: %v", err)
-				}
+				writePlanSummary(t, filepath.Join(dir, "plan-summary-terraform-google-gh-automation-repositories-auto-fairy"), &plansummary.Summary{
+					Entrypoint: "terraform/google-gh-automation/repositories/auto-fairy",
+					Added:      1,
+					Changed:    0,
+					Deleted:    0,
+				})
 				return dir
 			},
 			listJobsResp: []*platform.Job{
@@ -243,30 +229,22 @@ func TestReportCommandProcess(t *testing.T) {
 			},
 		},
 		{
-			name:                    "plan_success_with_underscore_slug",
+			name:                    "plan_matches_summary_by_entrypoint_not_directory",
 			flagType:                "plan",
-			flagEntrypoints:         `["terraform/google-gh-automation/repositories/auto-fairy"]`,
+			flagEntrypoints:         `["terraform/github/abseil"]`,
 			githubPullRequestNumber: 123,
 			githubRunID:             456,
 			flagArtifactsDir: func(t *testing.T) string {
 				t.Helper()
 				dir := t.TempDir()
-				artifactDir := filepath.Join(dir, "tfplan-terraform_google-gh-automation_repositories_auto-fairy")
-				if err := os.MkdirAll(artifactDir, 0o755); err != nil {
-					t.Fatalf("failed to create temp dir: %v", err)
-				}
-				planContent := `{
-					"resource_changes": [
-						{"address": "res1", "change": {"actions": ["create"]}}
-					]
-				}`
-				if err := os.WriteFile(filepath.Join(artifactDir, "tfplan.json"), []byte(planContent), 0o600); err != nil {
-					t.Fatalf("failed to write mock tfplan.json: %v", err)
-				}
+				writePlanSummary(t, filepath.Join(dir, "some", "other", "dir"), &plansummary.Summary{
+					Entrypoint: "./terraform/github/abseil/",
+					Added:      1,
+				})
 				return dir
 			},
 			listJobsResp: []*platform.Job{
-				{ID: 11, Name: "plan (google-gh-automation)", URL: "job_url_11", Conclusion: "success"},
+				{ID: 11, Name: "plan (terraform/github/abseil)", URL: "job_url_11", Conclusion: "success"},
 			},
 			listReportsResp: []*platform.Report{},
 			expPlatformClientReqs: []*platform.Request{
@@ -294,36 +272,23 @@ func TestReportCommandProcess(t *testing.T) {
 						"#### 🔱 Guardian 🔱 **`PLAN SUMMARY`**\n\n" +
 							"| Directory | Status | Stats | Notes | Log |\n" +
 							"| :--- | :--- | :--- | :--- | :--- |\n" +
-							"| `terraform/google-gh-automation/repositories/auto-fairy` | <span style=\"white-space: nowrap;\">🟩&nbsp;SUCCESS</span> | <span style=\"white-space: nowrap;\">+1&nbsp;~0&nbsp;-0</span> | - | <a href=\"job_url_11\" target=\"_blank\">View Log</a> |\n",
+							"| `terraform/github/abseil` | <span style=\"white-space: nowrap;\">🟩&nbsp;SUCCESS</span> | <span style=\"white-space: nowrap;\">+1&nbsp;~0&nbsp;-0</span> | - | <a href=\"job_url_11\" target=\"_blank\">View Log</a> |\n",
 					},
 				},
 			},
 		},
 		{
-			name:                    "plan_success_with_provider_subdirectory",
+			name:                    "plan_failed_job_missing_artifacts_dir",
 			flagType:                "plan",
-			flagEntrypoints:         `["terraform/github/google-gh-automation/repositories/auto-fairy"]`,
+			flagEntrypoints:         `["terraform/github/abseil"]`,
 			githubPullRequestNumber: 123,
 			githubRunID:             456,
 			flagArtifactsDir: func(t *testing.T) string {
 				t.Helper()
-				dir := t.TempDir()
-				artifactDir := filepath.Join(dir, "tfplan-terraform_github_google-gh-automation_repositories_auto-fairy")
-				if err := os.MkdirAll(artifactDir, 0o755); err != nil {
-					t.Fatalf("failed to create temp dir: %v", err)
-				}
-				planContent := `{
-					"resource_changes": [
-						{"address": "res1", "change": {"actions": ["create"]}}
-					]
-				}`
-				if err := os.WriteFile(filepath.Join(artifactDir, "tfplan.json"), []byte(planContent), 0o600); err != nil {
-					t.Fatalf("failed to write mock tfplan.json: %v", err)
-				}
-				return dir
+				return filepath.Join(t.TempDir(), "does-not-exist")
 			},
 			listJobsResp: []*platform.Job{
-				{ID: 11, Name: "plan (google-gh-automation)", URL: "job_url_11", Conclusion: "success"},
+				{ID: 11, Name: "plan (terraform/github/abseil)", URL: "job_url_11", Conclusion: "failure"},
 			},
 			listReportsResp: []*platform.Report{},
 			expPlatformClientReqs: []*platform.Request{
@@ -351,8 +316,81 @@ func TestReportCommandProcess(t *testing.T) {
 						"#### 🔱 Guardian 🔱 **`PLAN SUMMARY`**\n\n" +
 							"| Directory | Status | Stats | Notes | Log |\n" +
 							"| :--- | :--- | :--- | :--- | :--- |\n" +
-							"| `terraform/github/google-gh-automation/repositories/auto-fairy` | <span style=\"white-space: nowrap;\">🟩&nbsp;SUCCESS</span> | <span style=\"white-space: nowrap;\">+1&nbsp;~0&nbsp;-0</span> | - | <a href=\"job_url_11\" target=\"_blank\">View Log</a> |\n",
+							"| `terraform/github/abseil` | <span style=\"white-space: nowrap;\">🟥&nbsp;FAILED</span> | - | ⚠️ Missing plan summary | <a href=\"job_url_11\" target=\"_blank\">View Log</a> |\n",
 					},
+				},
+			},
+		},
+		{
+			name:                    "plan_rejects_tfplan_json_artifact",
+			flagType:                "plan",
+			flagEntrypoints:         `["terraform/github/abseil"]`,
+			githubPullRequestNumber: 123,
+			githubRunID:             456,
+			flagArtifactsDir: func(t *testing.T) string {
+				t.Helper()
+				dir := t.TempDir()
+				writeArtifactFile(t, filepath.Join(dir, "tfplan-terraform-github-abseil"), "tfplan.json")
+				return dir
+			},
+			listJobsResp: []*platform.Job{
+				{ID: 11, Name: "plan (terraform/github/abseil)", URL: "job_url_11", Conclusion: "success"},
+			},
+			err: "found Terraform plan file",
+			expPlatformClientReqs: []*platform.Request{
+				{
+					Name:   "ListJobs",
+					Params: []any{int64(456)},
+				},
+			},
+		},
+		{
+			name:                    "plan_rejects_tfplan_binary_artifact",
+			flagType:                "plan",
+			flagEntrypoints:         `["terraform/github/abseil"]`,
+			githubPullRequestNumber: 123,
+			githubRunID:             456,
+			flagArtifactsDir: func(t *testing.T) string {
+				t.Helper()
+				dir := t.TempDir()
+				writePlanSummary(t, filepath.Join(dir, "plan-summary-terraform-github-abseil"), &plansummary.Summary{
+					Entrypoint: "terraform/github/abseil",
+				})
+				writeArtifactFile(t, filepath.Join(dir, "plan-summary-terraform-github-abseil"), "tfplan.binary")
+				return dir
+			},
+			listJobsResp: []*platform.Job{
+				{ID: 11, Name: "plan (terraform/github/abseil)", URL: "job_url_11", Conclusion: "success"},
+			},
+			err: "found Terraform plan file",
+			expPlatformClientReqs: []*platform.Request{
+				{
+					Name:   "ListJobs",
+					Params: []any{int64(456)},
+				},
+			},
+		},
+		{
+			name:                    "plan_rejects_duplicate_summaries",
+			flagType:                "plan",
+			flagEntrypoints:         `["terraform/github/abseil"]`,
+			githubPullRequestNumber: 123,
+			githubRunID:             456,
+			flagArtifactsDir: func(t *testing.T) string {
+				t.Helper()
+				dir := t.TempDir()
+				writePlanSummary(t, filepath.Join(dir, "a"), &plansummary.Summary{Entrypoint: "terraform/github/abseil"})
+				writePlanSummary(t, filepath.Join(dir, "b"), &plansummary.Summary{Entrypoint: "terraform/github/abseil"})
+				return dir
+			},
+			listJobsResp: []*platform.Job{
+				{ID: 11, Name: "plan (terraform/github/abseil)", URL: "job_url_11", Conclusion: "success"},
+			},
+			err: "found multiple plan summaries for entrypoint terraform/github/abseil",
+			expPlatformClientReqs: []*platform.Request{
+				{
+					Name:   "ListJobs",
+					Params: []any{int64(456)},
 				},
 			},
 		},
@@ -530,5 +568,27 @@ func TestReportCommandProcess(t *testing.T) {
 				t.Errorf("MockPlatform requests mismatch (-got,+want):\n%s", diff)
 			}
 		})
+	}
+}
+
+func writePlanSummary(tb testing.TB, dir string, s *plansummary.Summary) {
+	tb.Helper()
+
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		tb.Fatalf("failed to create temp dir: %v", err)
+	}
+	if err := plansummary.Write(filepath.Join(dir, plansummary.Filename), s); err != nil {
+		tb.Fatalf("failed to write plan summary: %v", err)
+	}
+}
+
+func writeArtifactFile(tb testing.TB, dir, name string) {
+	tb.Helper()
+
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		tb.Fatalf("failed to create temp dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, name), []byte("{}"), 0o600); err != nil {
+		tb.Fatalf("failed to write %s: %v", name, err)
 	}
 }

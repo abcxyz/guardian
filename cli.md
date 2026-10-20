@@ -168,7 +168,10 @@ Also supports [Platform Options](#platform-options), [GitHub Options](#github-op
 
 * **-lock-timeout="10m"** - The duration Terraform should wait to obtain a lock when
   running commands that modify state. The default value is "10m".
-* **-output-dir="./output/plan"** - Write the plan binary and JSON file to a target local directory.
+* **-output-dir="./output/plan"** - Write the plan binary, JSON file and
+  `plan-summary.json` to a target local directory. The plan binary and JSON
+  files contain sensitive values and must not leave the job; only
+  `plan-summary.json` (resource change counts) is safe to share.
 * **-allowed-provider-sources="hashicorp/google,integrations/github"** - The allowlist of
   Terraform provider sources. See [Provider Source Restrictions](#provider-source-restrictions).
   There is no default; if unset, no providers are allowed. A bare `"*"` allows
@@ -577,7 +580,7 @@ Also supports [Platform Options](#platform-options), [GitHub Options](#github-op
 
 * **-type="plan"** - The type of the report, either "plan" or "apply".
 * **-entrypoints='["terraform/project1"]'** - The list of directory entrypoints as a JSON array string, or a path to a file containing the JSON array.
-* **-artifacts-dir="./artifacts"** - The local path where plan artifacts (`tfplan.json`) are downloaded. Required when `-type="plan"`.
+* **-artifacts-dir="./artifacts"** - The local path where plan summary artifacts (`plan-summary.json`) are downloaded. Required when `-type="plan"`. The command fails if any `tfplan.json` or `tfplan.binary` file is found in this directory.
 
 ## Policy fetch-data
 
