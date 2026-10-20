@@ -33,6 +33,7 @@ import (
 	"github.com/abcxyz/guardian/internal/metricswrap"
 	"github.com/abcxyz/guardian/pkg/checkterraform"
 	"github.com/abcxyz/guardian/pkg/flags"
+	"github.com/abcxyz/guardian/pkg/plansummary"
 	"github.com/abcxyz/guardian/pkg/platform"
 	"github.com/abcxyz/guardian/pkg/storage"
 	"github.com/abcxyz/guardian/pkg/terraform"
@@ -136,7 +137,7 @@ func (c *PlanCommand) Flags() *cli.FlagSet {
 		Name:    "output-dir",
 		Target:  &c.flagOutputDir,
 		Example: "./output/plan",
-		Usage:   "Write the plan binary and JSON file to a target local directory.",
+		Usage:   "Write the plan binary, JSON and summary files to a target local directory.",
 	})
 
 	f.BoolVar(&cli.BoolVar{
@@ -434,6 +435,16 @@ func (c *PlanCommand) terraformPlan(ctx context.Context) (*RunResult, error) {
 		return &RunResult{hasChanges: hasChanges}, fmt.Errorf("failed to write plan to json file: %w", err)
 	}
 	c.Outf("Plan JSON file path: %s", planJSONAbsFilepath)
+
+	summary, err := plansummary.FromPlanJSON(c.childPath, []byte(jsonOut.String()))
+	if err != nil {
+		return &RunResult{hasChanges: hasChanges}, fmt.Errorf("failed to summarize plan: %w", err)
+	}
+	planSummaryAbsFilepath := path.Join(c.flagOutputDir, plansummary.Filename)
+	if err := plansummary.Write(planSummaryAbsFilepath, summary); err != nil {
+		return &RunResult{hasChanges: hasChanges}, fmt.Errorf("failed to write plan summary: %w", err)
+	}
+	c.Outf("Plan summary file path: %s", planSummaryAbsFilepath)
 
 	stderr.Reset()
 
