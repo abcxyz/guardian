@@ -83,6 +83,19 @@ Also supports [Platform Options](#platform-options), [GitHub Options](#github-op
 * **-dest-ref="ref-name"** - The destination GitHub ref name for finding file changes.
 * **-detect-changes** - Detect file changes, including all local module dependencies,
   and run for all entrypoint directories. The default value is "false".
+
+  Each file changed between `-source-ref` and `-dest-ref` is attributed to the
+  nearest directory at or above it that is either an entrypoint or a local
+  module used by an entrypoint. A matching entrypoint is run; a matching module
+  runs every entrypoint that uses it, directly or through other modules. This
+  includes non-Terraform files, such as files read with `file()` or
+  `fileset()`, in any subdirectory. Changes under a nested entrypoint only run
+  the nested entrypoint, and changes that match neither are ignored.
+
+  A file whose directory was deleted is attributed to the nearest directory
+  that still exists, so deleting an entrypoint that is nested in another
+  entrypoint runs the enclosing entrypoint. A moved file counts as changed in
+  both its old and new locations.
 * **-fail-unresolvable-modules** - Whether or not to error if a module cannot be
   resolved. The default value is "false".
 * **-format="json"** - The format to print the output directories. The supported

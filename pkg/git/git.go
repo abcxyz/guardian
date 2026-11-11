@@ -139,8 +139,8 @@ func (g *GitClient) CloneRepository(ctx context.Context, githubToken, owner, rep
 	return nil
 }
 
-// parseSortedDiffDirs splits a string at newlines and returns the sorted set of
-// absolute directory paths. Each line is a path relative to root. A changed
+// parseSortedDiffDirsAbs splits a string at newlines and returns the sorted set
+// of absolute directory paths. Each line is a path relative to root. A changed
 // file whose directory no longer exists (because the whole directory was
 // deleted) is attributed to its nearest ancestor that still exists, stopping
 // at root, so that removing the last file under an entrypoint or module still
