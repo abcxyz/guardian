@@ -97,6 +97,16 @@ second/test.txt`,
 			exp:   []string{filepath.Join(cwd, "testdata")},
 		},
 		{
+			name:  "path_under_regular_file_resolves_to_existing_dir",
+			value: `testdata/first/test.txt/nested/test.txt`,
+			exp:   []string{filepath.Join(cwd, "testdata/first")},
+		},
+		{
+			name:  "regular_file_resolves_to_parent_dir",
+			value: `testdata/first/test.txt/test.txt`,
+			exp:   []string{filepath.Join(cwd, "testdata/first")},
+		},
+		{
 			name:  "carriage_return_and_newline",
 			value: "testdata/first/test.txt\r\ntestdata/third/test.txt\r\ntestdata/second/test.txt",
 			exp: []string{
@@ -179,6 +189,30 @@ func TestDiffDirsAbs(t *testing.T) {
 				if err := os.RemoveAll(filepath.Join(root, "c")); err != nil {
 					tb.Fatal(err)
 				}
+			},
+			exp: []string{"."},
+		},
+		{
+			name:       "dir_replaced_by_file",
+			workingDir: ".",
+			change: func(tb testing.TB, root string) {
+				tb.Helper()
+				if err := os.RemoveAll(filepath.Join(root, "a/b")); err != nil {
+					tb.Fatal(err)
+				}
+				writeTestFile(tb, root, "a/b", "now a file\n")
+			},
+			exp: []string{"a"},
+		},
+		{
+			name:       "dir_with_nested_dir_replaced_by_file",
+			workingDir: ".",
+			change: func(tb testing.TB, root string) {
+				tb.Helper()
+				if err := os.RemoveAll(filepath.Join(root, "a")); err != nil {
+					tb.Fatal(err)
+				}
+				writeTestFile(tb, root, "a", "now a file\n")
 			},
 			exp: []string{"."},
 		},

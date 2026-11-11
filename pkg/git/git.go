@@ -21,10 +21,12 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
+	"syscall"
 
 	"golang.org/x/exp/maps"
 
@@ -149,12 +151,7 @@ func parseSortedDiffDirsAbs(ctx context.Context, root, stdout string) ([]string,
 		if len(line) > 0 {
 			dir := filepath.Dir(filepath.Join(root, filepath.FromSlash(line)))
 
-			path, err := util.PathEvalAbs(dir)
-			for errors.Is(err, fs.ErrNotExist) && dir != root {
-				dir = filepath.Dir(dir)
-				path, err = util.PathEvalAbs(dir)
-			}
-
+			path, err := nearestExistingDir(root, dir)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get absolute path for directory %s: %w", dir, err)
 			}
@@ -170,4 +167,31 @@ func parseSortedDiffDirsAbs(ctx context.Context, root, stdout string) ([]string,
 	logger.DebugContext(ctx, "parseSortedDiffDirsAbs result", "dirs", dirs)
 
 	return dirs, nil
+}
+
+// nearestExistingDir returns the absolute, symlink-free path of dir or, if dir
+// no longer exists as a directory, of its nearest ancestor that does, stopping
+// at root. A path whose parent was replaced by a regular file fails with
+// ENOTDIR rather than ErrNotExist, and a directory replaced by a regular file
+// resolves successfully but is not a directory; both are treated as missing.
+func nearestExistingDir(root, dir string) (string, error) {
+	for {
+		path, err := util.PathEvalAbs(dir)
+		if err == nil {
+			info, statErr := os.Stat(path)
+			if statErr != nil {
+				return "", fmt.Errorf("failed to stat %s: %w", path, statErr)
+			}
+			if info.IsDir() {
+				return path, nil
+			}
+		} else if !errors.Is(err, fs.ErrNotExist) && !errors.Is(err, syscall.ENOTDIR) {
+			return "", fmt.Errorf("failed to resolve %s: %w", dir, err)
+		}
+
+		if dir == root {
+			return "", fmt.Errorf("repository root %s is not a directory", root)
+		}
+		dir = filepath.Dir(dir)
+	}
 }
