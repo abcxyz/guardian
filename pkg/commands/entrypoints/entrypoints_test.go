@@ -455,6 +455,7 @@ func TestEntrypointsProcess_DetectChangesWithGit(t *testing.T) {
 	// Repository layout (arrows point from a caller to the modules it uses):
 	//
 	//   terraform/app                -> svc, outer, shared/mod
+	//   terraform/app/nested            (entrypoint nested in terraform/app)
 	//   terraform/app2               -> outer
 	//   terraform/modules/outer      -> inner
 	//   terraform/modules/unused        (not used by any entrypoint)
@@ -478,8 +479,9 @@ locals {
   a = file("${path.module}/cfg/a.yaml")
 }
 `,
-		"terraform/app/cfg/a.yaml": "v1\n",
-		"terraform/app/res.tf":     "resource \"null_resource\" \"r\" {}\n",
+		"terraform/app/cfg/a.yaml":     "v1\n",
+		"terraform/app/res.tf":         "resource \"null_resource\" \"r\" {}\n",
+		"terraform/app/nested/main.tf": backend,
 		"terraform/app2/main.tf": backend + `
 module "outer" {
   source = "../modules/outer"
@@ -545,6 +547,23 @@ module "outer" {
 		{
 			name:      "module_subdirectory_deleted",
 			remove:    []string{"terraform/modules/svc/cfg"},
+			expStdout: `["terraform/app"]`,
+		},
+		{
+			name:      "entrypoint_subdirectory_deleted",
+			remove:    []string{"terraform/app/cfg"},
+			expStdout: `["terraform/app"]`,
+		},
+		{
+			name:      "entrypoint_deleted",
+			remove:    []string{"terraform/app2"},
+			expStdout: `[]`,
+		},
+		{
+			// The deleted entrypoint's directory no longer exists, so the
+			// change is attributed to the enclosing entrypoint.
+			name:      "nested_entrypoint_deleted",
+			remove:    []string{"terraform/app/nested"},
 			expStdout: `["terraform/app"]`,
 		},
 		{
