@@ -276,8 +276,10 @@ func TestEntrypointsProcess(t *testing.T) {
 			flagDetectChanges: true,
 			newGitClient: func(ctx context.Context, dir string) git.Git {
 				return &git.MockGitClient{
+					// Does not resolve to any entrypoint, so the output comes
+					// only from -guardian-dirs.
 					DiffResp: []string{
-						filepath.Join(cwd, "testdata/entrypoint1/project1/files/test.txt"),
+						filepath.Join(cwd, "testdata/entrypoint1"),
 					},
 				}
 			},
@@ -292,9 +294,10 @@ func TestEntrypointsProcess(t *testing.T) {
 			flagDetectChanges: true,
 			newGitClient: func(ctx context.Context, dir string) git.Git {
 				return &git.MockGitClient{
+					// Only project1 is detected as changed, so project1 from
+					// -guardian-dirs is deduplicated and project2 is appended.
 					DiffResp: []string{
 						filepath.Join(cwd, "testdata/entrypoint1/project1/files/test.txt"),
-						filepath.Join(cwd, "testdata/entrypoint1/project2/files/test.txt"),
 					},
 				}
 			},
