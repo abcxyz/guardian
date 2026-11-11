@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strings"
 
 	"golang.org/x/exp/maps"
 
@@ -62,9 +63,17 @@ func NewGitClient(workingDir string) *GitClient {
 func (g *GitClient) DiffDirsAbs(ctx context.Context, sourceRef, destRef string) ([]string, error) {
 	logger := logging.FromContext(ctx).With("working_dir", g.workingDir)
 
+	// git diff prints paths relative to the root of the repository regardless
+	// of the directory it runs in, so resolve them against that root rather
+	// than the process working directory.
+	root, err := g.repositoryRoot(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	var stdout, stderr bytes.Buffer
 
-	_, err := child.Run(ctx, &child.RunConfig{
+	_, err = child.Run(ctx, &child.RunConfig{
 		Stdout:     &stdout,
 		Stderr:     &stderr,
 		WorkingDir: g.workingDir,
@@ -77,7 +86,30 @@ func (g *GitClient) DiffDirsAbs(ctx context.Context, sourceRef, destRef string) 
 
 	logger.DebugContext(ctx, "DiffDirsAbs git diff output", "output", stdout.String())
 
-	return parseSortedDiffDirsAbs(ctx, stdout.String())
+	return parseSortedDiffDirsAbs(ctx, root, stdout.String())
+}
+
+// repositoryRoot returns the absolute, symlink-free path to the root of the
+// repository containing the working directory.
+func (g *GitClient) repositoryRoot(ctx context.Context) (string, error) {
+	var stdout, stderr bytes.Buffer
+
+	_, err := child.Run(ctx, &child.RunConfig{
+		Stdout:     &stdout,
+		Stderr:     &stderr,
+		WorkingDir: g.workingDir,
+		Command:    "git",
+		Args:       []string{"rev-parse", "--show-toplevel"},
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to find git repository root: %w\n\n%s", err, stderr.String())
+	}
+
+	root, err := util.PathEvalAbs(strings.TrimSpace(stdout.String()))
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path for git repository root: %w", err)
+	}
+	return root, nil
 }
 
 // CloneRepository clones the repository to the workingDir.
@@ -103,26 +135,23 @@ func (g *GitClient) CloneRepository(ctx context.Context, githubToken, owner, rep
 }
 
 // parseSortedDiffDirs splits a string at newlines and returns the sorted set of
-// absolute directory paths. A changed file whose directory no longer exists
-// (because the whole directory was deleted) is attributed to its nearest
-// ancestor that still exists, so that removing the last file under an
-// entrypoint or module still triggers the entrypoint.
-func parseSortedDiffDirsAbs(ctx context.Context, stdout string) ([]string, error) {
+// absolute directory paths. Each line is a path relative to root. A changed
+// file whose directory no longer exists (because the whole directory was
+// deleted) is attributed to its nearest ancestor that still exists, stopping
+// at root, so that removing the last file under an entrypoint or module still
+// triggers the entrypoint.
+func parseSortedDiffDirsAbs(ctx context.Context, root, stdout string) ([]string, error) {
 	logger := logging.FromContext(ctx)
 
 	matches := make(map[string]struct{})
 
 	for _, line := range newline.Split(stdout, -1) {
 		if len(line) > 0 {
-			dir := filepath.Dir(line)
+			dir := filepath.Dir(filepath.Join(root, filepath.FromSlash(line)))
 
 			path, err := util.PathEvalAbs(dir)
-			for errors.Is(err, fs.ErrNotExist) {
-				parent := filepath.Dir(dir)
-				if parent == dir {
-					break
-				}
-				dir = parent
+			for errors.Is(err, fs.ErrNotExist) && dir != root {
+				dir = filepath.Dir(dir)
 				path, err = util.PathEvalAbs(dir)
 			}
 

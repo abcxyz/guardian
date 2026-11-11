@@ -15,8 +15,11 @@
 package git
 
 import (
+	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -34,6 +37,7 @@ func TestParseSortedDiffDirsAbs(t *testing.T) {
 
 	cases := []struct {
 		name  string
+		root  string
 		value string
 		exp   []string
 		err   string
@@ -72,9 +76,25 @@ testdata/second/test.txt`,
 			},
 		},
 		{
-			name:  "resolves_missing_top_level_dir_to_working_dir",
+			name:  "resolves_missing_top_level_dir_to_root",
 			value: `gone/test.txt`,
 			exp:   []string{cwd},
+		},
+		{
+			name: "resolves_relative_to_root",
+			root: filepath.Join(cwd, "testdata"),
+			value: `first/test.txt
+second/test.txt`,
+			exp: []string{
+				filepath.Join(cwd, "testdata/first"),
+				filepath.Join(cwd, "testdata/second"),
+			},
+		},
+		{
+			name:  "missing_dir_walk_stops_at_root",
+			root:  filepath.Join(cwd, "testdata"),
+			value: `gone/also-gone/test.txt`,
+			exp:   []string{filepath.Join(cwd, "testdata")},
 		},
 		{
 			name:  "carriage_return_and_newline",
@@ -103,7 +123,12 @@ testdata/third`,
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			dirs, err := parseSortedDiffDirsAbs(t.Context(), tc.value)
+			root := tc.root
+			if root == "" {
+				root = cwd
+			}
+
+			dirs, err := parseSortedDiffDirsAbs(t.Context(), root, tc.value)
 			if diff := testutil.DiffErrString(err, tc.err); diff != "" {
 				t.Error(diff)
 			}
@@ -113,4 +138,128 @@ testdata/third`,
 			}
 		})
 	}
+}
+
+func TestDiffDirsAbs(t *testing.T) {
+	t.Parallel()
+
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is not installed")
+	}
+
+	cases := []struct {
+		name       string
+		workingDir string
+		change     func(tb testing.TB, root string)
+		exp        []string
+	}{
+		{
+			name:       "from_repository_root",
+			workingDir: ".",
+			change: func(tb testing.TB, root string) {
+				tb.Helper()
+				writeTestFile(tb, root, "a/b/file.txt", "v2\n")
+			},
+			exp: []string{"a/b"},
+		},
+		{
+			name:       "from_subdirectory_resolves_against_repository_root",
+			workingDir: "a",
+			change: func(tb testing.TB, root string) {
+				tb.Helper()
+				writeTestFile(tb, root, "c/file.txt", "v2\n")
+			},
+			exp: []string{"c"},
+		},
+		{
+			name:       "from_subdirectory_deleted_dir_stops_at_repository_root",
+			workingDir: "a/b",
+			change: func(tb testing.TB, root string) {
+				tb.Helper()
+				if err := os.RemoveAll(filepath.Join(root, "c")); err != nil {
+					tb.Fatal(err)
+				}
+			},
+			exp: []string{"."},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Resolve symlinks (e.g. /tmp on macOS) so paths match the ones
+			// returned by DiffDirsAbs.
+			root, err := filepath.EvalSymlinks(t.TempDir())
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			writeTestFile(t, root, "a/b/file.txt", "v1\n")
+			writeTestFile(t, root, "c/file.txt", "v1\n")
+			runTestGit(t, root, "init", "--quiet")
+			runTestGit(t, root, "add", "--all")
+			runTestGit(t, root, "commit", "--quiet", "--message", "base")
+			baseRef := strings.TrimSpace(runTestGit(t, root, "rev-parse", "HEAD"))
+
+			tc.change(t, root)
+			runTestGit(t, root, "add", "--all")
+			runTestGit(t, root, "commit", "--quiet", "--message", "change")
+
+			client := NewGitClient(filepath.Join(root, filepath.FromSlash(tc.workingDir)))
+			got, err := client.DiffDirsAbs(t.Context(), baseRef, "HEAD")
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			exp := make([]string, 0, len(tc.exp))
+			for _, p := range tc.exp {
+				exp = append(exp, filepath.Join(root, filepath.FromSlash(p)))
+			}
+			if diff := cmp.Diff(exp, got); diff != "" {
+				t.Errorf("DiffDirsAbs (-want, +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+// writeTestFile writes a file at a slash-separated path relative to root.
+func writeTestFile(tb testing.TB, root, name, contents string) {
+	tb.Helper()
+
+	path := filepath.Join(root, filepath.FromSlash(name))
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		tb.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
+		tb.Fatal(err)
+	}
+}
+
+// runTestGit runs git in dir, isolated from the user's and system's git
+// configuration, and returns its stdout.
+func runTestGit(tb testing.TB, dir string, args ...string) string {
+	tb.Helper()
+
+	cmd := exec.CommandContext(tb.Context(), "git", args...)
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(),
+		"GIT_CONFIG_GLOBAL="+os.DevNull,
+		"GIT_CONFIG_NOSYSTEM=1",
+		"GIT_AUTHOR_NAME=test",
+		"GIT_AUTHOR_EMAIL=test@example.com",
+		"GIT_COMMITTER_NAME=test",
+		"GIT_COMMITTER_EMAIL=test@example.com",
+	)
+
+	out, err := cmd.Output()
+	if err != nil {
+		var stderr []byte
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			stderr = exitErr.Stderr
+		}
+		tb.Fatalf("git %s failed: %v\n\n%s", strings.Join(args, " "), err, stderr)
+	}
+	return string(out)
 }

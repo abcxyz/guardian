@@ -435,9 +435,8 @@ func TestEntrypointsProcess_NoLogsOnStdout(t *testing.T) {
 // fileset()), including modules that are only used transitively, modules
 // sourced from outside -dir, and subdirectories that were added or deleted.
 //
-// git diff reports paths relative to the repository root, which the command
-// resolves against the working directory, so this test must chdir into the
-// repository and therefore cannot run in parallel.
+// The command resolves -dir and writes its output relative to the working
+// directory, so this test must chdir and therefore cannot run in parallel.
 //
 //nolint:paralleltest // t.Chdir cannot be used in parallel tests.
 func TestEntrypointsProcess_DetectChangesWithGit(t *testing.T) {
@@ -512,6 +511,8 @@ module "outer" {
 
 	cases := []struct {
 		name      string
+		runFrom   string // working directory relative to the repository root
+		dir       string // -dir flag, defaults to "terraform"
 		write     map[string]string
 		remove    []string
 		expStdout string
@@ -561,6 +562,27 @@ module "outer" {
 			write:     map[string]string{"README.md": "updated\n"},
 			expStdout: `[]`,
 		},
+		{
+			name:      "run_from_subdirectory_entrypoint_subdirectory",
+			runFrom:   "terraform",
+			dir:       ".",
+			write:     map[string]string{"terraform/app/cfg/a.yaml": "v2\n"},
+			expStdout: `["app"]`,
+		},
+		{
+			name:      "run_from_subdirectory_module_outside_working_dir",
+			runFrom:   "terraform",
+			dir:       ".",
+			write:     map[string]string{"shared/mod/cfg/y.yaml": "v2\n"},
+			expStdout: `["app"]`,
+		},
+		{
+			name:      "run_from_subdirectory_unrelated_file",
+			runFrom:   "terraform/app",
+			dir:       ".",
+			write:     map[string]string{"README.md": "updated\n"},
+			expStdout: `[]`,
+		},
 	}
 
 	for _, tc := range cases {
@@ -592,10 +614,15 @@ module "outer" {
 			runTestGit(t, root, "add", "--all")
 			runTestGit(t, root, "commit", "--quiet", "--message", "change")
 
-			t.Chdir(root)
+			t.Chdir(filepath.Join(root, filepath.FromSlash(tc.runFrom)))
+
+			dir := tc.dir
+			if dir == "" {
+				dir = "terraform"
+			}
 
 			c := &EntrypointsCommand{
-				flagDir:           []string{"terraform"},
+				flagDir:           []string{dir},
 				flagSourceRef:     baseRef,
 				flagDestRef:       "HEAD",
 				flagDetectChanges: true,
