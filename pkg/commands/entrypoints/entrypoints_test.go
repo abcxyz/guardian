@@ -476,6 +476,7 @@ locals {
 }
 `,
 		"terraform/app/cfg/a.yaml": "v1\n",
+		"terraform/app/res.tf":     "resource \"null_resource\" \"r\" {}\n",
 		"terraform/app2/main.tf": backend + `
 module "outer" {
   source = "../modules/outer"
@@ -515,6 +516,7 @@ module "outer" {
 		dir       string // -dir flag, defaults to "terraform"
 		write     map[string]string
 		remove    []string
+		move      [][2]string // {source, destination} pairs moved with git mv
 		expStdout string
 	}{
 		{
@@ -561,6 +563,16 @@ module "outer" {
 			name:      "unrelated_file",
 			write:     map[string]string{"README.md": "updated\n"},
 			expStdout: `[]`,
+		},
+		{
+			name:      "file_moved_out_of_entrypoint_subdirectory",
+			move:      [][2]string{{"terraform/app/cfg/a.yaml", "a.yaml"}},
+			expStdout: `["terraform/app"]`,
+		},
+		{
+			name:      "file_moved_between_entrypoints",
+			move:      [][2]string{{"terraform/app/res.tf", "terraform/app2/res.tf"}},
+			expStdout: `["terraform/app","terraform/app2"]`,
 		},
 		{
 			name:      "run_from_subdirectory_entrypoint_subdirectory",
@@ -610,6 +622,9 @@ module "outer" {
 				if err := os.RemoveAll(filepath.Join(root, p)); err != nil {
 					t.Fatal(err)
 				}
+			}
+			for _, m := range tc.move {
+				runTestGit(t, root, "mv", m[0], m[1])
 			}
 			runTestGit(t, root, "add", "--all")
 			runTestGit(t, root, "commit", "--quiet", "--message", "change")

@@ -75,12 +75,15 @@ func (g *GitClient) DiffDirsAbs(ctx context.Context, sourceRef, destRef string) 
 
 	var stdout, stderr bytes.Buffer
 
+	// Disable rename detection: with it, a moved file is listed only at its
+	// destination, so the directory it was moved out of would never be
+	// considered changed.
 	_, err = child.Run(ctx, &child.RunConfig{
 		Stdout:     &stdout,
 		Stderr:     &stderr,
 		WorkingDir: g.workingDir,
 		Command:    "git",
-		Args:       []string{"diff", fmt.Sprintf("%s..%s", sourceRef, destRef), "--name-only"},
+		Args:       []string{"diff", "--no-renames", fmt.Sprintf("%s..%s", sourceRef, destRef), "--name-only"},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to run git diff command: %w\n\n%s", err, stderr.String())

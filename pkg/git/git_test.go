@@ -216,6 +216,15 @@ func TestDiffDirsAbs(t *testing.T) {
 			},
 			exp: []string{"."},
 		},
+		{
+			name:       "renamed_file_lists_source_and_destination",
+			workingDir: ".",
+			change: func(tb testing.TB, root string) {
+				tb.Helper()
+				runTestGit(tb, root, "mv", "a/b/file.txt", "c/moved.txt")
+			},
+			exp: []string{"a/b", "c"},
+		},
 	}
 
 	for _, tc := range cases {
@@ -230,6 +239,7 @@ func TestDiffDirsAbs(t *testing.T) {
 			}
 
 			writeTestFile(t, root, "a/b/file.txt", "v1\n")
+			writeTestFile(t, root, "a/b/keep.txt", "v1\n")
 			writeTestFile(t, root, "c/file.txt", "v1\n")
 			runTestGit(t, root, "init", "--quiet")
 			runTestGit(t, root, "add", "--all")
